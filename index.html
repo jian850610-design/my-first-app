@@ -222,6 +222,22 @@
     .leader-summary-title { font-size: 13px; color: #133a61; }
     .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; }
     .leader-summary-empty { font-size: 12px; color: #70839a; }
+    .urgent-deadline-section { margin-top: 14px; background: linear-gradient(135deg, #fff9ef 0%, #fff4e6 100%); border: 1px solid #f0d8ba; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+    .urgent-deadline-section strong { font-size: 13px; color: #7a4412; }
+    .urgent-deadline-list { display: grid; gap: 8px; }
+    .urgent-deadline-item { border: 1px solid #f0dbc2; background: #ffffff; color: #3d3f45; padding: 10px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; line-height: 1.45; cursor: pointer; text-align: left; display: grid; gap: 6px; }
+    .urgent-deadline-item:hover { background: #fff9f1; border-color: #efc89a; }
+    .urgent-deadline-line { display: flex; gap: 8px; align-items: flex-start; }
+    .urgent-dday-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+    .urgent-dday-badge.overdue { background: #ffe3e3; color: #b22c2c; }
+    .urgent-dday-badge.today { background: #ffeccd; color: #9f5600; }
+    .urgent-dday-badge.soon { background: #fff3de; color: #9a5a13; }
+    .urgent-dday-badge.week { background: #eef5ff; color: #2d5f92; }
+    .urgent-task-title { color: #243d57; }
+    .urgent-task-meta { font-size: 11px; color: #6e7f92; }
+    .urgent-deadline-empty { font-size: 12px; color: #7f6f57; }
+    .detail-item-card.deadline-focus { box-shadow: 0 0 0 3px rgba(217, 116, 0, 0.24), 0 20px 34px rgba(14, 27, 45, 0.12); }
+    .workflow-item.urgent-focus { border-radius: 10px; background: #fff5e8; }
     .upload-guide-section { margin-top: 8px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); border: 1px solid #d6e6f6; border-radius: 18px; padding: 18px; display: grid; gap: 14px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
     .upload-guide-header { display: grid; gap: 6px; }
     .upload-guide-header strong { font-size: 15px; color: #163f66; }
@@ -305,6 +321,12 @@
           <p>주간 KPI: 일 평균 2개 미션완료, SNS게시 3건 실행.</p>
           <p>매주 핵심 미션을 체계적으로 실행해 현장 사례와 디지털 콘텐츠의 생산 리듬을 유지하겠습니다.</p>
         </article>
+      </section>
+
+      <section class="urgent-deadline-section">
+        <strong>⚡ 이번 주 마감 임박 업무 (D-7)</strong>
+        <div class="urgent-deadline-list" id="urgentDeadlineList"></div>
+        <div class="urgent-deadline-empty" id="urgentDeadlineEmpty">🎉 7일 이내 마감 예정인 임박 업무가 없습니다.</div>
       </section>
 
       <section class="leader-summary-section">
@@ -413,6 +435,8 @@
     const detailContainer = document.getElementById('detailItems');
     const leaderSummaryList = document.getElementById('leaderSummaryList');
     const leaderSummaryEmpty = document.getElementById('leaderSummaryEmpty');
+    const urgentDeadlineList = document.getElementById('urgentDeadlineList');
+    const urgentDeadlineEmpty = document.getElementById('urgentDeadlineEmpty');
     const dashboardView = document.getElementById('dashboardView');
     const detailView = document.getElementById('detailView');
     const backToDashboardBtn = document.getElementById('backToDashboardBtn');
@@ -879,11 +903,12 @@
     }
 
     function syncOverviewWidgets(state) {
+      renderUrgentDeadlineWidget(state);
       renderLeaderRequestSummary(state);
       renderMandalartBoard(state);
     }
 
-    function openGoalDetail(goalKey, focusKey = '') {
+    function openGoalDetail(goalKey, focusKey = '', focusStepIndex = -1) {
       if (!goalTemplates[goalKey]) return;
       showView('detail');
       if (goalSelect.value !== goalKey) {
@@ -898,10 +923,108 @@
         setTimeout(() => {
           const target = document.querySelector(`.detail-item-card[data-key="${focusKey}"]`);
           if (target) {
+            target.classList.add('deadline-focus');
             target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => target.classList.remove('deadline-focus'), 1800);
+
+            if (typeof focusStepIndex === 'number' && focusStepIndex >= 0) {
+              const workflowTarget = target.querySelector(`.workflow-item[data-step-index="${focusStepIndex}"]`);
+              if (workflowTarget) {
+                workflowTarget.classList.add('urgent-focus');
+                workflowTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => workflowTarget.classList.remove('urgent-focus'), 1800);
+              }
+            }
           }
         }, 80);
       }
+    }
+
+    function toDateAtMidnight(dateText) {
+      if (typeof dateText !== 'string' || !dateText) return null;
+      const parsed = new Date(`${dateText}T00:00:00`);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function getDateDiffInDays(fromDate, toDate) {
+      return Math.ceil((toDate.getTime() - fromDate.getTime()) / 86400000);
+    }
+
+    function getUrgentBadgeInfo(diffDays) {
+      if (diffDays < 0) return { text: `Overdue`, cls: 'overdue' };
+      if (diffDays === 0) return { text: 'D-Day', cls: 'today' };
+      if (diffDays <= 3) return { text: `D-${diffDays}`, cls: 'soon' };
+      return { text: `D-${diffDays}`, cls: 'week' };
+    }
+
+    function getUrgentDeadlineEntries(state) {
+      const entries = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        const items = Array.isArray(goalTemplate.items) ? goalTemplate.items : [];
+        items.forEach((item, itemIndex) => {
+          const itemKey = `${goalKey}::${itemIndex}`;
+          const itemGuidelines = resolveItemGuidelines(goalKey, item, goalTemplate);
+          const checklistSteps = getChecklistSteps(goalKey, item, itemKey, itemGuidelines);
+          const itemState = getItemState(state, itemKey, checklistSteps.length, itemGuidelines);
+
+          checklistSteps.forEach((stepText, stepIndex) => {
+            const stepState = itemState.steps[stepIndex];
+            if (!stepState || stepState.checked) return;
+
+            const dueDateText = typeof stepState.dueDate === 'string' ? stepState.dueDate : '';
+            const dueDate = toDateAtMidnight(dueDateText);
+            if (!dueDate) return;
+
+            const diffDays = getDateDiffInDays(today, dueDate);
+            if (diffDays > 7) return;
+
+            entries.push({
+              itemKey,
+              goalKey,
+              goalLabel: goalTemplate.label,
+              stepIndex,
+              stepText,
+              dueDate: dueDateText,
+              diffDays
+            });
+          });
+        });
+      });
+
+      return entries.sort((left, right) => {
+        if (left.diffDays !== right.diffDays) return left.diffDays - right.diffDays;
+        if (left.dueDate !== right.dueDate) return left.dueDate.localeCompare(right.dueDate);
+        if (left.goalLabel !== right.goalLabel) return left.goalLabel.localeCompare(right.goalLabel);
+        return left.stepIndex - right.stepIndex;
+      });
+    }
+
+    function renderUrgentDeadlineWidget(state) {
+      if (!urgentDeadlineList || !urgentDeadlineEmpty) return;
+      const entries = getUrgentDeadlineEntries(state);
+
+      if (!entries.length) {
+        urgentDeadlineList.innerHTML = '';
+        urgentDeadlineEmpty.style.display = 'block';
+        return;
+      }
+
+      urgentDeadlineList.innerHTML = entries.map((entry) => {
+        const badge = getUrgentBadgeInfo(entry.diffDays);
+        return `
+          <button type="button" class="urgent-deadline-item" data-key="${entry.itemKey}" data-step-index="${entry.stepIndex}">
+            <div class="urgent-deadline-line">
+              <span class="urgent-dday-badge ${badge.cls}">${badge.text}</span>
+              <span class="urgent-task-title">${escapeHtml(entry.stepText)}</span>
+            </div>
+            <div class="urgent-task-meta">${escapeHtml(entry.goalLabel)} | ${escapeHtml(entry.dueDate)}</div>
+          </button>
+        `;
+      }).join('');
+      urgentDeadlineEmpty.style.display = 'none';
     }
 
     function getItemTitleByKey(itemKey) {
@@ -2001,7 +2124,7 @@
           </div>
           <ul class="workflow-list">
             ${steps.map((step, stepIndex) => `
-              <li class="workflow-item">
+              <li class="workflow-item" data-step-index="${stepIndex}">
                 <div class="workflow-item-left">
                   <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
                   <label for="wf-${index}-${stepIndex}">${stepIndex + 1}. ${step}</label>
@@ -2446,6 +2569,21 @@
           const [goalKey] = key.split('::');
           if (!goalTemplates[goalKey]) return;
           openGoalDetail(goalKey, key);
+        });
+      }
+
+      if (urgentDeadlineList) {
+        urgentDeadlineList.addEventListener('click', (event) => {
+          const item = event.target.closest('.urgent-deadline-item');
+          if (!item) return;
+
+          const key = item.dataset.key || '';
+          const [goalKey] = key.split('::');
+          if (!goalTemplates[goalKey]) return;
+
+          const stepIndexText = item.dataset.stepIndex || '-1';
+          const stepIndex = Number(stepIndexText);
+          openGoalDetail(goalKey, key, Number.isNaN(stepIndex) ? -1 : stepIndex);
         });
       }
 
