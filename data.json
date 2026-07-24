@@ -8,12 +8,7 @@
         false
       ],
       "delayed": false,
-      "comments": [
-        {
-          "timestamp": "2026-07-24T08:11:22.661Z",
-          "text": "test_260724_0511"
-        }
-      ],
+      "comments": [],
       "steps": [
         {
           "checked": false,
@@ -717,32 +712,38 @@
         false
       ],
       "delayed": false,
-      "comments": [],
-      "isLeaderRequested": false,
+      "comments": [
+        {
+          "timestamp": "2026-07-24T08:54:18.164Z",
+          "text": "26.07.24 : 납기 업데이트 완료"
+        }
+      ],
+      "isLeaderRequested": true,
       "steps": [
         {
-          "checked": false,
-          "dueDate": ""
+          "checked": true,
+          "dueDate": "2026-07-24"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-14"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-27"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-10-05"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-10-16"
         }
       ],
       "principles": [
-        "오프라인 제작물 브랜드 가이드라인 준수"
+        "차량 및 유니폼 부착용 SKF 브랜드 로고 가이드라인 준수",
+        "대회 현장(8/27, 10/2) 및 제작 과정 촬영 시 학생 인터뷰 및 SKF 베어링 적용 컷 필수 확보"
       ]
     },
     "offline-brand::5": {
@@ -868,11 +869,11 @@
       "comments": [],
       "steps": [
         {
-          "checked": false,
+          "checked": true,
           "dueDate": ""
         },
         {
-          "checked": false,
+          "checked": true,
           "dueDate": ""
         },
         {
