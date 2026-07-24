@@ -1,0 +1,1377 @@
+{
+  "items": {
+    "global-sns::0": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::1": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::2": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::3": {
+      "checks": [
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [
+        {
+          "timestamp": "2026-07-24T04:48:01.448Z",
+          "text": "2026.7.24: 박과장님께 일정문의 2차 요청함"
+        }
+      ],
+      "steps": [
+        {
+          "checked": true,
+          "dueDate": ""
+        },
+        {
+          "checked": true,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::4": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::5": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::6": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "global-sns::7": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [],
+      "isLeaderRequested": false
+    },
+    "field-communication::0": {
+      "checks": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [
+        {
+          "timestamp": "2026-07-24T05:14:43.445Z",
+          "text": "26.07.24 : 7월/31일까지 미디어허브에서 사진 찾아 공유."
+        }
+      ],
+      "isLeaderRequested": true,
+      "steps": [
+        {
+          "checked": true,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-07-30"
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::1": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::2": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::3": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::4": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::5": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::6": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "field-communication::7": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "복잡한 기술을 쉬운 고객 언어로 번역",
+        "영업/기술 부서와 밀착 소통 및 촬영 협조"
+      ]
+    },
+    "offline-brand::0": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [
+        {
+          "timestamp": "2026-07-24T07:54:01.366Z",
+          "text": "2026.07.24 : 각 단계별 기한 지정."
+        }
+      ],
+      "isLeaderRequested": true,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": "2026-08-07"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-08-14"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-08-21"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-08-31"
+        }
+      ],
+      "principles": [
+        "부스 디자인 및 홍보물 제작 시 SKF 글로벌 브랜드 가이드라인 준수",
+        "9월 차년도 예산(Budget) 제출 전 최종 후보 확정 및 예산 반영 완료"
+      ]
+    },
+    "offline-brand::1": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::2": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::3": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::4": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::5": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::6": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "offline-brand::7": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "isLeaderRequested": false,
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "오프라인 제작물 브랜드 가이드라인 준수"
+      ]
+    },
+    "sales-support::0": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": true
+    },
+    "sales-support::1": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "sales-support::2": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "sales-support::3": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "sales-support::4": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "sales-support::5": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [
+        {
+          "timestamp": "2026-07-24T07:53:44.045Z",
+          "text": "2026.07.24 : 각 단계별 기한 지정."
+        }
+      ],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": "2026-09-18"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-09-25"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-10-09"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-10-16"
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": true
+    },
+    "sales-support::6": {
+      "checks": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "sales-support::7": {
+      "checks": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "delayed": false,
+      "comments": [],
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "principles": [
+        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
+        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::0": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::1": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::2": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::3": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::4": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::5": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::6": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    },
+    "ai-culture::7": {
+      "steps": [
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        },
+        {
+          "checked": false,
+          "dueDate": ""
+        }
+      ],
+      "delayed": false,
+      "comments": [],
+      "principles": [
+        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+        "팀 내 AI 친화적인 분위기 조성 독려"
+      ],
+      "isLeaderRequested": false
+    }
+  }
+}
