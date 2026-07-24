@@ -36,6 +36,15 @@
     .quick-nav-select option { color: #0f2c52; background: #ffffff; }
     .quick-nav-select option[disabled] { color: #8ca1b8; }
     .quick-nav-select:focus { outline: none; border-color: rgba(255,255,255,0.62); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+    .header-tools { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .export-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .export-data-btn:hover { background: rgba(255,255,255,0.24); }
+    .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
+    .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
+    .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
+    .dashboard-search-input::placeholder { color: rgba(255,255,255,0.62); }
+    .dashboard-search-input:focus { border-color: rgba(255,255,255,0.58); box-shadow: 0 0 0 3px rgba(255,255,255,0.16); }
+    .dashboard-search-help { font-size: 12px; color: rgba(255,255,255,0.72); }
 
     .top-goals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
     .view { display: grid; gap: 16px; }
@@ -53,11 +62,20 @@
     .mandalart-goal-btn { width: 100%; min-height: 126px; border: 1px solid #cfdeed; border-radius: 12px; background: white; text-align: left; padding: 11px; cursor: pointer; display: grid; gap: 8px; align-content: start; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease; }
     .mandalart-goal-btn:hover,
     .mandalart-goal-btn:focus-visible { background: #f3f8ff; border-color: #2b7bbd; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.18); transform: translateY(-3px); }
+    .mandalart-goal-btn.search-hit { border-color: #e3a200; box-shadow: 0 14px 28px rgba(179, 130, 0, 0.2); background: #fffdf2; }
     .mandalart-goal-title { font-size: 12px; font-weight: 800; color: #244c72; line-height: 1.3; min-height: 30px; }
     .mandalart-goal-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #5f7590; }
     .mandalart-star { font-weight: 700; color: #9b6b00; }
     .mandalart-progress-track { width: 100%; height: 8px; border-radius: 999px; background: #dfeaf4; overflow: hidden; }
     .mandalart-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0f5f9d 0%, #20a6b0 100%); }
+    .mandalart-keyword-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mandalart-keyword-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
+    .mandalart-comment-box { margin-top: 2px; padding: 8px 9px; border-radius: 10px; background: #f7fbff; border: 1px solid #dde9f4; display: grid; gap: 4px; }
+    .mandalart-comment-label { font-size: 10px; font-weight: 800; color: #4d6d8c; }
+    .mandalart-comment-date { font-size: 10px; color: #698099; }
+    .mandalart-comment-title { font-size: 11px; font-weight: 700; color: #244c72; }
+    .mandalart-comment-text { font-size: 11px; color: #425c77; line-height: 1.45; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .mandalart-comment-empty { font-size: 11px; color: #96a7b9; }
     .mandalart-cta { margin-top: auto; justify-self: end; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; border: 1px solid #0d548b; }
     .mandalart-goal-btn:hover .mandalart-cta,
     .mandalart-goal-btn:focus-visible .mandalart-cta { background: #0b73bc; border-color: #0b73bc; }
@@ -198,10 +216,21 @@
 
     .leader-summary-section { margin-top: 14px; background: #f7fbff; border: 1px solid #d8e7f6; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
     .leader-summary-section strong { font-size: 13px; color: #224b73; }
-    .leader-summary-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    .leader-summary-item { border: 1px solid #d5e4f3; background: #ffffff; color: #244f78; padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .leader-summary-item:hover { background: #edf5ff; }
+    .leader-summary-list { display: grid; gap: 10px; }
+    .leader-summary-item { border: 1px solid #d5e4f3; background: #ffffff; color: #244f78; padding: 12px 14px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; display: grid; gap: 6px; }
+    .leader-summary-item:hover { background: #edf5ff; border-color: #b7d2ec; }
+    .leader-summary-title { font-size: 13px; color: #133a61; }
+    .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; }
     .leader-summary-empty { font-size: 12px; color: #70839a; }
+    .upload-guide-section { margin-top: 8px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); border: 1px solid #d6e6f6; border-radius: 18px; padding: 18px; display: grid; gap: 14px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
+    .upload-guide-header { display: grid; gap: 6px; }
+    .upload-guide-header strong { font-size: 15px; color: #163f66; }
+    .upload-guide-header p { margin: 0; font-size: 13px; color: #56708b; line-height: 1.6; }
+    .upload-guide-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .upload-guide-step { background: rgba(255,255,255,0.88); border: 1px solid #d7e5f4; border-radius: 16px; padding: 14px; display: grid; gap: 8px; }
+    .upload-guide-badge { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 13px; font-weight: 800; }
+    .upload-guide-step strong { font-size: 13px; color: #193f66; }
+    .upload-guide-step p { margin: 0; font-size: 12px; color: #5f7893; line-height: 1.65; white-space: pre-line; }
 
     .field-input { display: grid; gap: 10px; }
     .field-input input,
@@ -222,12 +251,13 @@
 
     .hint { color: var(--muted); font-size: 13px; }
 
-    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } .upload-guide-steps { grid-template-columns: 1fr; } }
 
     @media (max-width: 620px) {
       .header-bar { padding: 22px 20px; }
       .quick-nav-wrap { width: 100%; }
       .quick-nav-select { width: 100%; min-width: 0; }
+      .header-tools { width: 100%; }
     }
   </style>
 </head>
@@ -239,15 +269,22 @@
       </div>
       <div class="header-meta">
         <span class="header-chip">문서 유형: 일일 업무 계획</span>
-        <span class="header-chip">로컬 파일 / 오프라인 사용</span>
-        <div class="quick-nav-wrap">
-          <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
-          <select class="quick-nav-select" id="quickGoalSelect">
-            <option value="dashboard">🏠 메인 대시보드 (전체 목차)</option>
-            <option value="" disabled>────────────</option>
-            <option value="">8개 핵심 목표 선택</option>
-          </select>
+        <div class="header-tools">
+          <div class="quick-nav-wrap">
+            <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
+            <select class="quick-nav-select" id="quickGoalSelect">
+              <option value="dashboard">🏠 메인 대시보드 (전체 목차)</option>
+              <option value="" disabled>────────────</option>
+              <option value="">8개 핵심 목표 선택</option>
+            </select>
+          </div>
+          <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
         </div>
+      </div>
+      <div class="dashboard-search-section">
+        <label class="dashboard-search-label" for="dashboardSearchInput">🔍 실무 업무 검색: 예) 캘린더, 텀블러, 박람회</label>
+        <input class="dashboard-search-input" id="dashboardSearchInput" type="search" placeholder="캘린더, 볼펜, VIP, 박람회, VOC 등으로 검색" />
+        <div class="dashboard-search-help">검색어가 포함된 세부 업무를 가진 만다라트 카드가 즉시 강조됩니다.</div>
       </div>
     </section>
 
@@ -279,6 +316,37 @@
       <section class="mandalart-section">
         <strong>만다라트 목표 목차 보드</strong>
         <div class="mandalart-grid" id="mandalartGrid"></div>
+      </section>
+
+      <section class="upload-guide-section">
+        <div class="upload-guide-header">
+          <strong>📌 최신 수정한 내용(data.json) 전체 팀원 공유방법 (GitHub 업로드 순서)</strong>
+          <p>내 컴퓨터에서 수정한 마감일, 코멘트, 별표(★) 내용을 모든 팀원이 똑같이 보게 하려면 아래 4단계를 진행하세요.</p>
+        </div>
+        <div class="upload-guide-steps">
+          <article class="upload-guide-step">
+            <span class="upload-guide-badge">1</span>
+            <strong>데이터 추출</strong>
+            <p>상단의 [📥 최신 데이터 내보내기] 버튼을 클릭하여 내 컴퓨터에 'data.json' 파일을 다운로드합니다.</p>
+          </article>
+          <article class="upload-guide-step">
+            <span class="upload-guide-badge">2</span>
+            <strong>GitHub 접속 및 파일 업로드</strong>
+            <p>본인 GitHub 리포지토리(my-first-app) 메인 화면으로 이동합니다.
+우측 상단 [Add file] 버튼 클릭 ➔ [Upload files]를 선택합니다.</p>
+          </article>
+          <article class="upload-guide-step">
+            <span class="upload-guide-badge">3</span>
+            <strong>data.json 파일 끌어다 놓기</strong>
+            <p>다운로드 폴더에 있는 'data.json' 파일을 화면 중앙으로 드래그 앤 드롭(Drag & Drop) 합니다.</p>
+          </article>
+          <article class="upload-guide-step">
+            <span class="upload-guide-badge">4</span>
+            <strong>저장 완료</strong>
+            <p>하단의 초록색 [Commit changes] 버튼을 클릭합니다.
+(1~2분 뒤 배포 링크로 접속하면 모든 팀원이 내가 수정한 최신 화면을 보게 됩니다!)</p>
+          </article>
+        </div>
       </section>
     </section>
 
@@ -350,8 +418,12 @@
     const backToDashboardBtn = document.getElementById('backToDashboardBtn');
     const mandalartGrid = document.getElementById('mandalartGrid');
     const quickGoalSelect = document.getElementById('quickGoalSelect');
+    const exportDataBtn = document.getElementById('exportDataBtn');
+    const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
+    const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
+    let dashboardSearchTerm = '';
     const customWorkflowByItemKey = {
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
@@ -360,10 +432,10 @@
         '최종 사진 데이터 정리 및 달력 제작업체 전달'
       ],
       'offline-brand::0': [
-        '2027년 주요 산업 박람회 후보군 조사 (임팩트/규모 기준)',
-        '박람회별 예상 비용, 참가 신청 마감일(의사결정 데드라인) 정리',
-        'SKF 주력 홍보 제품 및 전시 주제(Theme) 기획',
-        '2027 박람회 참가 종합 기획안(PPT/보고서) 작성 및 보고'
+        '[후보 조사] 코엑스/킨텍스 등 주요 박람회 후보군(일정, 장소, 부스 비용, 신청 마감일) 비교표 작성',
+        '[주제/제품] 후보 박람회별 추천 전시 주제(Theme) 및 핵심 출품 제품 구상',
+        '[비용 산출] 최종 추천 박람회의 총 소요 예산(부스비+장치비+운영비) 및 의사결정 타임라인 정리',
+        '[최종 기안] Jay 부장님 보고/검수 완료 및 9월 예산 반영용 최종 기안서 작성'
       ],
       'sales-support::0': [
         '사내 영업직원 수량 파악 및 볼펜 사양 선정',
@@ -381,6 +453,14 @@
     const defaultChecksByItemKey = {
       'field-communication::0': [true, false, false, false]
     };
+    const defaultDueDatesByItemKey = {
+      'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31']
+    };
+
+    function getDefaultDueDate(itemKey, index) {
+      const dueDates = defaultDueDatesByItemKey[itemKey];
+      return Array.isArray(dueDates) && typeof dueDates[index] === 'string' ? dueDates[index] : '';
+    }
 
     function loadPlannerState() {
       try {
@@ -403,12 +483,52 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
+    function normalizePlannerState(rawState) {
+      const base = rawState && typeof rawState === 'object' ? rawState : {};
+      const items = base.items && typeof base.items === 'object' ? base.items : {};
+      Object.values(items).forEach((itemState) => {
+        if (!itemState || typeof itemState !== 'object') return;
+        itemState.isLeaderRequested = itemState.isLeaderRequested === true;
+        itemState.delayed = itemState.delayed === true;
+        if (!Array.isArray(itemState.comments)) itemState.comments = [];
+        if (!Array.isArray(itemState.steps)) itemState.steps = [];
+      });
+      return { items };
+    }
+
+    async function hydrateStateFromDataFile() {
+      try {
+        const response = await fetch(`./${DATA_FILE_NAME}?t=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) return false;
+        const fileState = await response.json();
+        const normalizedState = normalizePlannerState(fileState);
+        savePlannerState(normalizedState);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function exportPlannerData() {
+      const state = normalizePlannerState(loadPlannerState());
+      const payload = JSON.stringify(state, null, 2);
+      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = DATA_FILE_NAME;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     function getItemState(state, itemKey, stepCount, principles = []) {
       if (!state.items[itemKey]) {
         const defaultChecks = defaultChecksByItemKey[itemKey];
         const steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Array.isArray(defaultChecks) ? Boolean(defaultChecks[index]) : false,
-          dueDate: ''
+          dueDate: getDefaultDueDate(itemKey, index)
         }));
         state.items[itemKey] = {
           steps,
@@ -425,7 +545,7 @@
         const legacyDueDates = Array.isArray(itemState.dueDates) ? itemState.dueDates : [];
         itemState.steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Boolean(legacyChecks[index]),
-          dueDate: typeof legacyDueDates[index] === 'string' ? legacyDueDates[index] : ''
+          dueDate: typeof legacyDueDates[index] === 'string' && legacyDueDates[index] ? legacyDueDates[index] : getDefaultDueDate(itemKey, index)
         }));
       }
       if (itemState.steps.length !== stepCount) {
@@ -433,14 +553,14 @@
           const step = itemState.steps[index];
           return {
             checked: step ? Boolean(step.checked) : false,
-            dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+            dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
           };
         });
         itemState.steps = resized;
       }
-      itemState.steps = itemState.steps.map((step) => ({
+      itemState.steps = itemState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
@@ -554,6 +674,97 @@
       return { percent, leaderRequestedCount };
     }
 
+    function getGoalDisplayLabel(goalKey) {
+      const goalKeys = Object.keys(goalTemplates);
+      const index = goalKeys.indexOf(goalKey);
+      const goal = goalTemplates[goalKey];
+      if (!goal) return goalKey;
+      return index >= 0 ? `${index + 1}. ${goal.label}` : goal.label;
+    }
+
+    function getGoalPreviewTags(goalKey) {
+      const goal = goalTemplates[goalKey];
+      if (!goal || !Array.isArray(goal.items)) return [];
+      return goal.items.slice(0, 4).map((item) => item.title
+        .replace(/^SKF\s*/i, '')
+        .replace(/^신규\s*/i, '')
+        .replace(/^주요\s*/i, '')
+        .replace(/\s+지속\s+.*$/i, '')
+        .trim())
+        .map((title) => (title.length > 18 ? `${title.slice(0, 18)}...` : title));
+    }
+
+    function goalMatchesSearch(goalKey, searchTerm) {
+      const keyword = (searchTerm || '').trim().toLowerCase();
+      if (!keyword) return false;
+      const goal = goalTemplates[goalKey];
+      if (!goal || !Array.isArray(goal.items)) return false;
+      return goal.items.some((item) => `${item.title} ${item.summary}`.toLowerCase().includes(keyword));
+    }
+
+    function getItemDetailByKey(itemKey, state) {
+      const [goalKey, indexText] = itemKey.split('::');
+      const goal = goalTemplates[goalKey];
+      const idx = Number(indexText);
+      if (!goal || !Array.isArray(goal.items) || Number.isNaN(idx) || !goal.items[idx]) return null;
+      const itemState = state && state.items ? state.items[itemKey] : null;
+      const dueDates = Array.isArray(itemState && itemState.steps)
+        ? itemState.steps
+            .filter((step) => step && typeof step.dueDate === 'string' && step.dueDate)
+            .sort((left, right) => left.dueDate.localeCompare(right.dueDate))
+        : [];
+      const dueDate = dueDates.length ? dueDates[0].dueDate : '';
+      const dueInfo = getDueBadgeInfo(dueDate, false);
+      return {
+        goalKey,
+        goalLabel: getGoalDisplayLabel(goalKey),
+        title: goal.items[idx].title,
+        dueDate,
+        dueText: dueDate ? `${dueDate} | ${dueInfo.text}` : '미설정'
+      };
+    }
+
+    function formatShortCommentDate(timestamp) {
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return '';
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      return `${month}/${day} ${hour}:${minute}`;
+    }
+
+    function getLatestCommentByGoal(goalKey, state) {
+      const entries = Object.entries((state && state.items) || {})
+        .filter(([itemKey, itemState]) => itemKey.startsWith(`${goalKey}::`) && itemState && Array.isArray(itemState.comments) && itemState.comments.length);
+
+      let latest = null;
+
+      entries.forEach(([itemKey, itemState]) => {
+        itemState.comments.forEach((comment) => {
+          const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
+          const parsedTime = rawTimestamp ? new Date(rawTimestamp).getTime() : NaN;
+          if (Number.isNaN(parsedTime)) return;
+          if (!latest || parsedTime > latest.time) {
+            latest = {
+              itemKey,
+              time: parsedTime,
+              timestamp: rawTimestamp,
+              text: comment.text || ''
+            };
+          }
+        });
+      });
+
+      if (!latest) return null;
+      const itemDetail = getItemDetailByKey(latest.itemKey, state);
+      return {
+        ...latest,
+        title: itemDetail ? itemDetail.title : latest.itemKey,
+        formattedDate: formatShortCommentDate(latest.timestamp)
+      };
+    }
+
     function renderMandalartBoard(state) {
       if (!mandalartGrid) return;
       const goalKeys = Object.keys(goalTemplates);
@@ -580,14 +791,24 @@
 
         const goal = goalTemplates[goalKey];
         const stats = getGoalStats(goalKey, state);
+        const previewTags = getGoalPreviewTags(goalKey);
+        const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
+        const latestComment = getLatestCommentByGoal(goalKey, state);
+        const latestCommentHtml = latestComment
+          ? `<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-date">${escapeHtml(latestComment.formattedDate)}</div><div class="mandalart-comment-title">[${escapeHtml(latestComment.title)}]</div><div class="mandalart-comment-text">${escapeHtml(latestComment.text)}</div></div>`
+          : '<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-empty">등록된 코멘트가 없습니다.</div></div>';
         return `
           <div class="mandalart-cell">
-            <button type="button" class="mandalart-goal-btn" data-goal="${goalKey}">
-              <div class="mandalart-goal-title">${goal.label}</div>
+            <button type="button" class="mandalart-goal-btn ${isSearchHit ? 'search-hit' : ''}" data-goal="${goalKey}">
+              <div class="mandalart-goal-title">${getGoalDisplayLabel(goalKey)}</div>
               <div class="mandalart-goal-meta">
                 <span>${stats.percent}%</span>
                 <span class="mandalart-star">★ ${stats.leaderRequestedCount}</span>
               </div>
+              <div class="mandalart-keyword-list">
+                ${previewTags.map((tag) => `<span class="mandalart-keyword-tag">${escapeHtml(tag)}</span>`).join('')}
+              </div>
+              ${latestCommentHtml}
               <div class="mandalart-progress-track"><div class="mandalart-progress-fill" style="width:${stats.percent}%"></div></div>
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
@@ -624,19 +845,16 @@
     }
 
     function getItemTitleByKey(itemKey) {
-      const [goalKey, indexText] = itemKey.split('::');
-      const goal = goalTemplates[goalKey];
-      if (!goal || !Array.isArray(goal.items)) return itemKey;
-      const idx = Number(indexText);
-      if (Number.isNaN(idx) || !goal.items[idx]) return itemKey;
-      return goal.items[idx].title;
+      const detail = getItemDetailByKey(itemKey, loadPlannerState());
+      return detail ? detail.title : itemKey;
     }
 
     function renderLeaderRequestSummary(state) {
       if (!leaderSummaryList || !leaderSummaryEmpty) return;
       const requestedEntries = Object.entries(state.items || {})
         .filter(([, value]) => value && value.isLeaderRequested === true)
-        .map(([itemKey]) => ({ itemKey, title: getItemTitleByKey(itemKey) }));
+        .map(([itemKey]) => ({ itemKey, detail: getItemDetailByKey(itemKey, state) }))
+        .filter((entry) => entry.detail);
 
       if (!requestedEntries.length) {
         leaderSummaryList.innerHTML = '';
@@ -645,7 +863,7 @@
       }
 
       leaderSummaryList.innerHTML = requestedEntries
-        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}">★ ${entry.title}</button>`)
+        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">★ ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">소속: ${escapeHtml(entry.detail.goalLabel)} | 마감: ${escapeHtml(entry.detail.dueText)}</div></button>`)
         .join('');
       leaderSummaryEmpty.style.display = 'none';
     }
@@ -984,8 +1202,12 @@
         ],
         items: [
           {
-            title: 'SKF 브랜드 경험(BX) 중심 온오프라인 행사',
-            summary: '고객과 파트너를 위한 기술 세미나와 현장 행사를 기획합니다.',
+            title: '2027년 1회 참가용 주요 박람회 후보 조사 및 기안 수립 (Jay 부장님 협업)',
+            summary: '2027년에 딱 1회 참가할 가장 효과적인 대형 박람회를 선별하기 위해, 코엑스/킨텍스 등 주요 후보지 조사, 전시 주제, 비용, 의사결정 마감 시점을 정리하여 9월 예산 제출 전에 확정합니다.',
+            principles: [
+              '부스 디자인 및 홍보물 제작 시 SKF 글로벌 브랜드 가이드라인 준수',
+              '9월 차년도 예산(Budget) 제출 전 최종 후보 확정 및 예산 반영 완료'
+            ],
             hq: 'SKF 본사는 글로벌 현장 이벤트에서 제품 기술을 직접 소개하는 프로그램을 운영합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 고객 초청 세미나와 고집적 기술 데모를 중심으로 현장 신뢰를 구축합니다.',
             link: 'https://www.skf.com/group/news'
@@ -1689,14 +1911,15 @@
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      const principleBoxHtml = createPrincipleBoxHtml(goalTemplate.principles);
       detailContainer.innerHTML = items.map((item, index) => {
         const itemKey = `${goalKey}::${index}`;
-        const itemState = getItemState(plannerState, itemKey, getWorkflowSteps(goalKey, item, itemKey).length, goalTemplate.principles || []);
+        const itemPrinciples = Array.isArray(item.principles) && item.principles.length ? item.principles : (goalTemplate.principles || []);
+        const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
+        const itemState = getItemState(plannerState, itemKey, getWorkflowSteps(goalKey, item, itemKey).length, itemPrinciples);
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
-        const workflowHtml = createWorkflowChecklistHtml(goalKey, item, itemKey, index, goalTemplate.principles || []);
+        const workflowHtml = createWorkflowChecklistHtml(goalKey, item, itemKey, index, itemPrinciples);
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
@@ -1765,8 +1988,13 @@
         const journalSaveButton = card.querySelector('.journal-save-btn');
         const journalTimeline = card.querySelector('.journal-timeline');
         const journalSaved = card.querySelector('.journal-saved');
-        const currentGoal = itemKey.split('::')[0];
-        const currentPrinciples = (goalTemplates[currentGoal] && goalTemplates[currentGoal].principles) || [];
+        const [currentGoal, currentIndexText] = itemKey.split('::');
+        const currentGoalTemplate = goalTemplates[currentGoal] || {};
+        const currentItemIndex = Number(currentIndexText);
+        const currentItem = Array.isArray(currentGoalTemplate.items) && !Number.isNaN(currentItemIndex) ? currentGoalTemplate.items[currentItemIndex] : null;
+        const currentPrinciples = currentItem && Array.isArray(currentItem.principles) && currentItem.principles.length
+          ? currentItem.principles
+          : (currentGoalTemplate.principles || []);
         const itemState = getItemState(plannerState, itemKey, checkboxes.length, currentPrinciples);
 
         const setLeaderTag = (active) => {
@@ -2050,6 +2278,17 @@
       populateQuickGoalOptions();
       goalSelect.addEventListener('change', () => openGoalDetail(goalSelect.value));
 
+      if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', exportPlannerData);
+      }
+
+      if (dashboardSearchInput) {
+        dashboardSearchInput.addEventListener('input', () => {
+          dashboardSearchTerm = dashboardSearchInput.value || '';
+          renderMandalartBoard(loadPlannerState());
+        });
+      }
+
       if (quickGoalSelect) {
         quickGoalSelect.addEventListener('change', () => {
           const selectedGoal = quickGoalSelect.value;
@@ -2095,7 +2334,12 @@
       showView('dashboard');
     }
 
-    initializeGoalSelect();
+    async function initializeApp() {
+      await hydrateStateFromDataFile();
+      initializeGoalSelect();
+    }
+
+    initializeApp();
   </script>
 </body>
 </html>
