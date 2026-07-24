@@ -8,7 +8,12 @@
         false
       ],
       "delayed": false,
-      "comments": [],
+      "comments": [
+        {
+          "timestamp": "2026-07-24T08:11:22.661Z",
+          "text": "test_260724_0511"
+        }
+      ],
       "steps": [
         {
           "checked": false,
