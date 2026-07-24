@@ -441,11 +441,20 @@
         '[비용 산출] 최종 추천 박람회의 총 소요 예산(부스비+장치비+운영비) 및 의사결정 타임라인 정리',
         '[최종 기안] Jay 부장님 보고/검수 완료 및 9월 예산 반영용 최종 기안서 작성'
       ],
+      'offline-brand::4': [
+        '[오늘/일정확인] 1차 제품 인도 완료 및 잔여 미입고 제품 일정 확인 후 동아리 안내',
+        '[2차전달] 잔여 제품 출고/전달 및 차량 부착용 SKF 로고 스티커 전달',
+        '[1차대회취재] 8/27 Formula Student Korea 대회 현장/제작 스케치 촬영',
+        '[2차대회취재] 10/2 대학생 스마트 e-모빌리티 경진대회 현장 취재 및 후기 수령',
+        '[콘텐츠발행] 취재 영상 편집 및 네이버TV / 블로그 홍보 포스팅 업로드'
+      ],
       'sales-support::0': [
-        '사내 영업직원 수량 파악 및 볼펜 사양 선정',
-        '업체 견적 비교 및 단가 확인',
-        '내부 기안 결재 및 발주 진행',
-        '볼펜 납품 검수 및 영업팀 배포 완료'
+        '[완료] 사내 영업직원 수량 파악, 사양 선정 및 업체 견적 확정',
+        '[완료] 내부 구매 기안 작성 및 결재 승인 완료',
+        '[입고독촉] 고려기프트 품절 입고 지연 확인 및 담당자 독촉/입고일 재확정',
+        '[정산/송금] 입고 완료 후 세금계산서 선발행 수령 및 회계팀 송금 요청',
+        '[발주/제작] 대금 송금 완료 확인 및 볼펜 최종 인쇄/배송 진행',
+        '[검수/배포] 볼펜 납품 완제품 검수 및 사내 영업팀 배포 완료'
       ],
       'sales-support::5': [
         'VIP용 프리미엄 선물(고급 텀블러 등 80개) 아이디어 조사 및 견적 비교',
@@ -455,10 +464,14 @@
       ]
     };
     const defaultChecksByItemKey = {
-      'field-communication::0': [true, false, false, false]
+      'field-communication::0': [true, false, false, false],
+      'offline-brand::4': [true, false, false, false, false],
+      'sales-support::0': [true, true, false, false, false, false]
     };
     const defaultDueDatesByItemKey = {
-      'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31']
+      'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
+      'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
+      'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12']
     };
 
     function getDefaultDueDate(itemKey, index) {
@@ -593,6 +606,25 @@
         });
         itemState.steps = resized;
       }
+
+      if (itemKey === 'sales-support::0') {
+        itemState.steps[0] = {
+          checked: true,
+          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
+        };
+        itemState.steps[1] = {
+          checked: true,
+          dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1)
+        };
+      }
+
+      if (itemKey === 'offline-brand::4') {
+        itemState.steps[0] = {
+          checked: true,
+          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
+        };
+      }
+
       itemState.steps = itemState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
         dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
@@ -1269,8 +1301,12 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '브랜드 스폰서십 및 대외 PR (산학협력 등)',
-            summary: '현장 행사와 전시 공간에 일관된 브랜드 표현 가이드라인을 적용합니다.',
+            title: '서울시립대 자작자동차연구회 제품 협찬 및 대회 현장 취재 (네이버TV/블로그)',
+            summary: '서울시립대 자작차 동아리 대상 SKF 베어링 협찬을 진행하고, Formula Student Korea(8/27) 및 스마트 e-모빌리티 경진대회(10/2) 현장 스케치를 촬영하여 네이버TV/블로그 콘텐츠로 홍보합니다.',
+            principles: [
+              '차량 및 유니폼 부착용 SKF 브랜드 로고 가이드라인 준수',
+              '대회 현장(8/27, 10/2) 및 제작 과정 촬영 시 학생 인터뷰 및 SKF 베어링 적용 컷 필수 확보'
+            ],
             hq: 'SKF는 행사에서 사용되는 브랜드 자산을 표준화하여 일관성을 유지합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 오프라인 브랜드 경험을 위한 시각 가이드를 운영합니다.',
             link: 'https://www.skf.com/group/news'
@@ -1308,8 +1344,12 @@
         ],
         items: [
           {
-            title: '영업팀 지원용 기본 판촉물(볼펜) 기안 및 발주',
-            summary: '하반기 영업 현장 지원용 기본 볼펜의 수량 파악, 사양 선정, 기안/발주 및 배포를 관리합니다.',
+            title: '영업팀 지원용 기본 판촉물(볼펜) 기안, 입고관리 및 배포',
+            summary: '사내 영업직원 배포용 볼펜 구매를 관리합니다. 현재 기안 결재 승인 완료 후 고려기프트 품절에 따른 입고 및 소통 상태를 추적 중입니다.',
+            principles: [
+              '고려기프트 입고 지연 시 유선/영업담당자 직접 소통으로 일정 재확인',
+              '세금계산서 선발행 수령 후 사내 회계팀 1주 내 송금 규칙 엄수'
+            ],
             hq: 'SKF는 글로벌 영업팀과 협업해 제품 제안 자료를 통합 관리합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 영업용 템플릿과 사례 중심 제안서를 꾸준히 업데이트합니다.',
             link: 'https://www.skf.com/group/news'
