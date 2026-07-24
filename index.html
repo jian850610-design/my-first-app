@@ -39,6 +39,8 @@
     .header-tools { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .export-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .export-data-btn:hover { background: rgba(255,255,255,0.24); }
+    .import-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(7, 38, 78, 0.18); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .import-data-btn:hover { background: rgba(255,255,255,0.24); }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
     .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
     .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
@@ -278,6 +280,7 @@
               <option value="">8개 핵심 목표 선택</option>
             </select>
           </div>
+          <button type="button" class="import-data-btn" id="importDataBtn">📤 data.json 파일 불러오기</button>
           <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
         </div>
       </div>
@@ -418,6 +421,7 @@
     const backToDashboardBtn = document.getElementById('backToDashboardBtn');
     const mandalartGrid = document.getElementById('mandalartGrid');
     const quickGoalSelect = document.getElementById('quickGoalSelect');
+    const importDataBtn = document.getElementById('importDataBtn');
     const exportDataBtn = document.getElementById('exportDataBtn');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
@@ -479,6 +483,17 @@
       }
     }
 
+    function hasPersistedPlannerState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        return Boolean(parsed && typeof parsed === 'object' && parsed.items && Object.keys(parsed.items).length);
+      } catch (error) {
+        return false;
+      }
+    }
+
     function savePlannerState(state) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
@@ -521,6 +536,26 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+    }
+
+    function rerenderCurrentView() {
+      const latestState = loadPlannerState();
+      syncOverviewWidgets(latestState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+        return;
+      }
+      showView('dashboard');
+    }
+
+    async function importPlannerDataFromFile() {
+      const didLoad = await hydrateStateFromDataFile();
+      if (!didLoad) {
+        window.alert('data.json 파일을 불러오지 못했습니다. 파일 경로와 배포 상태를 확인해 주세요.');
+        return;
+      }
+      rerenderCurrentView();
+      window.alert('data.json 최신 데이터를 불러왔습니다.');
     }
 
     function getItemState(state, itemKey, stepCount, principles = []) {
@@ -2278,6 +2313,10 @@
       populateQuickGoalOptions();
       goalSelect.addEventListener('change', () => openGoalDetail(goalSelect.value));
 
+      if (importDataBtn) {
+        importDataBtn.addEventListener('click', importPlannerDataFromFile);
+      }
+
       if (exportDataBtn) {
         exportDataBtn.addEventListener('click', exportPlannerData);
       }
@@ -2335,7 +2374,9 @@
     }
 
     async function initializeApp() {
-      await hydrateStateFromDataFile();
+      if (!hasPersistedPlannerState()) {
+        await hydrateStateFromDataFile();
+      }
       initializeGoalSelect();
     }
 
