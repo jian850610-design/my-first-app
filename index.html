@@ -448,6 +448,12 @@
         '[2차대회취재] 10/2 대학생 스마트 e-모빌리티 경진대회 현장 취재 및 후기 수령',
         '[콘텐츠발행] 취재 영상 편집 및 네이버TV / 블로그 홍보 포스팅 업로드'
       ],
+      'naver-platform::4': [
+        '기존 블로그 레이아웃 분석 및 리뉴얼 컨셉 수립',
+        '상단 스킨 이미지 및 대표 썸네일 템플릿 제작',
+        '카테고리 구조 재정비 및 주요 안내글 고정',
+        '최종 적용 및 PC/모바일 화면 최적화 검수'
+      ],
       'sales-support::0': [
         '[완료] 사내 영업직원 수량 파악, 사양 선정 및 업체 견적 확정',
         '[완료] 내부 구매 기안 작성 및 결재 승인 완료',
@@ -471,6 +477,7 @@
     const defaultDueDatesByItemKey = {
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
+      'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
       'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12']
     };
 
@@ -1033,8 +1040,8 @@
             link: 'https://business.naver.com'
           },
           {
-            title: 'SKF 브랜드스토리 고객 공감대 형성',
-            summary: '블로그, TV, 포스트를 한 흐름으로 연결해 고객 여정을 설계합니다.',
+            title: '네이버 공식 블로그/포스트 메인 비주얼 & 레이아웃 리뉴얼',
+            summary: 'SKF 글로벌 브랜드 톤앤매너에 맞춘 블로그 스킨 design, 카테고리 구조 재정비 및 대표 썸네일 템플릿 제작',
             hq: 'SKF는 콘텐츠 퍼널을 통해 네이버 채널에서 상담까지 연결합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 네이버 채널 전용 퍼널을 구축해 ROI를 개선합니다.',
             link: 'https://www.skf.com/group/services/engineering'
@@ -1940,14 +1947,66 @@
       const normalized = principles.map((item) => item.replace(/\s+/g, ''));
       const filtered = steps.filter((step) => {
         const stepNormalized = step.replace(/\s+/g, '');
-        return !normalized.some((principle) => stepNormalized.includes(principle));
+        const hasPrinciplePhrase = normalized.some((principle) => stepNormalized.includes(principle));
+        const hasGuidelineTone = /가이드라인|톤앤매너|소통|마음가짐|핵심가치|회복탄력성|독려|준수/.test(step);
+        return !hasPrinciplePhrase && !hasGuidelineTone;
       });
 
       return filtered.length ? filtered : steps;
     }
 
-    function createWorkflowChecklistHtml(goalKey, item, itemKey, index, principles = []) {
-      const steps = filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
+    function getFixedGuidelinesByGoal(goalKey) {
+      const guidelineMap = {
+        'naver-platform': [
+          '네이버 콘텐츠 작성 시 단순 제품 스펙 전달을 넘어 SKF 브랜드스토리와 고객 공감대 형성 위주로 작성'
+        ],
+        'field-communication': [
+          '복잡한 기술을 쉬운 고객 언어로 번역',
+          '영업/기술 부서와 밀착 소통 및 촬영 협조'
+        ],
+        'ai-culture': [
+          "SKF 핵심 가치 'Curiosity(호기심)' 실천",
+          "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+          '팀 내 AI 친화적인 분위기 조성 독려'
+        ],
+        'offline-brand': [
+          '오프라인 제작물 브랜드 가이드라인 준수'
+        ],
+        'sales-support': [
+          '신규 굿즈 제작 시 글로벌 톤앤매너 유지',
+          '세일즈 부서 판촉물 및 지원 요청 신속 응대'
+        ],
+        'marketing-skill': [
+          'SKF 핵심 제품 카탈로그 및 가이드북 숙지',
+          '타 부서(영업/기술/HR) 협업 시 배려하는 소통',
+          '주간 회의(Weekly) Action Plan 데드라인 엄수',
+          '실패에서 교훈을 찾는 회복 탄력성 기르기',
+          '지속 가능한 업무를 위한 운동 및 스트레스 관리'
+        ]
+      };
+      return guidelineMap[goalKey] || [];
+    }
+
+    function resolveItemGuidelines(goalKey, item, goalTemplate) {
+      const fixedGuidelines = getFixedGuidelinesByGoal(goalKey);
+      if (fixedGuidelines.length) return [...fixedGuidelines];
+
+      const itemGuidelines = Array.isArray(item.guidelines) && item.guidelines.length
+        ? item.guidelines
+        : (Array.isArray(item.principles) ? item.principles : []);
+      if (itemGuidelines.length) return [...itemGuidelines];
+
+      const goalGuidelines = Array.isArray(goalTemplate.guidelines) && goalTemplate.guidelines.length
+        ? goalTemplate.guidelines
+        : (Array.isArray(goalTemplate.principles) ? goalTemplate.principles : []);
+      return [...goalGuidelines];
+    }
+
+    function getChecklistSteps(goalKey, item, itemKey, principles = []) {
+      return filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
+    }
+
+    function createWorkflowChecklistHtml(steps, index) {
       return `
         <div class="workflow-section">
           <div class="workflow-header">
@@ -1988,13 +2047,14 @@
       const goalTemplate = goalTemplates[goalKey] || {};
       detailContainer.innerHTML = items.map((item, index) => {
         const itemKey = `${goalKey}::${index}`;
-        const itemPrinciples = Array.isArray(item.principles) && item.principles.length ? item.principles : (goalTemplate.principles || []);
+        const itemPrinciples = resolveItemGuidelines(goalKey, item, goalTemplate);
+        const checklistSteps = getChecklistSteps(goalKey, item, itemKey, itemPrinciples);
         const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
-        const itemState = getItemState(plannerState, itemKey, getWorkflowSteps(goalKey, item, itemKey).length, itemPrinciples);
+        const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
-        const workflowHtml = createWorkflowChecklistHtml(goalKey, item, itemKey, index, itemPrinciples);
+        const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
@@ -2067,9 +2127,7 @@
         const currentGoalTemplate = goalTemplates[currentGoal] || {};
         const currentItemIndex = Number(currentIndexText);
         const currentItem = Array.isArray(currentGoalTemplate.items) && !Number.isNaN(currentItemIndex) ? currentGoalTemplate.items[currentItemIndex] : null;
-        const currentPrinciples = currentItem && Array.isArray(currentItem.principles) && currentItem.principles.length
-          ? currentItem.principles
-          : (currentGoalTemplate.principles || []);
+        const currentPrinciples = currentItem ? resolveItemGuidelines(currentGoal, currentItem, currentGoalTemplate) : [];
         const itemState = getItemState(plannerState, itemKey, checkboxes.length, currentPrinciples);
 
         const setLeaderTag = (active) => {
