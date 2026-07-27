@@ -167,21 +167,51 @@
     .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
     .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
     .history-archive-toggle::-webkit-details-marker { display: none; }
-    .history-archive-count { font-size: 11px; color: #5f7892; }
+    .history-archive-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-archive-count-wrap { font-size: 12px; color: #5f7892; font-weight: 700; white-space: nowrap; margin-left: 6px; }
+    .history-archive-count { font-size: 12px; color: #244a70; }
     .history-archive-body { display: grid; gap: 10px; }
-    .archive-action-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    .archive-project-input { width: 100%; min-height: 38px; border: 1px solid #cfddec; border-radius: 10px; padding: 8px 10px; font-size: 12px; color: #204061; background: #ffffff; outline: none; }
+    .history-manual-row { display: grid; grid-template-columns: minmax(180px, 1fr) 132px auto; gap: 8px; align-items: center; }
+    .history-manual-input,
+    .history-manual-date,
+    .archive-project-input { min-height: 38px; border: 1px solid #cfddec; border-radius: 10px; padding: 8px 10px; font-size: 12px; color: #204061; background: #ffffff; outline: none; }
+    .history-manual-input:focus,
+    .history-manual-date:focus,
     .archive-project-input:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .history-manual-save-btn { border: none; border-radius: 10px; background: #0b73bc; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .history-manual-save-btn:hover { background: #0f5f9d; }
+    .archive-action-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
     .archive-complete-reset-btn { display: none; border: none; border-radius: 10px; background: #0f5f9d; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .archive-complete-reset-btn:hover { background: #2b7bbd; }
     .archive-complete-reset-btn.visible { display: inline-flex; justify-content: center; align-items: center; }
     .history-archive-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
     .history-archive-item { border: 1px solid #dce8f4; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 5px; }
-    .history-archive-item-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .history-archive-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .history-archive-item-heading { display: grid; gap: 3px; }
+    .history-archive-actions { display: inline-flex; align-items: center; gap: 6px; }
+    .history-archive-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .history-archive-action-btn:hover { background: #eef5fd; }
+    .history-archive-action-btn.delete { border-color: #f1c5c5; color: #b54545; }
+    .history-archive-action-btn.delete:hover { background: #fff1f1; }
     .history-archive-item-title { font-size: 12px; font-weight: 700; color: #1f476d; }
     .history-archive-item-date { font-size: 11px; color: #68819b; }
     .history-archive-item-summary { font-size: 12px; color: #2f4a66; line-height: 1.55; white-space: pre-wrap; }
+    .history-archive-edit { display: grid; gap: 7px; margin-top: 2px; }
+    .history-archive-edit-input,
+    .history-archive-edit-date,
+    .history-archive-edit-text { width: 100%; border: 1px solid #cad9ea; border-radius: 9px; padding: 8px 10px; font-size: 12px; color: #1f3550; background: #ffffff; outline: none; }
+    .history-archive-edit-input:focus,
+    .history-archive-edit-date:focus,
+    .history-archive-edit-text:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .history-archive-edit-text { min-height: 78px; resize: vertical; line-height: 1.45; }
+    .history-archive-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .history-archive-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .history-archive-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
     .history-archive-empty { font-size: 12px; color: #7289a1; }
+    @media (max-width: 720px) {
+      .history-manual-row { grid-template-columns: 1fr; }
+      .history-manual-save-btn { width: 100%; }
+    }
     .button-group { display: flex; gap: 10px; }
     .item-complete-btn, .item-delay-btn { border: none; border-radius: 12px; color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .item-complete-btn { background: var(--navy); }
@@ -833,7 +863,7 @@
     function renderHistoryArchive(historyListElement, historyCountElement, historyList) {
       const entries = Array.isArray(historyList) ? historyList : [];
       if (historyCountElement) {
-        historyCountElement.textContent = `${entries.length}건`;
+        historyCountElement.textContent = String(entries.length);
       }
 
       if (!historyListElement) return;
@@ -865,8 +895,13 @@
     function createHistoryArchiveHtml() {
       return `
         <details class="history-archive-section">
-          <summary class="history-archive-toggle">📜 이전 완료 히스토리 (<span class="history-archive-count">0건</span>)</summary>
+          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리</span><span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></summary>
           <div class="history-archive-body">
+            <div class="history-manual-row">
+              <input type="text" class="history-manual-input" maxlength="140" placeholder="프로젝트/내용 입력" />
+              <input type="date" class="history-manual-date" />
+              <button type="button" class="history-manual-save-btn">히스토리 저장</button>
+            </div>
             <div class="archive-action-row">
               <input type="text" class="archive-project-input" maxlength="80" placeholder="완료된 프로젝트명 입력 (예: Quick Collector 가이드)" />
               <button type="button" class="archive-complete-reset-btn">🎉 완료 기록을 히스토리에 아카이브하고 다음 시리즈 시작하기</button>
@@ -2397,6 +2432,9 @@
         const journalSaved = card.querySelector('.journal-saved');
         const historyCountLabel = card.querySelector('.history-archive-count');
         const historyListElement = card.querySelector('.history-archive-list');
+        const manualHistoryInput = card.querySelector('.history-manual-input');
+        const manualHistoryDateInput = card.querySelector('.history-manual-date');
+        const manualHistorySaveButton = card.querySelector('.history-manual-save-btn');
         const archiveProjectInput = card.querySelector('.archive-project-input');
         const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
         const [currentGoal, currentIndexText] = itemKey.split('::');
@@ -2451,6 +2489,36 @@
         }
         renderTimeline(journalTimeline, itemState.comments);
         renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+
+        if (manualHistorySaveButton) {
+          manualHistorySaveButton.addEventListener('click', () => {
+            const text = manualHistoryInput ? manualHistoryInput.value.trim() : '';
+            const dateText = manualHistoryDateInput ? manualHistoryDateInput.value : '';
+            if (!text) {
+              window.alert('저장할 히스토리 내용을 입력해 주세요.');
+              if (manualHistoryInput) manualHistoryInput.focus();
+              return;
+            }
+            if (!dateText) {
+              window.alert('완료 날짜를 선택해 주세요.');
+              if (manualHistoryDateInput) manualHistoryDateInput.focus();
+              return;
+            }
+
+            if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+            itemState.historyList.push({
+              projectName: text,
+              completedAt: `${dateText}T00:00:00.000Z`,
+              commentSummary: text
+            });
+
+            savePlannerState(plannerState);
+            renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+            syncOverviewWidgets(plannerState);
+            if (manualHistoryInput) manualHistoryInput.value = '';
+            if (manualHistoryDateInput) manualHistoryDateInput.value = '';
+          });
+        }
 
         starButton.addEventListener('click', () => {
           itemState.isLeaderRequested = !itemState.isLeaderRequested;
