@@ -460,26 +460,27 @@
       appId: "1:47316487935:web:bdcbc3bb502b29987006ca"
     };
 
-    const firebaseApp = initializeApp(FIREBASE_CONFIG);
-    const firebaseDatabase = getDatabase(firebaseApp);
-    const firebaseAuth = getAuth(firebaseApp);
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
 
     window.__plannerFirebase = {
-      auth: firebaseAuth,
+      app,
+      auth,
+      db,
       GoogleAuthProvider,
       getRedirectResult,
       onAuthStateChanged,
       signInWithRedirect,
       signOut,
-      database: firebaseDatabase,
       onValue,
       ref,
       set,
       getDateRef(dateKey) {
-        return ref(firebaseDatabase, `plans/skf-daily/${dateKey}`);
+        return ref(db, `plans/skf-daily/${dateKey}`);
       },
       getConnectedRef() {
-        return ref(firebaseDatabase, '.info/connected');
+        return ref(db, '.info/connected');
       }
     };
     window.__plannerFirebaseReady = Promise.resolve(window.__plannerFirebase);
@@ -508,25 +509,7 @@
           <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
         </div>
       </div>
-      <section class="yellow-banner" id="yellowBanner" hidden>
-        <div class="yellow-banner-row">
-          <div class="yellow-banner-message">
-            <div class="yellow-banner-label">편집 인증 상태</div>
-            <div class="yellow-banner-text" id="yellowBannerText">편집을 하려면 Google 로그인이 필요합니다.</div>
-          </div>
-          <div class="yellow-banner-actions">
-            <button type="button" class="firebase-auth-btn" id="firebaseAuthBtn">Google 로그인</button>
-            <button type="button" class="firebase-logout-btn" id="firebaseLogoutBtn" hidden>로그아웃</button>
-            <div class="firebase-user-badge" id="firebaseUserBadge">
-              <div class="firebase-user-meta">
-                <div class="firebase-user-name" id="firebaseUserName">-</div>
-                <div class="firebase-user-email" id="firebaseUserEmail">-</div>
-                <div class="firebase-user-uid" id="firebaseUserUid">UID: -</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <section class="yellow-banner" id="yellowBanner" hidden></section>
       <section class="firebase-status-strip" id="firebaseStatusStrip">
         <div class="firebase-status-group">
           <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
@@ -684,13 +667,6 @@
     const firebaseModeChip = document.getElementById('firebaseModeChip');
     const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
     const yellowBanner = document.getElementById('yellowBanner');
-    const yellowBannerText = document.getElementById('yellowBannerText');
-    const firebaseAuthBtn = document.getElementById('firebaseAuthBtn');
-    const firebaseLogoutBtn = document.getElementById('firebaseLogoutBtn');
-    const firebaseUserBadge = document.getElementById('firebaseUserBadge');
-    const firebaseUserName = document.getElementById('firebaseUserName');
-    const firebaseUserEmail = document.getElementById('firebaseUserEmail');
-    const firebaseUserUid = document.getElementById('firebaseUserUid');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
     const goalCardSummaryTitle = document.getElementById('goalCardSummaryTitle');
@@ -892,45 +868,50 @@
       firebaseModeChip.classList.toggle('read', !EDIT_MODE_REQUESTED);
     }
 
-    function updateFirebaseUserBadge() {
-      if (!firebaseUserBadge || !firebaseUserName || !firebaseUserEmail || !firebaseUserUid) return;
-      const isLoggedIn = Boolean(EDIT_MODE_REQUESTED && currentFirebaseUser);
-      firebaseUserBadge.classList.toggle('visible', isLoggedIn);
-      if (!isLoggedIn) {
-        firebaseUserName.textContent = '-';
-        firebaseUserEmail.textContent = '-';
-        firebaseUserUid.textContent = 'UID: -';
-        return;
-      }
-
-      firebaseUserName.textContent = currentFirebaseUser.displayName || 'Google 사용자';
-      firebaseUserEmail.textContent = currentFirebaseUser.email || '-';
-      firebaseUserUid.textContent = `UID: ${currentFirebaseUser.uid || '-'}`;
-    }
-
     function updateYellowBannerState() {
-      if (!yellowBanner || !yellowBannerText) return;
+      if (!yellowBanner) return;
       yellowBanner.hidden = !EDIT_MODE_REQUESTED;
       if (!EDIT_MODE_REQUESTED) return;
+
       if (currentFirebaseUser) {
         const email = currentFirebaseUser.email || '-';
         const uid = currentFirebaseUser.uid || '-';
-        yellowBannerText.textContent = `로그인됨: ${email} (UID: ${uid})`;
+        yellowBanner.innerHTML = `
+          <div class="yellow-banner-row">
+            <div class="yellow-banner-message">
+              <div class="yellow-banner-label">편집 인증 상태</div>
+              <div class="yellow-banner-text"><span>🟢 로그인됨: <b>${escapeHtml(email)}</b> | UID: <code style="user-select:all;">${escapeHtml(uid)}</code></span></div>
+            </div>
+            <div class="yellow-banner-actions">
+              <button type="button" class="firebase-logout-btn" id="logoutBtn">로그아웃</button>
+            </div>
+          </div>
+        `;
+        const logoutButton = yellowBanner.querySelector('#logoutBtn');
+        if (logoutButton) {
+          logoutButton.addEventListener('click', handleFirebaseLogout);
+        }
       } else {
-        yellowBannerText.textContent = '편집을 하려면 Google 로그인이 필요합니다.';
+        yellowBanner.innerHTML = `
+          <div class="yellow-banner-row">
+            <div class="yellow-banner-message">
+              <div class="yellow-banner-label">편집 인증 상태</div>
+              <div class="yellow-banner-text">편집을 하려면 Google 로그인이 필요합니다.</div>
+            </div>
+            <div class="yellow-banner-actions">
+              <button type="button" class="firebase-auth-btn" id="loginBtn">Google 로그인</button>
+            </div>
+          </div>
+        `;
+        const loginButton = yellowBanner.querySelector('#loginBtn');
+        if (loginButton) {
+          loginButton.addEventListener('click', handleFirebaseLogin);
+        }
       }
     }
 
     function updateFirebaseAuthControls() {
-      const hasEditableAccess = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
-      if (firebaseAuthBtn) {
-        firebaseAuthBtn.hidden = !EDIT_MODE_REQUESTED || hasEditableAccess;
-      }
-      if (firebaseLogoutBtn) {
-        firebaseLogoutBtn.hidden = !hasEditableAccess;
-      }
       updateYellowBannerState();
-      updateFirebaseUserBadge();
     }
 
     function updateFirebaseLastUpdatedText(meta = {}) {
@@ -4136,7 +4117,7 @@
     function attachFirebaseConnectionListener() {
       const bridge = getFirebaseBridge();
       if (!bridge || firebaseConnectionUnsubscribe) return;
-      firebaseConnectionUnsubscribe = bridge.onValue(bridge.getConnectedRef(), (snapshot) => {
+      firebaseConnectionUnsubscribe = bridge.onValue(bridge.ref(bridge.db, '.info/connected'), (snapshot) => {
         firebaseConnectionOnline = snapshot.val() === true;
         updateFirebaseConnectionChip();
       }, () => {
@@ -4264,12 +4245,6 @@
       const bridge = await waitForFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
       await attachFirebaseAuthListener();
-      if (firebaseAuthBtn) {
-        firebaseAuthBtn.addEventListener('click', handleFirebaseLogin);
-      }
-      if (firebaseLogoutBtn) {
-        firebaseLogoutBtn.addEventListener('click', handleFirebaseLogout);
-      }
       if (!bridge) {
         updateFirebaseConnectionChip();
         updateFirebaseModeChip();
