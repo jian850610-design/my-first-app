@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -467,12 +468,28 @@
     let currentGoalKey = '';
     let dashboardSearchTerm = '';
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
+    const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
+    const defaultHistoryByItemKey = {
+      [VIDEO_SERIES_ITEM_KEY]: [
+        {
+          projectName: 'TKSA 71 사용가이드 영상 제작 및 편집',
+          completedAt: '2026-06-30T00:00:00.000Z',
+          commentSummary: 'TKSA 71 샤프트 정렬 기기 사용법 영상 제작 완료 (SKF 웹사이트 및 영상 채널 업로드 완료)'
+        }
+      ]
+    };
     const customWorkflowByItemKey = {
       'global-sns::0': [
         '글로벌 본사(Group)에 한국 페이지 추가 승인 요청 및 리마인더 발송',
         '승인 완료 후 SKF Korea 공식 페이스북 페이지 최종 개설 확인',
         '페이스북 포스팅 발행 주기(주 1~2회) 및 콘텐츠 테마/콘셉트 수립',
         'TLDD 미디어허브 사진 활용 및 정기 콘텐츠 첫 발행 시작'
+      ],
+      [VIDEO_SERIES_ITEM_KEY]: [
+        '[Quick Collector] ISC 박진슬 과장 수배 및 김형섭 과장 문의 (충전/설정법 사전 수립)',
+        '[Quick Collector] 8월 중 현장/실습 영상 촬영 및 1차 편집 완료',
+        '[Quick Collector] 9월 초 페이스북/유튜브/네이버TV 최종 업로드',
+        '[TLDD] TLDD 촬영 스케줄링(박재역&박진율&조길훈 부장님) 및 9~10월 후속 제작 업로드'
       ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
@@ -521,11 +538,22 @@
     };
     const defaultDueDatesByItemKey = {
       'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
+      [VIDEO_SERIES_ITEM_KEY]: ['2026-08-07', '2026-08-28', '2026-09-11', '2026-10-16'],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
       'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12']
     };
+
+    function getDefaultHistoryList(itemKey) {
+      const historyList = defaultHistoryByItemKey[itemKey];
+      if (!Array.isArray(historyList)) return [];
+      return historyList.map((entry) => ({
+        projectName: typeof entry.projectName === 'string' ? entry.projectName : '',
+        completedAt: typeof entry.completedAt === 'string' ? entry.completedAt : '',
+        commentSummary: typeof entry.commentSummary === 'string' ? entry.commentSummary : ''
+      }));
+    }
 
     function getDefaultDueDate(itemKey, index) {
       const dueDates = defaultDueDatesByItemKey[itemKey];
@@ -594,7 +622,7 @@
 
     function exportPlannerData() {
       const state = normalizePlannerState(loadPlannerState());
-      syncFacebookChecklistState(state);
+      syncPinnedChecklistState(state);
       savePlannerState(state);
       const payload = JSON.stringify(state, null, 2);
       const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
@@ -629,7 +657,7 @@
           steps,
           delayed: false,
           comments: [],
-          historyList: [],
+          historyList: getDefaultHistoryList(itemKey),
           seriesDraftName: '',
           principles: Array.isArray(principles) ? [...principles] : [],
           isLeaderRequested: false
@@ -687,6 +715,9 @@
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
       if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+      if (!itemState.historyList.length) {
+        itemState.historyList = getDefaultHistoryList(itemKey);
+      }
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
@@ -1169,7 +1200,7 @@
       leaderSummaryEmpty.style.display = 'none';
     }
 
-    function syncFacebookChecklistState(state) {
+    function syncPinnedChecklistState(state) {
       if (!state || typeof state !== 'object') return;
       if (!state.items || typeof state.items !== 'object') state.items = {};
 
@@ -1179,6 +1210,16 @@
         checked: Boolean(step && step.checked),
         dueDate: getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index)
       }));
+
+      const videoSteps = customWorkflowByItemKey[VIDEO_SERIES_ITEM_KEY] || [];
+      const videoItemState = getItemState(state, VIDEO_SERIES_ITEM_KEY, videoSteps.length);
+      videoItemState.steps = videoItemState.steps.map((step, index) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: getDefaultDueDate(VIDEO_SERIES_ITEM_KEY, index)
+      }));
+      if (!Array.isArray(videoItemState.historyList) || !videoItemState.historyList.length) {
+        videoItemState.historyList = getDefaultHistoryList(VIDEO_SERIES_ITEM_KEY);
+      }
     }
 
     const goalTemplates = {
@@ -1202,15 +1243,12 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '지정 주제 기반 주 1회 숏폼 업로드',
-            summary: '제품 꿀팁, 행사 소개, 기술 포인트 등 주제별 숏폼을 페이스북에 정기 업로드합니다.',
-            hq: 'SKF는 기술 팁과 솔루션 소개를 짧은 영상으로 제작해 관심도를 높입니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 매주 짧은 기술 요약 영상으로 팔로워 참여를 유도합니다.',
-            link: 'https://www.youtube.com/user/skf'
-          },
-          {
             title: '주요 제품/기기 사용 가이드 영상 시리즈 지속 제작',
-            summary: '제품별 사용법과 설치 사례를 설명하는 가이드 영상 시리즈를 기획합니다.',
+            summary: 'SKF 핵심 장비(Quick Collector, TLDD 등)의 사용가이드 영상을 1~2개월 단위 시리즈로 순차 제작 및 업로드합니다.',
+            guidelines: [
+              '복잡한 장비 기술 사양을 고객 눈높이에 맞춘 쉬운 언어로 가공',
+              'SKF 글로벌 브랜드 가이드라인 및 영상 톤앤매너 준수'
+            ],
             hq: 'SKF는 기술 제품의 사용 사례 영상 콘텐츠를 통해 고객 이해를 돕고 있습니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 고객 사용 사례 기반 동영상 시리즈를 통해 제품 신뢰도를 강화합니다.',
             link: 'https://www.skf.com/group/products'
@@ -1221,13 +1259,6 @@
             hq: 'SKF 글로벌은 지역별 베스트 프랙티스 콘텐츠를 공유하며 학습합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 글로벌 캠페인 사례를 로컬화해 국내 채널에 적용합니다.',
             link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '출장 브이로그/마프로 등 영상 아이디어 기획',
-            summary: '출장 현장과 마케팅 프로젝트를 브이로그 형식으로 기록하고 콘텐츠로 변환합니다.',
-            hq: 'SKF는 현장 방문과 기술 프레젠테이션 영상을 고객 커뮤니케이션에 활용합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 현장 브이로그를 통해 실무 중심 스토리를 전달합니다.',
-            link: 'https://www.youtube.com/user/skf'
           },
           {
             title: '네이버 블로그 콘텐츠 연계',
@@ -2795,7 +2826,7 @@
         await hydrateStateFromDataFile();
       }
       const seededState = normalizePlannerState(loadPlannerState());
-      syncFacebookChecklistState(seededState);
+      syncPinnedChecklistState(seededState);
       savePlannerState(seededState);
       initializeGoalSelect();
     }
