@@ -448,7 +448,14 @@
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
     let dashboardSearchTerm = '';
+    const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const customWorkflowByItemKey = {
+      'global-sns::0': [
+        '글로벌 본사(Group)에 한국 페이지 추가 승인 요청 및 리마인더 발송',
+        '승인 완료 후 SKF Korea 공식 페이스북 페이지 최종 개설 확인',
+        '페이스북 포스팅 발행 주기(주 1~2회) 및 콘텐츠 테마/콘셉트 수립',
+        'TLDD 미디어허브 사진 활용 및 정기 콘텐츠 첫 발행 시작'
+      ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
         '부족한 사진 사내 자료실(Media Hub) 추가 발굴',
@@ -495,6 +502,7 @@
       'sales-support::0': [true, true, false, false, false, false]
     };
     const defaultDueDatesByItemKey = {
+      'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -566,6 +574,8 @@
 
     function exportPlannerData() {
       const state = normalizePlannerState(loadPlannerState());
+      syncFacebookChecklistState(state);
+      savePlannerState(state);
       const payload = JSON.stringify(state, null, 2);
       const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -640,6 +650,13 @@
           checked: true,
           dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
         };
+      }
+
+      if (itemKey === FACEBOOK_PAGE_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step, index) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: getDefaultDueDate(itemKey, index)
+        }));
       }
 
       itemState.steps = itemState.steps.map((step, index) => ({
@@ -1051,6 +1068,18 @@
       leaderSummaryEmpty.style.display = 'none';
     }
 
+    function syncFacebookChecklistState(state) {
+      if (!state || typeof state !== 'object') return;
+      if (!state.items || typeof state.items !== 'object') state.items = {};
+
+      const facebookSteps = customWorkflowByItemKey[FACEBOOK_PAGE_ITEM_KEY] || [];
+      const itemState = getItemState(state, FACEBOOK_PAGE_ITEM_KEY, facebookSteps.length);
+      itemState.steps = itemState.steps.map((step, index) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index)
+      }));
+    }
+
     const goalTemplates = {
       'global-sns': {
         label: '글로벌 SNS & 영상',
@@ -1059,7 +1088,7 @@
         items: [
           {
             title: '신규 페이스북 페이지 런칭 및 운영',
-            summary: 'SKF Korea 전용 페이스북 페이지를 개설하고 일관된 브랜드톤으로 콘텐츠를 운영합니다.',
+            summary: 'SKF Korea 전용 페이스북 페이지 개설을 위해 글로벌 HQ에 계정 추가 요청을 제출했으나 승인 대기(Pending) 중입니다. 지속적인 리마인더를 통해 개설 완료 후 정기 콘텐츠 발행 프로세스를 수립합니다.',
             hq: 'SKF 글로벌은 유튜브와 링크드인 콘텐츠를 강화하며 기술 신뢰도를 높이고 있습니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 페이스북과 인스타그램을 중심으로 현장 사례를 빠르게 공유하고 있습니다.',
             link: 'https://www.skf.com/group/news'
@@ -2595,6 +2624,9 @@
       if (!hasPersistedPlannerState()) {
         await hydrateStateFromDataFile();
       }
+      const seededState = normalizePlannerState(loadPlannerState());
+      syncFacebookChecklistState(seededState);
+      savePlannerState(seededState);
       initializeGoalSelect();
     }
 
