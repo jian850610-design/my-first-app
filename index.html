@@ -40,6 +40,26 @@
     .header-tools { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .export-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .export-data-btn:hover { background: rgba(255,255,255,0.24); }
+    .firebase-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding-top: 6px; }
+    .firebase-status-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .firebase-chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); font-size: 12px; font-weight: 800; line-height: 1; }
+    .firebase-chip.connected { border-color: rgba(53, 214, 143, 0.4); background: rgba(53, 214, 143, 0.14); }
+    .firebase-chip.saving { border-color: rgba(255, 206, 86, 0.42); background: rgba(255, 206, 86, 0.16); }
+    .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.45); background: rgba(255, 112, 112, 0.16); }
+    .firebase-update-text { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; }
+    .firebase-auth-area { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .firebase-date-field { display: grid; gap: 5px; min-width: 210px; }
+    .firebase-date-label { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; letter-spacing: 0.04em; }
+    .firebase-date-picker { border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 13px; font-weight: 700; outline: none; }
+    .firebase-date-picker:focus { border-color: rgba(255,255,255,0.62); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+    .firebase-login-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .firebase-login-btn:hover { background: rgba(255,255,255,0.24); }
+    .firebase-user-badge { display: none; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 8px 10px; background: rgba(255,255,255,0.10); }
+    .firebase-user-badge.visible { display: inline-flex; }
+    .firebase-user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.24); background: rgba(255,255,255,0.18); }
+    .firebase-user-meta { display: grid; gap: 2px; min-width: 0; }
+    .firebase-user-name { font-size: 12px; font-weight: 800; color: #ffffff; line-height: 1.2; }
+    .firebase-user-uid { font-size: 10px; color: rgba(255,255,255,0.78); line-height: 1.2; word-break: break-all; }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
     .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
     .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
@@ -401,8 +421,46 @@
       .quick-nav-wrap { width: 100%; }
       .quick-nav-select { width: 100%; min-width: 0; }
       .header-tools { width: 100%; }
+      .firebase-date-field { width: 100%; min-width: 0; }
+      .firebase-toolbar { align-items: stretch; }
+      .firebase-auth-area { width: 100%; }
     }
   </style>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+    const FIREBASE_CONFIG = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      databaseURL: "YOUR_DATABASE_URL",
+      projectId: "YOUR_PROJECT_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const firebaseApp = initializeApp(FIREBASE_CONFIG);
+    const firebaseAuth = getAuth(firebaseApp);
+    const firebaseDatabase = getDatabase(firebaseApp);
+    const googleAuthProvider = new GoogleAuthProvider();
+
+    window.__plannerFirebase = {
+      auth: firebaseAuth,
+      database: firebaseDatabase,
+      provider: googleAuthProvider,
+      onAuthStateChanged,
+      onValue,
+      ref,
+      set,
+      signInWithPopup,
+      getDateRef(dateKey) {
+        return ref(firebaseDatabase, `plans/skf-daily/${dateKey}`);
+      },
+      getConnectedRef() {
+        return ref(firebaseDatabase, '.info/connected');
+      }
+    };
+  </script>
 </head>
 <body>
   <div class="page">
@@ -422,6 +480,26 @@
             </select>
           </div>
           <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
+        </div>
+      </div>
+      <div class="firebase-toolbar">
+        <div class="firebase-status-group">
+          <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
+          <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
+        </div>
+        <div class="firebase-auth-area">
+          <div class="firebase-date-field">
+            <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
+            <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
+          </div>
+          <button type="button" class="firebase-login-btn" id="firebaseLoginBtn" hidden>Google 로그인</button>
+          <div class="firebase-user-badge" id="firebaseUserBadge">
+            <img class="firebase-user-avatar" id="firebaseUserAvatar" alt="로그인 사용자 프로필" />
+            <div class="firebase-user-meta">
+              <div class="firebase-user-name" id="firebaseUserName">-</div>
+              <div class="firebase-user-uid" id="firebaseUserUid">UID: -</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="dashboard-search-section">
@@ -564,6 +642,14 @@
     const mandalartGrid = document.getElementById('mandalartGrid');
     const quickGoalSelect = document.getElementById('quickGoalSelect');
     const exportDataBtn = document.getElementById('exportDataBtn');
+    const plannerDatePicker = document.getElementById('plannerDatePicker');
+    const firebaseConnectionChip = document.getElementById('firebaseConnectionChip');
+    const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
+    const firebaseLoginBtn = document.getElementById('firebaseLoginBtn');
+    const firebaseUserBadge = document.getElementById('firebaseUserBadge');
+    const firebaseUserAvatar = document.getElementById('firebaseUserAvatar');
+    const firebaseUserName = document.getElementById('firebaseUserName');
+    const firebaseUserUid = document.getElementById('firebaseUserUid');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
     const goalCardSummaryTitle = document.getElementById('goalCardSummaryTitle');
@@ -588,12 +674,292 @@
     const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
     const editingChecklistKeys = new Set();
+    const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
+    const FIREBASE_STATUS_LABELS = {
+      completed: '완료',
+      delayed: '지연',
+      pending: '대기'
+    };
+    const FIREBASE_STATUS_VALUES = new Set(['completed', 'delayed', 'pending']);
+    let currentPlannerDateKey = '';
+    let currentPlannerState = { items: {}, meta: {} };
+    let currentFirebaseUser = null;
+    let firebaseConnectionOnline = false;
+    let firebaseSaving = false;
+    let firebaseSaveTimer = null;
+    let firebaseDateUnsubscribe = null;
+    let firebaseConnectionUnsubscribe = null;
+    let firebaseSyncSuppressed = false;
+    let firebaseLastUpdatedMeta = { lastUpdatedAt: '', updatedByName: '', updatedByEmail: '', updatedByUid: '' };
+    let firebaseBridgeReady = false;
+    let noteDebounceTimers = new Map();
 
     function getLocalDateKey(date = new Date()) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
+    }
+
+    currentPlannerDateKey = getLocalDateKey();
+
+    function getPlannerStorageKey(dateKey = currentPlannerDateKey) {
+      return `${STORAGE_KEY}::${dateKey}`;
+    }
+
+    function getFirebaseBridge() {
+      return window.__plannerFirebase || null;
+    }
+
+    function formatFirebaseHeaderDateTime(value) {
+      if (!value) return '-';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '-';
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      const hour = String(parsed.getHours()).padStart(2, '0');
+      const minute = String(parsed.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hour}:${minute}`;
+    }
+
+    function normalizeFirebaseStatus(value) {
+      if (FIREBASE_STATUS_VALUES.has(value)) return value;
+      if (value === 'done') return 'completed';
+      if (value === 'working') return 'pending';
+      return 'pending';
+    }
+
+    function getSyncedItemStatus(itemState) {
+      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      const checkedSteps = steps.filter((step) => step && step.checked).length;
+      if (itemState && itemState.delayed) return 'delayed';
+      if (steps.length > 0 && checkedSteps === steps.length) return 'completed';
+      return 'pending';
+    }
+
+    function buildFirebaseSnapshot(state, metaOverrides = {}) {
+      const normalizedState = normalizePlannerState(state);
+      const items = {};
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        items[goalKey] = {};
+        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
+        goalTemplate.items.forEach((_, index) => {
+          const itemKey = `${goalKey}::${index}`;
+          const itemState = normalizedState.items[itemKey] || {};
+          items[goalKey][index] = {
+            status: normalizeFirebaseStatus(itemState.status || getSyncedItemStatus(itemState)),
+            note: typeof itemState.note === 'string' ? itemState.note : ''
+          };
+        });
+      });
+
+      return {
+        items,
+        meta: {
+          lastUpdatedAt: metaOverrides.lastUpdatedAt || new Date().toISOString(),
+          updatedByName: metaOverrides.updatedByName || currentFirebaseUser?.displayName || currentFirebaseUser?.email || 'guest',
+          updatedByEmail: metaOverrides.updatedByEmail || currentFirebaseUser?.email || '',
+          updatedByUid: metaOverrides.updatedByUid || currentFirebaseUser?.uid || ''
+        }
+      };
+    }
+
+    function applyFirebaseSnapshotToState(state, remoteSnapshot) {
+      const nextState = normalizePlannerState(state);
+      const remoteItems = remoteSnapshot && remoteSnapshot.items && typeof remoteSnapshot.items === 'object' ? remoteSnapshot.items : {};
+      Object.entries(remoteItems).forEach(([goalKey, indexedItems]) => {
+        if (!indexedItems || typeof indexedItems !== 'object') return;
+        Object.entries(indexedItems).forEach(([indexText, remoteItem]) => {
+          const itemKey = `${goalKey}::${indexText}`;
+          const goalTemplate = goalTemplates[goalKey];
+          const itemIndex = Number(indexText);
+          const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+          const itemStepCount = item ? getChecklistStepsForItem(nextState, goalKey, item, itemKey, []).length : 0;
+          const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
+          const nextStatus = normalizeFirebaseStatus(remoteItem && remoteItem.status);
+          itemState.status = nextStatus;
+          itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
+          itemState.lastUpdatedAt = typeof remoteItem?.lastUpdatedAt === 'string' ? remoteItem.lastUpdatedAt : itemState.lastUpdatedAt || '';
+          itemState.lastUpdatedByName = typeof remoteItem?.lastUpdatedByName === 'string' ? remoteItem.lastUpdatedByName : itemState.lastUpdatedByName || '';
+          itemState.lastUpdatedByEmail = typeof remoteItem?.lastUpdatedByEmail === 'string' ? remoteItem.lastUpdatedByEmail : itemState.lastUpdatedByEmail || '';
+          itemState.lastUpdatedByUid = typeof remoteItem?.lastUpdatedByUid === 'string' ? remoteItem.lastUpdatedByUid : itemState.lastUpdatedByUid || '';
+          if (nextStatus === 'completed' && Array.isArray(itemState.steps)) {
+            itemState.steps = itemState.steps.map((step) => ({ ...step, checked: true }));
+            itemState.delayed = false;
+          } else if (nextStatus === 'delayed') {
+            itemState.delayed = true;
+          } else {
+            itemState.delayed = false;
+          }
+        });
+      });
+
+      if (remoteSnapshot && remoteSnapshot.meta && typeof remoteSnapshot.meta === 'object') {
+        nextState.meta = {
+          ...(nextState.meta && typeof nextState.meta === 'object' ? nextState.meta : {}),
+          ...remoteSnapshot.meta
+        };
+      }
+
+      return nextState;
+    }
+
+    function updateFirebaseConnectionChip() {
+      if (!firebaseConnectionChip) return;
+      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      firebaseConnectionChip.classList.remove('connected', 'saving', 'disconnected');
+      if (firebaseSaving) {
+        firebaseConnectionChip.classList.add('saving');
+        firebaseConnectionChip.textContent = '🟡 저장 중...';
+        return;
+      }
+      if (firebaseConnectionOnline) {
+        firebaseConnectionChip.classList.add('connected');
+        firebaseConnectionChip.textContent = isEditable ? '🟢 연결됨' : '🟢 연결됨';
+        return;
+      }
+      firebaseConnectionChip.classList.add('disconnected');
+      firebaseConnectionChip.textContent = '🔴 연결 끊김';
+    }
+
+    function updateFirebaseLastUpdatedText(meta = {}) {
+      if (!firebaseLastUpdatedText) return;
+      const updatedAt = meta.lastUpdatedAt || firebaseLastUpdatedMeta.lastUpdatedAt || '';
+      const updatedByName = meta.updatedByName || firebaseLastUpdatedMeta.updatedByName || '';
+      const updatedByEmail = meta.updatedByEmail || firebaseLastUpdatedMeta.updatedByEmail || '';
+      const updatedByUid = meta.updatedByUid || firebaseLastUpdatedMeta.updatedByUid || '';
+      const actor = updatedByName || updatedByEmail || updatedByUid || '미지정';
+      firebaseLastUpdatedMeta = {
+        lastUpdatedAt: updatedAt,
+        updatedByName,
+        updatedByEmail,
+        updatedByUid
+      };
+      firebaseLastUpdatedText.textContent = `최종 수정: ${formatFirebaseHeaderDateTime(updatedAt)} (수정자: ${actor})`;
+    }
+
+    function updateFirebaseUserBadge(user) {
+      if (!firebaseUserBadge || !firebaseUserAvatar || !firebaseUserName || !firebaseUserUid) return;
+      if (!EDIT_MODE_REQUESTED || !user) {
+        firebaseUserBadge.classList.remove('visible');
+        firebaseUserAvatar.removeAttribute('src');
+        firebaseUserName.textContent = '-';
+        firebaseUserUid.textContent = 'UID: -';
+        return;
+      }
+      firebaseUserBadge.classList.add('visible');
+      firebaseUserAvatar.src = user.photoURL || '';
+      firebaseUserAvatar.alt = user.displayName ? `${user.displayName} 프로필 이미지` : '로그인 사용자 프로필';
+      firebaseUserName.textContent = user.displayName || user.email || '로그인 사용자';
+      firebaseUserUid.textContent = `UID: ${user.uid || '-'}`;
+    }
+
+    function applyEditabilityState() {
+      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      if (firebaseLoginBtn) {
+        firebaseLoginBtn.hidden = !EDIT_MODE_REQUESTED;
+        firebaseLoginBtn.disabled = Boolean(currentFirebaseUser);
+        firebaseLoginBtn.textContent = currentFirebaseUser ? '로그인 완료' : 'Google 로그인';
+      }
+      if (plannerDatePicker) {
+        plannerDatePicker.disabled = false;
+      }
+
+      getCards().forEach((card) => {
+        const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
+        controls.forEach((control) => {
+          if (control.classList.contains('workflow-step-text-input')) {
+            control.readOnly = !isEditable;
+            control.disabled = !isEditable;
+            return;
+          }
+          if (control.tagName === 'TEXTAREA' || (control.tagName === 'INPUT' && control.type !== 'checkbox' && control.type !== 'date')) {
+            control.readOnly = !isEditable;
+            control.disabled = !isEditable;
+            return;
+          }
+          if (control.tagName === 'INPUT' && control.type === 'checkbox') {
+            control.disabled = !isEditable;
+            return;
+          }
+          if (control.tagName === 'BUTTON' || control.tagName === 'SELECT') {
+            control.disabled = !isEditable;
+          }
+        });
+      });
+    }
+
+    function persistPlannerStateToLocalStorage(state) {
+      const storageKey = getPlannerStorageKey();
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    }
+
+    async function flushFirebaseSnapshot(reason = '') {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      const bridge = getFirebaseBridge();
+      if (!bridge) return;
+      const snapshot = buildFirebaseSnapshot(currentPlannerState, {
+        lastUpdatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || 'guest',
+        updatedByEmail: currentFirebaseUser.email || '',
+        updatedByUid: currentFirebaseUser.uid || ''
+      });
+      firebaseSaving = true;
+      updateFirebaseConnectionChip();
+      try {
+        await bridge.set(bridge.getDateRef(currentPlannerDateKey), snapshot);
+        firebaseLastUpdatedMeta = snapshot.meta;
+        updateFirebaseLastUpdatedText(snapshot.meta);
+      } catch (error) {
+        firebaseConnectionOnline = false;
+        updateFirebaseConnectionChip();
+        console.error('Firebase 저장 실패', reason, error);
+      } finally {
+        firebaseSaving = false;
+        updateFirebaseConnectionChip();
+      }
+    }
+
+    function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      if (firebaseSaveTimer) {
+        clearTimeout(firebaseSaveTimer);
+        firebaseSaveTimer = null;
+      }
+      if (debounceMs > 0) {
+        firebaseSaveTimer = setTimeout(() => {
+          firebaseSaveTimer = null;
+          flushFirebaseSnapshot(reason);
+        }, debounceMs);
+        firebaseSaving = true;
+        updateFirebaseConnectionChip();
+        return;
+      }
+      flushFirebaseSnapshot(reason);
+    }
+
+    function setCurrentPlannerState(nextState, options = {}) {
+      const normalizedState = normalizePlannerState(nextState);
+      currentPlannerState = normalizedState;
+      if (!options.skipLocalStorage) {
+        persistPlannerStateToLocalStorage(normalizedState);
+      }
+      if (!options.skipFirebaseSync) {
+        scheduleFirebaseSnapshotSave(options.reason || '', options.debounceMs || 0);
+      }
+      return normalizedState;
+    }
+
+    function loadStateFromStorageForDate(dateKey = currentPlannerDateKey) {
+      try {
+        const raw = localStorage.getItem(getPlannerStorageKey(dateKey));
+        if (!raw) return { items: {}, meta: {} };
+        const parsed = JSON.parse(raw);
+        return normalizePlannerState(parsed);
+      } catch (error) {
+        return { items: {}, meta: {} };
+      }
     }
 
     function createActivityLogEntry(type, payload = {}) {
@@ -769,25 +1135,17 @@
     }
 
     function loadPlannerState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { items: {} };
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object') return { items: {} };
-        if (!parsed.items || typeof parsed.items !== 'object') parsed.items = {};
-        Object.values(parsed.items).forEach((itemState) => {
-          if (!itemState || typeof itemState !== 'object') return;
-          itemState.isLeaderRequested = itemState.isLeaderRequested === true;
-        });
-        return parsed;
-      } catch (error) {
-        return { items: {} };
+      if (currentPlannerState && typeof currentPlannerState === 'object' && currentPlannerState.items) {
+        return currentPlannerState;
       }
+      const loadedState = loadStateFromStorageForDate(currentPlannerDateKey);
+      currentPlannerState = loadedState;
+      return loadedState;
     }
 
     function hasPersistedPlannerState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(getPlannerStorageKey(currentPlannerDateKey));
         if (!raw) return false;
         const parsed = JSON.parse(raw);
         return Boolean(parsed && typeof parsed === 'object' && parsed.items && Object.keys(parsed.items).length);
@@ -796,24 +1154,52 @@
       }
     }
 
-    function savePlannerState(state) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    function savePlannerState(state, options = {}) {
+      const normalizedState = normalizePlannerState(state);
+      normalizedState.meta = {
+        lastUpdatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser?.displayName || currentFirebaseUser?.email || 'local',
+        updatedByEmail: currentFirebaseUser?.email || '',
+        updatedByUid: currentFirebaseUser?.uid || ''
+      };
+      currentPlannerState = normalizedState;
+      persistPlannerStateToLocalStorage(normalizedState);
+      updateFirebaseLastUpdatedText(normalizedState.meta);
+      if (!options.skipFirebaseSync) {
+        scheduleFirebaseSnapshotSave(options.reason || '', options.debounceMs || 0);
+      }
+      return normalizedState;
     }
 
     function normalizePlannerState(rawState) {
       const base = rawState && typeof rawState === 'object' ? rawState : {};
       const items = base.items && typeof base.items === 'object' ? base.items : {};
+      const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
         itemState.delayed = itemState.delayed === true;
+        itemState.status = FIREBASE_STATUS_VALUES.has(itemState.status) ? itemState.status : 'pending';
+        itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
+        itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
+        itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
+        itemState.lastUpdatedByEmail = typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '';
+        itemState.lastUpdatedByUid = typeof itemState.lastUpdatedByUid === 'string' ? itemState.lastUpdatedByUid : '';
         if (!Array.isArray(itemState.comments)) itemState.comments = [];
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       });
-      return { items };
+      return {
+        items,
+        meta: {
+          lastUpdatedAt: typeof meta.lastUpdatedAt === 'string' ? meta.lastUpdatedAt : '',
+          updatedByName: typeof meta.updatedByName === 'string' ? meta.updatedByName : '',
+          updatedByEmail: typeof meta.updatedByEmail === 'string' ? meta.updatedByEmail : '',
+          updatedByUid: typeof meta.updatedByUid === 'string' ? meta.updatedByUid : ''
+        }
+      };
     }
 
     async function hydrateStateFromDataFile() {
@@ -822,7 +1208,7 @@
         if (!response.ok) return false;
         const fileState = await response.json();
         const normalizedState = normalizePlannerState(fileState);
-        savePlannerState(normalizedState);
+        setCurrentPlannerState(normalizedState, { skipFirebaseSync: true });
         return true;
       } catch (error) {
         return false;
@@ -832,7 +1218,7 @@
     function exportPlannerData() {
       const state = normalizePlannerState(loadPlannerState());
       syncPinnedChecklistState(state);
-      savePlannerState(state);
+      savePlannerState(state, { skipFirebaseSync: true });
       const payload = JSON.stringify(state, null, 2);
       const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -865,10 +1251,16 @@
         state.items[itemKey] = {
           steps,
           delayed: false,
+          status: 'pending',
+          note: '',
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
           activityLog: [],
           seriesDraftName: '',
+          lastUpdatedAt: '',
+          lastUpdatedByName: '',
+          lastUpdatedByEmail: '',
+          lastUpdatedByUid: '',
           principles: Array.isArray(principles) ? [...principles] : [],
           isLeaderRequested: false
         };
@@ -899,6 +1291,10 @@
           checked: true,
           dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
         };
+
+        if (!FIREBASE_STATUS_VALUES.has(itemState.status)) {
+          itemState.status = getSyncedItemStatus(itemState);
+        }
         itemState.steps[1] = {
           checked: true,
           dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1)
@@ -3210,6 +3606,9 @@
         if (archiveProjectInput) {
           archiveProjectInput.value = itemState.seriesDraftName || '';
         }
+        if (journalInput) {
+          journalInput.value = itemState.note || '';
+        }
         if (itemState.delayed) {
           card.classList.add('delayed');
           delayButton.classList.add('delayed');
@@ -3338,6 +3737,7 @@
         });
 
         const setStatus = (type, text) => {
+          itemState.status = type === 'done' ? 'completed' : type === 'delayed' ? 'delayed' : 'pending';
           statusContainer.innerHTML = `<span class="status-tag ${type}">${text}</span>`;
         };
 
@@ -3366,7 +3766,7 @@
           return `${rounded.toFixed(1)}%`;
         };
 
-        const updateCardProgress = () => {
+        const updateCardProgress = (skipPersist = false) => {
           const totalSteps = checkboxes.length;
           const checkedSteps = checkboxes.filter((checkbox) => checkbox.checked).length;
           const percent = totalSteps ? (checkedSteps / totalSteps) * 100 : 0;
@@ -3411,7 +3811,9 @@
             archiveCompleteButton.classList.toggle('visible', isDone);
           }
           updateDueDateBadges();
-          savePlannerState(plannerState);
+          if (!skipPersist) {
+            savePlannerState(plannerState);
+          }
           renderGoalSummaryWidget(currentGoal, plannerState);
           updateStats();
           syncOverviewWidgets(plannerState);
@@ -3421,6 +3823,13 @@
           archiveProjectInput.addEventListener('input', () => {
             itemState.seriesDraftName = archiveProjectInput.value || '';
             savePlannerState(plannerState);
+          });
+        }
+
+        if (journalInput) {
+          journalInput.addEventListener('input', () => {
+            itemState.note = journalInput.value || '';
+            savePlannerState(plannerState, { debounceMs: 800, reason: 'note-input' });
           });
         }
 
@@ -3518,6 +3927,7 @@
           const text = journalInput.value.trim();
           if (!text) return;
 
+          itemState.note = text;
           itemState.comments.push({
             timestamp: new Date().toISOString(),
             text
@@ -3525,7 +3935,6 @@
 
           savePlannerState(plannerState);
           renderTimeline(journalTimeline, itemState.comments);
-          journalInput.value = '';
           syncOverviewWidgets(plannerState);
           journalSaved.classList.add('visible');
           setTimeout(() => journalSaved.classList.remove('visible'), 1200);
@@ -3615,24 +4024,126 @@
         });
 
         updateDueDateBadges();
-        updateCardProgress();
+        updateCardProgress(true);
+        applyEditabilityState();
       });
     }
 
     function updateGoalCard(key) {
       const template = goalTemplates[key];
       if (!template) return;
+      const latestState = loadPlannerState();
       currentGoalKey = key;
       metricSelected.textContent = template.metric;
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
       renderDetailItems(template.items, key);
-      renderGoalSummaryWidget(key, loadPlannerState());
-      renderNewsWidget(key, loadPlannerState());
+      renderGoalSummaryWidget(key, latestState);
+      renderNewsWidget(key, latestState);
+      updateFirebaseLastUpdatedText(latestState.meta || firebaseLastUpdatedMeta);
     }
 
     function updateStats() {
       renderTodayActivityWidget(loadPlannerState());
+    }
+
+    function attachFirebaseConnectionListener() {
+      const bridge = getFirebaseBridge();
+      if (!bridge || firebaseConnectionUnsubscribe) return;
+      firebaseConnectionUnsubscribe = bridge.onValue(bridge.getConnectedRef(), (snapshot) => {
+        firebaseConnectionOnline = snapshot.val() === true;
+        updateFirebaseConnectionChip();
+      }, () => {
+        firebaseConnectionOnline = false;
+        updateFirebaseConnectionChip();
+      });
+    }
+
+    function attachFirebaseDateListener(dateKey) {
+      const bridge = getFirebaseBridge();
+      if (!bridge) return;
+      if (firebaseDateUnsubscribe) {
+        firebaseDateUnsubscribe();
+        firebaseDateUnsubscribe = null;
+      }
+      firebaseDateUnsubscribe = bridge.onValue(bridge.getDateRef(dateKey), (snapshot) => {
+        const remoteSnapshot = snapshot.val();
+        if (remoteSnapshot && typeof remoteSnapshot === 'object') {
+          firebaseSyncSuppressed = true;
+          try {
+            const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), remoteSnapshot);
+            setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
+            updateFirebaseLastUpdatedText(mergedState.meta || remoteSnapshot.meta || firebaseLastUpdatedMeta);
+            rerenderCurrentView();
+          } finally {
+            firebaseSyncSuppressed = false;
+          }
+          return;
+        }
+
+        const localState = loadStateFromStorageForDate(dateKey);
+        setCurrentPlannerState(localState, { skipFirebaseSync: true });
+        updateFirebaseLastUpdatedText(localState.meta || firebaseLastUpdatedMeta);
+        rerenderCurrentView();
+      }, () => {
+        firebaseConnectionOnline = false;
+        updateFirebaseConnectionChip();
+      });
+    }
+
+    function switchPlannerDate(dateKey, options = {}) {
+      const nextDateKey = dateKey || getLocalDateKey(new Date());
+      currentPlannerDateKey = nextDateKey;
+      if (plannerDatePicker && plannerDatePicker.value !== nextDateKey) {
+        plannerDatePicker.value = nextDateKey;
+      }
+      if (firebaseSaveTimer) {
+        clearTimeout(firebaseSaveTimer);
+        firebaseSaveTimer = null;
+      }
+      const nextState = loadStateFromStorageForDate(nextDateKey);
+      setCurrentPlannerState(nextState, { skipFirebaseSync: true });
+      updateFirebaseLastUpdatedText(nextState.meta || firebaseLastUpdatedMeta);
+      if (!options.skipRender) {
+        rerenderCurrentView();
+      }
+      attachFirebaseDateListener(nextDateKey);
+    }
+
+    async function handleFirebaseLogin() {
+      const bridge = getFirebaseBridge();
+      if (!bridge) return;
+      try {
+        await bridge.signInWithPopup(bridge.auth, bridge.provider);
+      } catch (error) {
+        window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
+      }
+    }
+
+    function initializeFirebaseIntegration() {
+      const bridge = getFirebaseBridge();
+      firebaseBridgeReady = Boolean(bridge);
+      if (!bridge) {
+        updateFirebaseConnectionChip();
+        return;
+      }
+
+      attachFirebaseConnectionListener();
+      attachFirebaseDateListener(currentPlannerDateKey);
+
+      if (EDIT_MODE_REQUESTED && firebaseLoginBtn) {
+        firebaseLoginBtn.hidden = false;
+        firebaseLoginBtn.addEventListener('click', handleFirebaseLogin);
+      }
+
+      bridge.onAuthStateChanged(bridge.auth, (user) => {
+        currentFirebaseUser = user || null;
+        updateFirebaseUserBadge(currentFirebaseUser);
+        applyEditabilityState();
+        updateFirebaseConnectionChip();
+      });
+
+      applyEditabilityState();
     }
 
     function initializeGoalSelect() {
@@ -3642,6 +4153,13 @@
 
       if (exportDataBtn) {
         exportDataBtn.addEventListener('click', exportPlannerData);
+      }
+
+      if (plannerDatePicker) {
+        plannerDatePicker.addEventListener('change', () => {
+          const nextDate = plannerDatePicker.value || getLocalDateKey(new Date());
+          switchPlannerDate(nextDate);
+        });
       }
 
       if (dashboardSearchInput) {
@@ -3740,13 +4258,22 @@
     }
 
     async function initializeApp() {
-      if (!hasPersistedPlannerState()) {
+      const urlDate = new URLSearchParams(window.location.search).get('date');
+      currentPlannerDateKey = urlDate || getLocalDateKey(new Date());
+      if (plannerDatePicker) {
+        plannerDatePicker.value = currentPlannerDateKey;
+      }
+
+      if (currentPlannerDateKey === getLocalDateKey(new Date()) && !hasPersistedPlannerState()) {
         await hydrateStateFromDataFile();
       }
-      const seededState = normalizePlannerState(loadPlannerState());
+
+      const seededState = normalizePlannerState(loadStateFromStorageForDate(currentPlannerDateKey));
       syncPinnedChecklistState(seededState);
-      savePlannerState(seededState);
+      setCurrentPlannerState(seededState, { skipFirebaseSync: true });
       initializeGoalSelect();
+      initializeFirebaseIntegration();
+      applyEditabilityState();
     }
 
     initializeApp();
