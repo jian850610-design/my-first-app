@@ -178,6 +178,10 @@
     .team-overview-table td { background: #ffffff; }
     .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
     .team-overview-cell-title { font-weight: 800; color: #1d456d; }
+    .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
+    .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
+    .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
+    .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
     .team-overview-cell-muted { color: #6a7f95; }
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
@@ -350,6 +354,10 @@
       .history-manual-save-btn { width: 100%; }
     }
     .button-group { display: flex; gap: 10px; }
+    .card-priority-control { display: grid; gap: 4px; min-width: 170px; }
+    .card-priority-control label { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: #5a748f; text-transform: uppercase; }
+    .card-priority-select { min-height: 36px; border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #204465; font-size: 12px; font-weight: 800; padding: 0 8px; }
+    .card-priority-select:focus { outline: none; border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .detail-item-progress { display: grid; gap: 10px; margin-top: 2px; }
     .latest-activity-panel { display: grid; gap: 10px; border: 1px solid #dbe6f1; border-radius: 16px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); padding: 14px 16px; }
     .latest-activity-title { font-size: 12px; font-weight: 800; color: #315679; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -406,6 +414,10 @@
     .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 24px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); }
     .detail-card h2 { margin: 0 0 10px; font-size: 20px; color: var(--text); }
     .detail-card p { margin: 0; color: var(--muted); line-height: 1.75; }
+    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 7px; }
+    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; }
+    .goal-guideline-badge-list { margin: 0; padding-left: 17px; display: grid; gap: 4px; }
+    .goal-guideline-badge-list li { font-size: 12px; color: #6d520a; line-height: 1.5; }
 
     .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
@@ -594,7 +606,7 @@
           </div>
         </div>
         <div class="team-overview-body" id="teamOverviewBody">
-          <p class="team-overview-filter-notice" id="teamOverviewFilterNotice">최근 15일 이내 변경사항이 있는 업무만 모아봅니다.</p>
+          <p class="team-overview-filter-notice" id="teamOverviewFilterNotice">최근 15일 이내 코멘트/체크 변경 업무만 모아보되, 🔴 긴급/🟡 중요 지정 업무는 항상 상단에 고정 노출됩니다.</p>
           <div class="team-overview-table-wrap">
             <table class="team-overview-table" aria-label="팀 업무 종합 현황표">
               <thead>
@@ -717,6 +729,13 @@
           <div class="detail-card">
             <h2 id="detailTitle">선택된 목표 상세 내용</h2>
             <p id="detailSubtitle">상단에서 목표를 선택하면 관련 업무 계획과 참고 내용이 자동으로 업데이트됩니다.</p>
+            <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden>
+              <div class="goal-guideline-badge-title">📌 영업지원 상시 업무 가이드라인</div>
+              <ul class="goal-guideline-badge-list">
+                <li>프로모션 예산 기안 및 지정 납기일 strict 준수</li>
+                <li>영업 부서 판촉물 요청 및 현장 지원 건 즉시/신속 응대</li>
+              </ul>
+            </div>
           </div>
         </div>
         <div class="details-grid" id="detailItems"></div>
@@ -738,6 +757,7 @@
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
+    const goalGuidelineBadgeBox = document.getElementById('goalGuidelineBadgeBox');
     const goalSelect = document.getElementById('goalSelect');
     const metricSelected = document.getElementById('metric-selected');
     const detailContainer = document.getElementById('detailItems');
@@ -786,6 +806,9 @@
     const AI_WEEKLY_ITEM_KEY = 'ai-culture::0';
     const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
+    const PRIORITY_URGENT = 'urgent';
+    const PRIORITY_IMPORTANT = 'important';
+    const PRIORITY_NORMAL = 'normal';
     const editingChecklistKeys = new Set();
     const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
     const EDITOR_NAME_LABEL = '관리자';
@@ -815,6 +838,22 @@
 
     function getPlannerStorageKey(dateKey = currentPlannerDateKey) {
       return `${STORAGE_KEY}::${dateKey}`;
+    }
+
+    function normalizePriorityValue(value) {
+      if (value === PRIORITY_URGENT || value === PRIORITY_IMPORTANT || value === PRIORITY_NORMAL) return value;
+      return PRIORITY_NORMAL;
+    }
+
+    function getPriorityMeta(priorityValue) {
+      const normalized = normalizePriorityValue(priorityValue);
+      if (normalized === PRIORITY_URGENT) {
+        return { value: PRIORITY_URGENT, label: '🔴 긴급', detailLabel: '🔴 긴급/최우선', rank: 0, pinned: true, badgeClass: 'urgent' };
+      }
+      if (normalized === PRIORITY_IMPORTANT) {
+        return { value: PRIORITY_IMPORTANT, label: '🟡 중요', detailLabel: '🟡 중요', rank: 1, pinned: true, badgeClass: 'important' };
+      }
+      return { value: PRIORITY_NORMAL, label: '⚪ 일반', detailLabel: '⚪ 일반', rank: 2, pinned: false, badgeClass: '' };
     }
 
     function getFirebaseBridge() {
@@ -869,6 +908,8 @@
           const itemState = normalizedState.items[itemKey] || {};
           snapshot[goalKey][index] = {
             note: typeof itemState.note === 'string' ? itemState.note : '',
+            noteUpdatedAt: typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '',
+            priority: normalizePriorityValue(itemState.priority),
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
                   checked: Boolean(step && step.checked),
@@ -915,6 +956,8 @@
           const itemStepCount = item ? getChecklistStepsForItem(nextState, goalKey, item, itemKey, []).length : 0;
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
+          itemState.noteUpdatedAt = typeof remoteItem?.noteUpdatedAt === 'string' ? remoteItem.noteUpdatedAt : itemState.noteUpdatedAt || '';
+          itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
                 checked: Boolean(step && step.checked),
@@ -1220,28 +1263,39 @@
         });
     }
 
-    function getLastOverviewUpdateTimestamp(itemState) {
-      const commentTimes = Array.isArray(itemState && itemState.comments)
+    function parseIsoTimestamp(value) {
+      if (typeof value !== 'string' || !value) return 0;
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    }
+
+    function getRecentNoteTimestamp(itemState) {
+      const noteText = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
+      if (!noteText) return 0;
+      const explicitNoteTime = parseIsoTimestamp(itemState && itemState.noteUpdatedAt);
+      if (explicitNoteTime > 0) return explicitNoteTime;
+
+      const fallbackCommentTime = Array.isArray(itemState && itemState.comments)
         ? itemState.comments
-            .map((comment) => {
-              const ts = comment && (comment.updatedAt || comment.timestamp);
-              const time = ts ? new Date(ts).getTime() : Number.NaN;
-              return Number.isNaN(time) ? 0 : time;
-            })
+            .map((comment) => parseIsoTimestamp(comment && (comment.updatedAt || comment.timestamp)))
             .filter((time) => time > 0)
-        : [];
+            .sort((left, right) => right - left)[0] || 0
+        : 0;
 
-      const checklistTimes = Array.isArray(itemState && itemState.activityLog)
-        ? itemState.activityLog
-            .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.timestamp === 'string')
-            .map((entry) => {
-              const time = new Date(entry.timestamp).getTime();
-              return Number.isNaN(time) ? 0 : time;
-            })
+      if (fallbackCommentTime > 0) return fallbackCommentTime;
+      return parseIsoTimestamp(itemState && itemState.lastUpdatedAt);
+    }
+
+    function getLastOverviewUpdateTimestamp(itemState) {
+      const noteUpdateTime = getRecentNoteTimestamp(itemState);
+      const latestChecklistCompletedAt = Array.isArray(itemState && itemState.steps)
+        ? itemState.steps
+            .map((step) => parseIsoTimestamp(step && step.completedAt))
             .filter((time) => time > 0)
-        : [];
+            .sort((left, right) => right - left)[0] || 0
+        : 0;
 
-      const allTimes = [...commentTimes, ...checklistTimes];
+      const allTimes = [noteUpdateTime, latestChecklistCompletedAt].filter((time) => time > 0);
       if (!allTimes.length) return 0;
       return Math.max(...allTimes);
     }
@@ -1255,6 +1309,7 @@
           const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
           const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
+          const priorityMeta = getPriorityMeta(itemState.priority);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
           const actionPlan = checklistSteps.length
@@ -1276,6 +1331,7 @@
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
           const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
+          const isRecentUpdate = Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
 
           rows.push({
             itemKey,
@@ -1289,16 +1345,18 @@
             highlight,
             dueSort: dueDateText || '9999-12-31',
             lastUpdateTs,
-            lastUpdateDays
+            lastUpdateDays,
+            isRecentUpdate,
+            priority: priorityMeta.value,
+            priorityLabel: priorityMeta.label,
+            priorityBadgeClass: priorityMeta.badgeClass,
+            priorityRank: priorityMeta.rank,
+            priorityPinned: priorityMeta.pinned
           });
         });
       });
 
-      return rows.sort((left, right) => {
-        if (left.dueSort !== right.dueSort) return left.dueSort.localeCompare(right.dueSort);
-        if (left.category !== right.category) return left.category.localeCompare(right.category);
-        return left.agenda.localeCompare(right.agenda);
-      });
+      return rows;
     }
 
     function renderTeamOverviewTable(state) {
@@ -1312,7 +1370,7 @@
 
       const windowFilteredRows = teamOverviewUpdateFilterMode === 'all'
         ? rows
-        : rows.filter((row) => Number.isFinite(row.lastUpdateDays) && row.lastUpdateDays <= 15);
+        : rows.filter((row) => row.priorityPinned || row.isRecentUpdate);
 
       const assigneeValues = Array.from(new Set(windowFilteredRows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
       const fixedOptions = ['Jian', 'Jay', 'CHCho'];
@@ -1332,9 +1390,20 @@
       }
 
       const selectedAssignee = teamAssigneeFilter ? teamAssigneeFilter.value : 'all';
-      const filteredRows = selectedAssignee === 'all'
+      const scopedRows = selectedAssignee === 'all'
         ? windowFilteredRows
         : windowFilteredRows.filter((row) => row.assignee === selectedAssignee);
+
+      const filteredRows = scopedRows.sort((left, right) => {
+        if (left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
+        const leftBucket = left.priorityRank < 2 ? left.priorityRank : (left.isRecentUpdate ? 2 : 3);
+        const rightBucket = right.priorityRank < 2 ? right.priorityRank : (right.isRecentUpdate ? 2 : 3);
+        if (leftBucket !== rightBucket) return leftBucket - rightBucket;
+        if (left.dueSort !== right.dueSort) return left.dueSort.localeCompare(right.dueSort);
+        if (left.lastUpdateTs !== right.lastUpdateTs) return right.lastUpdateTs - left.lastUpdateTs;
+        if (left.category !== right.category) return left.category.localeCompare(right.category);
+        return left.agenda.localeCompare(right.agenda);
+      });
 
       if (!filteredRows.length) {
         teamOverviewTableBody.innerHTML = '';
@@ -1350,7 +1419,12 @@
         <tr class="${row.highlight ? 'team-overview-row-highlight' : ''}">
           <td>${escapeHtml(row.dueDateText)}</td>
           <td>${escapeHtml(row.category)}</td>
-          <td><div class="team-overview-cell-title">${escapeHtml(row.agenda)}</div></td>
+          <td>
+            <div class="team-overview-cell-title-wrap">
+              ${row.priorityPinned ? `<span class="team-overview-priority-badge ${row.priorityBadgeClass}">${escapeHtml(row.priorityLabel)}</span>` : ''}
+              <div class="team-overview-cell-title">${escapeHtml(row.agenda)}</div>
+            </div>
+          </td>
           <td>${escapeHtml(row.actionPlan)}</td>
           <td>${escapeHtml(row.assignee)}</td>
           <td>${escapeHtml(row.progressText)}</td>
@@ -1472,11 +1546,18 @@
         '[발주/제작] 대금 송금 완료 확인 및 볼펜 최종 인쇄/배송 진행',
         '[검수/배포] 볼펜 납품 완제품 검수 및 사내 영업팀 배포 완료'
       ],
-      'sales-support::5': [
+      'sales-support::1': [
         'VIP용 프리미엄 선물(고급 텀블러 등 80개) 아이디어 조사 및 견적 비교',
         'SKF 로고 마킹 사양 확정 및 내부 기안 작성',
         '기안 결재 승인 및 제작 업체 최종 발주',
         '제품 검수 및 11월 Business Sweden 세미나 & VIP 방문용 준비 완료'
+      ],
+      'sales-support::2': [
+        '1. [D-30] 교육 1개월 전 수강 신청자 최종 리스트 취합 및 최소 인원(10명) 도달 여부 확인',
+        '2. [D-25] 수강생별 결제 방법 확인 및 교육 진행/폐강 확정 공지 발송',
+        '3. [D-7] 교육 및 자격시험 안내문(준비물, 일정, 장소) 최종 메일 발송',
+        '4. [D-Day] 교육 및 자격시험 진행 지원 (10/13~10/16)',
+        '5. [D+7] 미결제 수강생 대상 결제 안내 및 시스템 인보이스(Invoice) 발행 처리'
       ]
     };
     const defaultChecksByItemKey = {
@@ -1496,7 +1577,8 @@
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
       'naver-platform::7': ['2026-08-14', '2026-08-28', '2026-09-18', '2026-09-30'],
-      'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12']
+      'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12'],
+      'sales-support::2': ['2026-10-31', '2026-10-31', '2026-10-31', '2026-10-31', '2026-10-31']
     };
 
     function getDefaultHistoryList(itemKey) {
@@ -1551,14 +1633,38 @@
       return normalizedState;
     }
 
+    function normalizeSalesSupportItemIndexes(items) {
+      if (!items || typeof items !== 'object') return;
+
+      const hasLegacyLayout = ['sales-support::3', 'sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
+        .some((key) => Boolean(items[key]));
+
+      if (items['sales-support::5']) {
+        items['sales-support::1'] = items['sales-support::5'];
+      }
+
+      if (hasLegacyLayout) {
+        // The new index 2 is a freshly added education card; drop stale old index-2 data on migration.
+        delete items['sales-support::2'];
+      }
+
+      ['sales-support::3', 'sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
+        .forEach((key) => {
+          delete items[key];
+        });
+    }
+
     function normalizePlannerState(rawState) {
       const base = rawState && typeof rawState === 'object' ? rawState : {};
       const items = base.items && typeof base.items === 'object' ? base.items : {};
       const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
+      normalizeSalesSupportItemIndexes(items);
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
+        itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
+        itemState.priority = normalizePriorityValue(itemState.priority);
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
         itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
         itemState.lastUpdatedByEmail = typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '';
@@ -1635,6 +1741,8 @@
         state.items[itemKey] = {
           steps,
           note: '',
+          noteUpdatedAt: '',
+          priority: PRIORITY_NORMAL,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
           cycleCompletedCount: 0,
@@ -1762,6 +1870,8 @@
       }
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
+      if (typeof itemState.noteUpdatedAt !== 'string') itemState.noteUpdatedAt = '';
+      itemState.priority = normalizePriorityValue(itemState.priority);
       if (!Number.isFinite(itemState.cycleCompletedCount)) itemState.cycleCompletedCount = 0;
       if (!Number.isFinite(itemState.totalCycles)) itemState.totalCycles = itemState.cycleCompletedCount;
       if (!Number.isFinite(itemState.totalStickers)) itemState.totalStickers = 0;
@@ -2959,13 +3069,13 @@
         metric: '영업 협업 강화',
         goalText: '영업 지원 자료와 프로모션 기획을 정리해 영업팀과 협업합니다.',
         principles: [
-          '신규 굿즈 제작 시 글로벌 톤앤매너 유지',
-          '세일즈 부서 판촉물 및 지원 요청 신속 응대'
+          '프로모션 예산 기안 및 지정 납기일 strict 준수',
+          '영업 부서 판촉물 요청 및 현장 지원 건 즉시/신속 응대'
         ],
         items: [
           {
-            title: '영업팀 지원용 기본 판촉물(볼펜) 기안, 입고관리 및 배포',
-            summary: '사내 영업직원 배포용 볼펜 구매를 관리합니다. 현재 기안 결재 승인 완료 후 고려기프트 품절에 따른 입고 및 소통 상태를 추적 중입니다.',
+            title: '하반기 프로모션 굿즈 제작',
+            summary: '하반기 영업 활동용 프로모션 굿즈(볼펜 등) 기안, 입고관리, 납기 준수, 최종 배포까지 실행합니다.',
             principles: [
               '고려기프트 입고 지연 시 유선/영업담당자 직접 소통으로 일정 재확인',
               '세금계산서 선발행 수령 후 사내 회계팀 1주 내 송금 규칙 엄수'
@@ -2975,52 +3085,17 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: 'Q3 CRM 프로모션 (여름 대리점 빙수/간식)',
-            summary: 'B2B 타겟 대상 프로모션 메시지와 지원 자료를 함께 설계합니다.',
-            hq: 'SKF는 프로모션 캠페인에 기술 혜택과 고객 성공 사례를 중심으로 홍보합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 특정 산업군 대상 프로모션으로 문의를 유도합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: 'B2B 타겟 맞춤형 온/오프라인 프로모션 기획',
-            summary: '마케팅과 영업이 함께 활용할 수 있는 워크플로우를 수립합니다.',
-            hq: 'SKF는 영업 지원 포털과 내부 커뮤니케이션 채널을 통해 자료를 공유합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 영업 인사이트를 실시간으로 전달하는 협업 시스템을 운영합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '프로모션 예산(기안) 및 일정/납기일 준수',
-            summary: '프로모션 예산안과 납기 일정을 관리해 집행 지연 리스크를 최소화합니다.',
-            hq: 'SKF는 고객 중심의 사용 사례 콘텐츠를 통해 기술 가치 전달을 강화합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 실무 중심 Use Case를 간결하게 정리해 제공하고 있습니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '세일즈 부서 판촉물/지원 요청 신속 응대',
-            summary: '영업 부서 요청사항을 빠르게 대응할 수 있도록 판촉물 지원 프로세스를 운영합니다.',
-            hq: 'SKF는 영업용 툴킷을 통해 제품 메시지를 일관되게 전달합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 프로모션 키트로 리드 유입을 지원합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: 'Top Management/VIP & 11월 세미나용 프리미엄 굿즈(80개) 기획',
-            summary: '한국 방문 VIP 및 11월 주한스웨덴무역관 세미나용 프리미엄 굿즈(고급 텀블러 등 약 80개)의 기획, 로고 마킹, 발주 및 준비를 관리합니다.',
+            title: 'Top Management/VIP 프리미엄 굿즈 기획',
+            summary: '한국 방문 VIP 및 11월 세미나용 프리미엄 굿즈(고급 텀블러 등 80개)의 사양 확정, 발주, 검수까지 관리합니다.',
             hq: 'SKF는 고객 성공 사례를 콘텐츠와 제안서에 적극 활용합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 성공 사례 중심으로 메시지를 구성합니다.',
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '프로모션 성과 및 대리점 만족도 피드백',
-            summary: '디지털, 오프라인, 대리점 채널을 연계한 프로모션 플랜을 수립합니다.',
-            hq: 'SKF는 온라인과 오프라인 채널을 연계해 프로모션을 실행합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 채널 융합형 프로모션을 통해 고객 접근성을 높입니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '이커머스 대리점 지원 관련 부서간 협업',
-            summary: '온라인몰과 대리점 지원 이슈를 관련 부서와 협업해 신속하게 해결합니다.',
-            hq: 'SKF는 콘텐츠 유효성을 검증해 영업팀에 제공하고 있습니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 영업 지원 자료를 고객 반응 기반으로 개선합니다.',
+            title: '2026 ISO 18436-2 Cat.II 진동분석 교육 운영 및 마케팅',
+            summary: '담당: Jian | ACTION PLAN: 수강생 모객 및 10명 최소인원 체크, 결제방법 확인, 진행/폐강 공지, 교육 준비물 안내, 교육/시험 진행, 최종 인보이스 처리 (마감: 2026-10-31)',
+            hq: 'SKF는 기술 교육 프로그램 운영을 통해 고객 접점을 강화하고 교육 이후 세일즈 연계 자료로 확장합니다.',
+            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 자격 교육형 세미나를 리드 생성 파이프라인과 연결합니다.',
             link: 'https://www.skf.com/group/news'
           }
         ]
@@ -3386,16 +3461,6 @@
           { company: '팀켄', summary: `타깃 산업군 교체 고객 대상 점검/세척 무상 제공형 부가 서비스 프로모션을 운영합니다.` }
         ],
         [
-          { company: '셰플러', summary: `인트라넷 판촉물 신청 시스템으로 요청 후 2일 내 현장 배송 SLA를 운영합니다.` },
-          { company: '한국NSK', summary: `판촉물 재고를 실시간 공개하고 긴급 요청의 당일 수령 체계를 유지합니다.` },
-          { company: '팀켄', summary: `팀별 예산 한도 기반 맞춤 판촉물 제작 요청 체계로 유연성을 확보합니다.` }
-        ],
-        [
-          { company: '셰플러', summary: `기술자료 다운로드 행동 데이터를 기반으로 기업별 맞춤 프로모션 레터를 연계 발송합니다.` },
-          { company: '한국NSK', summary: `대리점 개인 포상형 세일즈 콘테스트로 판매 동기와 참여율을 동시에 높입니다.` },
-          { company: '팀켄', summary: `신규 고객 전면 교체 시 초기 비용을 지원하는 트레이드인 프로모션을 운영합니다.` }
-        ],
-        [
           { company: '셰플러', summary: `문의 접수 후 마케팅·영업·물류가 빠르게 재고/납기를 동시 확인하는 협업 루프를 운영합니다.` },
           { company: '한국NSK', summary: `정기 협의회로 대리점 이관 건의 최종 수주율과 장애요인을 점검합니다.` },
           { company: '팀켄', summary: `대리점 주문 포털 이슈를 CS/IT와 연계해 주문 경험 개선을 상시 추진합니다.` }
@@ -3581,8 +3646,8 @@
           '오프라인 제작물 브랜드 가이드라인 준수'
         ],
         'sales-support': [
-          '신규 굿즈 제작 시 글로벌 톤앤매너 유지',
-          '세일즈 부서 판촉물 및 지원 요청 신속 응대'
+          '프로모션 예산 기안 및 지정 납기일 strict 준수',
+          '영업 부서 판촉물 요청 및 현장 지원 건 즉시/신속 응대'
         ],
         'marketing-skill': [
           'SKF 핵심 제품 카탈로그 및 가이드북 숙지',
@@ -3689,12 +3754,6 @@
               <button type="button" class="workflow-reset-round-btn">🔄 정기 체크리스트 재설정</button>
             </div>
           </div>
-                  const workflowHtml = createWorkflowChecklistHtml(
-                    checklistSteps,
-                    index,
-                    getCycleCompletedCount(itemState),
-                    getTotalStickerCount(itemState)
-                  );
           <ul class="workflow-list">
             ${workflowLines.join('')}
           </ul>
@@ -3924,10 +3983,16 @@
         const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
         const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
         const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+        const priorityMeta = getPriorityMeta(itemState.priority);
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
-        const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index, getCycleCompletedCount(itemState));
+        const workflowHtml = createWorkflowChecklistHtml(
+          checklistSteps,
+          index,
+          getCycleCompletedCount(itemState),
+          getTotalStickerCount(itemState)
+        );
         const historyArchiveHtml = createHistoryArchiveHtml();
         const guidelineEditorText = itemPrinciples.join('\n');
         const editingClass = editingChecklistKeys.has(itemKey) ? ' editing' : '';
@@ -3939,6 +4004,14 @@
               ${leaderTagHtml}
             </div>
             <div class="button-group">
+              <div class="card-priority-control">
+                <label>중요도</label>
+                <select class="card-priority-select" aria-label="카드 중요도 선택">
+                  <option value="urgent" ${priorityMeta.value === PRIORITY_URGENT ? 'selected' : ''}>🔴 긴급/최우선</option>
+                  <option value="important" ${priorityMeta.value === PRIORITY_IMPORTANT ? 'selected' : ''}>🟡 중요</option>
+                  <option value="normal" ${priorityMeta.value === PRIORITY_NORMAL ? 'selected' : ''}>⚪ 일반</option>
+                </select>
+              </div>
               <button type="button" class="card-edit-btn">✏️ 카드 내용 수정</button>
               <button type="button" class="card-save-btn">💾 저장</button>
               <button type="button" class="leader-star-btn" aria-label="팀장님 요청 표시">☆</button>
@@ -4011,6 +4084,7 @@
         const cardDescriptionElement = card.querySelector('.detail-item-description');
         const cardEditButton = card.querySelector('.card-edit-btn');
         const cardSaveButton = card.querySelector('.card-save-btn');
+        const prioritySelect = card.querySelector('.card-priority-select');
         const titleInput = card.querySelector('.card-title-input');
         const summaryInput = card.querySelector('.card-summary-input');
         const guidelinesInput = card.querySelector('.card-guidelines-input');
@@ -4079,6 +4153,16 @@
         };
 
         updateLeaderVisual();
+
+        if (prioritySelect) {
+          prioritySelect.value = normalizePriorityValue(itemState.priority);
+          prioritySelect.addEventListener('change', () => {
+            itemState.priority = normalizePriorityValue(prioritySelect.value);
+            markItemUpdated(itemState);
+            savePlannerState(plannerState, { reason: 'priority-change' });
+            syncOverviewWidgets(plannerState);
+          });
+        }
 
         const isEditing = editingChecklistKeys.has(itemKey);
         syncChecklistEditMode(card, isEditing);
@@ -4467,6 +4551,7 @@
         if (journalInput) {
           journalInput.addEventListener('input', () => {
             itemState.note = journalInput.value || '';
+            itemState.noteUpdatedAt = new Date().toISOString();
             markItemUpdated(itemState);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             savePlannerState(plannerState, { debounceMs: 800, reason: 'note-input' });
@@ -4509,6 +4594,7 @@
             }));
             itemState.comments = [];
             itemState.seriesDraftName = '';
+            itemState.noteUpdatedAt = '';
             markItemUpdated(itemState);
 
             checkboxes.forEach((checkbox) => {
@@ -4568,6 +4654,7 @@
           if (!text) return;
 
           itemState.note = text;
+          itemState.noteUpdatedAt = new Date().toISOString();
           itemState.comments.push({
             timestamp: new Date().toISOString(),
             text
@@ -4659,6 +4746,9 @@
       metricSelected.textContent = template.metric;
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
+      if (goalGuidelineBadgeBox) {
+        goalGuidelineBadgeBox.hidden = key !== 'sales-support';
+      }
       renderDetailItems(template.items, key);
       renderGoalSummaryWidget(key, latestState);
       renderNewsWidget(key, latestState);
