@@ -153,15 +153,15 @@
     .workflow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
     .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-    .workflow-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.45; color: #24405d; }
-    .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
+    .workflow-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; font-size: 13px; line-height: 1.45; color: #24405d; flex-wrap: nowrap; }
+    .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1 1 auto; }
     .workflow-step-index { margin-top: 2px; font-size: 12px; font-weight: 700; color: #35536f; }
-    .workflow-step-text-input { width: 100%; min-height: 30px; border: none; background: transparent; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; outline: none; }
+    .workflow-step-text-input { flex: 1 1 auto; min-width: 0; width: 100%; min-height: 30px; border: none; background: transparent; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; outline: none; resize: none; overflow: hidden; word-break: break-word; white-space: pre-wrap; }
     .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
     .detail-item-card.editing .workflow-step-text-input { border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; padding: 6px 8px; }
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
-    .workflow-item-right { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .workflow-item-right { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap; margin-left: auto; }
     .workflow-due-date { width: 128px; border: 1px solid #cfdced; border-radius: 8px; padding: 4px 7px; background: #ffffff; color: #294765; font-size: 12px; }
     .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .workflow-dday-badge { min-width: 84px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 700; }
@@ -2534,7 +2534,7 @@
                 <div class="workflow-item-left">
                   <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
                   <span class="workflow-step-index">${stepIndex + 1}.</span>
-                  <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
+                  <textarea class="workflow-step-text-input" rows="1" data-step-index="${stepIndex}">${escapeHtml(step)}</textarea>
                 </div>
                 <div class="workflow-item-right">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
@@ -2567,6 +2567,12 @@
             ${principles.map((principle) => `<li>${principle}</li>`).join('')}
           </ul>
         </div>`;
+    }
+
+    function autoSizeWorkflowTextarea(textarea) {
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
     }
 
     function renderDetailItems(items, goalKey) {
@@ -2732,6 +2738,8 @@
 
         updateLeaderVisual();
 
+        stepTextInputs.forEach((input) => autoSizeWorkflowTextarea(input));
+
         if (cardEditButton) {
           cardEditButton.addEventListener('click', () => {
             card.classList.add('editing');
@@ -2764,6 +2772,7 @@
 
         stepTextInputs.forEach((input, idx) => {
           input.addEventListener('input', () => {
+            autoSizeWorkflowTextarea(input);
             ensureCustomSteps();
             itemState.customSteps[idx] = input.value || '';
             savePlannerState(plannerState);
