@@ -163,6 +163,24 @@
     .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
     .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
     .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
+    .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
+    .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
+    .history-archive-toggle::-webkit-details-marker { display: none; }
+    .history-archive-count { font-size: 11px; color: #5f7892; }
+    .history-archive-body { display: grid; gap: 10px; }
+    .archive-action-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .archive-project-input { width: 100%; min-height: 38px; border: 1px solid #cfddec; border-radius: 10px; padding: 8px 10px; font-size: 12px; color: #204061; background: #ffffff; outline: none; }
+    .archive-project-input:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .archive-complete-reset-btn { display: none; border: none; border-radius: 10px; background: #0f5f9d; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .archive-complete-reset-btn:hover { background: #2b7bbd; }
+    .archive-complete-reset-btn.visible { display: inline-flex; justify-content: center; align-items: center; }
+    .history-archive-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .history-archive-item { border: 1px solid #dce8f4; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 5px; }
+    .history-archive-item-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .history-archive-item-title { font-size: 12px; font-weight: 700; color: #1f476d; }
+    .history-archive-item-date { font-size: 11px; color: #68819b; }
+    .history-archive-item-summary { font-size: 12px; color: #2f4a66; line-height: 1.55; white-space: pre-wrap; }
+    .history-archive-empty { font-size: 12px; color: #7289a1; }
     .button-group { display: flex; gap: 10px; }
     .item-complete-btn, .item-delay-btn { border: none; border-radius: 12px; color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .item-complete-btn { background: var(--navy); }
@@ -555,6 +573,8 @@
         itemState.delayed = itemState.delayed === true;
         if (!Array.isArray(itemState.comments)) itemState.comments = [];
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
+        if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+        if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       });
       return { items };
     }
@@ -609,6 +629,8 @@
           steps,
           delayed: false,
           comments: [],
+          historyList: [],
+          seriesDraftName: '',
           principles: Array.isArray(principles) ? [...principles] : [],
           isLeaderRequested: false
         };
@@ -664,6 +686,8 @@
         dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
+      if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+      if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
       if (typeof itemState.isLeaderRequested !== 'boolean') itemState.isLeaderRequested = false;
@@ -743,6 +767,83 @@
           </div>
         `;
         }).join('');
+    }
+
+    function formatDateOnly(timestamp) {
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return '';
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function createCommentSummary(comments) {
+      if (!Array.isArray(comments) || !comments.length) return '코멘트 기록 없음';
+
+      const sorted = comments
+        .slice()
+        .sort((left, right) => {
+          const leftTs = new Date(left.updatedAt || left.timestamp || 0).getTime();
+          const rightTs = new Date(right.updatedAt || right.timestamp || 0).getTime();
+          return rightTs - leftTs;
+        })
+        .slice(0, 2);
+
+      const summary = sorted
+        .map((entry) => (entry && typeof entry.text === 'string' ? entry.text.trim() : ''))
+        .filter(Boolean)
+        .join(' / ');
+
+      if (!summary) return '코멘트 기록 없음';
+      return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
+    }
+
+    function renderHistoryArchive(historyListElement, historyCountElement, historyList) {
+      const entries = Array.isArray(historyList) ? historyList : [];
+      if (historyCountElement) {
+        historyCountElement.textContent = `${entries.length}건`;
+      }
+
+      if (!historyListElement) return;
+      if (!entries.length) {
+        historyListElement.innerHTML = '<li class="history-archive-empty">아직 저장된 완료 히스토리가 없습니다.</li>';
+        return;
+      }
+
+      historyListElement.innerHTML = entries
+        .slice()
+        .reverse()
+        .map((entry) => {
+          const projectName = entry && typeof entry.projectName === 'string' && entry.projectName ? entry.projectName : '제목 없음';
+          const completedAt = entry && typeof entry.completedAt === 'string' ? entry.completedAt : '';
+          const completedDate = formatDateOnly(completedAt) || '날짜 미상';
+          const commentSummary = entry && typeof entry.commentSummary === 'string' && entry.commentSummary ? entry.commentSummary : '코멘트 기록 없음';
+          return `
+            <li class="history-archive-item">
+              <div class="history-archive-item-top">
+                <span class="history-archive-item-title">${escapeHtml(projectName)}</span>
+                <span class="history-archive-item-date">완료일: ${escapeHtml(completedDate)}</span>
+              </div>
+              <div class="history-archive-item-summary">${escapeHtml(commentSummary)}</div>
+            </li>
+          `;
+        }).join('');
+    }
+
+    function createHistoryArchiveHtml() {
+      return `
+        <details class="history-archive-section">
+          <summary class="history-archive-toggle">📜 이전 완료 히스토리 (<span class="history-archive-count">0건</span>)</summary>
+          <div class="history-archive-body">
+            <div class="archive-action-row">
+              <input type="text" class="archive-project-input" maxlength="80" placeholder="완료된 프로젝트명 입력 (예: Quick Collector 가이드)" />
+              <button type="button" class="archive-complete-reset-btn">🎉 완료 기록을 히스토리에 아카이브하고 다음 시리즈 시작하기</button>
+            </div>
+            <ul class="history-archive-list"></ul>
+          </div>
+        </details>
+      `;
     }
 
     function getCards() {
@@ -2193,6 +2294,7 @@
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
         const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
+        const historyArchiveHtml = createHistoryArchiveHtml();
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
@@ -2218,6 +2320,7 @@
             </div>
             ${principleBoxHtml}
             ${workflowHtml}
+            ${historyArchiveHtml}
             <div class="journal-section">
               <div class="journal-top">
                 <strong>오늘의 업무 코멘트</strong>
@@ -2261,6 +2364,10 @@
         const journalSaveButton = card.querySelector('.journal-save-btn');
         const journalTimeline = card.querySelector('.journal-timeline');
         const journalSaved = card.querySelector('.journal-saved');
+        const historyCountLabel = card.querySelector('.history-archive-count');
+        const historyListElement = card.querySelector('.history-archive-list');
+        const archiveProjectInput = card.querySelector('.archive-project-input');
+        const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
         const [currentGoal, currentIndexText] = itemKey.split('::');
         const currentGoalTemplate = goalTemplates[currentGoal] || {};
         const currentItemIndex = Number(currentIndexText);
@@ -2303,12 +2410,16 @@
         dueDateInputs.forEach((input, idx) => {
           input.value = (itemState.steps[idx] && itemState.steps[idx].dueDate) || '';
         });
+        if (archiveProjectInput) {
+          archiveProjectInput.value = itemState.seriesDraftName || '';
+        }
         if (itemState.delayed) {
           card.classList.add('delayed');
           delayButton.classList.add('delayed');
           delayButton.textContent = '지연됨';
         }
         renderTimeline(journalTimeline, itemState.comments);
+        renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
 
         starButton.addEventListener('click', () => {
           itemState.isLeaderRequested = !itemState.isLeaderRequested;
@@ -2387,11 +2498,70 @@
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
           }));
+          if (archiveCompleteButton) {
+            archiveCompleteButton.classList.toggle('visible', isDone);
+          }
           updateDueDateBadges();
           savePlannerState(plannerState);
           updateStats();
           syncOverviewWidgets(plannerState);
         };
+
+        if (archiveProjectInput) {
+          archiveProjectInput.addEventListener('input', () => {
+            itemState.seriesDraftName = archiveProjectInput.value || '';
+            savePlannerState(plannerState);
+          });
+        }
+
+        if (archiveCompleteButton) {
+          archiveCompleteButton.addEventListener('click', () => {
+            const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
+            if (!isDone) return;
+
+            const projectName = archiveProjectInput ? archiveProjectInput.value.trim() : '';
+            if (!projectName) {
+              window.alert('완료된 프로젝트명을 입력해 주세요. 예: Quick Collector 가이드');
+              if (archiveProjectInput) archiveProjectInput.focus();
+              return;
+            }
+
+            if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+            itemState.historyList.push({
+              projectName,
+              completedAt: new Date().toISOString(),
+              commentSummary: createCommentSummary(itemState.comments)
+            });
+
+            itemState.steps = itemState.steps.map(() => ({
+              checked: false,
+              dueDate: ''
+            }));
+            itemState.comments = [];
+            itemState.delayed = false;
+            itemState.seriesDraftName = '';
+
+            checkboxes.forEach((checkbox) => {
+              checkbox.checked = false;
+            });
+            dueDateInputs.forEach((input) => {
+              input.value = '';
+            });
+            if (archiveProjectInput) {
+              archiveProjectInput.value = '';
+            }
+
+            card.classList.remove('delayed');
+            delayButton.classList.remove('delayed');
+            delayButton.textContent = '지연';
+            renderTimeline(journalTimeline, itemState.comments);
+            renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+            savePlannerState(plannerState);
+            updateCardProgress();
+            journalSaved.classList.add('visible');
+            setTimeout(() => journalSaved.classList.remove('visible'), 1200);
+          });
+        }
 
         checkboxes.forEach((checkbox, idx) => {
           checkbox.addEventListener('change', () => {
