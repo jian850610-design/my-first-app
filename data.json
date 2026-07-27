@@ -78,7 +78,12 @@
         false
       ],
       "delayed": false,
-      "comments": [],
+      "comments": [
+        {
+          "timestamp": "2026-07-27T03:39:49.649Z",
+          "text": "2026.7.24: 박과장님께 일정문의 2차 요청함"
+        }
+      ],
       "steps": [
         {
           "checked": false,
@@ -106,7 +111,13 @@
           "commentSummary": "TKSA 71 샤프트 정렬 기기 사용법 영상 제작 완료 (SKF 웹사이트 및 영상 채널 업로드 완료)"
         }
       ],
-      "seriesDraftName": ""
+      "seriesDraftName": "",
+      "customTitle": "주요 제품/기기 사용 가이드 영상 시리즈 지속 제작",
+      "customSummary": "SKF 핵심 장비(Quick Collector, TLDD 등)의 사용가이드 영상을 1~2개월 단위 시리즈로 순차 제작 및 업로드합니다.",
+      "customGuidelines": [
+        "복잡한 장비 기술 사양을 고객 눈높이에 맞춘 쉬운 언어로 가공",
+        "SKF 글로벌 브랜드 가이드라인 및 영상 톤앤매너 준수"
+      ]
     },
     "global-sns::3": {
       "checks": [
@@ -117,19 +128,14 @@
         false
       ],
       "delayed": false,
-      "comments": [
-        {
-          "timestamp": "2026-07-24T04:48:01.448Z",
-          "text": "2026.7.24: 박과장님께 일정문의 2차 요청함"
-        }
-      ],
+      "comments": [],
       "steps": [
         {
-          "checked": true,
+          "checked": false,
           "dueDate": ""
         },
         {
-          "checked": true,
+          "checked": false,
           "dueDate": ""
         },
         {
@@ -329,29 +335,70 @@
       "steps": [
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-31"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-15"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-30"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-10-15"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-10-23"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-10-30"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-11-03"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-11-06"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-10-30"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-11-13"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-11-20"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-11-27"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-12-04"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-12-11"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-12-18"
+        },
+        {
+          "checked": false,
+          "dueDate": "2026-12-24"
         }
       ],
-      "principles": [
-        "복잡한 기술을 쉬운 고객 언어로 번역",
-        "영업/기술 부서와 밀착 소통 및 촬영 협조"
-      ],
+      "principles": [],
       "historyList": [],
       "seriesDraftName": ""
     },
@@ -367,10 +414,6 @@
       "comments": [],
       "isLeaderRequested": false,
       "steps": [
-        {
-          "checked": false,
-          "dueDate": ""
-        },
         {
           "checked": false,
           "dueDate": ""
@@ -619,7 +662,8 @@
         }
       ],
       "principles": [
-        "오프라인 제작물 브랜드 가이드라인 준수"
+        "부스 디자인 및 홍보물 제작 시 SKF 글로벌 브랜드 가이드라인 준수",
+        "9월 차년도 예산(Budget) 제출 전 최종 후보 확정 및 예산 반영 완료"
       ],
       "historyList": [],
       "seriesDraftName": ""
@@ -637,24 +681,22 @@
       "steps": [
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-14"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-31"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-18"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-30"
         }
       ],
-      "principles": [
-        "오프라인 제작물 브랜드 가이드라인 준수"
-      ],
+      "principles": [],
       "historyList": [],
       "seriesDraftName": ""
     },
@@ -711,28 +753,22 @@
       "steps": [
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-07-31"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-08-31"
         },
         {
           "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-15"
         },
         {
           "checked": false,
-          "dueDate": ""
-        },
-        {
-          "checked": false,
-          "dueDate": ""
+          "dueDate": "2026-09-30"
         }
       ],
-      "principles": [
-        "오프라인 제작물 브랜드 가이드라인 준수"
-      ],
+      "principles": [],
       "historyList": [],
       "seriesDraftName": ""
     },
@@ -775,7 +811,8 @@
         }
       ],
       "principles": [
-        "오프라인 제작물 브랜드 가이드라인 준수"
+        "차량 및 유니폼 부착용 SKF 브랜드 로고 가이드라인 준수",
+        "대회 현장(8/27, 10/2) 및 제작 과정 촬영 시 학생 인터뷰 및 SKF 베어링 적용 컷 필수 확보"
       ],
       "historyList": [],
       "seriesDraftName": ""
@@ -934,8 +971,8 @@
         }
       ],
       "principles": [
-        "신규 굿즈 제작 시 글로벌 톤앤매너 유지",
-        "세일즈 부서 판촉물 및 지원 요청 신속 응대"
+        "고려기프트 입고 지연 시 유선/영업담당자 직접 소통으로 일정 재확인",
+        "세금계산서 선발행 수령 후 사내 회계팀 1주 내 송금 규칙 엄수"
       ],
       "isLeaderRequested": true,
       "historyList": [],
@@ -1224,19 +1261,11 @@
         {
           "checked": false,
           "dueDate": ""
-        },
-        {
-          "checked": false,
-          "dueDate": ""
         }
       ],
       "delayed": false,
       "comments": [],
-      "principles": [
-        "SKF 핵심 가치 'Curiosity(호기심)' 실천",
-        "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
-        "팀 내 AI 친화적인 분위기 조성 독려"
-      ],
+      "principles": [],
       "isLeaderRequested": false,
       "historyList": [],
       "seriesDraftName": ""
