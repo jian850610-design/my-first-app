@@ -2822,18 +2822,40 @@
       }).join('');
     }
 
-    function getNewsQueryForGoal(goalKey) {
-      const queryMap = {
-        'global-sns': 'SKF social media B2B',
-        'naver-platform': 'SKF 네이버 블로그 B2B 제품 활용법',
-        'field-communication': 'SKF 고객 세미나 B2B',
-        'ai-culture': 'AI B2B marketing SKF',
-        'web-ecosystem': 'SKF website SEO B2B',
-        'offline-brand': 'SKF exhibition brand event B2B',
-        'sales-support': 'SKF promotion sales support B2B',
-        'marketing-skill': 'B2B marketing trend SKF'
+    function getNewsQueryConfigForGoal(goalKey) {
+      const defaultConfig = {
+        query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (예지보전 OR 스마트팩토리)',
+        displayKeywords: '셰플러, NSK, 팀켄, 베어링, 예지보전, 스마트팩토리'
       };
-      return queryMap[goalKey] || 'SKF B2B market trend';
+      const configMap = {
+        'global-sns': defaultConfig,
+        'naver-platform': defaultConfig,
+        'field-communication': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (전시회 OR 세미나 OR 고객사례)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 전시회, 세미나, 고객사례'
+        },
+        'ai-culture': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (AI OR 자동화 OR 예지보전)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, AI, 자동화, 예지보전'
+        },
+        'web-ecosystem': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (SEO OR B2B OR 콘텐츠)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, SEO, B2B, 콘텐츠'
+        },
+        'offline-brand': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (전시회 OR 오프라인마케팅 OR 브랜드)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 전시회, 오프라인마케팅, 브랜드'
+        },
+        'sales-support': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (영업지원 OR B2B OR 제품자료)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 영업지원, B2B, 제품자료'
+        },
+        'marketing-skill': {
+          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (마케팅트렌드 OR 산업동향 OR B2B)',
+          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 마케팅트렌드, 산업동향, B2B'
+        }
+      };
+      return configMap[goalKey] || defaultConfig;
     }
 
     function formatNewsPubDate(pubDate) {
@@ -2850,7 +2872,8 @@
         return;
       }
 
-      const query = getNewsQueryForGoal(goalKey);
+      const newsQueryConfig = getNewsQueryConfigForGoal(goalKey);
+      const query = newsQueryConfig.query;
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
       const requestId = ++newsRequestSerial;
@@ -2858,7 +2881,7 @@
 
       newsWidget.hidden = false;
       newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${query}`;
+      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${newsQueryConfig.displayKeywords}`;
 
       const renderItems = (items) => {
         const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
