@@ -204,6 +204,11 @@
     .workflow-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .workflow-header strong { margin: 0; font-size: 12px; color: #3f5874; letter-spacing: 0.06em; text-transform: uppercase; }
     .workflow-count { font-size: 12px; color: #6b7f95; }
+    .workflow-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .workflow-cycle-count { border-radius: 999px; padding: 4px 9px; background: #eaf2fb; color: #2f5377; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .workflow-reset-round-btn { border: 1px solid #8eb6dd; border-radius: 9px; background: #f1f8ff; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .workflow-reset-round-btn:hover { background: #e5f1ff; }
+    .workflow-reset-round-btn:active { transform: translateY(1px); }
     .workflow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
     .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
@@ -233,6 +238,16 @@
     .workflow-completed-at-badge { min-width: 92px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; }
     .workflow-completed-at-badge.pending { background: #f5f7fa; color: #8a97a7; }
     .workflow-completed-at-badge.done { background: #edf9f1; color: #0d7a46; }
+    .workflow-cheer-badge { border-radius: 999px; padding: 5px 10px; font-size: 11px; font-weight: 900; letter-spacing: 0.01em; border: 1px solid #e5b500; color: #8a5400; background: linear-gradient(180deg, #fff6ba 0%, #ffd54d 55%, #f6b900 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 3px 7px rgba(175, 118, 0, 0.25); display: none; white-space: nowrap; }
+    .workflow-cheer-badge.done { display: inline-flex; align-items: center; }
+    .workflow-cheer-badge.pending { display: none; }
+    .workflow-cheer-badge.pop { animation: cheer-bounce-in 380ms cubic-bezier(0.2, 0.9, 0.25, 1.2); transform-origin: center; }
+    @keyframes cheer-bounce-in {
+      0% { transform: scale(0.6) translateY(3px); opacity: 0; }
+      55% { transform: scale(1.12) translateY(-1px); opacity: 1; }
+      78% { transform: scale(0.96) translateY(0); }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
     .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
     .workflow-delete-step-btn:hover { background: #fff1f1; }
     .detail-item-card.editing .workflow-delete-step-btn { display: inline-flex; }
@@ -440,6 +455,8 @@
       .firebase-auth-group { width: 100%; }
       .workflow-item-right,
       .item-meta-group { flex-wrap: wrap; justify-content: flex-end; }
+      .workflow-header { align-items: flex-start; }
+      .workflow-header-tools { width: 100%; }
     }
   </style>
   <script type="module">
@@ -775,6 +792,7 @@
               : [],
             comments: Array.isArray(itemState.comments) ? itemState.comments : [],
             historyList: Array.isArray(itemState.historyList) ? itemState.historyList : [],
+            cycleCompletedCount: Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0,
             seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
             customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
@@ -818,6 +836,9 @@
             : itemState.steps;
           itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
           itemState.historyList = Array.isArray(remoteItem?.historyList) ? remoteItem.historyList : itemState.historyList;
+          itemState.cycleCompletedCount = Number.isFinite(remoteItem?.cycleCompletedCount)
+            ? Number(remoteItem.cycleCompletedCount)
+            : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0);
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
           itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
@@ -1252,6 +1273,7 @@
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
+        itemState.cycleCompletedCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
       });
       return {
         items,
@@ -1316,6 +1338,7 @@
           note: '',
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
+          cycleCompletedCount: 0,
           activityLog: [],
           seriesDraftName: '',
           lastUpdatedAt: '',
@@ -1438,6 +1461,7 @@
       }
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
+      if (!Number.isFinite(itemState.cycleCompletedCount)) itemState.cycleCompletedCount = 0;
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
       if (typeof itemState.isLeaderRequested !== 'boolean') itemState.isLeaderRequested = false;
@@ -1562,6 +1586,13 @@
 
       if (!summary) return '코멘트 기록 없음';
       return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
+    }
+
+    function getCycleCompletedCount(itemState) {
+      if (!itemState || typeof itemState !== 'object') return 0;
+      const historyCount = Array.isArray(itemState.historyList) ? itemState.historyList.length : 0;
+      const explicitCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
+      return Math.max(explicitCount, historyCount);
     }
 
     function getLatestCommentPreview(itemState) {
@@ -3260,9 +3291,10 @@
       return filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
     }
 
-    function createWorkflowChecklistHtml(steps, index) {
+    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount) {
       const workflowLines = [];
       let currentStage = '';
+      const safeCycleCount = Number.isFinite(cycleCompletedCount) ? Number(cycleCompletedCount) : 0;
 
       steps.forEach((step, stepIndex) => {
         const stageMatch = /^\[(\d탄)(?:\/[^\]]+)?\]/.exec(step);
@@ -3285,6 +3317,7 @@
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                   <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
                   <span class="workflow-completed-at-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
+                  <span class="workflow-cheer-badge pending" data-step-cheer-index="${stepIndex}">👏 참 잘했어요!</span>
                   <button type="button" class="workflow-delete-step-btn" data-step-index="${stepIndex}" aria-label="단계 삭제">🗑️</button>
                 </div>
               </li>
@@ -3295,7 +3328,11 @@
         <div class="workflow-section">
           <div class="workflow-header">
             <strong>업무 단계 체크리스트</strong>
-            <span class="workflow-count">총 ${steps.length}단계</span>
+            <div class="workflow-header-tools">
+              <span class="workflow-count">총 ${steps.length}단계</span>
+              <span class="workflow-cycle-count" data-cycle-count-label>총 ${safeCycleCount}회 수행 완료</span>
+              <button type="button" class="workflow-reset-round-btn">🔄 새 회차 시작 / 체크리스트 리셋</button>
+            </div>
           </div>
           <ul class="workflow-list">
             ${workflowLines.join('')}
@@ -3529,7 +3566,7 @@
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
-        const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
+        const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index, getCycleCompletedCount(itemState));
         const historyArchiveHtml = createHistoryArchiveHtml();
         const guidelineEditorText = itemPrinciples.join('\n');
         const editingClass = editingChecklistKeys.has(itemKey) ? ' editing' : '';
@@ -3607,6 +3644,7 @@
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
         const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
+        const stepCheerBadges = Array.from(card.querySelectorAll('[data-step-cheer-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
         const cardTitleElement = card.querySelector('.card-main-title');
         const cardDescriptionElement = card.querySelector('.detail-item-description');
@@ -3624,6 +3662,8 @@
         const manualHistoryInput = card.querySelector('.history-manual-input');
         const manualHistoryDateInput = card.querySelector('.history-manual-date');
         const manualHistorySaveButton = card.querySelector('.history-manual-save-btn');
+        const resetRoundButton = card.querySelector('.workflow-reset-round-btn');
+        const cycleCountLabel = card.querySelector('[data-cycle-count-label]');
         const archiveProjectInput = card.querySelector('.archive-project-input');
         const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
         const [currentGoal, currentIndexText] = itemKey.split('::');
@@ -3632,6 +3672,11 @@
         const currentItem = Array.isArray(currentGoalTemplate.items) && !Number.isNaN(currentItemIndex) ? currentGoalTemplate.items[currentItemIndex] : null;
         const currentPrinciples = currentItem ? getCardGuidelines(plannerState, currentGoal, currentItem, currentGoalTemplate, itemKey) : [];
         const itemState = getItemState(plannerState, itemKey, checkboxes.length, currentPrinciples);
+
+        const updateCycleCountLabel = () => {
+          if (!cycleCountLabel) return;
+          cycleCountLabel.textContent = `총 ${getCycleCompletedCount(itemState)}회 수행 완료`;
+        };
 
         const ensureCustomSteps = () => {
           if (!Array.isArray(itemState.customSteps)) {
@@ -3756,10 +3801,78 @@
         let historyEditIndex = -1;
         const rerenderHistoryArchive = () => {
           renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
+          updateCycleCountLabel();
         };
 
         renderTimeline(journalTimeline, itemState.comments);
         rerenderHistoryArchive();
+
+        if (resetRoundButton) {
+          resetRoundButton.addEventListener('click', () => {
+            const previousCycleCount = getCycleCompletedCount(itemState);
+            const totalSteps = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
+            const completedSteps = Array.isArray(itemState.steps)
+              ? itemState.steps.filter((step) => step && step.checked).length
+              : 0;
+            const roundDate = getLocalDateKey();
+            const nowIso = new Date().toISOString();
+            const noteSummary = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
+            const commentSummary = createCommentSummary(itemState.comments);
+            const mergedCommentSummary = [
+              `완료 항목: ${completedSteps}/${totalSteps}단계`,
+              `코멘트: ${commentSummary}`,
+              noteSummary ? `메모: ${noteSummary}` : ''
+            ].filter(Boolean).join('\n');
+
+            if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+            itemState.historyList.push({
+              projectName: `${roundDate} 회차 수행 완료`,
+              completedAt: nowIso,
+              commentSummary: mergedCommentSummary,
+              completedStepCount: completedSteps,
+              totalStepCount: totalSteps
+            });
+
+            itemState.cycleCompletedCount = previousCycleCount + 1;
+            itemState.activityLog.push(createActivityLogEntry('history-add', {
+              itemKey,
+              goalKey: currentGoal,
+              projectName: `${roundDate} 회차 수행 완료`,
+              completedAt: nowIso
+            }));
+
+            itemState.steps = itemState.steps.map(() => ({
+              checked: false,
+              dueDate: '',
+              completedAt: ''
+            }));
+            itemState.comments = [];
+            itemState.note = '';
+            itemState.seriesDraftName = '';
+            markItemUpdated(itemState);
+
+            checkboxes.forEach((checkbox) => {
+              checkbox.checked = false;
+            });
+            dueDateInputs.forEach((input) => {
+              input.value = '';
+            });
+            if (journalInput) {
+              journalInput.value = '';
+            }
+            if (archiveProjectInput) {
+              archiveProjectInput.value = '';
+            }
+
+            historyEditIndex = -1;
+            rerenderHistoryArchive();
+            renderTimeline(journalTimeline, itemState.comments);
+            savePlannerState(plannerState);
+            updateLatestActivityPanel();
+            journalSaved.classList.add('visible');
+            setTimeout(() => journalSaved.classList.remove('visible'), 1200);
+          });
+        }
 
         if (manualHistorySaveButton) {
           manualHistorySaveButton.addEventListener('click', () => {
@@ -3884,22 +3997,32 @@
           });
         };
 
-        const updateStepExecutionBadges = () => {
+        const updateStepExecutionBadges = (animateStepIndex = -1) => {
           stepCompletedBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
             const info = getStepTimestampBadgeInfo(stepState);
             badge.textContent = info.text;
             badge.className = `workflow-completed-at-badge ${info.cls}`;
           });
+          stepCheerBadges.forEach((badge, idx) => {
+            const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
+            const info = getStepTimestampBadgeInfo(stepState);
+            badge.className = `workflow-cheer-badge ${info.cls}`;
+            if (info.cls === 'done' && idx === animateStepIndex) {
+              badge.classList.remove('pop');
+              void badge.offsetWidth;
+              badge.classList.add('pop');
+            }
+          });
         };
 
-        const updateLatestActivityPanel = (skipPersist = false) => {
+        const updateLatestActivityPanel = (skipPersist = false, animateStepIndex = -1) => {
           itemState.steps = itemState.steps.map((step, idx) => ({
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
             completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
           }));
-          updateStepExecutionBadges();
+          updateStepExecutionBadges(animateStepIndex);
           renderLatestActivityPanel(latestActivityPanel, itemState);
           const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
           if (archiveCompleteButton) {
@@ -3936,6 +4059,7 @@
           archiveCompleteButton.addEventListener('click', () => {
             const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
             if (!isDone) return;
+            const previousCycleCount = getCycleCompletedCount(itemState);
 
             const projectName = archiveProjectInput ? archiveProjectInput.value.trim() : '';
             if (!projectName) {
@@ -3950,6 +4074,7 @@
               completedAt: new Date().toISOString(),
               commentSummary: createCommentSummary(itemState.comments)
             });
+            itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
               itemKey,
               goalKey: currentGoal,
@@ -4000,7 +4125,7 @@
               }
             }
             markItemUpdated(itemState);
-            updateLatestActivityPanel();
+            updateLatestActivityPanel(false, checkbox.checked ? idx : -1);
           });
         });
 
