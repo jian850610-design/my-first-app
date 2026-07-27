@@ -450,7 +450,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -469,6 +469,7 @@
       GoogleAuthProvider,
       onAuthStateChanged,
       signInWithPopup,
+      signInWithRedirect,
       signOut,
       database: firebaseDatabase,
       onValue,
@@ -4184,16 +4185,46 @@
         return;
       }
       const bridge = getFirebaseBridge();
-      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithPopup) {
+      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithPopup || !bridge.signInWithRedirect) {
         window.alert('Firebase 인증 모듈이 아직 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
         return;
       }
       const provider = new bridge.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       try {
         await bridge.signInWithPopup(bridge.auth, provider);
       } catch (error) {
         console.error('Google 로그인 실패', error);
-        window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
+        const errorCode = error && typeof error.code === 'string' ? error.code : 'unknown';
+        const shouldFallbackToRedirect = [
+          'auth/popup-blocked',
+          'auth/popup-closed-by-user',
+          'auth/cancelled-popup-request'
+        ].includes(errorCode);
+
+        if (shouldFallbackToRedirect) {
+          try {
+            await bridge.signInWithRedirect(bridge.auth, provider);
+            return;
+          } catch (redirectError) {
+            console.error('Google 리디렉션 로그인 실패', redirectError);
+            const redirectCode = redirectError && typeof redirectError.code === 'string' ? redirectError.code : 'unknown';
+            window.alert(`Google 로그인에 실패했습니다. 에러 코드: ${redirectCode}`);
+            return;
+          }
+        }
+
+        if (errorCode === 'auth/unauthorized-domain') {
+          window.alert('Firebase Authentication의 Authorized domains에 현재 접속 도메인을 추가해야 합니다.');
+          return;
+        }
+
+        if (errorCode === 'auth/operation-not-allowed') {
+          window.alert('Firebase 콘솔에서 Google 로그인 제공자가 아직 활성화되지 않았습니다.');
+          return;
+        }
+
+        window.alert(`Google 로그인에 실패했습니다. 에러 코드: ${errorCode}`);
       }
     }
 
