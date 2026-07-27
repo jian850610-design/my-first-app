@@ -47,19 +47,13 @@
     .firebase-chip.saving { border-color: rgba(255, 206, 86, 0.42); background: rgba(255, 206, 86, 0.16); }
     .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.45); background: rgba(255, 112, 112, 0.16); }
     .firebase-update-text { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; }
-    .firebase-auth-area { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .firebase-date-field { display: grid; gap: 5px; min-width: 210px; }
     .firebase-date-label { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; letter-spacing: 0.04em; }
     .firebase-date-picker { border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 13px; font-weight: 700; outline: none; }
     .firebase-date-picker:focus { border-color: rgba(255,255,255,0.62); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
-    .firebase-login-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
-    .firebase-login-btn:hover { background: rgba(255,255,255,0.24); }
-    .firebase-user-badge { display: none; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 8px 10px; background: rgba(255,255,255,0.10); }
-    .firebase-user-badge.visible { display: inline-flex; }
-    .firebase-user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.24); background: rgba(255,255,255,0.18); }
-    .firebase-user-meta { display: grid; gap: 2px; min-width: 0; }
-    .firebase-user-name { font-size: 12px; font-weight: 800; color: #ffffff; line-height: 1.2; }
-    .firebase-user-uid { font-size: 10px; color: rgba(255,255,255,0.78); line-height: 1.2; word-break: break-all; }
+    .firebase-mode-chip { border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.94); font-size: 12px; font-weight: 900; line-height: 1; }
+    .firebase-mode-chip.read { border-color: rgba(173, 197, 224, 0.38); background: rgba(173, 197, 224, 0.16); }
+    .firebase-mode-chip.edit { border-color: rgba(255, 219, 132, 0.60); background: rgba(255, 234, 179, 0.96); color: #7a4d00; }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
     .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
     .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
@@ -423,36 +417,28 @@
       .header-tools { width: 100%; }
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-toolbar { align-items: stretch; }
-      .firebase-auth-area { width: 100%; }
     }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
     const FIREBASE_CONFIG = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      databaseURL: "YOUR_DATABASE_URL",
-      projectId: "YOUR_PROJECT_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
+      authDomain: "skf-daily-plan.firebaseapp.com",
+      databaseURL: "https://skf-daily-plan-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "skf-daily-plan",
+      appId: "1:47316487935:web:bdcbc3bb502b29987006ca"
     };
 
     const firebaseApp = initializeApp(FIREBASE_CONFIG);
-    const firebaseAuth = getAuth(firebaseApp);
     const firebaseDatabase = getDatabase(firebaseApp);
-    const googleAuthProvider = new GoogleAuthProvider();
 
     window.__plannerFirebase = {
-      auth: firebaseAuth,
       database: firebaseDatabase,
-      provider: googleAuthProvider,
-      onAuthStateChanged,
       onValue,
       ref,
       set,
-      signInWithPopup,
       getDateRef(dateKey) {
         return ref(firebaseDatabase, `plans/skf-daily/${dateKey}`);
       },
@@ -485,20 +471,13 @@
       <div class="firebase-toolbar">
         <div class="firebase-status-group">
           <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
+          <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
           <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
         </div>
-        <div class="firebase-auth-area">
+        <div class="firebase-date-area">
           <div class="firebase-date-field">
             <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
             <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
-          </div>
-          <button type="button" class="firebase-login-btn" id="firebaseLoginBtn" hidden>Google 로그인</button>
-          <div class="firebase-user-badge" id="firebaseUserBadge">
-            <img class="firebase-user-avatar" id="firebaseUserAvatar" alt="로그인 사용자 프로필" />
-            <div class="firebase-user-meta">
-              <div class="firebase-user-name" id="firebaseUserName">-</div>
-              <div class="firebase-user-uid" id="firebaseUserUid">UID: -</div>
-            </div>
           </div>
         </div>
       </div>
@@ -644,12 +623,8 @@
     const exportDataBtn = document.getElementById('exportDataBtn');
     const plannerDatePicker = document.getElementById('plannerDatePicker');
     const firebaseConnectionChip = document.getElementById('firebaseConnectionChip');
+    const firebaseModeChip = document.getElementById('firebaseModeChip');
     const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
-    const firebaseLoginBtn = document.getElementById('firebaseLoginBtn');
-    const firebaseUserBadge = document.getElementById('firebaseUserBadge');
-    const firebaseUserAvatar = document.getElementById('firebaseUserAvatar');
-    const firebaseUserName = document.getElementById('firebaseUserName');
-    const firebaseUserUid = document.getElementById('firebaseUserUid');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
     const goalCardSummaryTitle = document.getElementById('goalCardSummaryTitle');
@@ -675,6 +650,8 @@
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
     const editingChecklistKeys = new Set();
     const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
+    const EDIT_MODE_LABEL = EDIT_MODE_REQUESTED ? '✏️ 편집 모드' : '👀 읽기 전용 모드';
+    const EDITOR_NAME_LABEL = EDIT_MODE_REQUESTED ? '편집 모드' : '읽기 전용 모드';
     const FIREBASE_STATUS_LABELS = {
       completed: '완료',
       delayed: '지연',
@@ -683,7 +660,6 @@
     const FIREBASE_STATUS_VALUES = new Set(['completed', 'delayed', 'pending']);
     let currentPlannerDateKey = '';
     let currentPlannerState = { items: {}, meta: {} };
-    let currentFirebaseUser = null;
     let firebaseConnectionOnline = false;
     let firebaseSaving = false;
     let firebaseSaveTimer = null;
@@ -758,9 +734,9 @@
         items,
         meta: {
           lastUpdatedAt: metaOverrides.lastUpdatedAt || new Date().toISOString(),
-          updatedByName: metaOverrides.updatedByName || currentFirebaseUser?.displayName || currentFirebaseUser?.email || 'guest',
-          updatedByEmail: metaOverrides.updatedByEmail || currentFirebaseUser?.email || '',
-          updatedByUid: metaOverrides.updatedByUid || currentFirebaseUser?.uid || ''
+          updatedByName: metaOverrides.updatedByName || EDITOR_NAME_LABEL,
+          updatedByEmail: metaOverrides.updatedByEmail || '',
+          updatedByUid: metaOverrides.updatedByUid || ''
         }
       };
     }
@@ -807,7 +783,6 @@
 
     function updateFirebaseConnectionChip() {
       if (!firebaseConnectionChip) return;
-      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
       firebaseConnectionChip.classList.remove('connected', 'saving', 'disconnected');
       if (firebaseSaving) {
         firebaseConnectionChip.classList.add('saving');
@@ -816,11 +791,18 @@
       }
       if (firebaseConnectionOnline) {
         firebaseConnectionChip.classList.add('connected');
-        firebaseConnectionChip.textContent = isEditable ? '🟢 연결됨' : '🟢 연결됨';
+        firebaseConnectionChip.textContent = '🟢 연결됨';
         return;
       }
       firebaseConnectionChip.classList.add('disconnected');
       firebaseConnectionChip.textContent = '🔴 연결 끊김';
+    }
+
+    function updateFirebaseModeChip() {
+      if (!firebaseModeChip) return;
+      firebaseModeChip.textContent = EDIT_MODE_LABEL;
+      firebaseModeChip.classList.toggle('edit', EDIT_MODE_REQUESTED);
+      firebaseModeChip.classList.toggle('read', !EDIT_MODE_REQUESTED);
     }
 
     function updateFirebaseLastUpdatedText(meta = {}) {
@@ -829,7 +811,7 @@
       const updatedByName = meta.updatedByName || firebaseLastUpdatedMeta.updatedByName || '';
       const updatedByEmail = meta.updatedByEmail || firebaseLastUpdatedMeta.updatedByEmail || '';
       const updatedByUid = meta.updatedByUid || firebaseLastUpdatedMeta.updatedByUid || '';
-      const actor = updatedByName || updatedByEmail || updatedByUid || '미지정';
+      const actor = updatedByName || updatedByEmail || updatedByUid || EDITOR_NAME_LABEL;
       firebaseLastUpdatedMeta = {
         lastUpdatedAt: updatedAt,
         updatedByName,
@@ -839,29 +821,8 @@
       firebaseLastUpdatedText.textContent = `최종 수정: ${formatFirebaseHeaderDateTime(updatedAt)} (수정자: ${actor})`;
     }
 
-    function updateFirebaseUserBadge(user) {
-      if (!firebaseUserBadge || !firebaseUserAvatar || !firebaseUserName || !firebaseUserUid) return;
-      if (!EDIT_MODE_REQUESTED || !user) {
-        firebaseUserBadge.classList.remove('visible');
-        firebaseUserAvatar.removeAttribute('src');
-        firebaseUserName.textContent = '-';
-        firebaseUserUid.textContent = 'UID: -';
-        return;
-      }
-      firebaseUserBadge.classList.add('visible');
-      firebaseUserAvatar.src = user.photoURL || '';
-      firebaseUserAvatar.alt = user.displayName ? `${user.displayName} 프로필 이미지` : '로그인 사용자 프로필';
-      firebaseUserName.textContent = user.displayName || user.email || '로그인 사용자';
-      firebaseUserUid.textContent = `UID: ${user.uid || '-'}`;
-    }
-
     function applyEditabilityState() {
-      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
-      if (firebaseLoginBtn) {
-        firebaseLoginBtn.hidden = !EDIT_MODE_REQUESTED;
-        firebaseLoginBtn.disabled = Boolean(currentFirebaseUser);
-        firebaseLoginBtn.textContent = currentFirebaseUser ? '로그인 완료' : 'Google 로그인';
-      }
+      const isEditable = EDIT_MODE_REQUESTED;
       if (plannerDatePicker) {
         plannerDatePicker.disabled = false;
       }
@@ -896,14 +857,14 @@
     }
 
     async function flushFirebaseSnapshot(reason = '') {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
       if (!bridge) return;
       const snapshot = buildFirebaseSnapshot(currentPlannerState, {
         lastUpdatedAt: new Date().toISOString(),
-        updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || 'guest',
-        updatedByEmail: currentFirebaseUser.email || '',
-        updatedByUid: currentFirebaseUser.uid || ''
+        updatedByName: EDITOR_NAME_LABEL,
+        updatedByEmail: '',
+        updatedByUid: ''
       });
       firebaseSaving = true;
       updateFirebaseConnectionChip();
@@ -922,7 +883,7 @@
     }
 
     function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -1158,9 +1119,9 @@
       const normalizedState = normalizePlannerState(state);
       normalizedState.meta = {
         lastUpdatedAt: new Date().toISOString(),
-        updatedByName: currentFirebaseUser?.displayName || currentFirebaseUser?.email || 'local',
-        updatedByEmail: currentFirebaseUser?.email || '',
-        updatedByUid: currentFirebaseUser?.uid || ''
+        updatedByName: EDITOR_NAME_LABEL,
+        updatedByEmail: '',
+        updatedByUid: ''
       };
       currentPlannerState = normalizedState;
       persistPlannerStateToLocalStorage(normalizedState);
@@ -4110,39 +4071,19 @@
       attachFirebaseDateListener(nextDateKey);
     }
 
-    async function handleFirebaseLogin() {
-      const bridge = getFirebaseBridge();
-      if (!bridge) return;
-      try {
-        await bridge.signInWithPopup(bridge.auth, bridge.provider);
-      } catch (error) {
-        window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
-      }
-    }
-
     function initializeFirebaseIntegration() {
       const bridge = getFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
       if (!bridge) {
         updateFirebaseConnectionChip();
+        updateFirebaseModeChip();
         return;
       }
 
       attachFirebaseConnectionListener();
       attachFirebaseDateListener(currentPlannerDateKey);
 
-      if (EDIT_MODE_REQUESTED && firebaseLoginBtn) {
-        firebaseLoginBtn.hidden = false;
-        firebaseLoginBtn.addEventListener('click', handleFirebaseLogin);
-      }
-
-      bridge.onAuthStateChanged(bridge.auth, (user) => {
-        currentFirebaseUser = user || null;
-        updateFirebaseUserBadge(currentFirebaseUser);
-        applyEditabilityState();
-        updateFirebaseConnectionChip();
-      });
-
+      updateFirebaseModeChip();
       applyEditabilityState();
     }
 
