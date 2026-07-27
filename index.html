@@ -139,17 +139,46 @@
 
     .today-activity-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
     .today-activity-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .today-activity-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
     .today-activity-date { font-size: 12px; font-weight: 800; color: #5a748f; background: #eef5ff; border: 1px solid #d8e6f5; border-radius: 999px; padding: 6px 10px; }
+    .today-activity-clear-btn { display: none; border: 1px solid #d9a8a8; border-radius: 10px; background: #fff7f7; color: #9a3737; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
+    .today-activity-clear-btn:hover { background: #ffecec; }
     .today-activity-meta { font-size: 12px; color: #688099; }
     .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
     .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
+    .today-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
     .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 16px; background: #ffffff; padding: 12px 14px; display: grid; gap: 6px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
     .today-activity-item:hover { transform: translateY(-1px); border-color: #9cc3e5; box-shadow: 0 10px 22px rgba(19, 73, 122, 0.12); }
+    .today-activity-delete-btn { display: none; border: 1px solid #efc6c6; border-radius: 12px; background: #fff6f6; color: #af4545; padding: 0 11px; min-width: 44px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .today-activity-delete-btn.visible { display: inline-flex; align-items: center; justify-content: center; }
+    .today-activity-delete-btn:hover { background: #ffecec; }
     .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; background: #eef5ff; color: #24547f; }
     .today-activity-item-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.45; }
     .today-activity-item-detail { font-size: 12px; color: #4e657f; line-height: 1.6; white-space: pre-wrap; }
     .today-activity-item-meta { font-size: 11px; color: #70859c; }
+
+    .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
+    .team-overview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .team-overview-title { font-size: 16px; font-weight: 800; color: #183b5f; }
+    .team-overview-subtitle { font-size: 12px; color: #66819b; margin-top: 4px; }
+    .team-overview-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .team-overview-filter { height: 34px; border: 1px solid #c9d9ea; border-radius: 10px; background: #ffffff; color: #244a70; padding: 0 10px; font-size: 12px; font-weight: 700; }
+    .team-overview-toggle-btn { height: 34px; border: 1px solid #95b8db; border-radius: 10px; background: #f3f8ff; color: #1f507a; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .team-overview-toggle-btn:hover { background: #e7f1ff; }
+    .team-overview-body { display: block; }
+    .team-overview-section.collapsed .team-overview-body { display: none; }
+    .team-overview-table-wrap { width: 100%; overflow: auto; border: 1px solid #d8e5f1; border-radius: 12px; background: #ffffff; }
+    .team-overview-table { width: 100%; border-collapse: collapse; min-width: 1060px; }
+    .team-overview-table th,
+    .team-overview-table td { border: 1px solid #dbe7f3; padding: 8px 9px; font-size: 12px; color: #23425f; vertical-align: top; line-height: 1.45; }
+    .team-overview-table th { background: #edf4fc; color: #21486f; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+    .team-overview-table td { background: #ffffff; }
+    .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
+    .team-overview-cell-title { font-weight: 800; color: #1d456d; }
+    .team-overview-cell-muted { color: #6a7f95; }
+    .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
     .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 22px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
@@ -206,6 +235,7 @@
     .workflow-count { font-size: 12px; color: #6b7f95; }
     .workflow-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .workflow-cycle-count { border-radius: 999px; padding: 4px 9px; background: #eaf2fb; color: #2f5377; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .workflow-sticker-total { border-radius: 999px; padding: 4px 9px; background: #fff4d8; color: #8b5a00; font-size: 11px; font-weight: 800; white-space: nowrap; }
     .workflow-reset-round-btn { border: 1px solid #8eb6dd; border-radius: 9px; background: #f1f8ff; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
     .workflow-reset-round-btn:hover { background: #e5f1ff; }
     .workflow-reset-round-btn:active { transform: translateY(1px); }
@@ -534,7 +564,7 @@
           </div>
         </div>
       </section>
-      <div class="dashboard-search-section">
+      <div class="dashboard-search-section" id="searchSection">
         <label class="dashboard-search-label" for="dashboardSearchInput">🔍 실무 업무 검색: 예) 캘린더, 텀블러, 박람회</label>
         <input class="dashboard-search-input" id="dashboardSearchInput" type="search" placeholder="캘린더, 볼펜, VIP, 박람회, VOC 등으로 검색" />
         <div class="dashboard-search-help">검색어가 포함된 세부 업무를 가진 만다라트 카드가 즉시 강조됩니다.</div>
@@ -542,13 +572,53 @@
     </section>
 
     <section class="view" id="dashboardView">
-      <section class="today-activity-section">
+      <section class="team-overview-section" id="teamOverviewSection">
+        <div class="team-overview-header">
+          <div>
+            <div class="team-overview-title">📊 팀 업무 종합 현황표</div>
+            <div class="team-overview-subtitle">만다라트 카드와 체크리스트/코멘트 데이터를 실시간으로 집계합니다.</div>
+          </div>
+          <div class="team-overview-tools">
+            <select class="team-overview-filter" id="teamAssigneeFilter" aria-label="담당자 필터">
+              <option value="all">전체</option>
+              <option value="Jian">Jian</option>
+              <option value="Jay">Jay</option>
+              <option value="CHCho">CHCho</option>
+            </select>
+            <button type="button" class="team-overview-toggle-btn" id="teamOverviewToggleBtn">표 접기</button>
+          </div>
+        </div>
+        <div class="team-overview-body" id="teamOverviewBody">
+          <div class="team-overview-table-wrap">
+            <table class="team-overview-table" aria-label="팀 업무 종합 현황표">
+              <thead>
+                <tr>
+                  <th>마감일</th>
+                  <th>대분류</th>
+                  <th>AGENDA(업무명)</th>
+                  <th>ACTION PLAN(To-Do)</th>
+                  <th>담당자</th>
+                  <th>진행 상황(최신 코멘트 및 체크 현황)</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody id="teamOverviewTableBody"></tbody>
+            </table>
+          </div>
+          <div class="team-overview-empty" id="teamOverviewEmpty" hidden>현재 필터 조건에 맞는 업무가 없습니다.</div>
+        </div>
+      </section>
+
+      <section class="today-activity-section" id="timelineSection">
         <div class="today-activity-header">
           <div>
             <div class="today-activity-title">📝 오늘의 업무 수행 &amp; 히스토리 타임라인</div>
             <div class="today-activity-meta">오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.</div>
           </div>
-          <div class="today-activity-date" id="todayActivityDate">오늘</div>
+          <div class="today-activity-header-tools">
+            <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
+            <div class="today-activity-date" id="todayActivityDate">오늘</div>
+          </div>
         </div>
         <ul class="today-activity-list" id="todayActivityList"></ul>
         <div class="today-activity-empty" id="todayActivityEmpty">🎉 오늘 새로 등록된 업무 코멘트나 활동 내역이 없습니다.</div>
@@ -659,6 +729,7 @@
     const todayActivityDate = document.getElementById('todayActivityDate');
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
+    const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
     const goalSelect = document.getElementById('goalSelect');
@@ -689,6 +760,11 @@
     const newsWidgetMeta = document.getElementById('newsWidgetMeta');
     const newsWidgetList = document.getElementById('newsWidgetList');
     const newsWidgetLoading = document.getElementById('newsWidgetLoading');
+    const teamOverviewSection = document.getElementById('teamOverviewSection');
+    const teamOverviewToggleBtn = document.getElementById('teamOverviewToggleBtn');
+    const teamAssigneeFilter = document.getElementById('teamAssigneeFilter');
+    const teamOverviewTableBody = document.getElementById('teamOverviewTableBody');
+    const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -717,6 +793,7 @@
     let firebaseLastUpdatedMeta = { lastUpdatedAt: '', updatedByName: '', updatedByEmail: '', updatedByUid: '' };
     let firebaseBridgeReady = false;
     let noteDebounceTimers = new Map();
+    let teamOverviewCollapsed = false;
 
     function getLocalDateKey(date = new Date()) {
       const year = date.getFullYear();
@@ -793,6 +870,8 @@
             comments: Array.isArray(itemState.comments) ? itemState.comments : [],
             historyList: Array.isArray(itemState.historyList) ? itemState.historyList : [],
             cycleCompletedCount: Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0,
+            totalCycles: Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0),
+            totalStickers: Number.isFinite(itemState.totalStickers) ? Number(itemState.totalStickers) : 0,
             seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
             customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
@@ -839,6 +918,12 @@
           itemState.cycleCompletedCount = Number.isFinite(remoteItem?.cycleCompletedCount)
             ? Number(remoteItem.cycleCompletedCount)
             : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0);
+          itemState.totalCycles = Number.isFinite(remoteItem?.totalCycles)
+            ? Number(remoteItem.totalCycles)
+            : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : (Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0));
+          itemState.totalStickers = Number.isFinite(remoteItem?.totalStickers)
+            ? Number(remoteItem.totalStickers)
+            : (Number.isFinite(itemState.totalStickers) ? Number(itemState.totalStickers) : 0);
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
           itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
@@ -1055,6 +1140,32 @@
       };
     }
 
+    function upsertChecklistActivityLog(itemState, payload = {}) {
+      if (!itemState || typeof itemState !== 'object') return;
+      if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
+      const todayKey = getLocalDateKey();
+      const stepIndex = Number.isInteger(payload.stepIndex) ? payload.stepIndex : -1;
+      const targetIndex = itemState.activityLog.findIndex((entry) => {
+        if (!entry || entry.type !== 'checklist-complete') return false;
+        if (entry.itemKey !== payload.itemKey) return false;
+        if (entry.goalKey !== payload.goalKey) return false;
+        if (!Number.isInteger(entry.stepIndex) || entry.stepIndex !== stepIndex) return false;
+        if (typeof entry.timestamp !== 'string') return false;
+        return getLocalDateKey(new Date(entry.timestamp)) === todayKey;
+      });
+
+      if (targetIndex >= 0) {
+        itemState.activityLog[targetIndex] = {
+          ...itemState.activityLog[targetIndex],
+          timestamp: new Date().toISOString(),
+          stepText: payload.stepText || ''
+        };
+        return;
+      }
+
+      itemState.activityLog.push(createActivityLogEntry('checklist-complete', payload));
+    }
+
     function getCardActivityTitle(state, itemKey) {
       const [goalKey, indexText] = itemKey.split('::');
       const goalTemplate = goalTemplates[goalKey];
@@ -1062,6 +1173,139 @@
       const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
       if (!item) return itemKey;
       return getCardTitleText(state && state.items ? state.items[itemKey] : null, item);
+    }
+
+    function parseAssigneeFromText(text) {
+      if (typeof text !== 'string' || !text.trim()) return '-';
+      const assigneeMatch = text.match(/담당(?:자)?\s*[:：]\s*([A-Za-z][A-Za-z0-9\-_/]*)/i);
+      if (assigneeMatch && assigneeMatch[1]) return assigneeMatch[1];
+      const known = ['Jian', 'Jay', 'CHCho'];
+      const found = known.find((name) => new RegExp(`\\b${name}\\b`, 'i').test(text));
+      return found || '-';
+    }
+
+    function getNearestDueDateText(steps) {
+      if (!Array.isArray(steps)) return '';
+      const dueDates = steps
+        .map((step) => (step && typeof step.dueDate === 'string' ? step.dueDate : ''))
+        .filter(Boolean)
+        .sort((left, right) => left.localeCompare(right));
+      return dueDates.length ? dueDates[0] : '';
+    }
+
+    function isDueSoon(dueDateText) {
+      const dueDate = toDateAtMidnight(dueDateText);
+      if (!dueDate) return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = getDateDiffInDays(today, dueDate);
+      return diff <= 7;
+    }
+
+    function hasTodayCommentUpdate(itemState) {
+      const todayKey = getLocalDateKey();
+      return Array.isArray(itemState && itemState.comments)
+        && itemState.comments.some((comment) => {
+          const ts = comment && (comment.updatedAt || comment.timestamp);
+          return Boolean(ts) && getLocalDateKey(new Date(ts)) === todayKey;
+        });
+    }
+
+    function buildTeamOverviewRows(state) {
+      const rows = [];
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        const items = Array.isArray(goalTemplate && goalTemplate.items) ? goalTemplate.items : [];
+        items.forEach((item, index) => {
+          const itemKey = `${goalKey}::${index}`;
+          const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
+          const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
+          const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
+          const title = getCardTitleText(itemState, item);
+          const agenda = getCardSummaryText(itemState, item);
+          const actionPlan = checklistSteps.length
+            ? checklistSteps.slice(0, 2).join(' / ')
+            : '-';
+          const assignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
+          const dueDateText = getNearestDueDateText(itemState.steps);
+          const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
+          const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
+          const latestCommentText = getLatestCommentPreview(itemState);
+          const latestDoneAt = Array.isArray(itemState.steps)
+            ? itemState.steps
+                .map((step) => (step && typeof step.completedAt === 'string' ? step.completedAt : ''))
+                .filter(Boolean)
+                .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
+            : '';
+          const progressText = `체크 ${doneCount}/${totalCount} · 최근 코멘트: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
+          const noteText = itemState && typeof itemState.note === 'string' && itemState.note.trim() ? itemState.note.trim() : '-';
+          const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
+
+          rows.push({
+            itemKey,
+            dueDateText: dueDateText || '-',
+            category: goalTemplate.label,
+            agenda: title,
+            actionPlan,
+            assignee,
+            progressText,
+            noteText,
+            highlight,
+            dueSort: dueDateText || '9999-12-31'
+          });
+        });
+      });
+
+      return rows.sort((left, right) => {
+        if (left.dueSort !== right.dueSort) return left.dueSort.localeCompare(right.dueSort);
+        if (left.category !== right.category) return left.category.localeCompare(right.category);
+        return left.agenda.localeCompare(right.agenda);
+      });
+    }
+
+    function renderTeamOverviewTable(state) {
+      if (!teamOverviewTableBody || !teamOverviewEmpty) return;
+      const rows = buildTeamOverviewRows(state || loadPlannerState());
+
+      const assigneeValues = Array.from(new Set(rows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
+      const fixedOptions = ['전체', 'Jian', 'Jay', 'CHCho'];
+      const currentValue = teamAssigneeFilter ? teamAssigneeFilter.value : 'all';
+      if (teamAssigneeFilter) {
+        const dynamicOptions = assigneeValues.filter((name) => !fixedOptions.includes(name));
+        teamAssigneeFilter.innerHTML = [
+          '<option value="all">전체</option>',
+          '<option value="Jian">Jian</option>',
+          '<option value="Jay">Jay</option>',
+          '<option value="CHCho">CHCho</option>',
+          ...dynamicOptions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        ].join('');
+        if (Array.from(teamAssigneeFilter.options).some((option) => option.value === currentValue)) {
+          teamAssigneeFilter.value = currentValue;
+        }
+      }
+
+      const selectedAssignee = teamAssigneeFilter ? teamAssigneeFilter.value : 'all';
+      const filteredRows = selectedAssignee === 'all'
+        ? rows
+        : rows.filter((row) => row.assignee === selectedAssignee);
+
+      if (!filteredRows.length) {
+        teamOverviewTableBody.innerHTML = '';
+        teamOverviewEmpty.hidden = false;
+        return;
+      }
+
+      teamOverviewEmpty.hidden = true;
+      teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
+        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''}">
+          <td>${escapeHtml(row.dueDateText)}</td>
+          <td>${escapeHtml(row.category)}</td>
+          <td><div class="team-overview-cell-title">${escapeHtml(row.agenda)}</div></td>
+          <td>${escapeHtml(row.actionPlan)}</td>
+          <td>${escapeHtml(row.assignee)}</td>
+          <td>${escapeHtml(row.progressText)}</td>
+          <td class="team-overview-cell-muted">${escapeHtml(row.noteText)}</td>
+        </tr>
+      `).join('');
     }
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
@@ -1274,6 +1518,10 @@
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
         itemState.cycleCompletedCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
+        itemState.totalCycles = Number.isFinite(itemState.totalCycles)
+          ? Number(itemState.totalCycles)
+          : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0);
+        itemState.totalStickers = Number.isFinite(itemState.totalStickers) ? Number(itemState.totalStickers) : 0;
       });
       return {
         items,
@@ -1339,6 +1587,8 @@
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
           cycleCompletedCount: 0,
+          totalCycles: 0,
+          totalStickers: 0,
           activityLog: [],
           seriesDraftName: '',
           lastUpdatedAt: '',
@@ -1462,6 +1712,8 @@
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (!Number.isFinite(itemState.cycleCompletedCount)) itemState.cycleCompletedCount = 0;
+      if (!Number.isFinite(itemState.totalCycles)) itemState.totalCycles = itemState.cycleCompletedCount;
+      if (!Number.isFinite(itemState.totalStickers)) itemState.totalStickers = 0;
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
       if (typeof itemState.isLeaderRequested !== 'boolean') itemState.isLeaderRequested = false;
@@ -1591,8 +1843,35 @@
     function getCycleCompletedCount(itemState) {
       if (!itemState || typeof itemState !== 'object') return 0;
       const historyCount = Array.isArray(itemState.historyList) ? itemState.historyList.length : 0;
+      const totalCycles = Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0;
       const explicitCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
-      return Math.max(explicitCount, historyCount);
+      return Math.max(totalCycles, explicitCount, historyCount);
+    }
+
+    function getTotalStickerCount(itemState) {
+      if (!itemState || typeof itemState !== 'object') return 0;
+      return Number.isFinite(itemState.totalStickers) ? Number(itemState.totalStickers) : 0;
+    }
+
+    async function archiveRoundHistoryToFirebase(archiveData) {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.set !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      const selectedDate = currentPlannerDateKey || getLocalDateKey();
+      const archiveId = `${selectedDate}_${Date.now()}`;
+      const path = `plans/skf-daily/history/${archiveId}`;
+      try {
+        await bridge.set(bridge.ref(bridge.db, path), {
+          ...archiveData,
+          selectedDate,
+          archiveId,
+          savedAt: new Date().toISOString()
+        });
+        return { ok: true, archiveId, path };
+      } catch (error) {
+        return { ok: false, reason: 'firebase-write-failed' };
+      }
     }
 
     function getLatestCommentPreview(itemState) {
@@ -1731,7 +2010,7 @@
 
         const cardTitle = getCardActivityTitle(state, itemKey);
 
-        (itemState.comments || []).forEach((comment) => {
+        (itemState.comments || []).forEach((comment, commentIndex) => {
           const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
           if (!rawTimestamp || getLocalDateKey(new Date(rawTimestamp)) !== todayKey) return;
           entries.push({
@@ -1743,11 +2022,13 @@
             title: cardTitle,
             timeText: formatEntryDateTime(rawTimestamp),
             detail: comment.text || '',
-            stepIndex: -1
+            stepIndex: -1,
+            sourceType: 'comment',
+            sourceIndex: commentIndex
           });
         });
 
-        (itemState.activityLog || []).forEach((logEntry) => {
+        (itemState.activityLog || []).forEach((logEntry, logIndex) => {
           if (!logEntry || typeof logEntry.timestamp !== 'string') return;
           if (getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey) return;
 
@@ -1761,7 +2042,9 @@
               title: cardTitle,
               timeText: formatEntryDateTime(logEntry.timestamp),
               detail: logEntry.stepText ? `완료 단계: ${logEntry.stepText}` : '체크리스트 항목 완료',
-              stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1
+              stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1,
+              sourceType: 'activity',
+              sourceIndex: logIndex
             });
           }
 
@@ -1775,7 +2058,9 @@
               title: cardTitle,
               timeText: formatEntryDateTime(logEntry.timestamp),
               detail: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 아카이브 등록',
-              stepIndex: -1
+              stepIndex: -1,
+              sourceType: 'activity',
+              sourceIndex: logIndex
             });
           }
         });
@@ -1789,6 +2074,10 @@
         todayActivityDate.textContent = `${getLocalDateKey()} Today`;
       }
       if (!todayActivityList || !todayActivityEmpty) return;
+      const canManageTimeline = EDIT_MODE_REQUESTED;
+      if (todayTimelineClearBtn) {
+        todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
+      }
 
       const entries = collectTodayActivityEntries(state);
       if (!entries.length) {
@@ -1804,14 +2093,26 @@
             ? '체크리스트 완료'
             : '히스토리 추가';
         const focusStep = Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex : '';
+        const canDeleteRow = canManageTimeline && (entry.sourceType === 'comment' || entry.sourceType === 'activity') && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0;
         return `
           <li>
-            <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
-              <span class="today-activity-item-type">${typeLabel}</span>
-              <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
-              <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
-              <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
-            </button>
+            <div class="today-activity-row">
+              <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
+                <span class="today-activity-item-type">${typeLabel}</span>
+                <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
+                <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
+                <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
+              </button>
+              <button
+                type="button"
+                class="today-activity-delete-btn${canDeleteRow ? ' visible' : ''}"
+                data-timeline-action="delete"
+                data-source-type="${escapeHtml(entry.sourceType || '')}"
+                data-source-index="${Number.isInteger(entry.sourceIndex) ? entry.sourceIndex : -1}"
+                data-key="${escapeHtml(entry.itemKey)}"
+                aria-label="타임라인 항목 삭제"
+              >🗑️</button>
+            </div>
           </li>
         `;
       }).join('');
@@ -1821,7 +2122,7 @@
     function createHistoryArchiveHtml() {
       return `
         <details class="history-archive-section">
-          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리 / 공유 히스토리 <span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></span></summary>
+          <summary class="history-archive-toggle"><span class="history-archive-title">📜 지난 수행 히스토리 보기 <span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></span></summary>
           <div class="history-archive-body">
             <div class="history-manual-row">
               <input type="text" class="history-manual-input" maxlength="140" placeholder="프로젝트/내용 입력" />
@@ -2016,6 +2317,7 @@
       renderUrgentDeadlineWidget(state);
       renderLeaderRequestSummary(state);
       renderTodayActivityWidget(state);
+      renderTeamOverviewTable(state);
       renderMandalartBoard(state);
     }
 
@@ -3291,10 +3593,11 @@
       return filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
     }
 
-    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount) {
+    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, totalStickerCount) {
       const workflowLines = [];
       let currentStage = '';
       const safeCycleCount = Number.isFinite(cycleCompletedCount) ? Number(cycleCompletedCount) : 0;
+      const safeStickerCount = Number.isFinite(totalStickerCount) ? Number(totalStickerCount) : 0;
 
       steps.forEach((step, stepIndex) => {
         const stageMatch = /^\[(\d탄)(?:\/[^\]]+)?\]/.exec(step);
@@ -3331,9 +3634,16 @@
             <div class="workflow-header-tools">
               <span class="workflow-count">총 ${steps.length}단계</span>
               <span class="workflow-cycle-count" data-cycle-count-label>총 ${safeCycleCount}회 수행 완료</span>
-              <button type="button" class="workflow-reset-round-btn">🔄 새 회차 시작 / 체크리스트 리셋</button>
+              <span class="workflow-sticker-total" data-total-sticker-count-label>누적 스티커 ${safeStickerCount}개</span>
+              <button type="button" class="workflow-reset-round-btn">🔄 정기 체크리스트 재설정</button>
             </div>
           </div>
+                  const workflowHtml = createWorkflowChecklistHtml(
+                    checklistSteps,
+                    index,
+                    getCycleCompletedCount(itemState),
+                    getTotalStickerCount(itemState)
+                  );
           <ul class="workflow-list">
             ${workflowLines.join('')}
           </ul>
@@ -3410,8 +3720,8 @@
 
     function getNewsQueryConfigForGoal(goalKey) {
       const defaultConfig = {
-        query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (예지보전 OR 스마트팩토리)',
-        displayKeywords: '셰플러, NSK, 팀켄, 베어링, 예지보전, 스마트팩토리'
+        query: '(셰플러 OR NSK OR 베어링 OR 예지보전 OR 스마트팩토리)',
+        displayKeywords: '셰플러, NSK, 베어링, 예지보전, 스마트팩토리'
       };
       const configMap = {
         'global-sns': defaultConfig,
@@ -3459,7 +3769,7 @@
       }
 
       const newsQueryConfig = getNewsQueryConfigForGoal(goalKey);
-      const query = newsQueryConfig.query;
+      const query = `${newsQueryConfig.query} when:1m`;
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
       const requestId = ++newsRequestSerial;
@@ -3467,7 +3777,7 @@
 
       newsWidget.hidden = false;
       newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${newsQueryConfig.displayKeywords}`;
+      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${newsQueryConfig.displayKeywords} · 수집 범위: 최근 1개월 이내 B2B/경쟁사 뉴스`;
 
       const renderItems = (items) => {
         const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
@@ -3664,6 +3974,7 @@
         const manualHistorySaveButton = card.querySelector('.history-manual-save-btn');
         const resetRoundButton = card.querySelector('.workflow-reset-round-btn');
         const cycleCountLabel = card.querySelector('[data-cycle-count-label]');
+        const totalStickerCountLabel = card.querySelector('[data-total-sticker-count-label]');
         const archiveProjectInput = card.querySelector('.archive-project-input');
         const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
         const [currentGoal, currentIndexText] = itemKey.split('::');
@@ -3676,6 +3987,11 @@
         const updateCycleCountLabel = () => {
           if (!cycleCountLabel) return;
           cycleCountLabel.textContent = `총 ${getCycleCompletedCount(itemState)}회 수행 완료`;
+        };
+
+        const updateTotalStickerCountLabel = () => {
+          if (!totalStickerCountLabel) return;
+          totalStickerCountLabel.textContent = `누적 스티커 ${getTotalStickerCount(itemState)}개`;
         };
 
         const ensureCustomSteps = () => {
@@ -3802,27 +4118,71 @@
         const rerenderHistoryArchive = () => {
           renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
           updateCycleCountLabel();
+          updateTotalStickerCountLabel();
         };
 
         renderTimeline(journalTimeline, itemState.comments);
         rerenderHistoryArchive();
 
         if (resetRoundButton) {
-          resetRoundButton.addEventListener('click', () => {
+          resetRoundButton.addEventListener('click', async () => {
             const previousCycleCount = getCycleCompletedCount(itemState);
+            const previousStickerCount = getTotalStickerCount(itemState);
             const totalSteps = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
-            const completedSteps = Array.isArray(itemState.steps)
-              ? itemState.steps.filter((step) => step && step.checked).length
-              : 0;
-            const roundDate = getLocalDateKey();
+            const completedStepEntries = Array.isArray(itemState.steps)
+              ? itemState.steps
+                  .map((step, idx) => ({
+                    stepIndex: idx,
+                    checked: Boolean(step && step.checked),
+                    completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+                    stepText: stepTextInputs[idx] ? (stepTextInputs[idx].value || '') : ''
+                  }))
+                  .filter((step) => step.checked)
+              : [];
+            const completedSteps = completedStepEntries.length;
+            const stickerCount = completedSteps;
+            const roundDate = currentPlannerDateKey || getLocalDateKey();
             const nowIso = new Date().toISOString();
             const noteSummary = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
             const commentSummary = createCommentSummary(itemState.comments);
+            const commentEntries = Array.isArray(itemState.comments)
+              ? itemState.comments.map((entry) => ({
+                  timestamp: entry && typeof entry.timestamp === 'string' ? entry.timestamp : '',
+                  updatedAt: entry && typeof entry.updatedAt === 'string' ? entry.updatedAt : '',
+                  text: entry && typeof entry.text === 'string' ? entry.text : ''
+                }))
+              : [];
             const mergedCommentSummary = [
               `완료 항목: ${completedSteps}/${totalSteps}단계`,
+              `스티커 획득: ${stickerCount}개`,
               `코멘트: ${commentSummary}`,
               noteSummary ? `메모: ${noteSummary}` : ''
             ].filter(Boolean).join('\n');
+
+            const archivePayload = {
+              source: 'checklist-reset-round',
+              goalKey: currentGoal,
+              itemKey,
+              selectedDate: currentPlannerDateKey || roundDate,
+              roundLabel: `${roundDate} 회차 수행 완료`,
+              cardTitle: getCardTitleText(itemState, currentItem || { title: '' }),
+              stickerCount,
+              completedStepCount: completedSteps,
+              totalStepCount: totalSteps,
+              completedSteps: completedStepEntries,
+              commentSummary,
+              comments: commentEntries,
+              note: noteSummary,
+              triggeredByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : '',
+              triggeredByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+              createdAt: nowIso
+            };
+
+            const archiveResult = await archiveRoundHistoryToFirebase(archivePayload);
+            if (!archiveResult.ok) {
+              window.alert('Firebase 히스토리 아카이브 저장에 실패했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.');
+              return;
+            }
 
             if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
             itemState.historyList.push({
@@ -3830,10 +4190,17 @@
               completedAt: nowIso,
               commentSummary: mergedCommentSummary,
               completedStepCount: completedSteps,
-              totalStepCount: totalSteps
+              totalStepCount: totalSteps,
+              stickerCount,
+              completedSteps: completedStepEntries,
+              comments: commentEntries,
+              firebaseArchivePath: archiveResult.path,
+              firebaseArchiveId: archiveResult.archiveId
             });
 
             itemState.cycleCompletedCount = previousCycleCount + 1;
+            itemState.totalCycles = previousCycleCount + 1;
+            itemState.totalStickers = previousStickerCount + stickerCount;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
               itemKey,
               goalKey: currentGoal,
@@ -4060,6 +4427,7 @@
             const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
             if (!isDone) return;
             const previousCycleCount = getCycleCompletedCount(itemState);
+            const previousStickerCount = getTotalStickerCount(itemState);
 
             const projectName = archiveProjectInput ? archiveProjectInput.value.trim() : '';
             if (!projectName) {
@@ -4075,6 +4443,8 @@
               commentSummary: createCommentSummary(itemState.comments)
             });
             itemState.cycleCompletedCount = previousCycleCount + 1;
+            itemState.totalCycles = previousCycleCount + 1;
+            itemState.totalStickers = previousStickerCount + checkboxes.length;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
               itemKey,
               goalKey: currentGoal,
@@ -4116,12 +4486,12 @@
               itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
               if (checkbox.checked) {
                 const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
-                itemState.activityLog.push(createActivityLogEntry('checklist-complete', {
+                upsertChecklistActivityLog(itemState, {
                   itemKey,
                   goalKey: currentGoal,
                   stepIndex: idx,
                   stepText
-                }));
+                });
               }
             }
             markItemUpdated(itemState);
@@ -4395,6 +4765,20 @@
     }
 
     function initializeGoalSelect() {
+      if (teamOverviewToggleBtn && teamOverviewSection) {
+        teamOverviewToggleBtn.addEventListener('click', () => {
+          teamOverviewCollapsed = !teamOverviewCollapsed;
+          teamOverviewSection.classList.toggle('collapsed', teamOverviewCollapsed);
+          teamOverviewToggleBtn.textContent = teamOverviewCollapsed ? '표 펼치기' : '표 접기';
+        });
+      }
+
+      if (teamAssigneeFilter) {
+        teamAssigneeFilter.addEventListener('change', () => {
+          renderTeamOverviewTable(loadPlannerState());
+        });
+      }
+
       populateGoalOptions();
       populateQuickGoalOptions();
       goalSelect.addEventListener('change', () => openGoalDetail(goalSelect.value));
@@ -4473,6 +4857,44 @@
 
       if (todayActivityList) {
         todayActivityList.addEventListener('click', (event) => {
+          const deleteButton = event.target.closest('[data-timeline-action="delete"]');
+          if (deleteButton) {
+            if (!EDIT_MODE_REQUESTED || !currentFirebaseUser) {
+              window.alert('편집 모드 로그인 상태에서만 타임라인 항목을 삭제할 수 있습니다.');
+              return;
+            }
+
+            const itemKey = deleteButton.dataset.key || '';
+            const sourceType = deleteButton.dataset.sourceType || '';
+            const sourceIndex = Number(deleteButton.dataset.sourceIndex);
+            const plannerState = loadPlannerState();
+            const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
+            if (!itemState || !sourceType || Number.isNaN(sourceIndex) || sourceIndex < 0) return;
+
+            const confirmed = window.confirm('이 타임라인 기록을 삭제하시겠습니까?');
+            if (!confirmed) return;
+
+            let changed = false;
+            if (sourceType === 'comment' && Array.isArray(itemState.comments) && itemState.comments[sourceIndex]) {
+              itemState.comments.splice(sourceIndex, 1);
+              changed = true;
+            }
+            if (sourceType === 'activity' && Array.isArray(itemState.activityLog) && itemState.activityLog[sourceIndex]) {
+              itemState.activityLog.splice(sourceIndex, 1);
+              changed = true;
+            }
+            if (!changed) return;
+
+            markItemUpdated(itemState);
+            savePlannerState(plannerState);
+            syncOverviewWidgets(plannerState);
+            if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+              renderGoalSummaryWidget(currentGoalKey, plannerState);
+              updateStats();
+            }
+            return;
+          }
+
           const item = event.target.closest('.today-activity-item');
           if (!item) return;
 
@@ -4483,6 +4905,63 @@
           const stepIndexText = item.dataset.stepIndex || '-1';
           const stepIndex = Number(stepIndexText);
           openGoalDetail(goalKey, key, Number.isNaN(stepIndex) ? -1 : stepIndex);
+        });
+      }
+
+      if (todayTimelineClearBtn) {
+        todayTimelineClearBtn.addEventListener('click', () => {
+          if (!EDIT_MODE_REQUESTED || !currentFirebaseUser) {
+            window.alert('편집 모드 로그인 상태에서만 초기화할 수 있습니다.');
+            return;
+          }
+
+          const confirmed = window.confirm('오늘 타임라인 기록을 모두 삭제하시겠습니까? (오늘 코멘트/활동 로그가 삭제됩니다)');
+          if (!confirmed) return;
+
+          const todayKey = getLocalDateKey();
+          const plannerState = loadPlannerState();
+          let changedCount = 0;
+
+          Object.values((plannerState && plannerState.items) || {}).forEach((itemState) => {
+            if (!itemState || typeof itemState !== 'object') return;
+
+            const prevCommentsLength = Array.isArray(itemState.comments) ? itemState.comments.length : 0;
+            const prevActivityLength = Array.isArray(itemState.activityLog) ? itemState.activityLog.length : 0;
+
+            if (Array.isArray(itemState.comments)) {
+              itemState.comments = itemState.comments.filter((comment) => {
+                const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
+                if (!rawTimestamp) return true;
+                return getLocalDateKey(new Date(rawTimestamp)) !== todayKey;
+              });
+            }
+
+            if (Array.isArray(itemState.activityLog)) {
+              itemState.activityLog = itemState.activityLog.filter((logEntry) => {
+                if (!logEntry || typeof logEntry.timestamp !== 'string') return true;
+                return getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey;
+              });
+            }
+
+            const nextCommentsLength = Array.isArray(itemState.comments) ? itemState.comments.length : 0;
+            const nextActivityLength = Array.isArray(itemState.activityLog) ? itemState.activityLog.length : 0;
+            if (prevCommentsLength !== nextCommentsLength || prevActivityLength !== nextActivityLength) {
+              markItemUpdated(itemState);
+              changedCount += 1;
+            }
+          });
+
+          if (changedCount === 0) {
+            window.alert('삭제할 오늘 타임라인 기록이 없습니다.');
+            return;
+          }
+
+          savePlannerState(plannerState);
+          syncOverviewWidgets(plannerState);
+          if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+            renderGoalSummaryWidget(currentGoalKey, plannerState);
+            updateStats();
+          }
         });
       }
 
