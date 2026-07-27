@@ -208,11 +208,11 @@
     .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
     .workflow-item,
-    .checklist-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; font-size: 13px; line-height: 1.45; color: #24405d; }
-    .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
-    .workflow-step-index { margin-top: 2px; font-size: 12px; font-weight: 700; color: #35536f; }
+    .checklist-item { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; font-size: 13px; line-height: 1.45; color: #24405d; }
+    .workflow-item-top { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; }
+    .workflow-item-left { display: flex; align-items: flex-start; gap: 10px; min-width: 0; width: 100%; flex: 1; }
     .workflow-step-text-display,
-    .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+    .checklist-text { flex: 1; min-width: 0; width: 100%; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; white-space: normal; word-break: keep-all; overflow-wrap: break-word; }
     .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 0; width: 100%; min-height: 30px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 13px; line-height: 1.45; padding: 6px 8px; outline: none; }
     .detail-item-card.editing .workflow-step-text-display { display: none; }
     .detail-item-card.editing .workflow-step-text-input { display: block; }
@@ -220,7 +220,7 @@
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
     .workflow-item-right,
-    .item-meta-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: nowrap; margin-left: auto; }
+    .item-meta-group { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 6px; width: 100%; flex-wrap: wrap; }
     .workflow-due-date { width: 128px; border: 1px solid #cfdced; border-radius: 8px; padding: 4px 7px; background: #ffffff; color: #294765; font-size: 12px; }
     .workflow-due-date:disabled { background: #f4f7fb; color: #8a97a7; cursor: default; }
     .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
@@ -230,10 +230,7 @@
     .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
     .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
     .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
-    .workflow-status-badge,
     .workflow-completed-at-badge { min-width: 92px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; }
-    .workflow-status-badge.pending { background: #eef3f8; color: #6a7d93; }
-    .workflow-status-badge.done { background: #dff6e7; color: #0d7a46; }
     .workflow-completed-at-badge.pending { background: #f5f7fa; color: #8a97a7; }
     .workflow-completed-at-badge.done { background: #edf9f1; color: #0d7a46; }
     .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
@@ -441,11 +438,8 @@
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-status-strip { align-items: stretch; }
       .firebase-auth-group { width: 100%; }
-      .workflow-item,
-      .checklist-item { align-items: flex-start; }
-      .workflow-item-left { flex: 1 1 100%; }
       .workflow-item-right,
-      .item-meta-group { flex-wrap: wrap; justify-content: flex-start; }
+      .item-meta-group { flex-wrap: wrap; justify-content: flex-end; }
     }
   </style>
   <script type="module">
@@ -1503,13 +1497,11 @@
       return { text: '마감 초과', cls: 'overdue' };
     }
 
-    function getStepExecutionBadge(stepState) {
+    function getStepTimestampBadgeInfo(stepState) {
       const isDone = Boolean(stepState && stepState.checked);
       return {
-        statusText: isDone ? '🟢 수행 완료' : '⚪ 미수행',
-        statusClass: isDone ? 'done' : 'pending',
-        timeText: isDone ? formatStepCompletedAt(stepState.completedAt) : '기록 없음',
-        timeClass: isDone ? 'done' : 'pending'
+        text: isDone ? `🟢 ${formatStepCompletedAt(stepState.completedAt)}` : '⚪ 기록 없음',
+        cls: isDone ? 'done' : 'pending'
       };
     }
 
@@ -3282,17 +3274,17 @@
 
         workflowLines.push(`
               <li class="workflow-item checklist-item" data-step-index="${stepIndex}">
-                <div class="workflow-item-left">
-                  <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
-                  <span class="workflow-step-index">${stepIndex + 1}.</span>
-                  <span class="workflow-step-text-display checklist-text">${escapeHtml(step)}</span>
-                  <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
+                <div class="workflow-item-top">
+                  <div class="workflow-item-left">
+                    <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
+                    <span class="workflow-step-text-display checklist-text">${escapeHtml(step)}</span>
+                    <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
+                  </div>
                 </div>
                 <div class="workflow-item-right item-meta-group">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                   <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
-                  <span class="workflow-status-badge pending" data-step-status-index="${stepIndex}">⚪ 미수행</span>
-                  <span class="workflow-completed-at-badge pending" data-step-completed-index="${stepIndex}">기록 없음</span>
+                  <span class="workflow-completed-at-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
                   <button type="button" class="workflow-delete-step-btn" data-step-index="${stepIndex}" aria-label="단계 삭제">🗑️</button>
                 </div>
               </li>
@@ -3614,7 +3606,6 @@
         const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
-        const stepStatusBadges = Array.from(card.querySelectorAll('[data-step-status-index]'));
         const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
         const cardTitleElement = card.querySelector('.card-main-title');
@@ -3894,17 +3885,11 @@
         };
 
         const updateStepExecutionBadges = () => {
-          stepStatusBadges.forEach((badge, idx) => {
-            const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
-            const info = getStepExecutionBadge(stepState);
-            badge.textContent = info.statusText;
-            badge.className = `workflow-status-badge ${info.statusClass}`;
-          });
           stepCompletedBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
-            const info = getStepExecutionBadge(stepState);
-            badge.textContent = info.timeText;
-            badge.className = `workflow-completed-at-badge ${info.timeClass}`;
+            const info = getStepTimestampBadgeInfo(stepState);
+            badge.textContent = info.text;
+            badge.className = `workflow-completed-at-badge ${info.cls}`;
           });
         };
 
