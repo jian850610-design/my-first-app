@@ -287,6 +287,26 @@
     .goal-card-select { width: 100%; border: 1px solid #d8dfe7; border-radius: 16px; padding: 12px 14px; background: #fbfdff; color: var(--text); font-size: 14px; outline: none; }
     .goal-card-select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(22, 184, 198, 0.10); }
     .goal-card-metric { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .goal-card-summary-widget { margin-top: 12px; border: 1px solid #d8e7f4; border-radius: 18px; background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%); padding: 14px; display: grid; gap: 12px; }
+    .goal-card-summary-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .goal-card-summary-title { font-size: 14px; font-weight: 800; color: #174064; line-height: 1.4; }
+    .goal-card-summary-count { font-size: 12px; font-weight: 800; color: #5c748c; background: #ffffff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 5px 9px; }
+    .goal-card-summary-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .goal-card-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #cfe0ef; border-radius: 999px; background: #ffffff; color: #204465; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease; }
+    .goal-card-chip:hover { transform: translateY(-1px); border-color: #8fb7db; box-shadow: 0 8px 18px rgba(19, 73, 122, 0.12); background: #f7fbff; }
+    .goal-card-chip-title { max-width: min(100%, 240px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .goal-card-chip-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; background: #edf5ff; color: #24547f; border: 1px solid #d2e2f2; }
+    .goal-card-chip-badge.done { background: #e9f7ef; color: #0d7a4b; border-color: #c8e8d6; }
+    .goal-card-chip-badge.overdue { background: #ffecec; color: #b23a3a; border-color: #f3c3c3; }
+    .goal-card-chip-badge.today { background: #fff3d9; color: #a15a00; border-color: #f0d4a3; }
+    .goal-card-chip-badge.soon { background: #eef5ff; color: #24547f; border-color: #d2e2f2; }
+    .goal-card-chip-badge.unset { background: #eff3f8; color: #6b7f95; border-color: #d5e0ea; }
+    .goal-card-chip.flash { animation: chipFlash 1.8s ease; }
+    @keyframes chipFlash {
+      0% { box-shadow: 0 0 0 0 rgba(15, 95, 157, 0.0); }
+      20% { box-shadow: 0 0 0 4px rgba(15, 95, 157, 0.18); }
+      100% { box-shadow: 0 0 0 0 rgba(15, 95, 157, 0.0); }
+    }
 
     .detail-panel { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 22px; }
     .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 24px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); }
@@ -472,6 +492,13 @@
             <span class="goal-card-metric" id="metric-selected">목표를 선택하세요</span>
           </div>
           <select class="goal-card-select" id="goalSelect"></select>
+          <div class="goal-card-summary-widget" id="goalCardSummaryWidget" hidden>
+            <div class="goal-card-summary-header">
+              <div class="goal-card-summary-title" id="goalCardSummaryTitle">📌 세부 카드 목록 한눈에 보기</div>
+              <div class="goal-card-summary-count" id="goalCardSummaryCount">총 0개</div>
+            </div>
+            <div class="goal-card-summary-list" id="goalCardSummaryList"></div>
+          </div>
         </div>
       </section>
 
@@ -514,6 +541,10 @@
     const quickGoalSelect = document.getElementById('quickGoalSelect');
     const exportDataBtn = document.getElementById('exportDataBtn');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
+    const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
+    const goalCardSummaryTitle = document.getElementById('goalCardSummaryTitle');
+    const goalCardSummaryCount = document.getElementById('goalCardSummaryCount');
+    const goalCardSummaryList = document.getElementById('goalCardSummaryList');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -2704,6 +2735,62 @@
         </div>`;
     }
 
+    function getItemSummaryBadge(itemState, steps) {
+      const checklistSteps = Array.isArray(steps) ? steps : [];
+      const completedCount = Array.isArray(itemState && itemState.steps)
+        ? itemState.steps.filter((step) => step && step.checked).length
+        : 0;
+      const totalCount = checklistSteps.length || (Array.isArray(itemState && itemState.steps) ? itemState.steps.length : 0);
+      const percent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      if (totalCount && completedCount >= totalCount) {
+        return { text: '100%', cls: 'done' };
+      }
+
+      const dueDates = Array.isArray(itemState && itemState.steps)
+        ? itemState.steps
+            .filter((step) => step && typeof step.dueDate === 'string' && step.dueDate)
+            .map((step) => step.dueDate)
+        : [];
+      const dueDate = dueDates.length ? dueDates.sort((left, right) => left.localeCompare(right))[0] : '';
+      if (dueDate) {
+        const dueInfo = getDueBadgeInfo(dueDate, false);
+        return { text: dueInfo.text, cls: dueInfo.cls };
+      }
+
+      return { text: `${percent}%`, cls: 'unset' };
+    }
+
+    function renderGoalSummaryWidget(goalKey, state) {
+      if (!goalCardSummaryWidget || !goalCardSummaryTitle || !goalCardSummaryCount || !goalCardSummaryList) return;
+      const goalTemplate = goalTemplates[goalKey];
+      if (!goalTemplate || !Array.isArray(goalTemplate.items)) {
+        goalCardSummaryWidget.hidden = true;
+        goalCardSummaryList.innerHTML = '';
+        return;
+      }
+
+      const goalState = state || loadPlannerState();
+      const items = goalTemplate.items;
+      goalCardSummaryWidget.hidden = false;
+      goalCardSummaryTitle.textContent = `📌 ${goalTemplate.label} 세부 카드 목록 (총 ${items.length}개)`;
+      goalCardSummaryCount.textContent = `총 ${items.length}개`;
+
+      goalCardSummaryList.innerHTML = items.map((item, index) => {
+        const itemKey = `${goalKey}::${index}`;
+        const itemPrinciples = getCardGuidelines(goalState, goalKey, item, goalTemplate, itemKey);
+        const checklistSteps = getChecklistStepsForItem(goalState, goalKey, item, itemKey, itemPrinciples);
+        const itemState = getItemState(goalState, itemKey, checklistSteps.length, itemPrinciples);
+        const badge = getItemSummaryBadge(itemState, checklistSteps);
+        return `
+          <button type="button" class="goal-card-chip" data-key="${itemKey}">
+            <span class="goal-card-chip-title">${escapeHtml(getCardTitleText(itemState, item))}</span>
+            <span class="goal-card-chip-badge ${badge.cls}">${escapeHtml(badge.text)}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
     function autoSizeWorkflowTextarea(textarea) {
       if (!textarea) return;
       textarea.style.height = 'auto';
@@ -3176,6 +3263,7 @@
           }
           updateDueDateBadges();
           savePlannerState(plannerState);
+          renderGoalSummaryWidget(currentGoal, plannerState);
           updateStats();
           syncOverviewWidgets(plannerState);
         };
@@ -3272,6 +3360,7 @@
             itemState.steps[idx].dueDate = input.value || '';
             updateDueDateBadges();
             savePlannerState(plannerState);
+            renderGoalSummaryWidget(currentGoal, plannerState);
             syncOverviewWidgets(plannerState);
           });
         });
@@ -3389,6 +3478,7 @@
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
       renderDetailItems(template.items, key);
+      renderGoalSummaryWidget(key, loadPlannerState());
     }
 
     function updateStats() {
@@ -3448,6 +3538,19 @@
           const key = item.dataset.key || '';
           const [goalKey] = key.split('::');
           if (!goalTemplates[goalKey]) return;
+          openGoalDetail(goalKey, key);
+        });
+      }
+
+      if (goalCardSummaryList) {
+        goalCardSummaryList.addEventListener('click', (event) => {
+          const chip = event.target.closest('.goal-card-chip');
+          if (!chip) return;
+
+          const key = chip.dataset.key || '';
+          const [goalKey] = key.split('::');
+          if (!goalTemplates[goalKey]) return;
+
           openGoalDetail(goalKey, key);
         });
       }
