@@ -457,15 +457,17 @@
     .urgent-deadline-empty { font-size: 12px; color: #7f6f57; }
     .detail-item-card.deadline-focus { box-shadow: 0 0 0 3px rgba(217, 116, 0, 0.24), 0 20px 34px rgba(14, 27, 45, 0.12); }
     .workflow-item.urgent-focus { border-radius: 10px; background: #fff5e8; }
-    .upload-guide-section { margin-top: 8px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); border: 1px solid #d6e6f6; border-radius: 18px; padding: 18px; display: grid; gap: 14px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
-    .upload-guide-header { display: grid; gap: 6px; }
-    .upload-guide-header strong { font-size: 15px; color: #163f66; }
-    .upload-guide-header p { margin: 0; font-size: 13px; color: #56708b; line-height: 1.6; }
-    .upload-guide-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .upload-guide-step { background: rgba(255,255,255,0.88); border: 1px solid #d7e5f4; border-radius: 16px; padding: 14px; display: grid; gap: 8px; }
-    .upload-guide-badge { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 13px; font-weight: 800; }
-    .upload-guide-step strong { font-size: 13px; color: #193f66; }
-    .upload-guide-step p { margin: 0; font-size: 12px; color: #5f7893; line-height: 1.65; white-space: pre-line; }
+
+    .benchmark-prompt-section { margin-top: 8px; background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%); border: 1px solid #d5e5f4; border-radius: 18px; padding: 16px; display: grid; gap: 12px; box-shadow: 0 10px 24px rgba(13, 29, 52, 0.08); }
+    .benchmark-prompt-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .benchmark-prompt-title { font-size: 15px; font-weight: 800; color: #173f66; }
+    .benchmark-prompt-subtitle { font-size: 12px; color: #5f7893; margin-top: 4px; line-height: 1.6; }
+    .benchmark-prompt-copy-btn { border: 1px solid #8fb3d8; border-radius: 10px; background: #f1f8ff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .benchmark-prompt-copy-btn:hover { background: #e5f1ff; }
+    .benchmark-prompt-status { font-size: 12px; color: #4f6781; }
+    .benchmark-prompt-status.ok { color: #0f6c43; }
+    .benchmark-prompt-status.warn { color: #9a4d00; }
+    .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
 
     .field-input { display: grid; gap: 10px; }
     .field-input input,
@@ -561,7 +563,6 @@
               <option value="">8개 핵심 목표 선택</option>
             </select>
           </div>
-          <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
         </div>
       </div>
       <section class="yellow-banner" id="yellowBanner" hidden></section>
@@ -659,35 +660,16 @@
         <div class="mandalart-grid" id="mandalartGrid"></div>
       </section>
 
-      <section class="upload-guide-section">
-        <div class="upload-guide-header">
-          <strong>📌 최신 수정한 내용(data.json) 전체 팀원 공유방법 (GitHub 업로드 순서)</strong>
-          <p>내 컴퓨터에서 수정한 마감일, 코멘트, 별표(★) 내용을 모든 팀원이 똑같이 보게 하려면 아래 4단계를 진행하세요.</p>
+      <section class="benchmark-prompt-section" id="benchmarkPromptSection">
+        <div class="benchmark-prompt-header">
+          <div>
+            <div class="benchmark-prompt-title">🤖 매일 아침 AI 벤치마킹 프롬프트 복사</div>
+            <div class="benchmark-prompt-subtitle">아래 통합 프롬프트 전문은 [📋 프롬프트 복사하기] 버튼 1회 클릭으로 클립보드에 복사됩니다. 상단 검색창에 붙여넣으면 @목표 / - [카드명]: 태그를 인식해 카드명 자동 매핑을 시도합니다.</div>
+          </div>
+          <button type="button" class="benchmark-prompt-copy-btn" id="copyBenchmarkPromptBtn">📋 프롬프트 복사하기</button>
         </div>
-        <div class="upload-guide-steps">
-          <article class="upload-guide-step">
-            <span class="upload-guide-badge">1</span>
-            <strong>데이터 추출</strong>
-            <p>상단의 [📥 최신 데이터 내보내기] 버튼을 클릭하여 내 컴퓨터에 'data.json' 파일을 다운로드합니다.</p>
-          </article>
-          <article class="upload-guide-step">
-            <span class="upload-guide-badge">2</span>
-            <strong>GitHub 접속 및 파일 업로드</strong>
-            <p>본인 GitHub 리포지토리(my-first-app) 메인 화면으로 이동합니다.
-우측 상단 [Add file] 버튼 클릭 ➔ [Upload files]를 선택합니다.</p>
-          </article>
-          <article class="upload-guide-step">
-            <span class="upload-guide-badge">3</span>
-            <strong>data.json 파일 끌어다 놓기</strong>
-            <p>다운로드 폴더에 있는 'data.json' 파일을 화면 중앙으로 드래그 앤 드롭(Drag & Drop) 합니다.</p>
-          </article>
-          <article class="upload-guide-step">
-            <span class="upload-guide-badge">4</span>
-            <strong>저장 완료</strong>
-            <p>하단의 초록색 [Commit changes] 버튼을 클릭합니다.
-(1~2분 뒤 배포 링크로 접속하면 모든 팀원이 내가 수정한 최신 화면을 보게 됩니다!)</p>
-          </article>
-        </div>
+        <div class="benchmark-prompt-status" id="benchmarkPromptStatus">복사 대기 중</div>
+        <textarea class="benchmark-prompt-preview" id="benchmarkPromptPreview" readonly></textarea>
       </section>
     </section>
 
@@ -730,11 +712,8 @@
             <h2 id="detailTitle">선택된 목표 상세 내용</h2>
             <p id="detailSubtitle">상단에서 목표를 선택하면 관련 업무 계획과 참고 내용이 자동으로 업데이트됩니다.</p>
             <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden>
-              <div class="goal-guideline-badge-title">📌 영업지원 상시 업무 가이드라인</div>
-              <ul class="goal-guideline-badge-list">
-                <li>프로모션 예산 기안 및 지정 납기일 strict 준수</li>
-                <li>영업 부서 판촉물 요청 및 현장 지원 건 즉시/신속 응대</li>
-              </ul>
+              <div class="goal-guideline-badge-title" id="goalGuidelineBadgeTitle"></div>
+              <ul class="goal-guideline-badge-list" id="goalGuidelineBadgeList"></ul>
             </div>
           </div>
         </div>
@@ -758,6 +737,8 @@
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
     const goalGuidelineBadgeBox = document.getElementById('goalGuidelineBadgeBox');
+    const goalGuidelineBadgeTitle = document.getElementById('goalGuidelineBadgeTitle');
+    const goalGuidelineBadgeList = document.getElementById('goalGuidelineBadgeList');
     const goalSelect = document.getElementById('goalSelect');
     const metricSelected = document.getElementById('metric-selected');
     const detailContainer = document.getElementById('detailItems');
@@ -770,7 +751,6 @@
     const backToDashboardBtn = document.getElementById('backToDashboardBtn');
     const mandalartGrid = document.getElementById('mandalartGrid');
     const quickGoalSelect = document.getElementById('quickGoalSelect');
-    const exportDataBtn = document.getElementById('exportDataBtn');
     const plannerDatePicker = document.getElementById('plannerDatePicker');
     const firebaseConnectionChip = document.getElementById('firebaseConnectionChip');
     const firebaseModeChip = document.getElementById('firebaseModeChip');
@@ -793,6 +773,9 @@
     const teamOverviewFilterNotice = document.getElementById('teamOverviewFilterNotice');
     const teamOverviewTableBody = document.getElementById('teamOverviewTableBody');
     const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
+    const copyBenchmarkPromptBtn = document.getElementById('copyBenchmarkPromptBtn');
+    const benchmarkPromptStatus = document.getElementById('benchmarkPromptStatus');
+    const benchmarkPromptPreview = document.getElementById('benchmarkPromptPreview');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -826,6 +809,100 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
+    const BENCHMARK_PROMPT_TEXT = `--------------------------------------------------
+  오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.
+아래 [양식] 태그 구성을 정확히 유지해서 출력해 주세요.
+
+[양식]
+@목표: 1. 글로벌 SNS & 영상
+- [신규 페이스북 페이지 런칭 및 운영]:
+- [SKF 홈페이지 내 영상 통합 라이브러리 신설]:
+- [주요 제품/기기 사용 가이드 영상 시리즈 지속 제작]:
+- [타 국가/본사 SNS 우수 사례 벤치마킹]:
+- [네이버 블로그 콘텐츠 연계]:
+- [SNS별 월간 콘텐츠 캘린더 작성]:
+
+@목표: 2. 네이버 플랫폼 최적화
+- [네이버 TV 채널 운영 및 이벤트/행사 숏폼 영상 제작]:
+- [SKF 테크노트 심층 기술 리뷰 작성]:
+- [SKF 코리아/4C Story 조직문화 홍보]:
+- [카테고리별 방문/유입 키워드 정기 분석]:
+- [SKF 월드뉴스/인사이트 신속 로컬화]:
+- [SKF 신제품 소개 블로그-네이버 TV 연계]:
+- [SKF 제품 활용법 B2B 검색 최적화]:
+
+@목표: 3. 현장/고객 커뮤니케이션 강화
+- [2027 캘린더용 현장/고객 사진 취합]:
+- [사용자 간담회(TKSA/TLDD) 행사 지원]:
+- [대리점/고객사 현장 방문 및 VOC 수집]:
+- [복잡한 기술을 쉬운 고객 언어로 번역]:
+- [B2B 성공 사례(Use Case) 발굴/콘텐츠화]:
+- [세일즈 피칭용 세일즈킷 및 백서 지원]:
+- [현장 피드백 반영 온/오프라인 세미나 기획]:
+- [하반기 주요 고객 세미나 & 간담회(1탄~4탄) 순차 개최]:
+
+@목표: 4. 웹사이트/이커머스/인트라넷
+- [SKF 코리아 홈페이지 한글화/메뉴 생성]:
+- [본사 웹 업데이트 내용 신속 로컬화]:
+- [채널 통합(SNS Unification) 완수]:
+- [온라인몰 대리점 견적 이관 퍼널 고도화]:
+- [주요 콘텐츠 및 제품 페이지 최신화]:
+- [견적 이관 프로세스 내 이탈 포인트 분석]:
+- [웹사이트 및 온라인몰 체류시간 증대]:
+- [사내 인트라넷(SHAREPOINT) 구축/관리]:
+
+@목표: 5. AI 친화적 업무 문화
+- [주간 Teams 채널에 AI 트렌드/뉴스 공유]:
+- [정기 AI Talk 세션 출석률 70% 달성 / 인사이트 전파]:
+- [SKF 핵심 가치 'Curiosity(호기심)' 실천]:
+- [AI Talk 세션 인사이트 팀 내 적극 전파]:
+- [팀 내 AI 친화적인 분위기 조성 독려]:
+- [AI 번역(DeepL)/이미지 툴 실무 테스트]:
+- [반복적인 마케팅 업무 AI 자동화 방안 검토]:
+
+@목표: 6. 오프라인 브랜드 & 행사
+- [SKF 브랜드 경험(BX) 중심의 온·오프라인 행사 기획]:
+- [대리점 간판 및 오프라인 브랜드 자산 지속 리뉴얼]:
+- [인터널 브랜딩(Internal Branding) 관점의 사내 행사 기획]:
+- [하반기 프로모션 굿즈(수건 등) 제작/기안]:
+- [Q3 CRM 프로모션 (여름 대리점 빙수/간식)]:
+- [B2B 타깃 맞춤형 온/오프라인 프로모션 기획]:
+- [행사 완료 후 레슨런(Lesson-learned) 도출]:
+- [2026 New Signboard Implementation & 블로그 콘텐츠화]:
+- [2027년 1회 참가용 주요 박람회 후보 조사 및 기안 수립]:
+
+@목표: 7. 영업 지원 및 프로모션
+- [2026 ISO 18436-2 Cat.II 진동분석 교육 운영 및 마케팅]:
+- [Top Management/VIP 프리미엄 굿즈 기획]:
+- [하반기 프로모션 굿즈 제작]:
+
+@목표: 8. 마케터 역량 및 마인드셋
+- [베어링/회전기기 관련 기초 기술 지속 학습]:
+- [3년/5년 뒤 B2B 마케터 커리어 로드맵 점검]:
+- [타 부서(영업/기술/HR) 협업 시 배려하는 소통]:
+- [실패에서 교훈을 찾는 회복 탄력성 키우기]:
+- [글로벌 업무 효율을 위한 비즈니스 영어 학습]:
+- [지속 가능한 업무를 위한 운동/스트레스 관리]:
+- [마케팅 및 비즈니스 관련 도서 월 2권 독서]:
+--------------------------------------------------`;
+
+    const PROMPT_GOAL_NUMBER_TO_KEY = {
+      1: 'global-sns',
+      2: 'naver-platform',
+      3: 'field-communication',
+      4: 'web-ecosystem',
+      5: 'ai-culture',
+      6: 'offline-brand',
+      7: 'sales-support',
+      8: 'marketing-skill'
+    };
+
+    const REMOVED_PROMPT_CARD_TITLES = new Set([
+      '네이버 공식 블로그/포스트 메인 비주얼 & 레이아웃 리뉴얼',
+      '주간 회의(Weekly Action Plan) 데드라인 엄수',
+      "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
+      '영업/기술 부서와 밀착 소통/촬영 협조'
+    ]);
 
     function getLocalDateKey(date = new Date()) {
       const year = date.getFullYear();
@@ -854,6 +931,89 @@
         return { value: PRIORITY_IMPORTANT, label: '🟡 중요', detailLabel: '🟡 중요', rank: 1, pinned: true, badgeClass: 'important' };
       }
       return { value: PRIORITY_NORMAL, label: '⚪ 일반', detailLabel: '⚪ 일반', rank: 2, pinned: false, badgeClass: '' };
+    }
+
+    async function copyTextToClipboard(text) {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', 'readonly');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (!copied) throw new Error('copy-failed');
+    }
+
+    function parseTaggedBenchmarkPrompt(rawText) {
+      if (typeof rawText !== 'string') return null;
+      if (!rawText.includes('@목표:') || !rawText.includes('- [')) return null;
+
+      const lines = rawText.split(/\r?\n/);
+      const parsed = {};
+      let currentGoalNumber = null;
+
+      lines.forEach((line) => {
+        const goalMatch = line.match(/^\s*@목표:\s*(\d+)\s*\./);
+        if (goalMatch) {
+          currentGoalNumber = Number(goalMatch[1]);
+          if (!parsed[currentGoalNumber]) parsed[currentGoalNumber] = [];
+          return;
+        }
+
+        const cardMatch = line.match(/^\s*-\s*\[(.+?)\]\s*:/);
+        if (cardMatch && currentGoalNumber !== null) {
+          const title = cardMatch[1].trim();
+          if (title) parsed[currentGoalNumber].push(title);
+        }
+      });
+
+      const totalCardLines = Object.values(parsed).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+      if (!totalCardLines) return null;
+      return parsed;
+    }
+
+    function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
+      const plannerState = loadPlannerState();
+      let mappedCount = 0;
+
+      Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).forEach(([goalNumberText, goalKey]) => {
+        const goalNumber = Number(goalNumberText);
+        const parsedTitles = Array.isArray(parsedByGoalNumber[goalNumber])
+          ? parsedByGoalNumber[goalNumber].filter((title) => !REMOVED_PROMPT_CARD_TITLES.has(title))
+          : [];
+        const goalTemplate = goalTemplates[goalKey];
+        if (!goalTemplate || !Array.isArray(goalTemplate.items) || !parsedTitles.length) return;
+
+        goalTemplate.items.forEach((item, index) => {
+          const parsedTitle = parsedTitles[index];
+          if (!parsedTitle) return;
+          const itemKey = `${goalKey}::${index}`;
+          const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+          const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
+          const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+          itemState.customTitle = parsedTitle;
+          markItemUpdated(itemState);
+          mappedCount += 1;
+        });
+      });
+
+      if (mappedCount > 0) {
+        savePlannerState(plannerState, { reason: 'tagged-prompt-paste' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+      }
+
+      return mappedCount;
     }
 
     function getFirebaseBridge() {
@@ -953,6 +1113,7 @@
           const goalTemplate = goalTemplates[goalKey];
           const itemIndex = Number(indexText);
           const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+          if (!item) return;
           const itemStepCount = item ? getChecklistStepsForItem(nextState, goalKey, item, itemKey, []).length : 0;
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
@@ -1495,7 +1656,7 @@
         '[사내 게시] 사내 인트라넷 게시판에 요약글 작성 및 업로드',
         '[이력 기록] 공유한 주제/날짜를 [📜 공유 히스토리]에 기록 후 다음 주를 위해 체크리스트 재설정'
       ],
-      'naver-platform::7': [
+      'naver-platform::6': [
         '[키워드 추출] B2B 타깃 주요 제품 활용법 검색 키워드 20개 선정 및 분석',
         '[SEO 가이드] 네이버 블로그 상단 노출용 작성 템플릿 및 가이드 수립',
         '[콘텐츠 적용] 핵심 키워드 적용 제품 활용법 블로그 포스팅 순차 발행',
@@ -1531,12 +1692,6 @@
         '[1차대회취재] 8/27 Formula Student Korea 대회 현장/제작 스케치 촬영',
         '[2차대회취재] 10/2 대학생 스마트 e-모빌리티 경진대회 현장 취재 및 후기 수령',
         '[콘텐츠발행] 취재 영상 편집 및 네이버TV / 블로그 홍보 포스팅 업로드'
-      ],
-      'naver-platform::4': [
-        '기존 블로그 레이아웃 분석 및 리뉴얼 컨셉 수립',
-        '상단 스킨 이미지 및 대표 썸네일 템플릿 제작',
-        '카테고리 구조 재정비 및 주요 안내글 고정',
-        '최종 적용 및 PC/모바일 화면 최적화 검수'
       ],
       'sales-support::0': [
         '[완료] 사내 영업직원 수량 파악, 사양 선정 및 업체 견적 확정',
@@ -1575,8 +1730,7 @@
       [OFFLINE_POPKIT_ITEM_KEY]: ['2026-08-14', '2026-08-31', '2026-09-18', '2026-09-30'],
       [OFFLINE_SIGNBOARD_ITEM_KEY]: ['2026-07-31', '2026-08-31', '2026-09-15', '2026-09-30'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
-      'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
-      'naver-platform::7': ['2026-08-14', '2026-08-28', '2026-09-18', '2026-09-30'],
+      'naver-platform::6': ['2026-08-14', '2026-08-28', '2026-09-18', '2026-09-30'],
       'sales-support::0': ['', '', '2026-07-28', '2026-08-04', '2026-08-07', '2026-08-12'],
       'sales-support::2': ['2026-10-31', '2026-10-31', '2026-10-31', '2026-10-31', '2026-10-31']
     };
@@ -1654,10 +1808,65 @@
         });
     }
 
+    function migrateGoalItemIndexes(items, goalKey, migrationMap) {
+      if (!items || typeof items !== 'object') return;
+      Object.entries(migrationMap).forEach(([fromIndex, toIndex]) => {
+        const fromKey = `${goalKey}::${fromIndex}`;
+        if (!items[fromKey]) return;
+
+        if (toIndex === 'delete') {
+          delete items[fromKey];
+          return;
+        }
+
+        const toKey = `${goalKey}::${toIndex}`;
+        if (!items[toKey]) {
+          items[toKey] = items[fromKey];
+        }
+        delete items[fromKey];
+      });
+    }
+
+    function normalizeRemovedCardIndexes(items) {
+      if (!items || typeof items !== 'object') return;
+
+      migrateGoalItemIndexes(items, 'naver-platform', {
+        4: 'delete',
+        5: 4,
+        6: 5,
+        7: 6
+      });
+
+      migrateGoalItemIndexes(items, 'field-communication', {
+        2: 'delete',
+        3: 2,
+        4: 3
+      });
+
+      migrateGoalItemIndexes(items, 'ai-culture', {
+        1: 'delete',
+        2: 1,
+        3: 2,
+        4: 3,
+        5: 4,
+        6: 5,
+        7: 6
+      });
+
+      migrateGoalItemIndexes(items, 'marketing-skill', {
+        3: 'delete',
+        4: 3,
+        5: 4,
+        6: 5,
+        7: 6
+      });
+    }
+
     function normalizePlannerState(rawState) {
       const base = rawState && typeof rawState === 'object' ? rawState : {};
       const items = base.items && typeof base.items === 'object' ? base.items : {};
       const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
+      normalizeRemovedCardIndexes(items);
       normalizeSalesSupportItemIndexes(items);
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
@@ -2773,13 +2982,6 @@
             link: 'https://business.naver.com'
           },
           {
-            title: '네이버 공식 블로그/포스트 메인 비주얼 & 레이아웃 리뉴얼',
-            summary: 'SKF 글로벌 브랜드 톤앤매너에 맞춘 블로그 스킨 design, 카테고리 구조 재정비 및 대표 썸네일 템플릿 제작',
-            hq: 'SKF는 콘텐츠 퍼널을 통해 네이버 채널에서 상담까지 연결합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 네이버 채널 전용 퍼널을 구축해 ROI를 개선합니다.',
-            link: 'https://www.skf.com/group/services/engineering'
-          },
-          {
             title: 'SKF 월드뉴스/인사이트 신속 로컬화',
             summary: '시장 이슈와 기술 토픽을 기반으로 정기적인 콘텐츠를 생산합니다.',
             hq: 'SKF는 산업 뉴스와 기술 트렌드를 반영한 콘텐츠를 꾸준히 공개합니다.',
@@ -2811,8 +3013,7 @@
         metric: '고객 접점 소통 강화',
         goalText: '현장 고객 커뮤니케이션을 강화하는 사례 수집과 전달 계획을 수립합니다.',
         principles: [
-          '복잡한 기술을 쉬운 고객 언어로 번역',
-          '영업/기술 부서와 밀착 소통 및 촬영 협조'
+          '복잡한 기술을 쉬운 고객 언어로 번역'
         ],
         items: [
           {
@@ -2828,13 +3029,6 @@
             hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
             link: 'https://www.skf.com/group/news-management'
-          },
-          {
-            title: '영업/기술 부서와 밀착 소통/촬영 협조',
-            summary: '고객 피드백을 수집해 마케팅 메시지와 제품 소개에 반영합니다.',
-            hq: 'SKF는 대리점과 현장의 피드백을 정기적으로 수집해 마케팅 콘텐츠에 반영합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 고객 관점의 요구사항을 콘텐츠로 빠르게 전환합니다.',
-            link: 'https://www.skf.com/group/news'
           },
           {
             title: 'B2B 성공 사례(Use Case) 발굴/콘텐츠화',
@@ -2858,7 +3052,6 @@
         goalText: 'AI 친화적 업무 문화를 도입하고 업무 생산성을 높이는 실행 방안을 정리합니다.',
         principles: [
           "SKF 핵심 가치 'Curiosity(호기심)' 실천",
-          "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
           '팀 내 AI 친화적인 분위기 조성 독려'
         ],
         items: [
@@ -2872,13 +3065,6 @@
             hq: 'SKF 본사는 AI 기반 보고서 자동 생성 및 콘텐츠 가이드라인을 테스트 중입니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 AI를 활용한 메시지 자동화와 고객 분석 툴을 함께 도입하고 있습니다.',
             link: 'https://www.skf.com/group/services/engineering'
-          },
-          {
-            title: '아이디어 회의 파트너/초안 작성 AI 활용',
-            summary: '팀 내 AI 활용 매뉴얼과 사례를 공유해 실무 적용 장벽을 낮춥니다.',
-            hq: 'SKF는 내부 교육과 사례 공유를 통해 AI 사용 문화를 확산하고 있습니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 AI 활용 사례를 정기적으로 발표하며 조직 내 수용성을 높입니다.',
-            link: 'https://www.skf.com/group/news'
           },
           {
             title: '정기 AI Talk 세션 출석률 70% 달성 / 인사이트 전파',
@@ -3107,7 +3293,6 @@
         principles: [
           'SKF 핵심 제품 카탈로그 및 가이드북 숙지',
           '타 부서(영업/기술/HR) 협업 시 배려하는 소통',
-          '주간 회의(Weekly) Action Plan 데드라인 엄수',
           '실패에서 교훈을 찾는 회복 탄력성 기르기',
           '지속 가능한 업무를 위한 운동 및 스트레스 관리'
         ],
@@ -3131,13 +3316,6 @@
             summary: '성과 사례와 경쟁사 동향을 비교 분석해 내부 교육 자료로 정리합니다.',
             hq: 'SKF는 본사 사례와 글로벌 성공 사례를 내부 워크숍에서 공유합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 외부 트렌드와 자사 사례를 결합한 교육 자료를 제작합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '주간 회의(Weekly Action Plan) 데드라인 엄수',
-            summary: '디지털 중심 마케팅 사고와 고객 중심 설계를 팀 내에 확산합니다.',
-            hq: 'SKF는 고객 중심 마케팅 철학을 조직 내 커뮤니케이션에 반영합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 마케팅 성과 문화와 고객 중심 사고를 함께 강조합니다.',
             link: 'https://www.skf.com/group/news'
           },
           {
@@ -3168,6 +3346,34 @@
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 학습 기록을 통해 업무 지식 자산을 축적합니다.',
             link: 'https://www.skf.com/group/news'
           }
+        ]
+      }
+    };
+
+    const goalGuidelineBadgeByKey = {
+      'sales-support': {
+        title: '📌 영업지원 상시 업무 가이드라인',
+        items: [
+          '프로모션 예산 기안 및 지정 납기일 strict 준수',
+          '영업 부서 판촉물 요청 및 현장 지원 건 즉시/신속 응대'
+        ]
+      },
+      'marketing-skill': {
+        title: '📌 역량 수칙 가이드라인',
+        items: [
+          '주간 회의 Action Plan 데드라인 strict 엄수'
+        ]
+      },
+      'ai-culture': {
+        title: '📌 AI 활용 가이드라인',
+        items: [
+          '기획/아이디어 회의 시 AI를 1차 초안 보조 작가로 적극 활용'
+        ]
+      },
+      'field-communication': {
+        title: '📌 협업 가이드라인',
+        items: [
+          '영업 및 기술 부서 요청 건 밀착 소통 및 촬영 현장 상시 협조'
         ]
       }
     };
@@ -4747,7 +4953,16 @@
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
       if (goalGuidelineBadgeBox) {
-        goalGuidelineBadgeBox.hidden = key !== 'sales-support';
+        const guidelineBadge = goalGuidelineBadgeByKey[key];
+        if (!guidelineBadge || !Array.isArray(guidelineBadge.items) || !guidelineBadge.items.length) {
+          goalGuidelineBadgeBox.hidden = true;
+        } else {
+          goalGuidelineBadgeBox.hidden = false;
+          if (goalGuidelineBadgeTitle) goalGuidelineBadgeTitle.textContent = guidelineBadge.title;
+          if (goalGuidelineBadgeList) {
+            goalGuidelineBadgeList.innerHTML = guidelineBadge.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+          }
+        }
       }
       renderDetailItems(template.items, key);
       renderGoalSummaryWidget(key, latestState);
@@ -4935,10 +5150,6 @@
       populateQuickGoalOptions();
       goalSelect.addEventListener('change', () => openGoalDetail(goalSelect.value));
 
-      if (exportDataBtn) {
-        exportDataBtn.addEventListener('click', exportPlannerData);
-      }
-
       if (plannerDatePicker) {
         plannerDatePicker.addEventListener('change', () => {
           const nextDate = plannerDatePicker.value || getLocalDateKey(new Date());
@@ -4950,6 +5161,51 @@
         dashboardSearchInput.addEventListener('input', () => {
           dashboardSearchTerm = dashboardSearchInput.value || '';
           renderMandalartBoard(loadPlannerState());
+        });
+
+        dashboardSearchInput.addEventListener('paste', (event) => {
+          const pasteText = event.clipboardData ? event.clipboardData.getData('text') : '';
+          const parsed = parseTaggedBenchmarkPrompt(pasteText);
+          if (!parsed) return;
+
+          if (!EDIT_MODE_REQUESTED || !currentFirebaseUser) {
+            window.alert('태그 기반 자동 매핑은 편집 모드 로그인 상태에서만 적용됩니다. (?edit=1 + Google 로그인)');
+            return;
+          }
+
+          event.preventDefault();
+          const mappedCount = applyTaggedPromptMappingToCards(parsed);
+          if (mappedCount > 0) {
+            dashboardSearchInput.value = '';
+            dashboardSearchTerm = '';
+            renderMandalartBoard(loadPlannerState());
+            window.alert(`@목표 태그를 인식해 ${mappedCount}개 카드명을 자동 매핑했습니다.`);
+          } else {
+            window.alert('태그는 인식했지만 매핑 가능한 카드명이 없습니다. 양식을 다시 확인해 주세요.');
+          }
+        });
+      }
+
+      if (benchmarkPromptPreview) {
+        benchmarkPromptPreview.value = BENCHMARK_PROMPT_TEXT;
+      }
+
+      if (copyBenchmarkPromptBtn) {
+        copyBenchmarkPromptBtn.addEventListener('click', async () => {
+          try {
+            await copyTextToClipboard(BENCHMARK_PROMPT_TEXT);
+            if (benchmarkPromptStatus) {
+              benchmarkPromptStatus.textContent = '통합 프롬프트가 클립보드에 복사되었습니다.';
+              benchmarkPromptStatus.classList.remove('warn');
+              benchmarkPromptStatus.classList.add('ok');
+            }
+          } catch (error) {
+            if (benchmarkPromptStatus) {
+              benchmarkPromptStatus.textContent = '복사에 실패했습니다. 브라우저 권한을 확인해 주세요.';
+              benchmarkPromptStatus.classList.remove('ok');
+              benchmarkPromptStatus.classList.add('warn');
+            }
+          }
         });
       }
 
