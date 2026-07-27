@@ -227,6 +227,12 @@
     .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
     .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
     .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
+    .workflow-status-badge,
+    .workflow-completed-at-badge { min-width: 92px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; }
+    .workflow-status-badge.pending { background: #eef3f8; color: #6a7d93; }
+    .workflow-status-badge.done { background: #dff6e7; color: #0d7a46; }
+    .workflow-completed-at-badge.pending { background: #f5f7fa; color: #8a97a7; }
+    .workflow-completed-at-badge.done { background: #edf9f1; color: #0d7a46; }
     .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
     .workflow-delete-step-btn:hover { background: #fff1f1; }
     .detail-item-card.editing .workflow-delete-step-btn { display: inline-flex; }
@@ -761,7 +767,8 @@
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
                   checked: Boolean(step && step.checked),
-                  dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+                  dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
+                  completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
                 }))
               : [],
             comments: Array.isArray(itemState.comments) ? itemState.comments : [],
@@ -803,7 +810,8 @@
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
                 checked: Boolean(step && step.checked),
-                dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, stepIndex)
+                dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, stepIndex),
+                completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
               }))
             : itemState.steps;
           itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
@@ -1298,7 +1306,8 @@
         const defaultChecks = defaultChecksByItemKey[itemKey];
         const steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Array.isArray(defaultChecks) ? Boolean(defaultChecks[index]) : false,
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: ''
         }));
         state.items[itemKey] = {
           steps,
@@ -1322,7 +1331,8 @@
         const legacyDueDates = Array.isArray(itemState.dueDates) ? itemState.dueDates : [];
         itemState.steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Boolean(legacyChecks[index]),
-          dueDate: typeof legacyDueDates[index] === 'string' && legacyDueDates[index] ? legacyDueDates[index] : getDefaultDueDate(itemKey, index)
+          dueDate: typeof legacyDueDates[index] === 'string' && legacyDueDates[index] ? legacyDueDates[index] : getDefaultDueDate(itemKey, index),
+          completedAt: ''
         }));
       }
       if (itemState.steps.length !== stepCount) {
@@ -1330,7 +1340,8 @@
           const step = itemState.steps[index];
           return {
             checked: step ? Boolean(step.checked) : false,
-            dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
+            dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
+            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
           };
         });
         itemState.steps = resized;
@@ -1339,73 +1350,84 @@
       if (itemKey === 'sales-support::0') {
         itemState.steps[0] = {
           checked: true,
-          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
+          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0),
+          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : ''
         };
         itemState.steps[1] = {
           checked: true,
-          dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1)
+          dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1),
+          completedAt: itemState.steps[1] && typeof itemState.steps[1].completedAt === 'string' ? itemState.steps[1].completedAt : ''
         };
       }
 
       if (itemKey === 'offline-brand::4') {
         itemState.steps[0] = {
           checked: true,
-          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
+          dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0),
+          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : ''
         };
       }
 
       if (itemKey === FACEBOOK_PAGE_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === VIDEO_SERIES_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === NAVER_TV_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
-          dueDate: ''
+          dueDate: '',
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === FIELD_EVENT_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === AI_WEEKLY_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
-          dueDate: ''
+          dueDate: '',
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === OFFLINE_POPKIT_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       if (itemKey === OFFLINE_SIGNBOARD_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
 
       itemState.steps = itemState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
       if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
@@ -1431,6 +1453,17 @@
       return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
     }
 
+    function formatStepCompletedAt(timestamp) {
+      if (!timestamp) return '기록 없음';
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) return '기록 없음';
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const hh = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${mm}/${dd} ${hh}:${min} 완료`;
+    }
+
     function escapeHtml(text) {
       return text
         .replace(/&/g, '&amp;')
@@ -1441,9 +1474,6 @@
     }
 
     function getDueBadgeInfo(dueDate, checked) {
-      if (checked) {
-        return { text: '체크됨', cls: 'done' };
-      }
       if (!dueDate) {
         return { text: '미설정', cls: 'unset' };
       }
@@ -1463,6 +1493,16 @@
         return { text: `D-${diff}`, cls: 'upcoming' };
       }
       return { text: '마감 초과', cls: 'overdue' };
+    }
+
+    function getStepExecutionBadge(stepState) {
+      const isDone = Boolean(stepState && stepState.checked);
+      return {
+        statusText: isDone ? '🟢 수행 완료' : '⚪ 미수행',
+        statusClass: isDone ? 'done' : 'pending',
+        timeText: isDone ? formatStepCompletedAt(stepState.completedAt) : '기록 없음',
+        timeClass: isDone ? 'done' : 'pending'
+      };
     }
 
     function renderTimeline(timelineElement, comments) {
@@ -1560,6 +1600,13 @@
       const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
       const latestComment = getLatestCommentPreview(itemState || {});
       const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
+      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      const completedSteps = steps.filter((step) => step && step.checked).length;
+      const latestCompletedAt = steps
+        .map((step) => (step && typeof step.completedAt === 'string' ? step.completedAt : ''))
+        .filter(Boolean)
+        .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || '';
+      const summaryText = `⚡ 업무 단계 수행 현황: 총 ${steps.length}단계 중 ${completedSteps}단계 수행 완료 (최근 수행: ${latestCompletedAt ? formatEntryDateTime(latestCompletedAt) : '-'})`;
       panelElement.innerHTML = `
         <div class="latest-activity-title">⚡ 최신 업무 수행 현황</div>
         <div class="latest-activity-grid">
@@ -1575,6 +1622,10 @@
             <div class="latest-activity-label">📊 누적 이력 건수</div>
             <div class="latest-activity-value">누적 이력: 총 ${historyCount}건</div>
           </div>
+        </div>
+        <div class="latest-activity-item latest-comment-box">
+          <div class="latest-activity-label">단계별 수행 요약</div>
+          <div class="latest-activity-value latest-comment-value">${escapeHtml(summaryText)}</div>
         </div>
       `;
     }
@@ -3232,6 +3283,8 @@
                 <div class="workflow-item-right">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                   <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
+                  <span class="workflow-status-badge pending" data-step-status-index="${stepIndex}">⚪ 미수행</span>
+                  <span class="workflow-completed-at-badge pending" data-step-completed-index="${stepIndex}">기록 없음</span>
                   <button type="button" class="workflow-delete-step-btn" data-step-index="${stepIndex}" aria-label="단계 삭제">🗑️</button>
                 </div>
               </li>
@@ -3553,6 +3606,8 @@
         const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
+        const stepStatusBadges = Array.from(card.querySelectorAll('[data-step-status-index]'));
+        const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
         const cardTitleElement = card.querySelector('.card-main-title');
         const cardDescriptionElement = card.querySelector('.detail-item-description');
@@ -3680,7 +3735,7 @@
           addStepButton.addEventListener('click', () => {
             ensureCustomSteps();
             itemState.customSteps.push('새 단계 입력');
-            itemState.steps.push({ checked: false, dueDate: '' });
+            itemState.steps.push({ checked: false, dueDate: '', completedAt: '' });
             savePlannerState(plannerState);
             syncOverviewWidgets(plannerState);
             updateGoalCard(currentGoal);
@@ -3824,17 +3879,34 @@
         const updateDueDateBadges = () => {
           dueDateBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, dueDate: '' };
-            const info = getDueBadgeInfo(stepState.dueDate, stepState.checked);
+            const info = getDueBadgeInfo(stepState.dueDate);
             badge.textContent = info.text;
             badge.className = `workflow-dday-badge ${info.cls}`;
+          });
+        };
+
+        const updateStepExecutionBadges = () => {
+          stepStatusBadges.forEach((badge, idx) => {
+            const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
+            const info = getStepExecutionBadge(stepState);
+            badge.textContent = info.statusText;
+            badge.className = `workflow-status-badge ${info.statusClass}`;
+          });
+          stepCompletedBadges.forEach((badge, idx) => {
+            const stepState = itemState.steps[idx] || { checked: false, completedAt: '' };
+            const info = getStepExecutionBadge(stepState);
+            badge.textContent = info.timeText;
+            badge.className = `workflow-completed-at-badge ${info.timeClass}`;
           });
         };
 
         const updateLatestActivityPanel = (skipPersist = false) => {
           itemState.steps = itemState.steps.map((step, idx) => ({
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
-            dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+            dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
+            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
           }));
+          updateStepExecutionBadges();
           renderLatestActivityPanel(latestActivityPanel, itemState);
           const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
           if (archiveCompleteButton) {
@@ -3893,7 +3965,8 @@
 
             itemState.steps = itemState.steps.map(() => ({
               checked: false,
-              dueDate: ''
+              dueDate: '',
+              completedAt: ''
             }));
             itemState.comments = [];
             itemState.seriesDraftName = '';
@@ -3922,6 +3995,7 @@
           checkbox.addEventListener('change', () => {
             if (itemState.steps[idx]) {
               itemState.steps[idx].checked = checkbox.checked;
+              itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
               if (checkbox.checked) {
                 const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
                 itemState.activityLog.push(createActivityLogEntry('checklist-complete', {
@@ -4032,6 +4106,7 @@
         });
 
         updateDueDateBadges();
+        updateStepExecutionBadges();
         updateLatestActivityPanel(true);
         applyEditabilityState();
       });
