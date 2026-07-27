@@ -108,8 +108,7 @@
     .mandalart-goal-title { font-size: 12px; font-weight: 800; color: #244c72; line-height: 1.3; min-height: 30px; }
     .mandalart-goal-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #5f7590; }
     .mandalart-star { font-weight: 700; color: #9b6b00; }
-    .mandalart-progress-track { width: 100%; height: 8px; border-radius: 999px; background: #dfeaf4; overflow: hidden; }
-    .mandalart-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0f5f9d 0%, #20a6b0 100%); }
+    .mandalart-activity-meta { font-size: 11px; color: #5f7590; font-weight: 700; }
     .mandalart-keyword-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .mandalart-keyword-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
     .mandalart-comment-box { margin-top: 2px; padding: 8px 9px; border-radius: 10px; background: #f7fbff; border: 1px solid #dde9f4; display: grid; gap: 4px; }
@@ -300,11 +299,14 @@
     }
     .button-group { display: flex; gap: 10px; }
     .detail-item-progress { display: grid; gap: 10px; margin-top: 2px; }
-    .progress-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
-    .progress-track { width: 100%; height: 10px; border-radius: 999px; background: #deebf5; overflow: hidden; }
-    .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f39c12 0%, #f6b64f 100%); transition: width 0.35s ease, background 0.25s ease; }
-    .progress-fill.done { background: linear-gradient(90deg, #0f5f9d 0%, #169f9f 100%); }
-    .progress-value { font-size: 12px; font-weight: 700; color: #3a5068; min-width: 92px; text-align: right; }
+    .latest-activity-panel { display: grid; gap: 10px; border: 1px solid #dbe6f1; border-radius: 16px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); padding: 14px 16px; }
+    .latest-activity-title { font-size: 12px; font-weight: 800; color: #315679; letter-spacing: 0.06em; text-transform: uppercase; }
+    .latest-activity-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .latest-activity-item { border: 1px solid #d7e5f2; border-radius: 12px; background: rgba(255,255,255,0.92); padding: 10px 12px; display: grid; gap: 6px; }
+    .latest-activity-label { font-size: 11px; font-weight: 800; color: #5d7390; }
+    .latest-activity-value { font-size: 12px; font-weight: 700; color: #203b58; line-height: 1.5; }
+    .latest-comment-box { border-color: #cfe0f0; background: #ffffff; box-shadow: inset 0 0 0 1px rgba(15, 95, 157, 0.04); }
+    .latest-comment-value { font-size: 13px; color: #173b5f; font-weight: 800; white-space: pre-wrap; word-break: break-word; }
     .detail-item-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 
     .goal-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 24px; }
@@ -769,7 +771,11 @@
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
             customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
             customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
-            isLeaderRequested: itemState.isLeaderRequested === true
+            isLeaderRequested: itemState.isLeaderRequested === true,
+            lastUpdatedAt: typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '',
+            lastUpdatedByName: typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '',
+            lastUpdatedByEmail: typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '',
+            lastUpdatedByUid: typeof itemState.lastUpdatedByUid === 'string' ? itemState.lastUpdatedByUid : ''
           };
         });
       });
@@ -1518,6 +1524,61 @@
       return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
     }
 
+    function getLatestCommentPreview(itemState) {
+      const draftNote = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
+      if (draftNote) {
+        const singleLineDraft = draftNote.replace(/\s+/g, ' ').trim();
+        return singleLineDraft.length > 110 ? `${singleLineDraft.slice(0, 107)}...` : singleLineDraft;
+      }
+
+      const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
+      if (!comments.length) return '아직 등록된 코멘트가 없습니다.';
+
+      const latest = comments
+        .slice()
+        .sort((left, right) => {
+          const leftTs = new Date(left.updatedAt || left.timestamp || 0).getTime();
+          const rightTs = new Date(right.updatedAt || right.timestamp || 0).getTime();
+          return rightTs - leftTs;
+        })[0];
+
+      const text = latest && typeof latest.text === 'string' ? latest.text.replace(/\s+/g, ' ').trim() : '';
+      if (!text) return '아직 등록된 코멘트가 없습니다.';
+      return text.length > 110 ? `${text.slice(0, 107)}...` : text;
+    }
+
+    function markItemUpdated(itemState) {
+      if (!itemState || typeof itemState !== 'object') return;
+      itemState.lastUpdatedAt = new Date().toISOString();
+      itemState.lastUpdatedByName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
+      itemState.lastUpdatedByEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
+      itemState.lastUpdatedByUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
+    }
+
+    function renderLatestActivityPanel(panelElement, itemState) {
+      if (!panelElement) return;
+      const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
+      const latestComment = getLatestCommentPreview(itemState || {});
+      const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
+      panelElement.innerHTML = `
+        <div class="latest-activity-title">⚡ 최신 업무 수행 현황</div>
+        <div class="latest-activity-grid">
+          <div class="latest-activity-item">
+            <div class="latest-activity-label">🕒 최근 실행 일시</div>
+            <div class="latest-activity-value">최근 작업: ${escapeHtml(recentTimestamp)}</div>
+          </div>
+          <div class="latest-activity-item latest-comment-box">
+            <div class="latest-activity-label">💬 최신 코멘트 요약</div>
+            <div class="latest-activity-value latest-comment-value">${escapeHtml(latestComment)}</div>
+          </div>
+          <div class="latest-activity-item">
+            <div class="latest-activity-label">📊 누적 이력 건수</div>
+            <div class="latest-activity-value">누적 이력: 총 ${historyCount}건</div>
+          </div>
+        </div>
+      `;
+    }
+
     function renderHistoryArchive(historyListElement, historyCountElement, historyList, editIndex = -1) {
       const entries = Array.isArray(historyList) ? historyList : [];
       if (historyCountElement) {
@@ -1845,6 +1906,7 @@
         const previewTags = getGoalPreviewTags(goalKey);
         const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
         const latestComment = getLatestCommentByGoal(goalKey, state);
+        const latestActivityText = latestComment ? latestComment.formattedDate : '최근 기록 없음';
         const latestCommentHtml = latestComment
           ? `<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-date">${escapeHtml(latestComment.formattedDate)}</div><div class="mandalart-comment-title">[${escapeHtml(latestComment.title)}]</div><div class="mandalart-comment-text">${escapeHtml(latestComment.text)}</div></div>`
           : '<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-empty">등록된 코멘트가 없습니다.</div></div>';
@@ -1853,14 +1915,13 @@
             <button type="button" class="mandalart-goal-btn ${isSearchHit ? 'search-hit' : ''}" data-goal="${goalKey}">
               <div class="mandalart-goal-title">${getGoalDisplayLabel(goalKey)}</div>
               <div class="mandalart-goal-meta">
-                <span>${stats.percent}%</span>
+                <span class="mandalart-activity-meta">🕒 ${escapeHtml(latestActivityText)}</span>
                 <span class="mandalart-star">★ ${stats.leaderRequestedCount}</span>
               </div>
               <div class="mandalart-keyword-list">
                 ${previewTags.map((tag) => `<span class="mandalart-keyword-tag">${escapeHtml(tag)}</span>`).join('')}
               </div>
               ${latestCommentHtml}
-              <div class="mandalart-progress-track"><div class="mandalart-progress-fill" style="width:${stats.percent}%"></div></div>
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
           </div>`;
@@ -3472,10 +3533,7 @@
             </div>
           </div>
           <div class="detail-item-progress">
-            <div class="progress-row">
-              <div class="progress-track"><div class="progress-fill"></div></div>
-              <span class="progress-value">0.0% (0/0 단계)</span>
-            </div>
+            <div class="latest-activity-panel"></div>
           </div>
         </article>`;
       }).join('');
@@ -3495,8 +3553,7 @@
         const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
-        const progressFill = card.querySelector('.progress-fill');
-        const progressValue = card.querySelector('.progress-value');
+        const latestActivityPanel = card.querySelector('.latest-activity-panel');
         const cardTitleElement = card.querySelector('.card-main-title');
         const cardDescriptionElement = card.querySelector('.detail-item-description');
         const cardEditButton = card.querySelector('.card-edit-btn');
@@ -3773,26 +3830,13 @@
           });
         };
 
-        const formatPercent = (value) => {
-          const rounded = Math.round(value * 10) / 10;
-          return `${rounded.toFixed(1)}%`;
-        };
-
-        const updateCardProgress = (skipPersist = false) => {
-          const totalSteps = checkboxes.length;
-          const checkedSteps = checkboxes.filter((checkbox) => checkbox.checked).length;
-          const percent = totalSteps ? (checkedSteps / totalSteps) * 100 : 0;
-          const isDone = totalSteps > 0 && checkedSteps === totalSteps;
-
-          card.dataset.progress = percent.toFixed(1);
-          progressFill.style.width = `${percent}%`;
-          progressFill.classList.toggle('done', isDone);
-          progressValue.textContent = `${formatPercent(percent)} (${checkedSteps}/${totalSteps} 단계)`;
-
+        const updateLatestActivityPanel = (skipPersist = false) => {
           itemState.steps = itemState.steps.map((step, idx) => ({
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
           }));
+          renderLatestActivityPanel(latestActivityPanel, itemState);
+          const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
           if (archiveCompleteButton) {
             archiveCompleteButton.classList.toggle('visible', isDone);
           }
@@ -3808,13 +3852,17 @@
         if (archiveProjectInput) {
           archiveProjectInput.addEventListener('input', () => {
             itemState.seriesDraftName = archiveProjectInput.value || '';
+            markItemUpdated(itemState);
             savePlannerState(plannerState);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
           });
         }
 
         if (journalInput) {
           journalInput.addEventListener('input', () => {
             itemState.note = journalInput.value || '';
+            markItemUpdated(itemState);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
             savePlannerState(plannerState, { debounceMs: 800, reason: 'note-input' });
           });
         }
@@ -3849,6 +3897,7 @@
             }));
             itemState.comments = [];
             itemState.seriesDraftName = '';
+            markItemUpdated(itemState);
 
             checkboxes.forEach((checkbox) => {
               checkbox.checked = false;
@@ -3863,7 +3912,7 @@
             historyEditIndex = -1;
             rerenderHistoryArchive();
             savePlannerState(plannerState);
-            updateCardProgress();
+            updateLatestActivityPanel();
             journalSaved.classList.add('visible');
             setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           });
@@ -3883,7 +3932,8 @@
                 }));
               }
             }
-            updateCardProgress();
+            markItemUpdated(itemState);
+            updateLatestActivityPanel();
           });
         });
 
@@ -3891,8 +3941,10 @@
           input.addEventListener('change', () => {
             if (!itemState.steps[idx]) return;
             itemState.steps[idx].dueDate = input.value || '';
+            markItemUpdated(itemState);
             updateDueDateBadges();
             savePlannerState(plannerState);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
             renderGoalSummaryWidget(currentGoal, plannerState);
             syncOverviewWidgets(plannerState);
           });
@@ -3907,9 +3959,11 @@
             timestamp: new Date().toISOString(),
             text
           });
+          markItemUpdated(itemState);
 
           savePlannerState(plannerState);
           renderTimeline(journalTimeline, itemState.comments);
+          renderLatestActivityPanel(latestActivityPanel, itemState);
           syncOverviewWidgets(plannerState);
           journalSaved.classList.add('visible');
           setTimeout(() => journalSaved.classList.remove('visible'), 1200);
@@ -3927,8 +3981,10 @@
             const isConfirmed = window.confirm('정말 삭제하시겠습니까?');
             if (!isConfirmed) return;
             itemState.comments.splice(targetIndex, 1);
+            markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
             return;
           }
@@ -3965,8 +4021,10 @@
 
             itemState.comments[targetIndex].text = editedText;
             itemState.comments[targetIndex].updatedAt = new Date().toISOString();
+            markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
             journalSaved.classList.add('visible');
             setTimeout(() => journalSaved.classList.remove('visible'), 1200);
@@ -3974,7 +4032,7 @@
         });
 
         updateDueDateBadges();
-        updateCardProgress(true);
+        updateLatestActivityPanel(true);
         applyEditabilityState();
       });
     }
