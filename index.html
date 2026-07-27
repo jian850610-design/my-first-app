@@ -845,14 +845,6 @@
     }
 
     function escapeHtml(text) {
-    function createHistoryArchiveHtml(options = {}) {
-      const titleText = typeof options.titleText === 'string' && options.titleText ? options.titleText : '이전 완료 히스토리';
-      const manualInputPlaceholder = typeof options.manualInputPlaceholder === 'string' && options.manualInputPlaceholder
-        ? options.manualInputPlaceholder
-        : '프로젝트/내용 입력';
-      const projectInputPlaceholder = typeof options.projectInputPlaceholder === 'string' && options.projectInputPlaceholder
-        ? options.projectInputPlaceholder
-        : '완료된 프로젝트명 입력 (예: Quick Collector 가이드)';
       return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -1005,7 +997,7 @@
     function createHistoryArchiveHtml() {
       return `
         <details class="history-archive-section">
-          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리 <span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></span></summary>
+          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리 / 공유 히스토리 <span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></span></summary>
           <div class="history-archive-body">
             <div class="history-manual-row">
               <input type="text" class="history-manual-input" maxlength="140" placeholder="프로젝트/내용 입력" />
@@ -2386,11 +2378,6 @@
           '복잡한 기술을 쉬운 고객 언어로 번역',
           '영업/기술 부서와 밀착 소통 및 촬영 협조'
         ],
-        'ai-culture': [
-          "SKF 핵심 가치 'Curiosity(호기심)' 실천",
-          "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
-          '팀 내 AI 친화적인 분위기 조성 독려'
-        ],
         'offline-brand': [
           '오프라인 제작물 브랜드 가이드라인 준수'
         ],
@@ -2410,13 +2397,13 @@
     }
 
     function resolveItemGuidelines(goalKey, item, goalTemplate) {
-      const fixedGuidelines = getFixedGuidelinesByGoal(goalKey);
-      if (fixedGuidelines.length) return [...fixedGuidelines];
-
       const itemGuidelines = Array.isArray(item.guidelines) && item.guidelines.length
         ? item.guidelines
         : (Array.isArray(item.principles) ? item.principles : []);
       if (itemGuidelines.length) return [...itemGuidelines];
+
+      const fixedGuidelines = getFixedGuidelinesByGoal(goalKey);
+      if (fixedGuidelines.length) return [...fixedGuidelines];
 
       const goalGuidelines = Array.isArray(goalTemplate.guidelines) && goalTemplate.guidelines.length
         ? goalTemplate.guidelines
@@ -2492,14 +2479,6 @@
           : '';
         const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
         const historyArchiveHtml = createHistoryArchiveHtml();
-                const historyArchiveOptions = itemKey === AI_WEEKLY_ITEM_KEY
-                  ? {
-                      titleText: '이전 완료 히스토리 / 공유 히스토리',
-                      manualInputPlaceholder: '대략적인 공유 내용/주제 입력',
-                      projectInputPlaceholder: '공유 주제 입력 (예: 사내 인트라넷 AI 트렌드 요약)'
-                    }
-                  : {};
-                const historyArchiveHtml = createHistoryArchiveHtml(historyArchiveOptions);
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
