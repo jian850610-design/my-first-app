@@ -97,6 +97,20 @@
     .summary-card .value { font-size: clamp(22px, 2vw, 30px); }
     .summary-card .note { margin-top: 4px; font-size: 11px; line-height: 1.4; }
 
+    .today-activity-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
+    .today-activity-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
+    .today-activity-date { font-size: 12px; font-weight: 800; color: #5a748f; background: #eef5ff; border: 1px solid #d8e6f5; border-radius: 999px; padding: 6px 10px; }
+    .today-activity-meta { font-size: 12px; color: #688099; }
+    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
+    .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 16px; background: #ffffff; padding: 12px 14px; display: grid; gap: 6px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
+    .today-activity-item:hover { transform: translateY(-1px); border-color: #9cc3e5; box-shadow: 0 10px 22px rgba(19, 73, 122, 0.12); }
+    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; background: #eef5ff; color: #24547f; }
+    .today-activity-item-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.45; }
+    .today-activity-item-detail { font-size: 12px; color: #4e657f; line-height: 1.6; white-space: pre-wrap; }
+    .today-activity-item-meta { font-size: 11px; color: #70859c; }
+
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
     .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 22px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
     .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
@@ -467,22 +481,16 @@
         </div>
       </section>
 
-      <section class="summary">
-        <article class="summary-card">
-          <strong>전체 완료율</strong>
-          <div class="value value--blue" id="overallRate">25%</div>
-          <div class="note">단계 체크리스트와 완료 버튼 연동으로 실시간 달성률이 계산됩니다.</div>
-        </article>
-        <article class="summary-card">
-          <strong>완료된 항목</strong>
-          <div class="value" id="completedCount">2 / 8</div>
-          <div class="note">총 8개 항목 중 단계 진행률 100%가 된 항목 수입니다.</div>
-        </article>
-        <article class="summary-card">
-          <strong>남은 항목</strong>
-          <div class="value value--red" id="remainingCount">6</div>
-          <div class="note">완료 버튼을 누르지 않은 항목이 남아 있습니다.</div>
-        </article>
+      <section class="today-activity-section">
+        <div class="today-activity-header">
+          <div>
+            <div class="today-activity-title">📝 오늘의 업무 수행 &amp; 히스토리</div>
+            <div class="today-activity-meta">오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.</div>
+          </div>
+          <div class="today-activity-date" id="todayActivityDate">오늘</div>
+        </div>
+        <ul class="today-activity-list" id="todayActivityList"></ul>
+        <div class="today-activity-empty" id="todayActivityEmpty">🎉 오늘 새로 등록된 업무 코멘트나 활동 내역이 없습니다.</div>
       </section>
 
       <section class="content">
@@ -505,9 +513,9 @@
   </div>
 
   <script>
-    const overallRate = document.getElementById('overallRate');
-    const completedCount = document.getElementById('completedCount');
-    const remainingCount = document.getElementById('remainingCount');
+    const todayActivityDate = document.getElementById('todayActivityDate');
+    const todayActivityList = document.getElementById('todayActivityList');
+    const todayActivityEmpty = document.getElementById('todayActivityEmpty');
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
     const goalSelect = document.getElementById('goalSelect');
@@ -536,6 +544,30 @@
     const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
     const editingChecklistKeys = new Set();
+
+    function getLocalDateKey(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function createActivityLogEntry(type, payload = {}) {
+      return {
+        type,
+        timestamp: new Date().toISOString(),
+        ...payload
+      };
+    }
+
+    function getCardActivityTitle(state, itemKey) {
+      const [goalKey, indexText] = itemKey.split('::');
+      const goalTemplate = goalTemplates[goalKey];
+      const itemIndex = Number(indexText);
+      const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+      if (!item) return itemKey;
+      return getCardTitleText(state && state.items ? state.items[itemKey] : null, item);
+    }
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
@@ -727,6 +759,7 @@
         if (!Array.isArray(itemState.comments)) itemState.comments = [];
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+        if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       });
       return { items };
@@ -783,6 +816,7 @@
           delayed: false,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
+          activityLog: [],
           seriesDraftName: '',
           principles: Array.isArray(principles) ? [...principles] : [],
           isLeaderRequested: false
@@ -885,6 +919,7 @@
       if (!itemState.historyList.length) {
         itemState.historyList = getDefaultHistoryList(itemKey);
       }
+      if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
@@ -1052,6 +1087,106 @@
             </li>
           `;
         }).join('');
+    }
+
+    function collectTodayActivityEntries(state) {
+      const entries = [];
+      const todayKey = getLocalDateKey();
+
+      Object.entries((state && state.items) || {}).forEach(([itemKey, itemState]) => {
+        const [goalKey, indexText] = itemKey.split('::');
+        const goalTemplate = goalTemplates[goalKey];
+        const itemIndex = Number(indexText);
+        const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+        if (!goalTemplate || !item) return;
+
+        const cardTitle = getCardActivityTitle(state, itemKey);
+
+        (itemState.comments || []).forEach((comment) => {
+          const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
+          if (!rawTimestamp || getLocalDateKey(new Date(rawTimestamp)) !== todayKey) return;
+          entries.push({
+            type: 'comment',
+            timestamp: new Date(rawTimestamp).getTime(),
+            itemKey,
+            goalKey,
+            cardTitle,
+            title: cardTitle,
+            timeText: formatEntryDateTime(rawTimestamp),
+            detail: comment.text || '',
+            stepIndex: -1
+          });
+        });
+
+        (itemState.activityLog || []).forEach((logEntry) => {
+          if (!logEntry || typeof logEntry.timestamp !== 'string') return;
+          if (getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey) return;
+
+          if (logEntry.type === 'checklist-complete') {
+            entries.push({
+              type: 'checklist',
+              timestamp: new Date(logEntry.timestamp).getTime(),
+              itemKey,
+              goalKey,
+              cardTitle,
+              title: cardTitle,
+              timeText: formatEntryDateTime(logEntry.timestamp),
+              detail: logEntry.stepText ? `완료 단계: ${logEntry.stepText}` : '체크리스트 항목 완료',
+              stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1
+            });
+          }
+
+          if (logEntry.type === 'history-add') {
+            entries.push({
+              type: 'history',
+              timestamp: new Date(logEntry.timestamp).getTime(),
+              itemKey,
+              goalKey,
+              cardTitle,
+              title: cardTitle,
+              timeText: formatEntryDateTime(logEntry.timestamp),
+              detail: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 아카이브 등록',
+              stepIndex: -1
+            });
+          }
+        });
+      });
+
+      return entries.sort((left, right) => right.timestamp - left.timestamp);
+    }
+
+    function renderTodayActivityWidget(state) {
+      if (todayActivityDate) {
+        todayActivityDate.textContent = `${getLocalDateKey()} Today`;
+      }
+      if (!todayActivityList || !todayActivityEmpty) return;
+
+      const entries = collectTodayActivityEntries(state);
+      if (!entries.length) {
+        todayActivityList.innerHTML = '';
+        todayActivityEmpty.style.display = 'block';
+        return;
+      }
+
+      todayActivityList.innerHTML = entries.map((entry) => {
+        const typeLabel = entry.type === 'comment'
+          ? '오늘의 업무 코멘트'
+          : entry.type === 'checklist'
+            ? '체크리스트 완료'
+            : '히스토리 추가';
+        const focusStep = Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex : '';
+        return `
+          <li>
+            <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
+              <span class="today-activity-item-type">${typeLabel}</span>
+              <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
+              <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
+              <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
+            </button>
+          </li>
+        `;
+      }).join('');
+      todayActivityEmpty.style.display = 'none';
     }
 
     function createHistoryArchiveHtml() {
@@ -1251,6 +1386,7 @@
     function syncOverviewWidgets(state) {
       renderUrgentDeadlineWidget(state);
       renderLeaderRequestSummary(state);
+      renderTodayActivityWidget(state);
       renderMandalartBoard(state);
     }
 
@@ -2879,6 +3015,12 @@
               completedAt: `${dateText}T00:00:00.000Z`,
               commentSummary: text
             });
+            itemState.activityLog.push(createActivityLogEntry('history-add', {
+              itemKey,
+              goalKey: currentGoal,
+              projectName: text,
+              completedAt: `${dateText}T00:00:00.000Z`
+            }));
 
             savePlannerState(plannerState);
             historyEditIndex = -1;
@@ -3070,6 +3212,11 @@
               completedAt: new Date().toISOString(),
               commentSummary: createCommentSummary(itemState.comments)
             });
+            itemState.activityLog.push(createActivityLogEntry('history-add', {
+              itemKey,
+              goalKey: currentGoal,
+              projectName
+            }));
 
             itemState.steps = itemState.steps.map(() => ({
               checked: false,
@@ -3106,6 +3253,15 @@
           checkbox.addEventListener('change', () => {
             if (itemState.steps[idx]) {
               itemState.steps[idx].checked = checkbox.checked;
+              if (checkbox.checked) {
+                const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
+                itemState.activityLog.push(createActivityLogEntry('checklist-complete', {
+                  itemKey,
+                  goalKey: currentGoal,
+                  stepIndex: idx,
+                  stepText
+                }));
+              }
             }
             if (card.classList.contains('delayed') && checkbox.checked) {
               card.classList.remove('delayed');
@@ -3243,14 +3399,7 @@
     }
 
     function updateStats() {
-      const cards = getCards();
-      const completed = cards.filter((card) => Number(card.dataset.progress || 0) >= 100).length;
-      const total = cards.length;
-      const rate = total ? Math.round((completed / total) * 100) : 0;
-      overallRate.textContent = `${rate}%`;
-      overallRate.className = `value ${rate === 100 ? 'value--blue' : 'value--red'}`;
-      completedCount.textContent = `${completed} / ${total}`;
-      remainingCount.textContent = `${total - completed}`;
+      renderTodayActivityWidget(loadPlannerState());
     }
 
     function initializeGoalSelect() {
@@ -3307,6 +3456,21 @@
           const [goalKey] = key.split('::');
           if (!goalTemplates[goalKey]) return;
           openGoalDetail(goalKey, key);
+        });
+      }
+
+      if (todayActivityList) {
+        todayActivityList.addEventListener('click', (event) => {
+          const item = event.target.closest('.today-activity-item');
+          if (!item) return;
+
+          const key = item.dataset.key || '';
+          const [goalKey] = key.split('::');
+          if (!goalTemplates[goalKey]) return;
+
+          const stepIndexText = item.dataset.stepIndex || '-1';
+          const stepIndex = Number(stepIndexText);
+          openGoalDetail(goalKey, key, Number.isNaN(stepIndex) ? -1 : stepIndex);
         });
       }
 
