@@ -156,13 +156,16 @@
     .workflow-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; font-size: 13px; line-height: 1.45; color: #24405d; flex-wrap: nowrap; }
     .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1 1 auto; }
     .workflow-step-index { margin-top: 2px; font-size: 12px; font-weight: 700; color: #35536f; }
-    .workflow-step-text-input { flex: 1 1 auto; min-width: 0; width: 100%; min-height: 30px; border: none; background: transparent; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; outline: none; resize: none; overflow: hidden; word-break: break-word; white-space: pre-wrap; }
+    .workflow-step-text-display { flex: 1 1 auto; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; white-space: pre-wrap; word-break: break-word; }
+    .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 0; width: 100%; min-height: 30px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 13px; line-height: 1.45; padding: 6px 8px; outline: none; }
+    .detail-item-card.editing .workflow-step-text-display { display: none; }
+    .detail-item-card.editing .workflow-step-text-input { display: block; }
     .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
-    .detail-item-card.editing .workflow-step-text-input { border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; padding: 6px 8px; }
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
     .workflow-item-right { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap; margin-left: auto; }
     .workflow-due-date { width: 128px; border: 1px solid #cfdced; border-radius: 8px; padding: 4px 7px; background: #ffffff; color: #294765; font-size: 12px; }
+    .workflow-due-date:disabled { background: #f4f7fb; color: #8a97a7; cursor: default; }
     .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .workflow-dday-badge { min-width: 84px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 700; }
     .workflow-dday-badge.unset { background: #eef3f8; color: #6a7d93; }
@@ -177,6 +180,7 @@
     .detail-item-card.editing .workflow-add-row { display: block; }
     .workflow-add-step-btn { border: 1px dashed #8fb3d8; border-radius: 9px; background: #f4f9ff; color: #24547f; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .workflow-add-step-btn:hover { background: #e8f2ff; }
+    .workflow-add-step-btn:disabled { opacity: 0.55; cursor: default; }
     .card-edit-btn, .card-save-btn { border: none; border-radius: 12px; color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .card-edit-btn { background: #5d6f86; }
     .card-edit-btn:hover { background: #4a5f78; transform: translateY(-1px); }
@@ -531,6 +535,7 @@
     const AI_WEEKLY_ITEM_KEY = 'ai-culture::0';
     const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
+    const editingChecklistKeys = new Set();
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
@@ -2534,7 +2539,8 @@
                 <div class="workflow-item-left">
                   <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
                   <span class="workflow-step-index">${stepIndex + 1}.</span>
-                  <textarea class="workflow-step-text-input" rows="1" data-step-index="${stepIndex}">${escapeHtml(step)}</textarea>
+                  <span class="workflow-step-text-display">${escapeHtml(step)}</span>
+                  <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
                 </div>
                 <div class="workflow-item-right">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
@@ -2575,6 +2581,24 @@
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
 
+    function syncChecklistEditMode(card, isEditing) {
+      if (!card) return;
+      card.classList.toggle('editing', isEditing);
+
+      Array.from(card.querySelectorAll('.workflow-step-text-input')).forEach((input) => {
+        input.disabled = !isEditing;
+      });
+      Array.from(card.querySelectorAll('.workflow-due-date')).forEach((input) => {
+        input.disabled = !isEditing;
+      });
+      const addStepButton = card.querySelector('.workflow-add-step-btn');
+      if (addStepButton) addStepButton.disabled = !isEditing;
+
+      Array.from(card.querySelectorAll('.workflow-delete-step-btn')).forEach((button) => {
+        button.disabled = !isEditing;
+      });
+    }
+
     function renderDetailItems(items, goalKey) {
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
@@ -2594,8 +2618,9 @@
         const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
         const historyArchiveHtml = createHistoryArchiveHtml();
         const guidelineEditorText = itemPrinciples.join('\n');
+        const editingClass = editingChecklistKeys.has(itemKey) ? ' editing' : '';
         return `
-        <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
+        <article class="detail-item-card${editingClass}" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
             <div class="card-title-group">
               <span class="card-main-title">${escapeHtml(displayTitle)}</span>
@@ -2603,7 +2628,7 @@
             </div>
             <div class="button-group">
               <button type="button" class="card-edit-btn">✏️ 카드 내용 수정</button>
-              <button type="button" class="card-save-btn">💾 저장하기</button>
+              <button type="button" class="card-save-btn">💾 저장</button>
               <button type="button" class="leader-star-btn" aria-label="팀장님 요청 표시">☆</button>
               <button type="button" class="item-complete-btn">완료</button>
               <button type="button" class="item-delay-btn">지연</button>
@@ -2738,11 +2763,15 @@
 
         updateLeaderVisual();
 
+        const isEditing = editingChecklistKeys.has(itemKey);
+        syncChecklistEditMode(card, isEditing);
+
         stepTextInputs.forEach((input) => autoSizeWorkflowTextarea(input));
 
         if (cardEditButton) {
           cardEditButton.addEventListener('click', () => {
-            card.classList.add('editing');
+            editingChecklistKeys.add(itemKey);
+            syncChecklistEditMode(card, true);
             if (titleInput) titleInput.focus();
           });
         }
@@ -2766,13 +2795,14 @@
 
             savePlannerState(plannerState);
             syncOverviewWidgets(plannerState);
+            editingChecklistKeys.delete(itemKey);
+            syncChecklistEditMode(card, false);
             updateGoalCard(currentGoal);
           });
         }
 
         stepTextInputs.forEach((input, idx) => {
           input.addEventListener('input', () => {
-            autoSizeWorkflowTextarea(input);
             ensureCustomSteps();
             itemState.customSteps[idx] = input.value || '';
             savePlannerState(plannerState);
