@@ -860,7 +860,7 @@
       return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
     }
 
-    function renderHistoryArchive(historyListElement, historyCountElement, historyList) {
+    function renderHistoryArchive(historyListElement, historyCountElement, historyList, editIndex = -1) {
       const entries = Array.isArray(historyList) ? historyList : [];
       if (historyCountElement) {
         historyCountElement.textContent = String(entries.length);
@@ -875,16 +875,41 @@
       historyListElement.innerHTML = entries
         .slice()
         .reverse()
-        .map((entry) => {
+        .map((entry, reversedIndex) => {
+          const sourceIndex = entries.length - 1 - reversedIndex;
           const projectName = entry && typeof entry.projectName === 'string' && entry.projectName ? entry.projectName : '제목 없음';
           const completedAt = entry && typeof entry.completedAt === 'string' ? entry.completedAt : '';
           const completedDate = formatDateOnly(completedAt) || '날짜 미상';
           const commentSummary = entry && typeof entry.commentSummary === 'string' && entry.commentSummary ? entry.commentSummary : '코멘트 기록 없음';
+          if (sourceIndex === editIndex) {
+            return `
+              <li class="history-archive-item" data-index="${sourceIndex}">
+                <div class="history-archive-item-top">
+                  <span class="history-archive-item-title">히스토리 수정 중</span>
+                </div>
+                <div class="history-archive-edit">
+                  <input type="text" class="history-archive-edit-input" value="${escapeHtml(projectName)}" maxlength="140" />
+                  <input type="date" class="history-archive-edit-date" value="${escapeHtml(completedDate === '날짜 미상' ? '' : completedDate)}" />
+                  <textarea class="history-archive-edit-text">${escapeHtml(commentSummary === '코멘트 기록 없음' ? '' : commentSummary)}</textarea>
+                  <div class="history-archive-edit-actions">
+                    <button type="button" class="history-archive-edit-btn save" data-action="save-history-edit" data-index="${sourceIndex}">저장</button>
+                    <button type="button" class="history-archive-edit-btn" data-action="cancel-history-edit">취소</button>
+                  </div>
+                </div>
+              </li>
+            `;
+          }
           return `
-            <li class="history-archive-item">
+            <li class="history-archive-item" data-index="${sourceIndex}">
               <div class="history-archive-item-top">
-                <span class="history-archive-item-title">${escapeHtml(projectName)}</span>
-                <span class="history-archive-item-date">완료일: ${escapeHtml(completedDate)}</span>
+                <div class="history-archive-item-heading">
+                  <span class="history-archive-item-title">${escapeHtml(projectName)}</span>
+                  <span class="history-archive-item-date">완료일: ${escapeHtml(completedDate)}</span>
+                </div>
+                <div class="history-archive-actions">
+                  <button type="button" class="history-archive-action-btn" data-action="edit-history" data-index="${sourceIndex}">수정</button>
+                  <button type="button" class="history-archive-action-btn delete" data-action="delete-history" data-index="${sourceIndex}">삭제</button>
+                </div>
               </div>
               <div class="history-archive-item-summary">${escapeHtml(commentSummary)}</div>
             </li>
@@ -895,7 +920,7 @@
     function createHistoryArchiveHtml() {
       return `
         <details class="history-archive-section">
-          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리</span><span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></summary>
+          <summary class="history-archive-toggle"><span class="history-archive-title">📜 이전 완료 히스토리 <span class="history-archive-count-wrap">(<span class="history-archive-count">0</span>건)</span></span></summary>
           <div class="history-archive-body">
             <div class="history-manual-row">
               <input type="text" class="history-manual-input" maxlength="140" placeholder="프로젝트/내용 입력" />
@@ -2487,8 +2512,13 @@
           delayButton.classList.add('delayed');
           delayButton.textContent = '지연됨';
         }
+        let historyEditIndex = -1;
+        const rerenderHistoryArchive = () => {
+          renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
+        };
+
         renderTimeline(journalTimeline, itemState.comments);
-        renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+        rerenderHistoryArchive();
 
         if (manualHistorySaveButton) {
           manualHistorySaveButton.addEventListener('click', () => {
@@ -2513,10 +2543,81 @@
             });
 
             savePlannerState(plannerState);
-            renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+            historyEditIndex = -1;
+            rerenderHistoryArchive();
             syncOverviewWidgets(plannerState);
             if (manualHistoryInput) manualHistoryInput.value = '';
             if (manualHistoryDateInput) manualHistoryDateInput.value = '';
+          });
+        }
+
+        if (historyListElement) {
+          historyListElement.addEventListener('click', (event) => {
+            const actionButton = event.target.closest('[data-action]');
+            if (!actionButton) return;
+
+            const action = actionButton.dataset.action;
+            const index = Number(actionButton.dataset.index);
+
+            if (action === 'edit-history') {
+              if (Number.isNaN(index) || !itemState.historyList[index]) return;
+              historyEditIndex = index;
+              rerenderHistoryArchive();
+              return;
+            }
+
+            if (action === 'cancel-history-edit') {
+              historyEditIndex = -1;
+              rerenderHistoryArchive();
+              return;
+            }
+
+            if (action === 'delete-history') {
+              if (Number.isNaN(index) || !itemState.historyList[index]) return;
+              const isConfirmed = window.confirm('해당 히스토리를 삭제하시겠습니까?');
+              if (!isConfirmed) return;
+              itemState.historyList.splice(index, 1);
+              historyEditIndex = -1;
+              savePlannerState(plannerState);
+              rerenderHistoryArchive();
+              syncOverviewWidgets(plannerState);
+              return;
+            }
+
+            if (action === 'save-history-edit') {
+              if (Number.isNaN(index) || !itemState.historyList[index]) return;
+              const item = actionButton.closest('.history-archive-item');
+              if (!item) return;
+              const editTitle = item.querySelector('.history-archive-edit-input');
+              const editDate = item.querySelector('.history-archive-edit-date');
+              const editSummary = item.querySelector('.history-archive-edit-text');
+              const nextTitle = editTitle ? editTitle.value.trim() : '';
+              const nextDate = editDate ? editDate.value : '';
+              const nextSummary = editSummary ? editSummary.value.trim() : '';
+
+              if (!nextTitle) {
+                window.alert('프로젝트명을 입력해 주세요.');
+                if (editTitle) editTitle.focus();
+                return;
+              }
+              if (!nextDate) {
+                window.alert('완료 날짜를 선택해 주세요.');
+                if (editDate) editDate.focus();
+                return;
+              }
+
+              itemState.historyList[index] = {
+                ...itemState.historyList[index],
+                projectName: nextTitle,
+                completedAt: `${nextDate}T00:00:00.000Z`,
+                commentSummary: nextSummary || '코멘트 기록 없음'
+              };
+
+              historyEditIndex = -1;
+              savePlannerState(plannerState);
+              rerenderHistoryArchive();
+              syncOverviewWidgets(plannerState);
+            }
           });
         }
 
@@ -2654,7 +2755,8 @@
             delayButton.classList.remove('delayed');
             delayButton.textContent = '지연';
             renderTimeline(journalTimeline, itemState.comments);
-            renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList);
+            historyEditIndex = -1;
+            rerenderHistoryArchive();
             savePlannerState(plannerState);
             updateCardProgress();
             journalSaved.classList.add('visible');
