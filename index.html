@@ -482,6 +482,7 @@
         return ref(firebaseDatabase, '.info/connected');
       }
     };
+    window.__plannerFirebaseReady = Promise.resolve(window.__plannerFirebase);
   </script>
 </head>
 <body>
@@ -750,6 +751,24 @@
 
     function getFirebaseBridge() {
       return window.__plannerFirebase || null;
+    }
+
+    async function waitForFirebaseBridge() {
+      if (window.__plannerFirebaseReady) {
+        return window.__plannerFirebaseReady;
+      }
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 200;
+        const timer = window.setInterval(() => {
+          const bridge = getFirebaseBridge();
+          attempts += 1;
+          if (bridge || attempts >= maxAttempts) {
+            window.clearInterval(timer);
+            resolve(bridge || null);
+          }
+        }, 25);
+      });
     }
 
     function formatFirebaseHeaderDateTime(value) {
@@ -4242,7 +4261,7 @@
     }
 
     async function initializeFirebaseIntegration() {
-      const bridge = getFirebaseBridge();
+      const bridge = await waitForFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
       await attachFirebaseAuthListener();
       if (firebaseAuthBtn) {
