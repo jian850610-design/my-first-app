@@ -54,12 +54,24 @@
     .firebase-mode-chip { border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255, 183, 0, 0.50); background: rgba(255, 244, 196, 0.9); color: #7a4d00; font-size: 12px; font-weight: 900; line-height: 1; }
     .firebase-mode-chip.read { border-color: rgba(148, 171, 198, 0.5); background: rgba(233, 239, 247, 0.95); color: #50637a; }
     .firebase-mode-chip.edit { border-color: rgba(255, 200, 58, 0.7); background: rgba(255, 245, 196, 0.98); color: #7a4d00; }
+    .firebase-auth-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .firebase-auth-btn,
+    .firebase-logout-btn { border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 12px; background: rgba(255,255,255,0.76); color: #523900; padding: 10px 12px; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .firebase-auth-btn:hover,
+    .firebase-logout-btn:hover { background: rgba(255,255,255,0.95); }
+    .firebase-user-badge { display: none; align-items: center; gap: 10px; border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 16px; padding: 8px 10px; background: rgba(255,255,255,0.82); color: #3f2d00; }
+    .firebase-user-badge.visible { display: inline-flex; }
+    .firebase-user-meta { display: grid; gap: 2px; min-width: 0; }
+    .firebase-user-name { font-size: 12px; font-weight: 900; color: #3f2d00; line-height: 1.2; }
+    .firebase-user-email,
+    .firebase-user-uid { font-size: 10px; color: #6d571f; line-height: 1.2; word-break: break-all; }
     .firebase-status-strip { margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1px solid #d6e2ec; background: rgba(255,255,255,0.88); box-shadow: 0 8px 18px rgba(8, 23, 49, 0.06); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
     .firebase-status-strip .firebase-chip { color: #24405d; border-color: #d6e2ec; background: #f7fbff; }
     .firebase-status-strip .firebase-chip.connected { border-color: rgba(53, 214, 143, 0.36); background: rgba(53, 214, 143, 0.12); }
     .firebase-status-strip .firebase-chip.saving { border-color: rgba(255, 206, 86, 0.34); background: rgba(255, 206, 86, 0.14); }
     .firebase-status-strip .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.34); background: rgba(255, 112, 112, 0.14); }
-    .firebase-status-strip .firebase-update-text, .firebase-status-strip .firebase-date-label { color: #50637a; }
+    .firebase-status-strip .firebase-update-text,
+    .firebase-status-strip .firebase-date-label { color: #50637a; }
     .firebase-status-strip .firebase-date-picker { border-color: #d6e2ec; background: #ffffff; color: #24405d; }
     .firebase-status-strip .firebase-date-picker:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
@@ -425,11 +437,13 @@
       .header-tools { width: 100%; }
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-status-strip { align-items: stretch; }
+      .firebase-auth-group { width: 100%; }
     }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -441,8 +455,10 @@
 
     const firebaseApp = initializeApp(FIREBASE_CONFIG);
     const firebaseDatabase = getDatabase(firebaseApp);
+    const firebaseAuth = getAuth(firebaseApp);
 
     window.__plannerFirebase = {
+      auth: firebaseAuth,
       database: firebaseDatabase,
       onValue,
       ref,
@@ -484,9 +500,22 @@
           <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
           <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
         </div>
-        <div class="firebase-date-field">
-          <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
-          <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
+        <div class="firebase-status-group">
+          <div class="firebase-date-field">
+            <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
+            <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
+          </div>
+          <div class="firebase-auth-group">
+            <button type="button" class="firebase-auth-btn" id="firebaseAuthBtn">Google 로그인</button>
+            <button type="button" class="firebase-logout-btn" id="firebaseLogoutBtn" hidden>로그아웃</button>
+            <div class="firebase-user-badge" id="firebaseUserBadge">
+              <div class="firebase-user-meta">
+                <div class="firebase-user-name" id="firebaseUserName">-</div>
+                <div class="firebase-user-email" id="firebaseUserEmail">-</div>
+                <div class="firebase-user-uid" id="firebaseUserUid">UID: -</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
       <div class="dashboard-search-section">
@@ -633,6 +662,12 @@
     const firebaseConnectionChip = document.getElementById('firebaseConnectionChip');
     const firebaseModeChip = document.getElementById('firebaseModeChip');
     const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
+    const firebaseAuthBtn = document.getElementById('firebaseAuthBtn');
+    const firebaseLogoutBtn = document.getElementById('firebaseLogoutBtn');
+    const firebaseUserBadge = document.getElementById('firebaseUserBadge');
+    const firebaseUserName = document.getElementById('firebaseUserName');
+    const firebaseUserEmail = document.getElementById('firebaseUserEmail');
+    const firebaseUserUid = document.getElementById('firebaseUserUid');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
     const goalCardSummaryTitle = document.getElementById('goalCardSummaryTitle');
@@ -667,6 +702,7 @@
     const FIREBASE_STATUS_VALUES = new Set(['completed', 'delayed', 'pending']);
     let currentPlannerDateKey = '';
     let currentPlannerState = { items: {}, meta: {} };
+    let currentFirebaseUser = null;
     let firebaseConnectionOnline = false;
     let firebaseSaving = false;
     let firebaseSaveTimer = null;
@@ -723,22 +759,7 @@
 
     function buildFirebaseSnapshot(state, metaOverrides = {}) {
       const normalizedState = normalizePlannerState(state);
-      const items = {};
-      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
-        items[goalKey] = {};
-        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
-        goalTemplate.items.forEach((_, index) => {
-          const itemKey = `${goalKey}::${index}`;
-          const itemState = normalizedState.items[itemKey] || {};
-          items[goalKey][index] = {
-            status: normalizeFirebaseStatus(itemState.status || getSyncedItemStatus(itemState)),
-            note: typeof itemState.note === 'string' ? itemState.note : ''
-          };
-        });
-      });
-
-      return {
-        items,
+      const snapshot = {
         meta: {
           lastUpdatedAt: metaOverrides.lastUpdatedAt || new Date().toISOString(),
           updatedByName: metaOverrides.updatedByName || EDITOR_NAME_LABEL,
@@ -746,12 +767,30 @@
           updatedByUid: metaOverrides.updatedByUid || ''
         }
       };
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        snapshot[goalKey] = {};
+        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
+        goalTemplate.items.forEach((_, index) => {
+          const itemKey = `${goalKey}::${index}`;
+          const itemState = normalizedState.items[itemKey] || {};
+          snapshot[goalKey][index] = {
+            status: normalizeFirebaseStatus(itemState.status || getSyncedItemStatus(itemState)),
+            note: typeof itemState.note === 'string' ? itemState.note : ''
+          };
+        });
+      });
+
+      return snapshot;
     }
 
     function applyFirebaseSnapshotToState(state, remoteSnapshot) {
       const nextState = normalizePlannerState(state);
-      const remoteItems = remoteSnapshot && remoteSnapshot.items && typeof remoteSnapshot.items === 'object' ? remoteSnapshot.items : {};
+      const remoteItems = remoteSnapshot && typeof remoteSnapshot === 'object'
+        ? (remoteSnapshot.items && typeof remoteSnapshot.items === 'object' ? remoteSnapshot.items : remoteSnapshot)
+        : {};
       Object.entries(remoteItems).forEach(([goalKey, indexedItems]) => {
+        if (goalKey === 'meta' || goalKey === '_meta') return;
+        if (!goalTemplates[goalKey]) return;
         if (!indexedItems || typeof indexedItems !== 'object') return;
         Object.entries(indexedItems).forEach(([indexText, remoteItem]) => {
           const itemKey = `${goalKey}::${indexText}`;
@@ -812,6 +851,33 @@
       firebaseModeChip.classList.toggle('read', !EDIT_MODE_REQUESTED);
     }
 
+    function updateFirebaseUserBadge() {
+      if (!firebaseUserBadge || !firebaseUserName || !firebaseUserEmail || !firebaseUserUid) return;
+      const isLoggedIn = Boolean(EDIT_MODE_REQUESTED && currentFirebaseUser);
+      firebaseUserBadge.classList.toggle('visible', isLoggedIn);
+      if (!isLoggedIn) {
+        firebaseUserName.textContent = '-';
+        firebaseUserEmail.textContent = '-';
+        firebaseUserUid.textContent = 'UID: -';
+        return;
+      }
+
+      firebaseUserName.textContent = currentFirebaseUser.displayName || 'Google 사용자';
+      firebaseUserEmail.textContent = currentFirebaseUser.email || '-';
+      firebaseUserUid.textContent = `UID: ${currentFirebaseUser.uid || '-'}`;
+    }
+
+    function updateFirebaseAuthControls() {
+      const hasEditableAccess = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      if (firebaseAuthBtn) {
+        firebaseAuthBtn.hidden = !EDIT_MODE_REQUESTED || hasEditableAccess;
+      }
+      if (firebaseLogoutBtn) {
+        firebaseLogoutBtn.hidden = !hasEditableAccess;
+      }
+      updateFirebaseUserBadge();
+    }
+
     function updateFirebaseLastUpdatedText(meta = {}) {
       if (!firebaseLastUpdatedText) return;
       const updatedAt = meta.lastUpdatedAt || firebaseLastUpdatedMeta.lastUpdatedAt || '';
@@ -829,7 +895,7 @@
     }
 
     function applyEditabilityState() {
-      const isEditable = EDIT_MODE_REQUESTED;
+      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
 
       getCards().forEach((card) => {
         const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
@@ -861,14 +927,14 @@
     }
 
     async function flushFirebaseSnapshot(reason = '') {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
       if (!bridge) return;
       const snapshot = buildFirebaseSnapshot(currentPlannerState, {
         lastUpdatedAt: new Date().toISOString(),
-        updatedByName: EDITOR_NAME_LABEL,
-        updatedByEmail: '',
-        updatedByUid: ''
+        updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser.email || '',
+        updatedByUid: currentFirebaseUser.uid || ''
       });
       firebaseSaving = true;
       updateFirebaseConnectionChip();
@@ -887,7 +953,7 @@
     }
 
     function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -1123,9 +1189,9 @@
       const normalizedState = normalizePlannerState(state);
       normalizedState.meta = {
         lastUpdatedAt: new Date().toISOString(),
-        updatedByName: EDITOR_NAME_LABEL,
-        updatedByEmail: '',
-        updatedByUid: ''
+        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
       };
       currentPlannerState = normalizedState;
       persistPlannerStateToLocalStorage(normalizedState);
@@ -4075,12 +4141,43 @@
       attachFirebaseDateListener(nextDateKey);
     }
 
+    async function handleFirebaseLogin() {
+      if (!EDIT_MODE_REQUESTED) return;
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(firebaseAuth, provider);
+      } catch (error) {
+        console.error('Google 로그인 실패', error);
+        window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
+      }
+    }
+
+    async function handleFirebaseLogout() {
+      try {
+        await signOut(firebaseAuth);
+      } catch (error) {
+        console.error('로그아웃 실패', error);
+      }
+    }
+
+    function attachFirebaseAuthListener() {
+      onAuthStateChanged(firebaseAuth, (user) => {
+        currentFirebaseUser = user || null;
+        updateFirebaseModeChip();
+        updateFirebaseAuthControls();
+        applyEditabilityState();
+        updateFirebaseConnectionChip();
+      });
+    }
+
     function initializeFirebaseIntegration() {
       const bridge = getFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
+      attachFirebaseAuthListener();
       if (!bridge) {
         updateFirebaseConnectionChip();
         updateFirebaseModeChip();
+        updateFirebaseAuthControls();
         return;
       }
 
@@ -4088,6 +4185,13 @@
       attachFirebaseDateListener(currentPlannerDateKey);
 
       updateFirebaseModeChip();
+      updateFirebaseAuthControls();
+      if (firebaseAuthBtn) {
+        firebaseAuthBtn.addEventListener('click', handleFirebaseLogin);
+      }
+      if (firebaseLogoutBtn) {
+        firebaseLogoutBtn.addEventListener('click', handleFirebaseLogout);
+      }
       applyEditabilityState();
     }
 
