@@ -207,17 +207,20 @@
     .workflow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
     .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-    .workflow-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; font-size: 13px; line-height: 1.45; color: #24405d; flex-wrap: nowrap; }
-    .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1 1 auto; }
+    .workflow-item,
+    .checklist-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; font-size: 13px; line-height: 1.45; color: #24405d; }
+    .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
     .workflow-step-index { margin-top: 2px; font-size: 12px; font-weight: 700; color: #35536f; }
-    .workflow-step-text-display { flex: 1 1 auto; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; white-space: pre-wrap; word-break: break-word; }
+    .workflow-step-text-display,
+    .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
     .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 0; width: 100%; min-height: 30px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 13px; line-height: 1.45; padding: 6px 8px; outline: none; }
     .detail-item-card.editing .workflow-step-text-display { display: none; }
     .detail-item-card.editing .workflow-step-text-input { display: block; }
     .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
-    .workflow-item-right { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: nowrap; margin-left: auto; }
+    .workflow-item-right,
+    .item-meta-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: nowrap; margin-left: auto; }
     .workflow-due-date { width: 128px; border: 1px solid #cfdced; border-radius: 8px; padding: 4px 7px; background: #ffffff; color: #294765; font-size: 12px; }
     .workflow-due-date:disabled { background: #f4f7fb; color: #8a97a7; cursor: default; }
     .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
@@ -438,6 +441,11 @@
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-status-strip { align-items: stretch; }
       .firebase-auth-group { width: 100%; }
+      .workflow-item,
+      .checklist-item { align-items: flex-start; }
+      .workflow-item-left { flex: 1 1 100%; }
+      .workflow-item-right,
+      .item-meta-group { flex-wrap: wrap; justify-content: flex-start; }
     }
   </style>
   <script type="module">
@@ -3273,14 +3281,14 @@
         }
 
         workflowLines.push(`
-              <li class="workflow-item" data-step-index="${stepIndex}">
+              <li class="workflow-item checklist-item" data-step-index="${stepIndex}">
                 <div class="workflow-item-left">
                   <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
                   <span class="workflow-step-index">${stepIndex + 1}.</span>
-                  <span class="workflow-step-text-display">${escapeHtml(step)}</span>
+                  <span class="workflow-step-text-display checklist-text">${escapeHtml(step)}</span>
                   <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
                 </div>
-                <div class="workflow-item-right">
+                <div class="workflow-item-right item-meta-group">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                   <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
                   <span class="workflow-status-badge pending" data-step-status-index="${stepIndex}">⚪ 미수행</span>
