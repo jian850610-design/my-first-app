@@ -299,21 +299,7 @@
       .history-manual-save-btn { width: 100%; }
     }
     .button-group { display: flex; gap: 10px; }
-    .item-complete-btn, .item-delay-btn { border: none; border-radius: 12px; color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
-    .item-complete-btn { background: var(--navy); }
-    .item-complete-btn:hover { background: var(--accent-light); transform: translateY(-1px); }
-    .item-delay-btn { background: #f39c12; }
-    .item-delay-btn:hover { background: #d97706; transform: translateY(-1px); }
-    .item-complete-btn.completed { background: var(--success); }
-    .item-delay-btn.delayed { background: #d97706; }
-    .detail-item-card.delayed { border-color: #f3af35; }
     .detail-item-progress { display: grid; gap: 10px; margin-top: 2px; }
-    .detail-item-status { display: flex; align-items: center; gap: 10px; }
-    .status-tag { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-    .status-tag.done { background: rgba(10, 94, 159, 0.12); color: #0a5e9f; }
-    .status-tag.working { background: rgba(15, 95, 157, 0.12); color: #0f5f9d; }
-    .status-tag.pending { background: rgba(127, 140, 166, 0.16); color: #5f6f87; }
-    .status-tag.delayed { background: rgba(243,156,18,0.16); color: #b45309; }
     .progress-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
     .progress-track { width: 100%; height: 10px; border-radius: 999px; background: #deebf5; overflow: hidden; }
     .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f39c12 0%, #f6b64f 100%); transition: width 0.35s ease, background 0.25s ease; }
@@ -374,7 +360,6 @@
     .field-label span { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
     .field-label button { border: none; border-radius: 12px; background: var(--navy); color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .field-label button:hover { background: var(--accent-light); transform: translateY(-1px); }
-    .field-label button.completed { background: var(--success); }
     .card-title-group { display: grid; gap: 8px; }
     .leader-request-tag { display: none; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; background: #fff3cc; color: #8a5b00; border: 1px solid #f2d98a; font-size: 11px; font-weight: 700; }
     .leader-request-tag.visible { display: inline-flex; }
@@ -693,12 +678,6 @@
     const editingChecklistKeys = new Set();
     const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
     const EDITOR_NAME_LABEL = '관리자';
-    const FIREBASE_STATUS_LABELS = {
-      completed: '완료',
-      delayed: '지연',
-      pending: '대기'
-    };
-    const FIREBASE_STATUS_VALUES = new Set(['completed', 'delayed', 'pending']);
     let currentPlannerDateKey = '';
     let currentPlannerState = { items: {}, meta: {} };
     let currentFirebaseUser = null;
@@ -759,21 +738,6 @@
       return `${year}-${month}-${day} ${hour}:${minute}`;
     }
 
-    function normalizeFirebaseStatus(value) {
-      if (FIREBASE_STATUS_VALUES.has(value)) return value;
-      if (value === 'done') return 'completed';
-      if (value === 'working') return 'pending';
-      return 'pending';
-    }
-
-    function getSyncedItemStatus(itemState) {
-      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
-      const checkedSteps = steps.filter((step) => step && step.checked).length;
-      if (itemState && itemState.delayed) return 'delayed';
-      if (steps.length > 0 && checkedSteps === steps.length) return 'completed';
-      return 'pending';
-    }
-
     function buildFirebaseSnapshot(state, metaOverrides = {}) {
       const normalizedState = normalizePlannerState(state);
       const snapshot = {
@@ -791,8 +755,21 @@
           const itemKey = `${goalKey}::${index}`;
           const itemState = normalizedState.items[itemKey] || {};
           snapshot[goalKey][index] = {
-            status: normalizeFirebaseStatus(itemState.status || getSyncedItemStatus(itemState)),
-            note: typeof itemState.note === 'string' ? itemState.note : ''
+            note: typeof itemState.note === 'string' ? itemState.note : '',
+            steps: Array.isArray(itemState.steps)
+              ? itemState.steps.map((step) => ({
+                  checked: Boolean(step && step.checked),
+                  dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+                }))
+              : [],
+            comments: Array.isArray(itemState.comments) ? itemState.comments : [],
+            historyList: Array.isArray(itemState.historyList) ? itemState.historyList : [],
+            seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
+            customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
+            customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
+            customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
+            customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
+            isLeaderRequested: itemState.isLeaderRequested === true
           };
         });
       });
@@ -816,21 +793,25 @@
           const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
           const itemStepCount = item ? getChecklistStepsForItem(nextState, goalKey, item, itemKey, []).length : 0;
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
-          const nextStatus = normalizeFirebaseStatus(remoteItem && remoteItem.status);
-          itemState.status = nextStatus;
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
+          itemState.steps = Array.isArray(remoteItem?.steps)
+            ? remoteItem.steps.map((step, stepIndex) => ({
+                checked: Boolean(step && step.checked),
+                dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, stepIndex)
+              }))
+            : itemState.steps;
+          itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
+          itemState.historyList = Array.isArray(remoteItem?.historyList) ? remoteItem.historyList : itemState.historyList;
+          itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
+          itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
+          itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
+          itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
+          itemState.customSteps = Array.isArray(remoteItem?.customSteps) ? remoteItem.customSteps : itemState.customSteps;
+          itemState.isLeaderRequested = remoteItem?.isLeaderRequested === true;
           itemState.lastUpdatedAt = typeof remoteItem?.lastUpdatedAt === 'string' ? remoteItem.lastUpdatedAt : itemState.lastUpdatedAt || '';
           itemState.lastUpdatedByName = typeof remoteItem?.lastUpdatedByName === 'string' ? remoteItem.lastUpdatedByName : itemState.lastUpdatedByName || '';
           itemState.lastUpdatedByEmail = typeof remoteItem?.lastUpdatedByEmail === 'string' ? remoteItem.lastUpdatedByEmail : itemState.lastUpdatedByEmail || '';
           itemState.lastUpdatedByUid = typeof remoteItem?.lastUpdatedByUid === 'string' ? remoteItem.lastUpdatedByUid : itemState.lastUpdatedByUid || '';
-          if (nextStatus === 'completed' && Array.isArray(itemState.steps)) {
-            itemState.steps = itemState.steps.map((step) => ({ ...step, checked: true }));
-            itemState.delayed = false;
-          } else if (nextStatus === 'delayed') {
-            itemState.delayed = true;
-          } else {
-            itemState.delayed = false;
-          }
         });
       });
 
@@ -1245,8 +1226,6 @@
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
-        itemState.delayed = itemState.delayed === true;
-        itemState.status = FIREBASE_STATUS_VALUES.has(itemState.status) ? itemState.status : 'pending';
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
         itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
@@ -1317,8 +1296,6 @@
         }));
         state.items[itemKey] = {
           steps,
-          delayed: false,
-          status: 'pending',
           note: '',
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
@@ -1358,10 +1335,6 @@
           checked: true,
           dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0)
         };
-
-        if (!FIREBASE_STATUS_VALUES.has(itemState.status)) {
-          itemState.status = getSyncedItemStatus(itemState);
-        }
         itemState.steps[1] = {
           checked: true,
           dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1)
@@ -1438,7 +1411,6 @@
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
       if (typeof itemState.isLeaderRequested !== 'boolean') itemState.isLeaderRequested = false;
-      if (typeof itemState.delayed !== 'boolean') itemState.delayed = false;
       return itemState;
     }
 
@@ -1464,7 +1436,7 @@
 
     function getDueBadgeInfo(dueDate, checked) {
       if (checked) {
-        return { text: '완료', cls: 'done' };
+        return { text: '체크됨', cls: 'done' };
       }
       if (!dueDate) {
         return { text: '미설정', cls: 'unset' };
@@ -3458,8 +3430,6 @@
               <button type="button" class="card-edit-btn">✏️ 카드 내용 수정</button>
               <button type="button" class="card-save-btn">💾 저장</button>
               <button type="button" class="leader-star-btn" aria-label="팀장님 요청 표시">☆</button>
-              <button type="button" class="item-complete-btn">완료</button>
-              <button type="button" class="item-delay-btn">지연</button>
             </div>
           </div>
           <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
@@ -3502,7 +3472,6 @@
             </div>
           </div>
           <div class="detail-item-progress">
-            <div class="detail-item-status"></div>
             <div class="progress-row">
               <div class="progress-track"><div class="progress-fill"></div></div>
               <span class="progress-value">0.0% (0/0 단계)</span>
@@ -3520,8 +3489,6 @@
         const itemKey = card.dataset.key;
         const starButton = card.querySelector('.leader-star-btn');
         const cardTitleGroup = card.querySelector('.card-title-group');
-        const completeButton = card.querySelector('.item-complete-btn');
-        const delayButton = card.querySelector('.item-delay-btn');
         const checkboxes = Array.from(card.querySelectorAll('.workflow-check'));
         const stepTextInputs = Array.from(card.querySelectorAll('.workflow-step-text-input'));
         const deleteStepButtons = Array.from(card.querySelectorAll('.workflow-delete-step-btn'));
@@ -3530,7 +3497,6 @@
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
         const progressFill = card.querySelector('.progress-fill');
         const progressValue = card.querySelector('.progress-value');
-        const statusContainer = card.querySelector('.detail-item-status');
         const cardTitleElement = card.querySelector('.card-main-title');
         const cardDescriptionElement = card.querySelector('.detail-item-description');
         const cardEditButton = card.querySelector('.card-edit-btn');
@@ -3676,11 +3642,6 @@
         if (journalInput) {
           journalInput.value = itemState.note || '';
         }
-        if (itemState.delayed) {
-          card.classList.add('delayed');
-          delayButton.classList.add('delayed');
-          delayButton.textContent = '지연됨';
-        }
         let historyEditIndex = -1;
         const rerenderHistoryArchive = () => {
           renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
@@ -3803,22 +3764,6 @@
           syncOverviewWidgets(plannerState);
         });
 
-        const setStatus = (type, text) => {
-          itemState.status = type === 'done' ? 'completed' : type === 'delayed' ? 'delayed' : 'pending';
-          statusContainer.innerHTML = `<span class="status-tag ${type}">${text}</span>`;
-        };
-
-        const setAllChecklist = (isChecked) => {
-          checkboxes.forEach((checkbox) => {
-            checkbox.checked = isChecked;
-          });
-          itemState.steps = itemState.steps.map((step) => ({
-            checked: isChecked,
-            dueDate: step.dueDate || ''
-          }));
-          savePlannerState(plannerState);
-        };
-
         const updateDueDateBadges = () => {
           dueDateBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, dueDate: '' };
@@ -3843,32 +3788,6 @@
           progressFill.style.width = `${percent}%`;
           progressFill.classList.toggle('done', isDone);
           progressValue.textContent = `${formatPercent(percent)} (${checkedSteps}/${totalSteps} 단계)`;
-
-          if (isDone) {
-            card.classList.add('completed');
-            completeButton.classList.add('completed');
-            completeButton.textContent = '완료됨';
-            itemState.delayed = false;
-            setStatus('done', '완료');
-          } else if (card.classList.contains('delayed')) {
-            card.classList.remove('completed');
-            completeButton.classList.remove('completed');
-            completeButton.textContent = '완료';
-            itemState.delayed = true;
-            setStatus('delayed', '당일 미완료로 다음 날로 연기되었습니다');
-          } else if (checkedSteps > 0) {
-            card.classList.remove('completed');
-            completeButton.classList.remove('completed');
-            completeButton.textContent = '완료';
-            itemState.delayed = false;
-            setStatus('working', '진행중');
-          } else {
-            card.classList.remove('completed');
-            completeButton.classList.remove('completed');
-            completeButton.textContent = '완료';
-            itemState.delayed = false;
-            setStatus('pending', '미착수');
-          }
 
           itemState.steps = itemState.steps.map((step, idx) => ({
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
@@ -3929,7 +3848,6 @@
               dueDate: ''
             }));
             itemState.comments = [];
-            itemState.delayed = false;
             itemState.seriesDraftName = '';
 
             checkboxes.forEach((checkbox) => {
@@ -3941,10 +3859,6 @@
             if (archiveProjectInput) {
               archiveProjectInput.value = '';
             }
-
-            card.classList.remove('delayed');
-            delayButton.classList.remove('delayed');
-            delayButton.textContent = '지연';
             renderTimeline(journalTimeline, itemState.comments);
             historyEditIndex = -1;
             rerenderHistoryArchive();
@@ -3968,12 +3882,6 @@
                   stepText
                 }));
               }
-            }
-            if (card.classList.contains('delayed') && checkbox.checked) {
-              card.classList.remove('delayed');
-              delayButton.classList.remove('delayed');
-              delayButton.textContent = '지연';
-              itemState.delayed = false;
             }
             updateCardProgress();
           });
@@ -4063,31 +3971,6 @@
             journalSaved.classList.add('visible');
             setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           }
-        });
-
-        completeButton.addEventListener('click', () => {
-          const allChecked = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
-          card.classList.remove('delayed');
-          delayButton.classList.remove('delayed');
-          delayButton.textContent = '지연';
-          setAllChecklist(!allChecked);
-          updateCardProgress();
-        });
-
-        delayButton.addEventListener('click', () => {
-          const isDelayed = card.classList.toggle('delayed');
-          if (isDelayed) {
-            setAllChecklist(false);
-            delayButton.classList.add('delayed');
-            delayButton.textContent = '지연됨';
-            itemState.delayed = true;
-          } else {
-            delayButton.classList.remove('delayed');
-            delayButton.textContent = '지연';
-            itemState.delayed = false;
-            savePlannerState(plannerState);
-          }
-          updateCardProgress();
         });
 
         updateDueDateBadges();
