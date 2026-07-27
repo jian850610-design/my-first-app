@@ -499,12 +499,25 @@
     let dashboardSearchTerm = '';
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
+    const NAVER_TV_ITEM_KEY = 'naver-platform::0';
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
           projectName: 'TKSA 71 사용가이드 영상 제작 및 편집',
           completedAt: '2026-06-30T00:00:00.000Z',
           commentSummary: 'TKSA 71 샤프트 정렬 기기 사용법 영상 제작 완료 (SKF 웹사이트 및 영상 채널 업로드 완료)'
+        }
+      ],
+      [NAVER_TV_ITEM_KEY]: [
+        {
+          projectName: '네이버 TV 공식 채널 신규 개설 완료',
+          completedAt: '2026-04-24T00:00:00.000Z',
+          commentSummary: '네이버 TV 공식 채널 신규 개설 완료'
+        },
+        {
+          projectName: '스웨덴데이 & 야유회 현장 숏폼 영상 2건 제작 및 업로드 완료',
+          completedAt: '2026-06-30T00:00:00.000Z',
+          commentSummary: '스웨덴데이 & 야유회 현장 숏폼 영상 2건 제작 및 업로드 완료'
         }
       ]
     };
@@ -520,6 +533,12 @@
         '[Quick Collector] 8월 중 촬영 날짜·장소 최종 확정 및 준비사항 수립',
         '[Quick Collector] 8월 중 현장/실습 영상 촬영 진행',
         '[Quick Collector] 영상 편집 완료 및 9월 초 페이스북/유튜브/네이버TV 최종 업로드'
+      ],
+      [NAVER_TV_ITEM_KEY]: [
+        '사내외 행사(교육, 세미나, 주요 이벤트) 개최 시 현장 촬영 소스 수집 (마감일: 상시 진행)',
+        '2~3분 이내 현장 스케치 및 하이라이트 숏폼 영상 편집 (마감일: 수시 진행)',
+        '네이버 TV 채널 업로드 및 네이버 블로그/포스트 연계 공유 (마감일: 수시 진행)',
+        '댓글/조회수 모니터링 및 네이버 TV 채널 상시 유지 관리 (마감일: 상시 진행)'
       ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
@@ -569,6 +588,7 @@
     const defaultDueDatesByItemKey = {
       'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
       [VIDEO_SERIES_ITEM_KEY]: ['2026-07-31', '2026-08-07', '2026-08-21', '2026-09-11'],
+      [NAVER_TV_ITEM_KEY]: ['', '', '', ''],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -743,6 +763,13 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: getDefaultDueDate(itemKey, index)
+        }));
+      }
+
+      if (itemKey === NAVER_TV_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: ''
         }));
       }
 
@@ -1287,6 +1314,16 @@
       if (!Array.isArray(videoItemState.historyList) || !videoItemState.historyList.length) {
         videoItemState.historyList = getDefaultHistoryList(VIDEO_SERIES_ITEM_KEY);
       }
+
+      const naverTvSteps = customWorkflowByItemKey[NAVER_TV_ITEM_KEY] || [];
+      const naverTvState = getItemState(state, NAVER_TV_ITEM_KEY, naverTvSteps.length);
+      naverTvState.steps = naverTvState.steps.map((step) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: ''
+      }));
+      if (!Array.isArray(naverTvState.historyList) || !naverTvState.historyList.length) {
+        naverTvState.historyList = getDefaultHistoryList(NAVER_TV_ITEM_KEY);
+      }
     }
 
     const goalTemplates = {
@@ -1349,8 +1386,8 @@
         goalText: '네이버 블로그/TV 채널 콘텐츠를 최적화하고 검색 접근성을 강화합니다.',
         items: [
           {
-            title: '신규 네이버 TV 채널 영상 지속 업로드',
-            summary: '제품 및 솔루션 중심의 블로그 포스트를 카테고리별로 체계화합니다.',
+            title: '네이버 TV 채널 운영 및 이벤트/행사 숏폼 영상 제작',
+            summary: '사내외 행사(교육, 세미나 등) 발생 시 현장 2~3분 숏폼 영상을 수시로 제작 및 업로드하여 네이버 TV 채널을 지속 관리합니다.',
             hq: 'SKF 본사는 제품별 기술 콘텐츠를 블로그에 정기적으로 게시하며 검색 노출을 확대합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 고객 사례 기반 블로그 매거진을 운영하여 전문성을 강조합니다.',
             link: 'https://www.naver.com'
