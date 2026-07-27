@@ -504,7 +504,8 @@
     const NAVER_TV_ITEM_KEY = 'naver-platform::0';
     const FIELD_EVENT_ITEM_KEY = 'field-communication::1';
     const AI_WEEKLY_ITEM_KEY = 'ai-culture::0';
-    const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::1';
+    const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
+    const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
@@ -580,6 +581,12 @@
         '[비용 산출] 최종 추천 박람회의 총 소요 예산(부스비+장치비+운영비) 및 의사결정 타임라인 정리',
         '[최종 기안] Jay 부장님 보고/검수 완료 및 9월 예산 반영용 최종 기안서 작성'
       ],
+      [OFFLINE_POPKIT_ITEM_KEY]: [
+        '[현황 파악] 기존 POP/판촉 자산 파악 및 웰컴 키트 구성안 수립',
+        '[디자인/시안] 신규 POP 디자인 및 웰컴 키트 시안 확정',
+        '[제작/발주] POP 실물 제작 및 웰컴 키트 패키징 발주',
+        '[배포/활용] 대리점 POP 배포 및 웰컴 키트 입고·활용 시작'
+      ],
       [OFFLINE_SIGNBOARD_ITEM_KEY]: [
         '동화베어링·알파테크·알파 군산 간판 설치 일정 확인 및 대리점 협의',
         '대리점 간판 교체 현장 방문 및 전경/간판 촬영',
@@ -626,6 +633,7 @@
       [FIELD_EVENT_ITEM_KEY]: ['2026-08-31', '2026-09-15', '2026-09-30', '2026-10-15', '2026-10-23', '2026-10-30', '2026-11-03', '2026-11-06', '2026-10-30', '2026-11-13', '2026-11-20', '2026-11-27', '2026-12-04', '2026-12-11', '2026-12-18', '2026-12-24'],
       [AI_WEEKLY_ITEM_KEY]: ['', '', ''],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
+      [OFFLINE_POPKIT_ITEM_KEY]: ['2026-08-14', '2026-08-31', '2026-09-18', '2026-09-30'],
       [OFFLINE_SIGNBOARD_ITEM_KEY]: ['2026-07-31', '2026-08-31', '2026-09-15', '2026-09-30'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -821,6 +829,13 @@
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
           dueDate: ''
+        }));
+      }
+
+      if (itemKey === OFFLINE_POPKIT_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step, index) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: getDefaultDueDate(itemKey, index)
         }));
       }
 
@@ -1397,6 +1412,13 @@
         dueDate: ''
       }));
 
+      const offlinePopKitSteps = customWorkflowByItemKey[OFFLINE_POPKIT_ITEM_KEY] || [];
+      const offlinePopKitState = getItemState(state, OFFLINE_POPKIT_ITEM_KEY, offlinePopKitSteps.length);
+      offlinePopKitState.steps = offlinePopKitState.steps.map((step, index) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: getDefaultDueDate(OFFLINE_POPKIT_ITEM_KEY, index)
+      }));
+
       const offlineSignboardSteps = customWorkflowByItemKey[OFFLINE_SIGNBOARD_ITEM_KEY] || [];
       const offlineSignboardState = getItemState(state, OFFLINE_SIGNBOARD_ITEM_KEY, offlineSignboardSteps.length);
       offlineSignboardState.steps = offlineSignboardState.steps.map((step, index) => ({
@@ -1723,8 +1745,11 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '2026 New Signboard Implementation & 블로그 콘텐츠 제작 (동화베어링·알파테크·알파 군산)',
-            summary: '동화베어링, 알파테크, 알파 군산 등 대리점 간판 교체 일정을 확인하고, 설치 현장에 방문해 촬영 후 네이버 블로그에 리뉴얼 후기 포스팅을 작성·발행합니다.',
+            title: '오프라인 판촉 자산·매장 POP & 브랜드 웰컴 키트 제작',
+            summary: '대리점/고객 접점용 오프라인 POP 및 전시물을 리뉴얼하고, 신규 대리점 및 VIP 고객 전달용 SKF 브랜드 웰컴 키트를 기획·제작합니다.',
+            guidelines: [
+              'SKF 글로벌 브랜드 가이드라인 준수 및 실물 규격/활용성 사전 검증'
+            ],
             hq: 'SKF는 대리점의 고객 피드백을 수집해 마케팅 메시지에 반영합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 현장 VOC를 마케팅 사례로 활용하여 신뢰를 강화합니다.',
             link: 'https://www.skf.com/group/news'
@@ -1737,8 +1762,8 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '간판 교체/현장 사진 블로그 콘텐츠화',
-            summary: '행사 종료 후 고객 반응과 학습을 정리해 다음 캠페인에 반영합니다.',
+            title: '2026 New Signboard Implementation & 블로그 콘텐츠 제작 (동화베어링·알파테크·알파 군산)',
+            summary: '동화베어링, 알파테크, 알파 군산 등 대리점 간판 교체 일정을 확인하고, 현장 방문 촬영 후 네이버 블로그에 리뉴얼 후기 포스팅을 작성·발행합니다.',
             hq: 'SKF는 행사가 끝난 후 성과 리포트를 제작해 내부 공유합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 고객 반응 데이터를 바탕으로 후속 마케팅을 설계합니다.',
             link: 'https://www.skf.com/group/news'
