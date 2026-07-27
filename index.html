@@ -503,6 +503,7 @@
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
     const NAVER_TV_ITEM_KEY = 'naver-platform::0';
     const FIELD_EVENT_ITEM_KEY = 'field-communication::1';
+    const AI_WEEKLY_ITEM_KEY = 'ai-culture::0';
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
@@ -561,6 +562,11 @@
         '[4탄/QC교류회] Technology Exchange Meeting 행사 개최',
         '[4탄/QC교류회] 행사 결과 보고 및 기술 VOC 분석'
       ],
+      [AI_WEEKLY_ITEM_KEY]: [
+        '[수집/요약] 금주 주요 AI 트렌드·뉴스·업무 활용 사례 수집 및 핵심 요약',
+        '[사내 게시] 사내 인트라넷 게시판에 요약글 작성 및 업로드',
+        '[이력 기록] 공유한 주제/날짜를 [📜 공유 히스토리]에 기록 후 다음 주를 위해 체크리스트 재설정'
+      ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
         '부족한 사진 사내 자료실(Media Hub) 추가 발굴',
@@ -611,6 +617,7 @@
       [VIDEO_SERIES_ITEM_KEY]: ['2026-07-31', '2026-08-07', '2026-08-21', '2026-09-11'],
       [NAVER_TV_ITEM_KEY]: ['', '', '', ''],
       [FIELD_EVENT_ITEM_KEY]: ['2026-08-31', '2026-09-15', '2026-09-30', '2026-10-15', '2026-10-23', '2026-10-30', '2026-11-03', '2026-11-06', '2026-10-30', '2026-11-13', '2026-11-20', '2026-11-27', '2026-12-04', '2026-12-11', '2026-12-18', '2026-12-24'],
+      [AI_WEEKLY_ITEM_KEY]: ['', '', ''],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -799,6 +806,13 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: getDefaultDueDate(itemKey, index)
+        }));
+      }
+
+      if (itemKey === AI_WEEKLY_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: ''
         }));
       }
 
@@ -1360,6 +1374,13 @@
         checked: Boolean(step && step.checked),
         dueDate: getDefaultDueDate(FIELD_EVENT_ITEM_KEY, index)
       }));
+
+      const aiWeeklySteps = customWorkflowByItemKey[AI_WEEKLY_ITEM_KEY] || [];
+      const aiWeeklyState = getItemState(state, AI_WEEKLY_ITEM_KEY, aiWeeklySteps.length);
+      aiWeeklyState.steps = aiWeeklyState.steps.map((step) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: ''
+      }));
     }
 
     const goalTemplates = {
@@ -1536,8 +1557,12 @@
         ],
         items: [
           {
-            title: '매주 Teams 채널에 AI 트렌드/뉴스 공유',
-            summary: '마케팅 콘텐츠 작성, 데이터 분석, 워크플로우 자동화에 AI 도구를 적용합니다.',
+            title: '주간 AI 트렌드 & 주요 뉴스 사내 인트라넷 정기 공유',
+            summary: '최신 AI 트렌드 및 업무 활용 팁을 매주 사내 인트라넷에 공유하고 히스토리에 이력을 누적 관리합니다.',
+            guidelines: [
+              '핵심 요약 3줄 및 실무 적용 사례 위주로 가독성 높게 작성',
+              '게시글 작성 완료 후 대략적인 공유 주제와 날짜를 [📜 공유 히스토리]에 작성하여 관리'
+            ],
             hq: 'SKF 본사는 AI 기반 보고서 자동 생성 및 콘텐츠 가이드라인을 테스트 중입니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 AI를 활용한 메시지 자동화와 고객 분석 툴을 함께 도입하고 있습니다.',
             link: 'https://www.skf.com/group/services/engineering'
