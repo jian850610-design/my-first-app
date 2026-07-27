@@ -169,6 +169,7 @@
     .team-overview-toggle-btn:hover { background: #e7f1ff; }
     .team-overview-body { display: block; }
     .team-overview-section.collapsed .team-overview-body { display: none; }
+    .team-overview-filter-notice { margin: 0 0 8px; border-radius: 10px; border: 1px solid #f1dd9d; background: #fff7dc; color: #7b5a08; padding: 8px 10px; font-size: 12px; font-weight: 700; }
     .team-overview-table-wrap { width: 100%; overflow: auto; border: 1px solid #d8e5f1; border-radius: 12px; background: #ffffff; }
     .team-overview-table { width: 100%; border-collapse: collapse; min-width: 1060px; }
     .team-overview-table th,
@@ -585,10 +586,15 @@
               <option value="Jay">Jay</option>
               <option value="CHCho">CHCho</option>
             </select>
+            <select class="team-overview-filter" id="teamUpdateWindowFilter" aria-label="업데이트 기간 필터">
+              <option value="recent15">⚡ 최근 15일 업데이트 건만 보기 (기본)</option>
+              <option value="all">📋 전체 업무 보기</option>
+            </select>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewToggleBtn">표 접기</button>
           </div>
         </div>
         <div class="team-overview-body" id="teamOverviewBody">
+          <p class="team-overview-filter-notice" id="teamOverviewFilterNotice">최근 15일 이내 변경사항이 있는 업무만 모아봅니다.</p>
           <div class="team-overview-table-wrap">
             <table class="team-overview-table" aria-label="팀 업무 종합 현황표">
               <thead>
@@ -763,6 +769,8 @@
     const teamOverviewSection = document.getElementById('teamOverviewSection');
     const teamOverviewToggleBtn = document.getElementById('teamOverviewToggleBtn');
     const teamAssigneeFilter = document.getElementById('teamAssigneeFilter');
+    const teamUpdateWindowFilter = document.getElementById('teamUpdateWindowFilter');
+    const teamOverviewFilterNotice = document.getElementById('teamOverviewFilterNotice');
     const teamOverviewTableBody = document.getElementById('teamOverviewTableBody');
     const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
@@ -794,6 +802,7 @@
     let firebaseBridgeReady = false;
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
+    let teamOverviewUpdateFilterMode = 'recent15';
 
     function getLocalDateKey(date = new Date()) {
       const year = date.getFullYear();
@@ -1211,6 +1220,32 @@
         });
     }
 
+    function getLastOverviewUpdateTimestamp(itemState) {
+      const commentTimes = Array.isArray(itemState && itemState.comments)
+        ? itemState.comments
+            .map((comment) => {
+              const ts = comment && (comment.updatedAt || comment.timestamp);
+              const time = ts ? new Date(ts).getTime() : Number.NaN;
+              return Number.isNaN(time) ? 0 : time;
+            })
+            .filter((time) => time > 0)
+        : [];
+
+      const checklistTimes = Array.isArray(itemState && itemState.activityLog)
+        ? itemState.activityLog
+            .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.timestamp === 'string')
+            .map((entry) => {
+              const time = new Date(entry.timestamp).getTime();
+              return Number.isNaN(time) ? 0 : time;
+            })
+            .filter((time) => time > 0)
+        : [];
+
+      const allTimes = [...commentTimes, ...checklistTimes];
+      if (!allTimes.length) return 0;
+      return Math.max(...allTimes);
+    }
+
     function buildTeamOverviewRows(state) {
       const rows = [];
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
@@ -1239,6 +1274,8 @@
           const progressText = `체크 ${doneCount}/${totalCount} · 최근 코멘트: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
           const noteText = itemState && typeof itemState.note === 'string' && itemState.note.trim() ? itemState.note.trim() : '-';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
+          const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
+          const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
 
           rows.push({
             itemKey,
@@ -1250,7 +1287,9 @@
             progressText,
             noteText,
             highlight,
-            dueSort: dueDateText || '9999-12-31'
+            dueSort: dueDateText || '9999-12-31',
+            lastUpdateTs,
+            lastUpdateDays
           });
         });
       });
@@ -1265,9 +1304,18 @@
     function renderTeamOverviewTable(state) {
       if (!teamOverviewTableBody || !teamOverviewEmpty) return;
       const rows = buildTeamOverviewRows(state || loadPlannerState());
+      const selectedWindow = teamUpdateWindowFilter ? teamUpdateWindowFilter.value : teamOverviewUpdateFilterMode;
+      teamOverviewUpdateFilterMode = selectedWindow || 'recent15';
+      if (teamOverviewFilterNotice) {
+        teamOverviewFilterNotice.hidden = teamOverviewUpdateFilterMode !== 'recent15';
+      }
 
-      const assigneeValues = Array.from(new Set(rows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
-      const fixedOptions = ['전체', 'Jian', 'Jay', 'CHCho'];
+      const windowFilteredRows = teamOverviewUpdateFilterMode === 'all'
+        ? rows
+        : rows.filter((row) => Number.isFinite(row.lastUpdateDays) && row.lastUpdateDays <= 15);
+
+      const assigneeValues = Array.from(new Set(windowFilteredRows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
+      const fixedOptions = ['Jian', 'Jay', 'CHCho'];
       const currentValue = teamAssigneeFilter ? teamAssigneeFilter.value : 'all';
       if (teamAssigneeFilter) {
         const dynamicOptions = assigneeValues.filter((name) => !fixedOptions.includes(name));
@@ -1285,11 +1333,14 @@
 
       const selectedAssignee = teamAssigneeFilter ? teamAssigneeFilter.value : 'all';
       const filteredRows = selectedAssignee === 'all'
-        ? rows
-        : rows.filter((row) => row.assignee === selectedAssignee);
+        ? windowFilteredRows
+        : windowFilteredRows.filter((row) => row.assignee === selectedAssignee);
 
       if (!filteredRows.length) {
         teamOverviewTableBody.innerHTML = '';
+        teamOverviewEmpty.textContent = teamOverviewUpdateFilterMode === 'recent15'
+          ? '최근 15일 이내 변경사항이 있는 업무가 없습니다. 전체 보기로 전환해 주세요.'
+          : '현재 필터 조건에 맞는 업무가 없습니다.';
         teamOverviewEmpty.hidden = false;
         return;
       }
@@ -4765,11 +4816,22 @@
     }
 
     function initializeGoalSelect() {
+      if (teamUpdateWindowFilter) {
+        teamUpdateWindowFilter.value = teamOverviewUpdateFilterMode;
+      }
+
       if (teamOverviewToggleBtn && teamOverviewSection) {
         teamOverviewToggleBtn.addEventListener('click', () => {
           teamOverviewCollapsed = !teamOverviewCollapsed;
           teamOverviewSection.classList.toggle('collapsed', teamOverviewCollapsed);
           teamOverviewToggleBtn.textContent = teamOverviewCollapsed ? '표 펼치기' : '표 접기';
+        });
+      }
+
+      if (teamUpdateWindowFilter) {
+        teamUpdateWindowFilter.addEventListener('change', () => {
+          teamOverviewUpdateFilterMode = teamUpdateWindowFilter.value || 'recent15';
+          renderTeamOverviewTable(loadPlannerState());
         });
       }
 
