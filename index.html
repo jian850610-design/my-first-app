@@ -155,6 +155,10 @@
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
     .workflow-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.45; color: #24405d; }
     .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
+    .workflow-step-index { margin-top: 2px; font-size: 12px; font-weight: 700; color: #35536f; }
+    .workflow-step-text-input { width: 100%; min-height: 30px; border: none; background: transparent; color: #24405d; font-size: 13px; line-height: 1.45; padding: 2px 0; outline: none; }
+    .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
+    .detail-item-card.editing .workflow-step-text-input { border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; padding: 6px 8px; }
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
     .workflow-item-right { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -166,6 +170,27 @@
     .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
     .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
     .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
+    .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
+    .workflow-delete-step-btn:hover { background: #fff1f1; }
+    .detail-item-card.editing .workflow-delete-step-btn { display: inline-flex; }
+    .workflow-add-row { display: none; margin-top: 2px; }
+    .detail-item-card.editing .workflow-add-row { display: block; }
+    .workflow-add-step-btn { border: 1px dashed #8fb3d8; border-radius: 9px; background: #f4f9ff; color: #24547f; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .workflow-add-step-btn:hover { background: #e8f2ff; }
+    .card-edit-btn, .card-save-btn { border: none; border-radius: 12px; color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
+    .card-edit-btn { background: #5d6f86; }
+    .card-edit-btn:hover { background: #4a5f78; transform: translateY(-1px); }
+    .card-save-btn { display: none; background: #0b73bc; }
+    .card-save-btn:hover { background: #0f5f9d; transform: translateY(-1px); }
+    .detail-item-card.editing .card-edit-btn { display: none; }
+    .detail-item-card.editing .card-save-btn { display: inline-flex; align-items: center; justify-content: center; }
+    .card-editor-panel { display: none; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; gap: 8px; }
+    .detail-item-card.editing .card-editor-panel { display: grid; }
+    .card-editor-field { display: grid; gap: 4px; }
+    .card-editor-field label { font-size: 11px; color: #4a627d; font-weight: 700; }
+    .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 10px; padding: 8px 10px; background: #ffffff; color: #1f3d5b; font-size: 12px; outline: none; }
+    .card-editor-textarea { min-height: 72px; resize: vertical; line-height: 1.45; }
+    .card-editor-input:focus, .card-editor-textarea:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
     .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
     .history-archive-toggle::-webkit-details-marker { display: none; }
@@ -1282,8 +1307,8 @@
         const items = Array.isArray(goalTemplate.items) ? goalTemplate.items : [];
         items.forEach((item, itemIndex) => {
           const itemKey = `${goalKey}::${itemIndex}`;
-          const itemGuidelines = resolveItemGuidelines(goalKey, item, goalTemplate);
-          const checklistSteps = getChecklistSteps(goalKey, item, itemKey, itemGuidelines);
+          const itemGuidelines = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
+          const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemGuidelines);
           const itemState = getItemState(state, itemKey, checklistSteps.length, itemGuidelines);
 
           checklistSteps.forEach((stepText, stepIndex) => {
@@ -2458,6 +2483,36 @@
       return [...goalGuidelines];
     }
 
+    function getCardTitleText(itemState, item) {
+      if (itemState && Object.prototype.hasOwnProperty.call(itemState, 'customTitle') && typeof itemState.customTitle === 'string') {
+        return itemState.customTitle;
+      }
+      return item.title;
+    }
+
+    function getCardSummaryText(itemState, item) {
+      if (itemState && Object.prototype.hasOwnProperty.call(itemState, 'customSummary') && typeof itemState.customSummary === 'string') {
+        return itemState.customSummary;
+      }
+      return item.summary;
+    }
+
+    function getCardGuidelines(state, goalKey, item, goalTemplate, itemKey) {
+      const itemState = state && state.items ? state.items[itemKey] : null;
+      if (itemState && Object.prototype.hasOwnProperty.call(itemState, 'customGuidelines') && Array.isArray(itemState.customGuidelines)) {
+        return itemState.customGuidelines.filter((line) => typeof line === 'string');
+      }
+      return resolveItemGuidelines(goalKey, item, goalTemplate);
+    }
+
+    function getChecklistStepsForItem(state, goalKey, item, itemKey, principles = []) {
+      const itemState = state && state.items ? state.items[itemKey] : null;
+      if (itemState && Array.isArray(itemState.customSteps)) {
+        return itemState.customSteps.map((step) => (typeof step === 'string' ? step : ''));
+      }
+      return getChecklistSteps(goalKey, item, itemKey, principles);
+    }
+
     function getChecklistSteps(goalKey, item, itemKey, principles = []) {
       return filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
     }
@@ -2478,11 +2533,13 @@
               <li class="workflow-item" data-step-index="${stepIndex}">
                 <div class="workflow-item-left">
                   <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
-                  <label for="wf-${index}-${stepIndex}">${stepIndex + 1}. ${escapeHtml(step)}</label>
+                  <span class="workflow-step-index">${stepIndex + 1}.</span>
+                  <input class="workflow-step-text-input" type="text" data-step-index="${stepIndex}" value="${escapeHtml(step)}" />
                 </div>
                 <div class="workflow-item-right">
                   <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                   <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
+                  <button type="button" class="workflow-delete-step-btn" data-step-index="${stepIndex}" aria-label="단계 삭제">🗑️</button>
                 </div>
               </li>
             `);
@@ -2497,6 +2554,7 @@
           <ul class="workflow-list">
             ${workflowLines.join('')}
           </ul>
+          <div class="workflow-add-row"><button type="button" class="workflow-add-step-btn">+ 단계 추가</button></div>
         </div>`;
     }
 
@@ -2517,8 +2575,11 @@
       const goalTemplate = goalTemplates[goalKey] || {};
       detailContainer.innerHTML = items.map((item, index) => {
         const itemKey = `${goalKey}::${index}`;
-        const itemPrinciples = resolveItemGuidelines(goalKey, item, goalTemplate);
-        const checklistSteps = getChecklistSteps(goalKey, item, itemKey, itemPrinciples);
+        const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
+        const displayTitle = getCardTitleText(existingItemState, item);
+        const displaySummary = getCardSummaryText(existingItemState, item);
+        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
         const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
         const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
         const leaderTagHtml = itemState.isLeaderRequested === true
@@ -2526,20 +2587,37 @@
           : '';
         const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
         const historyArchiveHtml = createHistoryArchiveHtml();
+        const guidelineEditorText = itemPrinciples.join('\n');
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
             <div class="card-title-group">
-              <span>${item.title}</span>
+              <span class="card-main-title">${escapeHtml(displayTitle)}</span>
               ${leaderTagHtml}
             </div>
             <div class="button-group">
+              <button type="button" class="card-edit-btn">✏️ 카드 내용 수정</button>
+              <button type="button" class="card-save-btn">💾 저장하기</button>
               <button type="button" class="leader-star-btn" aria-label="팀장님 요청 표시">☆</button>
               <button type="button" class="item-complete-btn">완료</button>
               <button type="button" class="item-delay-btn">지연</button>
             </div>
           </div>
-          <div class="detail-item-description">${item.summary}</div>
+          <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
+          <div class="card-editor-panel">
+            <div class="card-editor-field">
+              <label>카드 제목</label>
+              <input type="text" class="card-editor-input card-title-input" value="${escapeHtml(displayTitle)}" />
+            </div>
+            <div class="card-editor-field">
+              <label>본문 설명</label>
+              <textarea class="card-editor-textarea card-summary-input">${escapeHtml(displaySummary)}</textarea>
+            </div>
+            <div class="card-editor-field">
+              <label>가이드라인 (줄바꿈으로 항목 구분)</label>
+              <textarea class="card-editor-textarea card-guidelines-input">${escapeHtml(guidelineEditorText)}</textarea>
+            </div>
+          </div>
           <div class="detail-item-meta">
             <div><strong>SKF 본사 실행 내용</strong><p>${item.hq}</p></div>
             <div><strong>경쟁사 실행 내용</strong>
@@ -2586,11 +2664,21 @@
         const completeButton = card.querySelector('.item-complete-btn');
         const delayButton = card.querySelector('.item-delay-btn');
         const checkboxes = Array.from(card.querySelectorAll('.workflow-check'));
+        const stepTextInputs = Array.from(card.querySelectorAll('.workflow-step-text-input'));
+        const deleteStepButtons = Array.from(card.querySelectorAll('.workflow-delete-step-btn'));
+        const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
         const progressFill = card.querySelector('.progress-fill');
         const progressValue = card.querySelector('.progress-value');
         const statusContainer = card.querySelector('.detail-item-status');
+        const cardTitleElement = card.querySelector('.card-main-title');
+        const cardDescriptionElement = card.querySelector('.detail-item-description');
+        const cardEditButton = card.querySelector('.card-edit-btn');
+        const cardSaveButton = card.querySelector('.card-save-btn');
+        const titleInput = card.querySelector('.card-title-input');
+        const summaryInput = card.querySelector('.card-summary-input');
+        const guidelinesInput = card.querySelector('.card-guidelines-input');
         const journalInput = card.querySelector('.journal-input');
         const journalSaveButton = card.querySelector('.journal-save-btn');
         const journalTimeline = card.querySelector('.journal-timeline');
@@ -2606,8 +2694,14 @@
         const currentGoalTemplate = goalTemplates[currentGoal] || {};
         const currentItemIndex = Number(currentIndexText);
         const currentItem = Array.isArray(currentGoalTemplate.items) && !Number.isNaN(currentItemIndex) ? currentGoalTemplate.items[currentItemIndex] : null;
-        const currentPrinciples = currentItem ? resolveItemGuidelines(currentGoal, currentItem, currentGoalTemplate) : [];
+        const currentPrinciples = currentItem ? getCardGuidelines(plannerState, currentGoal, currentItem, currentGoalTemplate, itemKey) : [];
         const itemState = getItemState(plannerState, itemKey, checkboxes.length, currentPrinciples);
+
+        const ensureCustomSteps = () => {
+          if (!Array.isArray(itemState.customSteps)) {
+            itemState.customSteps = stepTextInputs.map((input) => input.value || '');
+          }
+        };
 
         const setLeaderTag = (active) => {
           if (!cardTitleGroup) return;
@@ -2637,6 +2731,71 @@
         };
 
         updateLeaderVisual();
+
+        if (cardEditButton) {
+          cardEditButton.addEventListener('click', () => {
+            card.classList.add('editing');
+            if (titleInput) titleInput.focus();
+          });
+        }
+
+        if (cardSaveButton) {
+          cardSaveButton.addEventListener('click', () => {
+            const nextTitle = titleInput ? titleInput.value.trim() : '';
+            const nextSummary = summaryInput ? summaryInput.value.trim() : '';
+            const nextGuidelines = guidelinesInput
+              ? guidelinesInput.value.split('\n').map((line) => line.trim()).filter((line) => line)
+              : [];
+
+            if (nextTitle) itemState.customTitle = nextTitle;
+            else delete itemState.customTitle;
+
+            if (nextSummary) itemState.customSummary = nextSummary;
+            else delete itemState.customSummary;
+
+            if (nextGuidelines.length) itemState.customGuidelines = nextGuidelines;
+            else delete itemState.customGuidelines;
+
+            savePlannerState(plannerState);
+            syncOverviewWidgets(plannerState);
+            updateGoalCard(currentGoal);
+          });
+        }
+
+        stepTextInputs.forEach((input, idx) => {
+          input.addEventListener('input', () => {
+            ensureCustomSteps();
+            itemState.customSteps[idx] = input.value || '';
+            savePlannerState(plannerState);
+            if (cardTitleElement) cardTitleElement.textContent = getCardTitleText(itemState, currentItem || { title: '' });
+            if (cardDescriptionElement) cardDescriptionElement.textContent = getCardSummaryText(itemState, currentItem || { summary: '' });
+            syncOverviewWidgets(plannerState);
+          });
+        });
+
+        deleteStepButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const targetIndex = Number(button.dataset.stepIndex);
+            if (Number.isNaN(targetIndex)) return;
+            ensureCustomSteps();
+            itemState.customSteps.splice(targetIndex, 1);
+            itemState.steps.splice(targetIndex, 1);
+            savePlannerState(plannerState);
+            syncOverviewWidgets(plannerState);
+            updateGoalCard(currentGoal);
+          });
+        });
+
+        if (addStepButton) {
+          addStepButton.addEventListener('click', () => {
+            ensureCustomSteps();
+            itemState.customSteps.push('새 단계 입력');
+            itemState.steps.push({ checked: false, dueDate: '' });
+            savePlannerState(plannerState);
+            syncOverviewWidgets(plannerState);
+            updateGoalCard(currentGoal);
+          });
+        }
 
         checkboxes.forEach((checkbox, idx) => {
           checkbox.checked = Boolean(itemState.steps[idx] && itemState.steps[idx].checked);
