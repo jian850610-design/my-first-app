@@ -31,6 +31,7 @@
     .header-bar p { margin: 0; color: rgba(255,255,255,0.78); max-width: 860px; line-height: 1.7; }
     .header-meta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
     .header-chip { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 12px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+    .header-status { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .quick-nav-wrap { display: inline-flex; align-items: center; gap: 8px; }
     .quick-nav-label { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; letter-spacing: 0.04em; }
     .quick-nav-select { min-width: 240px; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; background: rgba(255,255,255,0.14); color: #ffffff; padding: 10px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -40,17 +41,6 @@
     .header-tools { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .export-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .export-data-btn:hover { background: rgba(255,255,255,0.24); }
-    .firebase-banner { display: grid; gap: 14px; margin-top: 14px; padding: 16px 18px; border-radius: 18px; border: 1px solid #f0d56a; background: linear-gradient(180deg, #fff8cf 0%, #ffe98f 100%); box-shadow: 0 10px 22px rgba(145, 112, 0, 0.16); }
-    .firebase-banner-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
-    .firebase-banner-message { display: grid; gap: 6px; min-width: 0; }
-    .firebase-banner-label { font-size: 12px; font-weight: 900; color: #7b5600; letter-spacing: 0.04em; text-transform: uppercase; }
-    .firebase-banner-text { font-size: 14px; font-weight: 800; color: #3f2d00; line-height: 1.45; }
-    .firebase-banner-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; }
-    .firebase-password-group { display: none; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .firebase-password-group.visible { display: flex; }
-    .firebase-password-input { min-width: 180px; border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 12px; background: rgba(255,255,255,0.86); color: #2f2300; padding: 10px 12px; font-size: 13px; font-weight: 800; outline: none; }
-    .firebase-password-input:focus { border-color: rgba(125, 95, 0, 0.5); box-shadow: 0 0 0 3px rgba(125, 95, 0, 0.14); }
-    .firebase-banner-footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
     .firebase-status-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .firebase-chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.92); font-size: 12px; font-weight: 800; line-height: 1; }
     .firebase-chip.connected { border-color: rgba(53, 214, 143, 0.4); background: rgba(53, 214, 143, 0.14); }
@@ -64,14 +54,14 @@
     .firebase-mode-chip { border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255, 183, 0, 0.50); background: rgba(255, 244, 196, 0.9); color: #7a4d00; font-size: 12px; font-weight: 900; line-height: 1; }
     .firebase-mode-chip.read { border-color: rgba(148, 171, 198, 0.5); background: rgba(233, 239, 247, 0.95); color: #50637a; }
     .firebase-mode-chip.edit { border-color: rgba(255, 200, 58, 0.7); background: rgba(255, 245, 196, 0.98); color: #7a4d00; }
-    .firebase-auth-btn, .firebase-logout-btn { border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 12px; background: rgba(255,255,255,0.76); color: #523900; padding: 10px 12px; font-size: 12px; font-weight: 900; cursor: pointer; }
-    .firebase-auth-btn:hover, .firebase-logout-btn:hover { background: rgba(255,255,255,0.95); }
-    .firebase-user-badge { display: none; align-items: center; gap: 10px; border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 16px; padding: 8px 10px; background: rgba(255,255,255,0.78); }
-    .firebase-user-badge.visible { display: inline-flex; }
-    .firebase-user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(125, 95, 0, 0.18); background: rgba(255,255,255,0.8); }
-    .firebase-user-meta { display: grid; gap: 2px; min-width: 0; }
-    .firebase-user-name { font-size: 12px; font-weight: 900; color: #3f2d00; line-height: 1.2; }
-    .firebase-user-email, .firebase-user-uid { font-size: 10px; color: #6d571f; line-height: 1.2; word-break: break-all; }
+    .firebase-status-strip { margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1px solid #d6e2ec; background: rgba(255,255,255,0.88); box-shadow: 0 8px 18px rgba(8, 23, 49, 0.06); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
+    .firebase-status-strip .firebase-chip { color: #24405d; border-color: #d6e2ec; background: #f7fbff; }
+    .firebase-status-strip .firebase-chip.connected { border-color: rgba(53, 214, 143, 0.36); background: rgba(53, 214, 143, 0.12); }
+    .firebase-status-strip .firebase-chip.saving { border-color: rgba(255, 206, 86, 0.34); background: rgba(255, 206, 86, 0.14); }
+    .firebase-status-strip .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.34); background: rgba(255, 112, 112, 0.14); }
+    .firebase-status-strip .firebase-update-text, .firebase-status-strip .firebase-date-label { color: #50637a; }
+    .firebase-status-strip .firebase-date-picker { border-color: #d6e2ec; background: #ffffff; color: #24405d; }
+    .firebase-status-strip .firebase-date-picker:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
     .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
     .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
@@ -434,9 +424,7 @@
       .quick-nav-select { width: 100%; min-width: 0; }
       .header-tools { width: 100%; }
       .firebase-date-field { width: 100%; min-width: 0; }
-      .firebase-banner { padding: 14px 14px; }
-      .firebase-banner-row { align-items: stretch; }
-      .firebase-banner-actions { width: 100%; justify-content: flex-start; }
+      .firebase-status-strip { align-items: stretch; }
     }
   </style>
   <script type="module">
@@ -475,7 +463,10 @@
         <h1>SKF Korea 마케팅 일일 업무 계획표</h1>
       </div>
       <div class="header-meta">
-        <span class="header-chip">문서 유형: 일일 업무 계획</span>
+        <div class="header-status">
+          <span class="header-chip">문서 유형: 일일 업무 계획</span>
+          <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
+        </div>
         <div class="header-tools">
           <div class="quick-nav-wrap">
             <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
@@ -488,37 +479,14 @@
           <button type="button" class="export-data-btn" id="exportDataBtn">📥 최신 데이터 내보내기</button>
         </div>
       </div>
-      <section class="firebase-banner" id="firebaseBanner" hidden>
-        <div class="firebase-banner-row">
-          <div class="firebase-banner-message">
-            <div class="firebase-banner-label">편집 안내</div>
-            <div class="firebase-banner-text" id="firebaseBannerText">편집을 하려면 비밀번호 인증이 필요합니다.</div>
-          </div>
-          <div class="firebase-banner-actions">
-            <div class="firebase-password-group" id="firebasePasswordGroup">
-              <input type="password" class="firebase-password-input" id="firebasePasswordInput" placeholder="비밀번호 입력" autocomplete="current-password" />
-              <button type="button" class="firebase-auth-btn" id="firebaseAuthBtn">확인</button>
-            </div>
-            <button type="button" class="firebase-logout-btn" id="firebaseLogoutBtn" hidden>인증 해제</button>
-            <div class="firebase-user-badge" id="firebaseUserBadge">
-              <div class="firebase-user-meta">
-                <div class="firebase-user-name" id="firebaseUserName">-</div>
-                <div class="firebase-user-email" id="firebaseUserEmail">-</div>
-                <div class="firebase-user-uid" id="firebaseUserUid">UID: -</div>
-              </div>
-            </div>
-          </div>
+      <section class="firebase-status-strip" id="firebaseStatusStrip">
+        <div class="firebase-status-group">
+          <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
+          <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
         </div>
-        <div class="firebase-banner-footer">
-          <div class="firebase-status-group">
-            <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
-            <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
-            <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
-          </div>
-          <div class="firebase-date-field">
-            <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
-            <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
-          </div>
+        <div class="firebase-date-field">
+          <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
+          <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
         </div>
       </section>
       <div class="dashboard-search-section">
@@ -675,16 +643,6 @@
     const newsWidgetMeta = document.getElementById('newsWidgetMeta');
     const newsWidgetList = document.getElementById('newsWidgetList');
     const newsWidgetLoading = document.getElementById('newsWidgetLoading');
-    const firebaseBanner = document.getElementById('firebaseBanner');
-    const firebaseBannerText = document.getElementById('firebaseBannerText');
-    const firebasePasswordGroup = document.getElementById('firebasePasswordGroup');
-    const firebasePasswordInput = document.getElementById('firebasePasswordInput');
-    const firebaseAuthBtn = document.getElementById('firebaseAuthBtn');
-    const firebaseLogoutBtn = document.getElementById('firebaseLogoutBtn');
-    const firebaseUserBadge = document.getElementById('firebaseUserBadge');
-    const firebaseUserName = document.getElementById('firebaseUserName');
-    const firebaseUserEmail = document.getElementById('firebaseUserEmail');
-    const firebaseUserUid = document.getElementById('firebaseUserUid');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -700,9 +658,7 @@
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
     const editingChecklistKeys = new Set();
     const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
-    const EDIT_MODE_LABEL = EDIT_MODE_REQUESTED ? '✏️ 편집 활성화' : '👀 읽기 전용 모드';
     const EDITOR_NAME_LABEL = '관리자';
-    const EDIT_PASSWORD = 'skf2026';
     const FIREBASE_STATUS_LABELS = {
       completed: '완료',
       delayed: '지연',
@@ -711,7 +667,6 @@
     const FIREBASE_STATUS_VALUES = new Set(['completed', 'delayed', 'pending']);
     let currentPlannerDateKey = '';
     let currentPlannerState = { items: {}, meta: {} };
-    let currentEditApproved = false;
     let firebaseConnectionOnline = false;
     let firebaseSaving = false;
     let firebaseSaveTimer = null;
@@ -852,40 +807,9 @@
 
     function updateFirebaseModeChip() {
       if (!firebaseModeChip) return;
-      firebaseModeChip.textContent = EDIT_MODE_REQUESTED && currentEditApproved ? '🟢 편집 권한 승인됨 (관리자)' : '👀 읽기 전용 모드';
-      firebaseModeChip.classList.toggle('edit', EDIT_MODE_REQUESTED && currentEditApproved);
+      firebaseModeChip.textContent = EDIT_MODE_REQUESTED ? '✏️ 편집 모드' : '👀 읽기 전용 모드';
+      firebaseModeChip.classList.toggle('edit', EDIT_MODE_REQUESTED);
       firebaseModeChip.classList.toggle('read', !EDIT_MODE_REQUESTED);
-    }
-
-    function updateFirebaseUserBadge() {
-      if (!firebaseUserBadge || !firebaseUserName || !firebaseUserEmail || !firebaseUserUid) return;
-      if (!currentEditApproved) {
-        firebaseUserBadge.classList.remove('visible');
-        firebaseUserName.textContent = '-';
-        firebaseUserEmail.textContent = '-';
-        firebaseUserUid.textContent = 'UID: -';
-        return;
-      }
-
-      firebaseUserBadge.classList.add('visible');
-      firebaseUserName.textContent = '관리자';
-      firebaseUserEmail.textContent = EDIT_PASSWORD;
-      firebaseUserUid.textContent = 'UID: ADMIN';
-    }
-
-    function updateFirebaseBannerState() {
-      if (!firebaseBanner || !firebaseBannerText || !firebasePasswordGroup || !firebaseAuthBtn || !firebaseLogoutBtn) return;
-      firebaseBanner.hidden = !EDIT_MODE_REQUESTED;
-      if (!EDIT_MODE_REQUESTED) return;
-
-      const isApproved = Boolean(currentEditApproved);
-      firebaseBannerText.textContent = isApproved
-        ? '비밀번호 인증 완료. 편집 내용은 Firebase Realtime Database에 즉시 저장됩니다.'
-        : '편집을 하려면 비밀번호 인증이 필요합니다.';
-      firebasePasswordGroup.classList.toggle('visible', !isApproved);
-      firebaseAuthBtn.hidden = isApproved;
-      firebaseLogoutBtn.hidden = !isApproved;
-      updateFirebaseUserBadge();
     }
 
     function updateFirebaseLastUpdatedText(meta = {}) {
@@ -905,11 +829,7 @@
     }
 
     function applyEditabilityState() {
-      const isEditable = EDIT_MODE_REQUESTED && currentEditApproved;
-      updateFirebaseBannerState();
-      if (plannerDatePicker) {
-        plannerDatePicker.disabled = false;
-      }
+      const isEditable = EDIT_MODE_REQUESTED;
 
       getCards().forEach((card) => {
         const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
@@ -941,7 +861,7 @@
     }
 
     async function flushFirebaseSnapshot(reason = '') {
-      if (!EDIT_MODE_REQUESTED || !currentEditApproved || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
       if (!bridge) return;
       const snapshot = buildFirebaseSnapshot(currentPlannerState, {
@@ -967,7 +887,7 @@
     }
 
     function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
-      if (!EDIT_MODE_REQUESTED || !currentEditApproved || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -4155,45 +4075,12 @@
       attachFirebaseDateListener(nextDateKey);
     }
 
-    function handleEditPasswordSubmit() {
-      if (!EDIT_MODE_REQUESTED) return;
-      const enteredPassword = firebasePasswordInput ? firebasePasswordInput.value.trim() : '';
-      if (!enteredPassword) {
-        window.alert('비밀번호를 입력해 주세요.');
-        if (firebasePasswordInput) firebasePasswordInput.focus();
-        return;
-      }
-      if (enteredPassword !== EDIT_PASSWORD) {
-        console.error('비밀번호 인증 실패');
-        window.alert('비밀번호가 올바르지 않습니다.');
-        if (firebasePasswordInput) {
-          firebasePasswordInput.value = '';
-          firebasePasswordInput.focus();
-        }
-        return;
-      }
-
-      currentEditApproved = true;
-      updateFirebaseModeChip();
-      updateFirebaseBannerState();
-      applyEditabilityState();
-      if (firebasePasswordInput) firebasePasswordInput.value = '';
-    }
-
-    function handleEditApprovalReset() {
-      currentEditApproved = false;
-      updateFirebaseModeChip();
-      updateFirebaseBannerState();
-      applyEditabilityState();
-    }
-
     function initializeFirebaseIntegration() {
       const bridge = getFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
       if (!bridge) {
         updateFirebaseConnectionChip();
         updateFirebaseModeChip();
-        updateFirebaseBannerState();
         return;
       }
 
@@ -4201,14 +4088,6 @@
       attachFirebaseDateListener(currentPlannerDateKey);
 
       updateFirebaseModeChip();
-      if (firebaseAuthBtn) {
-        firebaseAuthBtn.addEventListener('click', handleEditPasswordSubmit);
-      }
-      if (firebaseLogoutBtn) {
-        firebaseLogoutBtn.addEventListener('click', handleEditApprovalReset);
-      }
-
-      updateFirebaseBannerState();
       applyEditabilityState();
     }
 
