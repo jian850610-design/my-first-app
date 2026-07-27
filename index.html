@@ -845,6 +845,14 @@
     }
 
     function escapeHtml(text) {
+    function createHistoryArchiveHtml(options = {}) {
+      const titleText = typeof options.titleText === 'string' && options.titleText ? options.titleText : '이전 완료 히스토리';
+      const manualInputPlaceholder = typeof options.manualInputPlaceholder === 'string' && options.manualInputPlaceholder
+        ? options.manualInputPlaceholder
+        : '프로젝트/내용 입력';
+      const projectInputPlaceholder = typeof options.projectInputPlaceholder === 'string' && options.projectInputPlaceholder
+        ? options.projectInputPlaceholder
+        : '완료된 프로젝트명 입력 (예: Quick Collector 가이드)';
       return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -2484,6 +2492,14 @@
           : '';
         const workflowHtml = createWorkflowChecklistHtml(checklistSteps, index);
         const historyArchiveHtml = createHistoryArchiveHtml();
+                const historyArchiveOptions = itemKey === AI_WEEKLY_ITEM_KEY
+                  ? {
+                      titleText: '이전 완료 히스토리 / 공유 히스토리',
+                      manualInputPlaceholder: '대략적인 공유 내용/주제 입력',
+                      projectInputPlaceholder: '공유 주제 입력 (예: 사내 인트라넷 AI 트렌드 요약)'
+                    }
+                  : {};
+                const historyArchiveHtml = createHistoryArchiveHtml(historyArchiveOptions);
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
