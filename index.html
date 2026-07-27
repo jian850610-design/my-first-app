@@ -516,10 +516,10 @@
         'TLDD 미디어허브 사진 활용 및 정기 콘텐츠 첫 발행 시작'
       ],
       [VIDEO_SERIES_ITEM_KEY]: [
-        '[Quick Collector] ISC 박진슬 과장 수배 및 김형섭 과장 문의 (충전/설정법 사전 수립)',
-        '[Quick Collector] 8월 중 현장/실습 영상 촬영 및 1차 편집 완료',
-        '[Quick Collector] 9월 초 페이스북/유튜브/네이버TV 최종 업로드',
-        '[TLDD] TLDD 촬영 스케줄링(박재역&박진율&조길훈 부장님) 및 9~10월 후속 제작 업로드'
+        '[Quick Collector] ISC 박진솔 과장님께 촬영 일정 문의 및 김형섭 과장님 사전 논의',
+        '[Quick Collector] 8월 중 촬영 날짜·장소 최종 확정 및 준비사항 수립',
+        '[Quick Collector] 8월 중 현장/실습 영상 촬영 진행',
+        '[Quick Collector] 영상 편집 완료 및 9월 초 페이스북/유튜브/네이버TV 최종 업로드'
       ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
@@ -568,7 +568,7 @@
     };
     const defaultDueDatesByItemKey = {
       'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
-      [VIDEO_SERIES_ITEM_KEY]: ['2026-08-07', '2026-08-28', '2026-09-11', '2026-10-16'],
+      [VIDEO_SERIES_ITEM_KEY]: ['2026-07-31', '2026-08-07', '2026-08-21', '2026-09-11'],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -733,6 +733,13 @@
       }
 
       if (itemKey === FACEBOOK_PAGE_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step, index) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: getDefaultDueDate(itemKey, index)
+        }));
+      }
+
+      if (itemKey === VIDEO_SERIES_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: getDefaultDueDate(itemKey, index)
