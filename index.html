@@ -4161,8 +4161,11 @@
       const bridge = getFirebaseBridge();
       if (!bridge) return;
       try {
-        await bridge.signInWithPopup(bridge.auth, bridge.provider);
+        const provider = new GoogleAuthProvider();
+        const auth = getAuth();
+        await signInWithPopup(auth, provider);
       } catch (error) {
+        console.error('Google 로그인 실패', error);
         window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
       }
     }
@@ -4171,8 +4174,10 @@
       const bridge = getFirebaseBridge();
       if (!bridge) return;
       try {
-        await bridge.signOut(bridge.auth);
+        const auth = getAuth();
+        await signOut(auth);
       } catch (error) {
+        console.error('Google 로그아웃 실패', error);
         window.alert('로그아웃에 실패했습니다. 다시 시도해 주세요.');
       }
     }
@@ -4198,7 +4203,7 @@
         firebaseLogoutBtn.addEventListener('click', handleFirebaseLogout);
       }
 
-      bridge.onAuthStateChanged(bridge.auth, (user) => {
+      onAuthStateChanged(getAuth(), (user) => {
         currentFirebaseUser = user || null;
         updateFirebaseUserBadge();
         updateFirebaseBannerState();
