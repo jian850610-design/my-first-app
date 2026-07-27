@@ -151,6 +151,8 @@
     .workflow-header strong { margin: 0; font-size: 12px; color: #3f5874; letter-spacing: 0.06em; text-transform: uppercase; }
     .workflow-count { font-size: 12px; color: #6b7f95; }
     .workflow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
+    .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
     .workflow-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.45; color: #24405d; }
     .workflow-item-left { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
     .workflow-item input[type="checkbox"] { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
@@ -500,6 +502,7 @@
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
     const NAVER_TV_ITEM_KEY = 'naver-platform::0';
+    const FIELD_EVENT_ITEM_KEY = 'field-communication::1';
     const defaultHistoryByItemKey = {
       [VIDEO_SERIES_ITEM_KEY]: [
         {
@@ -539,6 +542,24 @@
         '2~3분 이내 현장 스케치 및 하이라이트 숏폼 영상 편집 (마감일: 수시 진행)',
         '네이버 TV 채널 업로드 및 네이버 블로그/포스트 연계 공유 (마감일: 수시 진행)',
         '댓글/조회수 모니터링 및 네이버 TV 채널 상시 유지 관리 (마감일: 상시 진행)'
+      ],
+      [FIELD_EVENT_ITEM_KEY]: [
+        '[1탄/런칭] 한화리조트/벡스코/베니키아 장소 비교, 대관계약 및 아젠다 확정',
+        '[1탄/런칭] 영업/기술팀 협업 초청 타깃 명단 확정 및 초청장 발송',
+        '[1탄/런칭] 발표 PPT 작성, 현장 시연 장비 및 배포용 프로모션 물품 준비',
+        '[1탄/런칭] 10월 중순 런칭 행사 개최(1시간 소요) 및 참석자 VOC 수집',
+        '[2탄/TKSA] TKSA 사용자 초청 타깃 명단 확보 및 수집',
+        '[2탄/TKSA] 사용자 주요 문의 및 피드백 안건 수집',
+        '[2탄/TKSA] 간담회 장소 세팅 및 발표 자료 준비',
+        '[2탄/TKSA] TKSA 간담회 진행 및 개선점 VOC 정리',
+        '[3탄/VIP] 서울 5성급 호텔 대관 확정 및 세미나 아젠다 수립',
+        '[3탄/VIP] VIP 고객사 50명 초청장 발송 및 참석 확정 관리',
+        '[3탄/VIP] VIP 텀블러/프리미엄 굿즈 제작 및 현장 세팅 준비',
+        '[3탄/VIP] 11/24~27 비즈니스 스웨덴 세미나 개최 및 VIP 응대',
+        '[4탄/QC교류회] 유저 교류회 핵심 기술 주제 선정',
+        '[4탄/QC교류회] 기술 발표 자료 작성 및 유저 초청',
+        '[4탄/QC교류회] Technology Exchange Meeting 행사 개최',
+        '[4탄/QC교류회] 행사 결과 보고 및 기술 VOC 분석'
       ],
       'field-communication::0': [
         '각 팀별 현장/고객 사진 1차 취합 및 분류',
@@ -589,6 +610,7 @@
       'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
       [VIDEO_SERIES_ITEM_KEY]: ['2026-07-31', '2026-08-07', '2026-08-21', '2026-09-11'],
       [NAVER_TV_ITEM_KEY]: ['', '', '', ''],
+      [FIELD_EVENT_ITEM_KEY]: ['2026-08-31', '2026-09-15', '2026-09-30', '2026-10-15', '2026-10-23', '2026-10-30', '2026-11-03', '2026-11-06', '2026-10-30', '2026-11-13', '2026-11-20', '2026-11-27', '2026-12-04', '2026-12-11', '2026-12-18', '2026-12-24'],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       'offline-brand::4': ['2026-07-24', '2026-08-07', '2026-08-28', '2026-10-05', '2026-10-16'],
       'naver-platform::4': ['2026-08-14', '2026-08-28', '2026-09-04', '2026-09-11'],
@@ -770,6 +792,13 @@
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
           dueDate: ''
+        }));
+      }
+
+      if (itemKey === FIELD_EVENT_ITEM_KEY) {
+        itemState.steps = itemState.steps.map((step, index) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: getDefaultDueDate(itemKey, index)
         }));
       }
 
@@ -1324,6 +1353,13 @@
       if (!Array.isArray(naverTvState.historyList) || !naverTvState.historyList.length) {
         naverTvState.historyList = getDefaultHistoryList(NAVER_TV_ITEM_KEY);
       }
+
+      const fieldEventSteps = customWorkflowByItemKey[FIELD_EVENT_ITEM_KEY] || [];
+      const fieldEventState = getItemState(state, FIELD_EVENT_ITEM_KEY, fieldEventSteps.length);
+      fieldEventState.steps = fieldEventState.steps.map((step, index) => ({
+        checked: Boolean(step && step.checked),
+        dueDate: getDefaultDueDate(FIELD_EVENT_ITEM_KEY, index)
+      }));
     }
 
     const goalTemplates = {
@@ -1460,18 +1496,11 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '사용자 간담회(TKSA/TLDD 등) 행사 지원',
-            summary: '영업팀이 활용할 수 있는 프레젠테이션, 카탈로그, 사례집을 제작합니다.',
-            hq: 'SKF는 영업팀에 기술 자료와 사례 중심 콘텐츠를 공동으로 제작하여 배포하고 있습니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 현장 고객 접점에서 바로 활용 가능한 요약 자료를 제공하고 있습니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '대리점/고객사 현장 방문 및 VOC 수집',
-            summary: '고객 세미나, 현장 회의, 웨비나를 기획해 주요 고객과 직접 소통합니다.',
-            hq: 'SKF 본사는 고객 워크숍과 기술단 회의를 통해 관계를 강화합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 온·오프라인 고객 커뮤니케이션 프로그램을 주기적으로 운영합니다.',
-            link: 'https://www.skf.com/group/news'
+            title: '하반기 주요 고객 세미나 & 간담회 (1탄~4탄) 순차 개최',
+            summary: '담당: Jay | 신제품 런칭(예산 2~3백) ➔ TKSA 간담회 ➔ 비즈니스 스웨덴 세미나(예산 2천) ➔ Quick Collector 기술교류회를 순차 진행합니다.',
+            hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
+            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
+            link: 'https://www.skf.com/group/news-management'
           },
           {
             title: '영업/기술 부서와 밀착 소통/촬영 협조',
@@ -1481,25 +1510,11 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '복잡한 기술을 쉬운 고객 언어로 번역',
-            summary: '대리점과 기술 영업팀의 상담 사례를 정리해 마케팅 메시지로 재구성합니다.',
-            hq: 'SKF는 대리점의 고객 상담 데이터를 분석해 콘텐츠 소재로 활용합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 영업 상담 사례를 내부 공유 콘텐츠로 전환합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
             title: 'B2B 성공 사례(Use Case) 발굴/콘텐츠화',
             summary: '고객 VOC를 정리해 마케팅 메시지와 제품 개선 방향에 반영합니다.',
             hq: 'SKF는 VOC를 고객 중심 콘텐츠로 전환해 신뢰도를 높입니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 VOC 데이터를 콘텐츠와 프로모션에 적극 활용합니다.',
             link: 'https://www.skf.com/group/news-management'
-          },
-          {
-            title: '현장 피드백 반영 온/오프라인 세미나 기획',
-            summary: '현장 출장과 프로젝트 수행 과정을 브이로그 형태로 기록해 콘텐츠로 활용합니다.',
-            hq: 'SKF는 현장 방문과 프로젝트를 영상으로 기록해 고객 사례로 활용합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 실무 중심 브이로그 콘텐츠로 시장 신뢰를 얻고 있습니다.',
-            link: 'https://www.youtube.com/user/skf'
           },
           {
             title: '세일즈 피칭용 세일즈킷 및 백서 지원',
@@ -2381,6 +2396,31 @@
     }
 
     function createWorkflowChecklistHtml(steps, index) {
+      const workflowLines = [];
+      let currentStage = '';
+
+      steps.forEach((step, stepIndex) => {
+        const stageMatch = /^\[(\d탄)(?:\/[^\]]+)?\]/.exec(step);
+        const stageLabel = stageMatch ? stageMatch[1] : '';
+        if (stageLabel && stageLabel !== currentStage) {
+          currentStage = stageLabel;
+          workflowLines.push(`<li class="workflow-stage-divider">[${escapeHtml(stageLabel)}]</li>`);
+        }
+
+        workflowLines.push(`
+              <li class="workflow-item" data-step-index="${stepIndex}">
+                <div class="workflow-item-left">
+                  <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
+                  <label for="wf-${index}-${stepIndex}">${stepIndex + 1}. ${escapeHtml(step)}</label>
+                </div>
+                <div class="workflow-item-right">
+                  <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
+                  <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
+                </div>
+              </li>
+            `);
+      });
+
       return `
         <div class="workflow-section">
           <div class="workflow-header">
@@ -2388,18 +2428,7 @@
             <span class="workflow-count">총 ${steps.length}단계</span>
           </div>
           <ul class="workflow-list">
-            ${steps.map((step, stepIndex) => `
-              <li class="workflow-item" data-step-index="${stepIndex}">
-                <div class="workflow-item-left">
-                  <input class="workflow-check" type="checkbox" id="wf-${index}-${stepIndex}" data-step-index="${stepIndex}" />
-                  <label for="wf-${index}-${stepIndex}">${stepIndex + 1}. ${step}</label>
-                </div>
-                <div class="workflow-item-right">
-                  <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
-                  <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
-                </div>
-              </li>
-            `).join('')}
+            ${workflowLines.join('')}
           </ul>
         </div>`;
     }
