@@ -459,6 +459,10 @@
 
     window.__plannerFirebase = {
       auth: firebaseAuth,
+      GoogleAuthProvider,
+      onAuthStateChanged,
+      signInWithPopup,
+      signOut,
       database: firebaseDatabase,
       onValue,
       ref,
@@ -4143,9 +4147,18 @@
 
     async function handleFirebaseLogin() {
       if (!EDIT_MODE_REQUESTED) return;
-      const provider = new GoogleAuthProvider();
+      if (window.location.protocol === 'file:' || window.location.origin === 'null') {
+        window.alert('Google 로그인 팝업은 file:// 환경에서 열리지 않습니다. Live Server 또는 https 주소로 이 파일을 열어 주세요.');
+        return;
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithPopup) {
+        window.alert('Firebase 인증 모듈이 아직 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+        return;
+      }
+      const provider = new bridge.GoogleAuthProvider();
       try {
-        await signInWithPopup(firebaseAuth, provider);
+        await bridge.signInWithPopup(bridge.auth, provider);
       } catch (error) {
         console.error('Google 로그인 실패', error);
         window.alert('Google 로그인에 실패했습니다. 팝업 차단 여부를 확인해 주세요.');
@@ -4153,15 +4166,19 @@
     }
 
     async function handleFirebaseLogout() {
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.auth || !bridge.signOut) return;
       try {
-        await signOut(firebaseAuth);
+        await bridge.signOut(bridge.auth);
       } catch (error) {
         console.error('로그아웃 실패', error);
       }
     }
 
     function attachFirebaseAuthListener() {
-      onAuthStateChanged(firebaseAuth, (user) => {
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) return;
+      bridge.onAuthStateChanged(bridge.auth, (user) => {
         currentFirebaseUser = user || null;
         updateFirebaseModeChip();
         updateFirebaseAuthControls();
@@ -4174,6 +4191,12 @@
       const bridge = getFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
       attachFirebaseAuthListener();
+      if (firebaseAuthBtn) {
+        firebaseAuthBtn.addEventListener('click', handleFirebaseLogin);
+      }
+      if (firebaseLogoutBtn) {
+        firebaseLogoutBtn.addEventListener('click', handleFirebaseLogout);
+      }
       if (!bridge) {
         updateFirebaseConnectionChip();
         updateFirebaseModeChip();
@@ -4186,12 +4209,6 @@
 
       updateFirebaseModeChip();
       updateFirebaseAuthControls();
-      if (firebaseAuthBtn) {
-        firebaseAuthBtn.addEventListener('click', handleFirebaseLogin);
-      }
-      if (firebaseLogoutBtn) {
-        firebaseLogoutBtn.addEventListener('click', handleFirebaseLogout);
-      }
       applyEditabilityState();
     }
 
