@@ -450,7 +450,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -467,8 +467,8 @@
     window.__plannerFirebase = {
       auth: firebaseAuth,
       GoogleAuthProvider,
+      getRedirectResult,
       onAuthStateChanged,
-      signInWithPopup,
       signInWithRedirect,
       signOut,
       database: firebaseDatabase,
@@ -894,10 +894,9 @@
       yellowBanner.hidden = !EDIT_MODE_REQUESTED;
       if (!EDIT_MODE_REQUESTED) return;
       if (currentFirebaseUser) {
-        const displayName = currentFirebaseUser.displayName || 'Google 사용자';
         const email = currentFirebaseUser.email || '-';
         const uid = currentFirebaseUser.uid || '-';
-        yellowBannerText.textContent = `${displayName}\n${email}\nUID: ${uid}`;
+        yellowBannerText.textContent = `로그인됨: ${email} (UID: ${uid})`;
       } else {
         yellowBannerText.textContent = '편집을 하려면 Google 로그인이 필요합니다.';
       }
@@ -4185,35 +4184,17 @@
         return;
       }
       const bridge = getFirebaseBridge();
-      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithPopup || !bridge.signInWithRedirect) {
+      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithRedirect) {
         window.alert('Firebase 인증 모듈이 아직 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
         return;
       }
       const provider = new bridge.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       try {
-        await bridge.signInWithPopup(bridge.auth, provider);
+        await bridge.signInWithRedirect(bridge.auth, provider);
       } catch (error) {
         console.error('Google 로그인 실패', error);
         const errorCode = error && typeof error.code === 'string' ? error.code : 'unknown';
-        const shouldFallbackToRedirect = [
-          'auth/popup-blocked',
-          'auth/popup-closed-by-user',
-          'auth/cancelled-popup-request'
-        ].includes(errorCode);
-
-        if (shouldFallbackToRedirect) {
-          try {
-            await bridge.signInWithRedirect(bridge.auth, provider);
-            return;
-          } catch (redirectError) {
-            console.error('Google 리디렉션 로그인 실패', redirectError);
-            const redirectCode = redirectError && typeof redirectError.code === 'string' ? redirectError.code : 'unknown';
-            window.alert(`Google 로그인에 실패했습니다. 에러 코드: ${redirectCode}`);
-            return;
-          }
-        }
-
         if (errorCode === 'auth/unauthorized-domain') {
           window.alert('Firebase Authentication의 Authorized domains에 현재 접속 도메인을 추가해야 합니다.');
           return;
@@ -4238,9 +4219,19 @@
       }
     }
 
-    function attachFirebaseAuthListener() {
+    async function attachFirebaseAuthListener() {
       const bridge = getFirebaseBridge();
       if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) return;
+      if (bridge.getRedirectResult) {
+        try {
+          const redirectResult = await bridge.getRedirectResult(bridge.auth);
+          if (redirectResult && redirectResult.user) {
+            currentFirebaseUser = redirectResult.user;
+          }
+        } catch (error) {
+          console.error('Google 리디렉션 결과 확인 실패', error);
+        }
+      }
       bridge.onAuthStateChanged(bridge.auth, (user) => {
         currentFirebaseUser = user || null;
         updateFirebaseModeChip();
@@ -4250,10 +4241,10 @@
       });
     }
 
-    function initializeFirebaseIntegration() {
+    async function initializeFirebaseIntegration() {
       const bridge = getFirebaseBridge();
       firebaseBridgeReady = Boolean(bridge);
-      attachFirebaseAuthListener();
+      await attachFirebaseAuthListener();
       if (firebaseAuthBtn) {
         firebaseAuthBtn.addEventListener('click', handleFirebaseLogin);
       }
@@ -4401,7 +4392,7 @@
       syncPinnedChecklistState(seededState);
       setCurrentPlannerState(seededState, { skipFirebaseSync: true });
       initializeGoalSelect();
-      initializeFirebaseIntegration();
+      await initializeFirebaseIntegration();
       applyEditabilityState();
     }
 
