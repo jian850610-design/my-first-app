@@ -2757,6 +2757,14 @@
 
       return true;
     }
+    function preserveWindowScroll(callback) {
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      callback();
+      window.requestAnimationFrame(() => {
+        window.scrollTo(scrollX, scrollY);
+      });
+    }
 
     function openGoalDetail(goalKey, focusKey = '', focusStepIndex = -1) {
       if (!goalTemplates[goalKey]) return;
@@ -4784,7 +4792,10 @@
         }
 
         if (archiveCompleteButton) {
-          archiveCompleteButton.addEventListener('click', () => {
+          archiveCompleteButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
             const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
             if (!isDone) return;
             const previousCycleCount = getCycleCompletedCount(itemState);
@@ -4840,7 +4851,9 @@
         }
 
         checkboxes.forEach((checkbox, idx) => {
-          checkbox.addEventListener('change', () => {
+          checkbox.addEventListener('change', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             if (itemState.steps[idx]) {
               itemState.steps[idx].checked = checkbox.checked;
               itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
@@ -4860,7 +4873,9 @@
         });
 
         dueDateInputs.forEach((input, idx) => {
-          input.addEventListener('change', () => {
+          input.addEventListener('change', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             if (!itemState.steps[idx]) return;
             itemState.steps[idx].dueDate = input.value || '';
             markItemUpdated(itemState);
