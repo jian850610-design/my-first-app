@@ -1770,6 +1770,7 @@
       const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
       const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
       itemState.benchmarking = { ...payload };
+      itemState.benchmarkUpdatedAt = payload.updatedAt || new Date().toISOString();
       markItemUpdated(itemState);
       savePlannerState(plannerState, { reason: 'benchmark-inline-save' });
       syncOverviewWidgets(plannerState);
@@ -2313,6 +2314,7 @@
           const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
           const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
           itemState.benchmarking = { ...update.payload };
+          itemState.benchmarkUpdatedAt = update.payload.updatedAt || new Date().toISOString();
           markItemUpdated(itemState);
         });
 
@@ -2408,6 +2410,7 @@
         const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, chosenItemKey, itemPrinciples);
         const itemState = getItemState(plannerState, chosenItemKey, checklistSteps.length, itemPrinciples);
         itemState.benchmarking = { ...safePayload };
+        itemState.benchmarkUpdatedAt = safePayload.updatedAt || new Date().toISOString();
         markItemUpdated(itemState);
         savePlannerState(plannerState, { reason: 'ai-benchmark-manual-map' });
         syncOverviewWidgets(plannerState);
@@ -2681,8 +2684,12 @@
           snapshot[goalKey][index] = {
             note: typeof itemState.note === 'string' ? itemState.note : '',
             noteUpdatedAt: typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '',
+            activityUpdatedAt: typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '',
+            directive: typeof itemState.directive === 'string' ? itemState.directive : '',
+            directiveUpdatedAt: typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '',
             latestCommentSummary: typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '',
             remark: typeof itemState.remark === 'string' ? itemState.remark : '',
+            benchmarkUpdatedAt: typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '',
             priority: normalizePriorityValue(itemState.priority),
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
@@ -2739,8 +2746,12 @@
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
           itemState.noteUpdatedAt = typeof remoteItem?.noteUpdatedAt === 'string' ? remoteItem.noteUpdatedAt : itemState.noteUpdatedAt || '';
+          itemState.activityUpdatedAt = typeof remoteItem?.activityUpdatedAt === 'string' ? remoteItem.activityUpdatedAt : (typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '');
+          itemState.directive = typeof remoteItem?.directive === 'string' ? remoteItem.directive : (typeof itemState.directive === 'string' ? itemState.directive : '');
+          itemState.directiveUpdatedAt = typeof remoteItem?.directiveUpdatedAt === 'string' ? remoteItem.directiveUpdatedAt : (typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '');
           itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
           itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
+          itemState.benchmarkUpdatedAt = typeof remoteItem?.benchmarkUpdatedAt === 'string' ? remoteItem.benchmarkUpdatedAt : (typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '');
           itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
@@ -3078,35 +3089,101 @@
       return Number.isNaN(time) ? 0 : time;
     }
 
-    function getRecentNoteTimestamp(itemState) {
-      const noteText = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
-      if (!noteText) return 0;
-      const explicitNoteTime = parseIsoTimestamp(itemState && itemState.noteUpdatedAt);
-      if (explicitNoteTime > 0) return explicitNoteTime;
-
-      const fallbackCommentTime = Array.isArray(itemState && itemState.comments)
-        ? itemState.comments
-            .map((comment) => parseIsoTimestamp(comment && (comment.updatedAt || comment.timestamp)))
-            .filter((time) => time > 0)
-            .sort((left, right) => right - left)[0] || 0
-        : 0;
-
-      if (fallbackCommentTime > 0) return fallbackCommentTime;
-      return parseIsoTimestamp(itemState && itemState.lastUpdatedAt);
+    function getLatestCommentActivityTimestamp(itemState) {
+      if (!Array.isArray(itemState && itemState.comments)) return 0;
+      return itemState.comments
+        .map((comment) => parseIsoTimestamp(comment && (comment.updatedAt || comment.timestamp)))
+        .filter((time) => time > 0)
+        .sort((left, right) => right - left)[0] || 0;
     }
 
-    function getLastOverviewUpdateTimestamp(itemState) {
-      const noteUpdateTime = getRecentNoteTimestamp(itemState);
-      const latestChecklistCompletedAt = Array.isArray(itemState && itemState.steps)
-        ? itemState.steps
-            .map((step) => parseIsoTimestamp(step && step.completedAt))
-            .filter((time) => time > 0)
-            .sort((left, right) => right - left)[0] || 0
-        : 0;
+    function getLatestChecklistActivityTimestamp(itemState) {
+      if (!Array.isArray(itemState && itemState.steps)) return 0;
+      return itemState.steps
+        .map((step) => parseIsoTimestamp(step && step.completedAt))
+        .filter((time) => time > 0)
+        .sort((left, right) => right - left)[0] || 0;
+    }
 
-      const allTimes = [noteUpdateTime, latestChecklistCompletedAt].filter((time) => time > 0);
-      if (!allTimes.length) return 0;
-      return Math.max(...allTimes);
+    function hasRecentActivityEvidence(itemState) {
+      const hasComments = Array.isArray(itemState && itemState.comments) && itemState.comments.length > 0;
+      const hasChecklistLogs = Array.isArray(itemState && itemState.steps)
+        && itemState.steps.some((step) => parseIsoTimestamp(step && step.completedAt) > 0);
+      return hasComments || hasChecklistLogs;
+    }
+
+    function recalculateItemActivityTimestamp(itemState) {
+      if (!itemState || typeof itemState !== 'object') return;
+      const commentTs = getLatestCommentActivityTimestamp(itemState);
+      const checklistTs = getLatestChecklistActivityTimestamp(itemState);
+      const latestTs = Math.max(commentTs, checklistTs, 0);
+      itemState.activityUpdatedAt = latestTs > 0 ? new Date(latestTs).toISOString() : '';
+    }
+
+    function getDirectivePreviewText(itemState) {
+      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
+      return directive || '등록된 지시사항이 없습니다';
+    }
+
+    function getDirectiveSummaryText(itemState) {
+      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
+      if (!directive) return '';
+      const singleLine = directive.replace(/\s+/g, ' ').trim();
+      return singleLine.length > 90 ? `${singleLine.slice(0, 87)}...` : singleLine;
+    }
+
+    function syncDirectiveDraft(itemKey, value) {
+      const storageKey = `skfDirectiveDraft:${itemKey}`;
+      try {
+        if (typeof value === 'string' && value.trim()) {
+          window.localStorage.setItem(storageKey, value);
+        } else {
+          window.localStorage.removeItem(storageKey);
+        }
+      } catch (error) {
+        console.warn('[Directive Draft] 저장 실패', { itemKey, error });
+      }
+    }
+
+    function readDirectiveDraft(itemKey) {
+      const storageKey = `skfDirectiveDraft:${itemKey}`;
+      try {
+        return window.localStorage.getItem(storageKey) || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function cleanupDirectiveDrafts() {
+      const targets = [];
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || (
+          !key.startsWith('skfDirectiveDraft:') &&
+          key !== 'skfCommentDraftV1' &&
+          key !== 'skfBenchmarkAutoInputDraftV1'
+        )) continue;
+        targets.push(key);
+      }
+      if (!targets.length) {
+        console.log('[cleanupDrafts] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, targets: [] };
+      }
+      console.table(targets.map((key) => ({ key })));
+      const proceed = window.confirm(`임시저장 잔재 ${targets.length}개를 삭제할까요?`);
+      if (!proceed) return { ok: false, reason: 'cancelled', count: targets.length, targets };
+      targets.forEach((key) => {
+        try { localStorage.removeItem(key); } catch (error) { console.warn('[cleanupDrafts] 삭제 실패', { key, error }); }
+      });
+      return { ok: true, count: targets.length, targets };
+    }
+
+    window.__cleanupDrafts = cleanupDirectiveDrafts;
+
+    function getLastOverviewUpdateTimestamp(itemState) {
+      const explicit = parseIsoTimestamp(itemState && itemState.activityUpdatedAt);
+      if (explicit > 0) return explicit;
+      return Math.max(getLatestCommentActivityTimestamp(itemState), getLatestChecklistActivityTimestamp(itemState), 0);
     }
 
     function buildTeamOverviewRows(state) {
@@ -3121,9 +3198,12 @@
           const priorityMeta = getPriorityMeta(itemState.priority);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
-          const actionPlan = checklistSteps.length
-            ? checklistSteps.slice(0, 2).join(' / ')
-            : '-';
+          const directiveSummary = getDirectiveSummaryText(itemState);
+          const actionPlan = directiveSummary
+            ? directiveSummary
+            : (checklistSteps.length
+                ? checklistSteps.slice(0, 2).join(' / ')
+                : '-');
           const assignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
           const dueDateText = getNearestDueDateText(itemState.steps);
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
@@ -3135,12 +3215,13 @@
                 .filter(Boolean)
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
             : '';
-          const progressText = `체크 ${doneCount}/${totalCount} · 최근 코멘트: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
+          const progressText = `체크 ${doneCount}/${totalCount} · 최근 수행 내용: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
           const noteText = itemState && typeof itemState.remark === 'string' && itemState.remark.trim() ? itemState.remark.trim() : '-';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
           const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
-          const isRecentUpdate = Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
+          const hasActivityEvidence = hasRecentActivityEvidence(itemState);
+          const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
 
           rows.push({
             itemKey,
@@ -3523,8 +3604,12 @@
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
+        itemState.activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
+        itemState.directive = typeof itemState.directive === 'string' ? itemState.directive : '';
+        itemState.directiveUpdatedAt = typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '';
         itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
         itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
+        itemState.benchmarkUpdatedAt = typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '';
         itemState.priority = normalizePriorityValue(itemState.priority);
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
         itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
@@ -3545,6 +3630,10 @@
           sourceText: typeof benchmark.sourceText === 'string' ? benchmark.sourceText : '',
           updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : ''
         };
+        if (!itemState.benchmarkUpdatedAt && itemState.benchmarking.updatedAt) {
+          itemState.benchmarkUpdatedAt = itemState.benchmarking.updatedAt;
+        }
+        recalculateItemActivityTimestamp(itemState);
         itemState.cycleCompletedCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
         itemState.totalCycles = Number.isFinite(itemState.totalCycles)
           ? Number(itemState.totalCycles)
@@ -3612,8 +3701,12 @@
           steps,
           note: '',
           noteUpdatedAt: '',
+          activityUpdatedAt: '',
+          directive: '',
+          directiveUpdatedAt: '',
           latestCommentSummary: '',
           remark: '',
+          benchmarkUpdatedAt: '',
           priority: PRIORITY_NORMAL,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
@@ -3744,6 +3837,11 @@
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (typeof itemState.noteUpdatedAt !== 'string') itemState.noteUpdatedAt = '';
+      if (typeof itemState.activityUpdatedAt !== 'string') itemState.activityUpdatedAt = '';
+      if (typeof itemState.directive !== 'string') itemState.directive = '';
+      if (typeof itemState.directiveUpdatedAt !== 'string') itemState.directiveUpdatedAt = '';
+      if (typeof itemState.benchmarkUpdatedAt !== 'string') itemState.benchmarkUpdatedAt = '';
+      recalculateItemActivityTimestamp(itemState);
       itemState.priority = normalizePriorityValue(itemState.priority);
       if (!Number.isFinite(itemState.cycleCompletedCount)) itemState.cycleCompletedCount = 0;
       if (!Number.isFinite(itemState.totalCycles)) itemState.totalCycles = itemState.cycleCompletedCount;
@@ -3987,6 +4085,58 @@
 
     window.__cleanupOrphanComments = cleanupOrphanComments;
 
+    async function cleanupStaleActivity() {
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const targets = [];
+
+      Object.entries((plannerState && plannerState.items) || {}).forEach(([itemKey, itemState]) => {
+        if (!itemState || typeof itemState !== 'object') return;
+        const hasActivityEvidence = hasRecentActivityEvidence(itemState);
+        const activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
+        const activityTs = parseIsoTimestamp(activityUpdatedAt);
+        if (hasActivityEvidence) return;
+        if (activityTs <= 0) return;
+
+        targets.push({
+          itemKey,
+          activityUpdatedAt,
+          commentsCount: Array.isArray(itemState.comments) ? itemState.comments.length : 0,
+          completedChecklistCount: Array.isArray(itemState.steps)
+            ? itemState.steps.filter((step) => parseIsoTimestamp(step && step.completedAt) > 0).length
+            : 0
+        });
+      });
+
+      if (!targets.length) {
+        console.log('[cleanupStaleActivity] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, targets: [] };
+      }
+
+      console.table(targets);
+      const proceed = window.confirm(`활동 근거(코멘트/체크 완료)가 없는데 activityUpdatedAt만 남아있는 카드 ${targets.length}개를 정리할까요?`);
+      if (!proceed) {
+        return { ok: false, reason: 'cancelled', count: targets.length, targets };
+      }
+
+      targets.forEach((target) => {
+        const itemState = plannerState.items[target.itemKey];
+        if (!itemState || typeof itemState !== 'object') return;
+        itemState.activityUpdatedAt = '';
+        markItemUpdated(itemState);
+      });
+
+      savePlannerState(plannerState, { reason: 'cleanup-stale-activity' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+
+      console.log('[cleanupStaleActivity] 정리 완료', { count: targets.length });
+      return { ok: true, count: targets.length, targets };
+    }
+
+    window.__cleanupStaleActivity = cleanupStaleActivity;
+
     function markItemUpdated(itemState) {
       if (!itemState || typeof itemState !== 'object') return;
       itemState.lastUpdatedAt = new Date().toISOString();
@@ -3999,6 +4149,7 @@
       if (!panelElement) return;
       const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
       const latestComment = getLatestCommentPreview(itemState || {});
+      const directiveSummary = getDirectivePreviewText(itemState || {});
       const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
       const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
       const completedSteps = steps.filter((step) => step && step.checked).length;
@@ -4015,7 +4166,11 @@
             <div class="latest-activity-value">최근 작업: ${escapeHtml(recentTimestamp)}</div>
           </div>
           <div class="latest-activity-item latest-comment-box">
-            <div class="latest-activity-label">💬 최신 코멘트 요약</div>
+            <div class="latest-activity-label">📌 현재 지시사항</div>
+            <div class="latest-activity-value latest-comment-value">${escapeHtml(directiveSummary)}</div>
+          </div>
+          <div class="latest-activity-item latest-comment-box">
+            <div class="latest-activity-label">✅ 최근 수행 내용</div>
             <div class="latest-activity-value latest-comment-value">${escapeHtml(latestComment)}</div>
           </div>
           <div class="latest-activity-item">
@@ -6159,9 +6314,19 @@
             ${principleBoxHtml}
             ${workflowHtml}
             ${historyArchiveHtml}
+            <div class="directive-section">
+              <div class="journal-top">
+                <strong>📌 지시사항 · 해야 할 내용</strong>
+                <span class="journal-saved">저장됨</span>
+              </div>
+              <textarea class="directive-input journal-input" rows="3" placeholder="현재 지시사항, 우선순위, 반드시 지킬 기준을 적어주세요."></textarea>
+              <div class="journal-controls">
+                <button type="button" class="directive-save-btn journal-save-btn">저장</button>
+              </div>
+            </div>
             <div class="journal-section">
               <div class="journal-top">
-                <strong>오늘의 업무 코멘트</strong>
+                <strong>✅ 오늘 수행한 내용</strong>
                 <span class="journal-saved">저장됨</span>
               </div>
               <textarea class="journal-input" rows="3" placeholder="오늘 진행한 내용, 이슈, 다음 액션을 기록하세요."></textarea>
@@ -6211,6 +6376,8 @@
         const titleInput = card.querySelector('.card-title-input');
         const summaryInput = card.querySelector('.card-summary-input');
         const guidelinesInput = card.querySelector('.card-guidelines-input');
+        const directiveInput = card.querySelector('.directive-input');
+        const directiveSaveButton = card.querySelector('.directive-save-btn');
         const journalInput = card.querySelector('.journal-input');
         const journalSaveButton = card.querySelector('.journal-save-btn');
         const journalTimeline = card.querySelector('.journal-timeline');
@@ -6381,6 +6548,9 @@
         if (archiveProjectInput) {
           archiveProjectInput.value = itemState.seriesDraftName || '';
         }
+        if (directiveInput) {
+          directiveInput.value = itemState.directive || readDirectiveDraft(itemKey) || '';
+        }
         if (journalInput) {
           journalInput.value = itemState.note || '';
         }
@@ -6478,7 +6648,10 @@
             }));
             itemState.comments = [];
             syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             itemState.note = '';
+            itemState.directive = '';
+            itemState.directiveUpdatedAt = '';
             itemState.seriesDraftName = '';
             markItemUpdated(itemState);
 
@@ -6490,6 +6663,10 @@
             });
             if (journalInput) {
               journalInput.value = '';
+            }
+            if (directiveInput) {
+              directiveInput.value = '';
+              syncDirectiveDraft(itemKey, '');
             }
             if (archiveProjectInput) {
               archiveProjectInput.value = '';
@@ -6643,6 +6820,7 @@
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
             completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
           }));
+          recalculateItemActivityTimestamp(itemState);
           updateStepExecutionBadges();
           renderLatestActivityPanel(latestActivityPanel, itemState);
           const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
@@ -6664,6 +6842,25 @@
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderLatestActivityPanel(latestActivityPanel, itemState);
+          });
+        }
+
+        if (directiveInput) {
+          directiveInput.addEventListener('input', () => {
+            syncDirectiveDraft(itemKey, directiveInput.value || '');
+          });
+        }
+
+        if (directiveSaveButton) {
+          directiveSaveButton.addEventListener('click', () => {
+            itemState.directive = directiveInput ? directiveInput.value.trim() : '';
+            itemState.directiveUpdatedAt = itemState.directive ? new Date().toISOString() : '';
+            markItemUpdated(itemState);
+            recalculateItemActivityTimestamp(itemState);
+            syncDirectiveDraft(itemKey, '');
+            savePlannerState(plannerState, { reason: 'directive-save' });
+            renderLatestActivityPanel(latestActivityPanel, itemState);
+            syncOverviewWidgets(plannerState);
           });
         }
 
@@ -6714,8 +6911,11 @@
             }));
             itemState.comments = [];
             syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             itemState.seriesDraftName = '';
             itemState.noteUpdatedAt = '';
+            itemState.directive = '';
+            itemState.directiveUpdatedAt = '';
             markItemUpdated(itemState);
 
             checkboxes.forEach((checkbox) => {
@@ -6726,6 +6926,10 @@
             });
             if (archiveProjectInput) {
               archiveProjectInput.value = '';
+            }
+            if (directiveInput) {
+              directiveInput.value = '';
+              syncDirectiveDraft(itemKey, '');
             }
             renderTimeline(journalTimeline, itemState.comments);
             historyEditIndex = -1;
@@ -6785,6 +6989,7 @@
             text
           });
           syncCommentDerivedFields(itemState);
+          recalculateItemActivityTimestamp(itemState);
           markItemUpdated(itemState);
 
           savePlannerState(plannerState);
@@ -6808,6 +7013,7 @@
             if (!isConfirmed) return;
             itemState.comments.splice(targetIndex, 1);
             syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -6849,6 +7055,7 @@
             itemState.comments[targetIndex].text = editedText;
             itemState.comments[targetIndex].updatedAt = new Date().toISOString();
             syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -7536,6 +7743,7 @@
             if (sourceType === 'comment' && Array.isArray(itemState.comments) && itemState.comments[sourceIndex]) {
               itemState.comments.splice(sourceIndex, 1);
               syncCommentDerivedFields(itemState);
+              recalculateItemActivityTimestamp(itemState);
               changed = true;
             }
             if (sourceType === 'activity' && Array.isArray(itemState.activityLog) && itemState.activityLog[sourceIndex]) {
@@ -7594,6 +7802,7 @@
                 return getLocalDateKey(new Date(rawTimestamp)) !== todayKey;
               });
               syncCommentDerivedFields(itemState);
+              recalculateItemActivityTimestamp(itemState);
             }
 
             if (Array.isArray(itemState.activityLog)) {
