@@ -473,16 +473,13 @@
     .benchmark-prompt-status { font-size: 12px; color: #4f6781; }
     .benchmark-prompt-status.ok { color: #0f6c43; }
     .benchmark-prompt-status.warn { color: #9a4d00; }
-    .benchmark-data-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid #d7e5f2; border-radius: 10px; background: #ffffff; }
-    .benchmark-data-basis { font-size: 12px; color: #48637f; font-weight: 700; }
-    .benchmark-data-tools { display: flex; gap: 6px; flex-wrap: wrap; }
     .benchmark-data-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .benchmark-data-btn:hover { background: #e5f1ff; }
-    .benchmark-data-output { width: 100%; min-height: 180px; border: 1px solid #cfdeed; border-radius: 10px; background: #fff; color: #23425f; padding: 10px; font-size: 12px; line-height: 1.5; resize: vertical; white-space: pre; }
-    .benchmark-dashboard-summary { margin-top: 8px; display: grid; gap: 8px; border: 1px solid #f0c9c9; border-radius: 12px; background: #fff7f7; padding: 10px; }
-    .benchmark-dashboard-summary[hidden] { display: none; }
-    .benchmark-dashboard-summary-title { font-size: 13px; font-weight: 800; color: #8a2c2c; }
-    .benchmark-dashboard-summary-list { display: flex; gap: 6px; flex-wrap: wrap; }
+    .benchmark-backup-section { margin-top: 10px; display: grid; gap: 6px; justify-items: start; }
+    .benchmark-backup-section[hidden] { display: none; }
+    .benchmark-backup-btn { border: 1px solid #b7cde4; border-radius: 8px; background: #f8fbff; color: #425f7c; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .benchmark-backup-btn:hover { background: #edf5ff; }
+    .benchmark-backup-note { font-size: 12px; color: #627b95; }
     .benchmark-dashboard-link { border: 1px solid #e7b7b7; border-radius: 999px; background: #fff; color: #8a2c2c; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .benchmark-dashboard-link:hover { background: #fff1f1; }
     .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
@@ -767,11 +764,6 @@
         <div class="leader-summary-empty" id="leaderSummaryEmpty">현재 팀장님 특별 지시 건이 없습니다.</div>
       </section>
 
-      <section class="benchmark-dashboard-summary" id="benchmarkDashboardSummary" hidden>
-        <div class="benchmark-dashboard-summary-title">🚨 벤치마킹 갱신 필요 카드</div>
-        <div class="benchmark-dashboard-summary-list" id="benchmarkDashboardSummaryList"></div>
-      </section>
-
       <section class="mandalart-section">
         <strong>만다라트 목표 목차 보드</strong>
         <div class="mandalart-grid" id="mandalartGrid"></div>
@@ -785,14 +777,6 @@
           </div>
           <button type="button" class="benchmark-prompt-copy-btn" id="copyBenchmarkPromptBtn">📋 프롬프트 복사하기</button>
         </div>
-        <div class="benchmark-data-toolbar">
-          <div class="benchmark-data-basis" id="benchmarkDataBasisText">데이터 기준일: -</div>
-          <div class="benchmark-data-tools">
-            <button type="button" class="benchmark-data-btn" id="benchmarkRefreshBtn">새로고침</button>
-            <button type="button" class="benchmark-data-btn" id="benchmarkExportBtn">📥 benchmark-data.json 내보내기</button>
-            <button type="button" class="benchmark-data-btn" id="benchmarkCopyJsonBtn">📋 JSON 복사</button>
-          </div>
-        </div>
         <div class="benchmark-prompt-status" id="benchmarkPromptStatus">복사 대기 중</div>
         <textarea class="benchmark-prompt-preview" id="benchmarkPromptPreview" readonly></textarea>
         <div class="benchmark-auto-panel">
@@ -804,7 +788,6 @@
           </div>
           <div class="benchmark-auto-status" id="benchmarkAutoStatus">AI 결과를 붙여넣으면 각 카드의 벤치마킹 필드로 자동 업데이트됩니다.</div>
           <div class="benchmark-auto-action-area" id="benchmarkAutoActionArea"></div>
-          <textarea class="benchmark-data-output" id="benchmarkJsonOutput" readonly placeholder="여기에 생성된 benchmark-data.json 내용이 표시됩니다."></textarea>
           <div class="benchmark-apply-failures" id="benchmarkApplyFailureSection" hidden>
             <div class="benchmark-apply-failures-title">저장 실패 카드</div>
             <div class="benchmark-apply-failures-list" id="benchmarkApplyFailureList"></div>
@@ -817,6 +800,10 @@
             <div class="benchmark-missing-cards-title">📋 AI 응답에서 누락된 카드 — 이 카드들을 다시 물어보세요</div>
             <div class="benchmark-missing-cards-list" id="benchmarkMissingCardsList"></div>
           </div>
+        </div>
+        <div class="benchmark-backup-section" id="benchmarkBackupSection" hidden>
+          <button type="button" class="benchmark-backup-btn" id="benchmarkBackupExportBtn">📥 데이터 백업 (JSON 다운로드)</button>
+          <div class="benchmark-backup-note">만일을 대비한 백업 파일입니다. 팀원 공유와는 무관합니다.</div>
         </div>
       </section>
     </section>
@@ -930,19 +917,14 @@
     const benchmarkAutoStatus = document.getElementById('benchmarkAutoStatus');
     const benchmarkAutoProgress = document.getElementById('benchmarkAutoProgress');
     const benchmarkAutoActionArea = document.getElementById('benchmarkAutoActionArea');
-    const benchmarkJsonOutput = document.getElementById('benchmarkJsonOutput');
-    const benchmarkDataBasisText = document.getElementById('benchmarkDataBasisText');
-    const benchmarkRefreshBtn = document.getElementById('benchmarkRefreshBtn');
-    const benchmarkExportBtn = document.getElementById('benchmarkExportBtn');
-    const benchmarkCopyJsonBtn = document.getElementById('benchmarkCopyJsonBtn');
+    const benchmarkBackupSection = document.getElementById('benchmarkBackupSection');
+    const benchmarkBackupExportBtn = document.getElementById('benchmarkBackupExportBtn');
     const benchmarkApplyFailureSection = document.getElementById('benchmarkApplyFailureSection');
     const benchmarkApplyFailureList = document.getElementById('benchmarkApplyFailureList');
     const benchmarkManualMappingSection = document.getElementById('benchmarkManualMappingSection');
     const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
     const benchmarkMissingCardsSection = document.getElementById('benchmarkMissingCardsSection');
     const benchmarkMissingCardsList = document.getElementById('benchmarkMissingCardsList');
-    const benchmarkDashboardSummary = document.getElementById('benchmarkDashboardSummary');
-    const benchmarkDashboardSummaryList = document.getElementById('benchmarkDashboardSummaryList');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -994,8 +976,6 @@
     const BENCHMARK_DATA_FILE_NAME = 'benchmark-data.json';
     const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
     let benchmarkRetryFailedItemKeys = [];
-    let benchmarkDataSource = { lastUpdated: '', cards: {} };
-    let benchmarkDataLoadFailed = false;
 
     function benchmarkDebugLog(...args) {
       if (BENCHMARK_DEBUG_LOGS) {
@@ -1315,10 +1295,11 @@
       };
     }
 
-    function buildBenchmarkDataSnapshotFromCurrentState(state = loadPlannerState()) {
+    function buildBenchmarkDataJsonPayload(state = loadPlannerState()) {
       const plannerState = normalizePlannerState(state);
       const cards = {};
       const catalog = getBenchmarkCardCatalog();
+
       catalog.forEach((entry) => {
         const itemKey = `${entry.goalKey}::${entry.index}`;
         const itemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : {};
@@ -1328,127 +1309,32 @@
         const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
         cards[entry.id] = {
           name: entry.title,
-          updatedAt: typeof benchmark.updatedAt === 'string' && benchmark.updatedAt ? benchmark.updatedAt : '',
+          updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : '',
           skf: typeof benchmark.skf === 'string' && benchmark.skf ? benchmark.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
           schaeffler: typeof benchmark.schaeffler === 'string' && benchmark.schaeffler ? benchmark.schaeffler : fallbackCompetitors.schaeffler,
           nsk: typeof benchmark.koreaNsk === 'string' && benchmark.koreaNsk ? benchmark.koreaNsk : fallbackCompetitors.nsk,
           timken: typeof benchmark.timken === 'string' && benchmark.timken ? benchmark.timken : fallbackCompetitors.timken
         };
       });
+
       return {
         lastUpdated: getLocalDateKey(new Date()),
         cards
       };
     }
 
-    function mergeBenchmarkDataTemplate(rawData) {
-      const baseline = buildBenchmarkDataSnapshotFromCurrentState(loadPlannerState());
-      const source = rawData && typeof rawData === 'object' ? rawData : {};
-      const sourceCards = source.cards && typeof source.cards === 'object' ? source.cards : {};
-      const mergedCards = { ...baseline.cards };
-
-      Object.entries(mergedCards).forEach(([cardId, baselineCard]) => {
-        const incoming = sourceCards[cardId] && typeof sourceCards[cardId] === 'object' ? sourceCards[cardId] : {};
-        mergedCards[cardId] = {
-          name: typeof incoming.name === 'string' && incoming.name ? incoming.name : baselineCard.name,
-          updatedAt: typeof incoming.updatedAt === 'string' ? incoming.updatedAt : baselineCard.updatedAt,
-          skf: typeof incoming.skf === 'string' ? incoming.skf : baselineCard.skf,
-          schaeffler: typeof incoming.schaeffler === 'string' ? incoming.schaeffler : baselineCard.schaeffler,
-          nsk: typeof incoming.nsk === 'string' ? incoming.nsk : baselineCard.nsk,
-          timken: typeof incoming.timken === 'string' ? incoming.timken : baselineCard.timken
-        };
-      });
-
-      return {
-        lastUpdated: typeof source.lastUpdated === 'string' && source.lastUpdated ? source.lastUpdated : baseline.lastUpdated,
-        cards: mergedCards
-      };
-    }
-
-    async function loadBenchmarkDataSource(forceReload = false) {
-      if (!forceReload && benchmarkDataSource && benchmarkDataSource.cards && Object.keys(benchmarkDataSource.cards).length) {
-        return benchmarkDataSource;
-      }
-
-      try {
-        const response = await fetch(`./${BENCHMARK_DATA_FILE_NAME}?v=${Date.now()}`, { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const rawData = await response.json();
-        benchmarkDataSource = mergeBenchmarkDataTemplate(rawData);
-        benchmarkDataLoadFailed = false;
-      } catch (error) {
-        benchmarkDataSource = mergeBenchmarkDataTemplate({});
-        benchmarkDataLoadFailed = true;
-        console.warn('[Benchmark Data] benchmark-data.json 로드 실패, 기본값으로 렌더링합니다.', error);
-      }
-
-      return benchmarkDataSource;
-    }
-
-    function getBenchmarkJsonCard(cardId) {
-      if (!benchmarkDataSource || !benchmarkDataSource.cards) return null;
-      return benchmarkDataSource.cards[cardId] || null;
-    }
-
     function resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, fallbackItem) {
-      const catalogEntry = getBenchmarkCatalogEntryByItemKey(itemKey);
-      const cardId = catalogEntry ? catalogEntry.id : '';
-      const jsonCard = getBenchmarkJsonCard(cardId);
       const benchmarkState = itemState && itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
       const fallbackCompetitors = getBenchmarkFallbackCompetitorValues(goalKey, index);
 
-      const firestoreValues = {
-        skf: typeof benchmarkState.skf === 'string' ? benchmarkState.skf : '',
-        schaeffler: typeof benchmarkState.schaeffler === 'string' ? benchmarkState.schaeffler : '',
-        nsk: typeof benchmarkState.koreaNsk === 'string' ? benchmarkState.koreaNsk : '',
-        timken: typeof benchmarkState.timken === 'string' ? benchmarkState.timken : ''
-      };
-
-      const jsonValues = {
-        skf: jsonCard && typeof jsonCard.skf === 'string' ? jsonCard.skf : '',
-        schaeffler: jsonCard && typeof jsonCard.schaeffler === 'string' ? jsonCard.schaeffler : '',
-        nsk: jsonCard && typeof jsonCard.nsk === 'string' ? jsonCard.nsk : '',
-        timken: jsonCard && typeof jsonCard.timken === 'string' ? jsonCard.timken : ''
-      };
-
-      const fallbackValues = {
-        skf: fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : '',
-        schaeffler: fallbackCompetitors.schaeffler,
-        nsk: fallbackCompetitors.nsk,
-        timken: fallbackCompetitors.timken
-      };
-
-      const pickValue = (firestoreValue, jsonValue, fallbackValue) => {
-        if (typeof firestoreValue === 'string' && firestoreValue.trim()) return firestoreValue;
-        if (typeof jsonValue === 'string' && jsonValue.trim()) return jsonValue;
-        return typeof fallbackValue === 'string' ? fallbackValue : '';
-      };
-
-      const values = {
-        skf: pickValue(firestoreValues.skf, jsonValues.skf, fallbackValues.skf),
-        schaeffler: pickValue(firestoreValues.schaeffler, jsonValues.schaeffler, fallbackValues.schaeffler),
-        nsk: pickValue(firestoreValues.nsk, jsonValues.nsk, fallbackValues.nsk),
-        timken: pickValue(firestoreValues.timken, jsonValues.timken, fallbackValues.timken)
-      };
-
-      const updatedAt = (typeof benchmarkState.updatedAt === 'string' && benchmarkState.updatedAt)
-        || (jsonCard && typeof jsonCard.updatedAt === 'string' ? jsonCard.updatedAt : '')
-        || (benchmarkDataSource && typeof benchmarkDataSource.lastUpdated === 'string' ? benchmarkDataSource.lastUpdated : '');
-
-      const browserDirty = Boolean(jsonCard) && ['skf', 'schaeffler', 'nsk', 'timken'].some((key) => {
-        const firestoreValue = firestoreValues[key];
-        if (!firestoreValue || !firestoreValue.trim()) return false;
-        return firestoreValue.trim() !== String(jsonValues[key] || '').trim();
-      });
-
       return {
-        cardId,
-        values,
-        updatedAt,
-        browserDirty,
-        dataMissing: benchmarkDataLoadFailed && !jsonCard
+        values: {
+          skf: typeof benchmarkState.skf === 'string' && benchmarkState.skf ? benchmarkState.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
+          schaeffler: typeof benchmarkState.schaeffler === 'string' && benchmarkState.schaeffler ? benchmarkState.schaeffler : fallbackCompetitors.schaeffler,
+          nsk: typeof benchmarkState.koreaNsk === 'string' && benchmarkState.koreaNsk ? benchmarkState.koreaNsk : fallbackCompetitors.nsk,
+          timken: typeof benchmarkState.timken === 'string' && benchmarkState.timken ? benchmarkState.timken : fallbackCompetitors.timken
+        },
+        updatedAt: typeof benchmarkState.updatedAt === 'string' ? benchmarkState.updatedAt : ''
       };
     }
 
@@ -1470,20 +1356,6 @@
       return { days, badgeClass: '', needsRefresh: false, text: `벤치마킹 업데이트: ${updatedAtText} (${days}일 전)` };
     }
 
-    function renderBenchmarkDataBasis() {
-      if (!benchmarkDataBasisText) return;
-      const lastUpdated = benchmarkDataSource && typeof benchmarkDataSource.lastUpdated === 'string' && benchmarkDataSource.lastUpdated
-        ? benchmarkDataSource.lastUpdated
-        : '-';
-      benchmarkDataBasisText.textContent = `데이터 기준일: ${lastUpdated}${benchmarkDataLoadFailed ? ' (파일 로드 실패, 기본값 사용)' : ''}`;
-    }
-
-    function buildBenchmarkDataJsonPayload(state = loadPlannerState()) {
-      const snapshot = buildBenchmarkDataSnapshotFromCurrentState(state);
-      snapshot.lastUpdated = getLocalDateKey(new Date());
-      return snapshot;
-    }
-
     function downloadTextFile(fileName, textContent) {
       const blob = new Blob([textContent], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -1494,36 +1366,6 @@
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-    }
-
-    function renderBenchmarkDashboardSummary(state = loadPlannerState()) {
-      if (!benchmarkDashboardSummary || !benchmarkDashboardSummaryList) return;
-      const plannerState = normalizePlannerState(state);
-      const staleList = [];
-
-      getBenchmarkCardCatalog().forEach((entry) => {
-        const itemKey = `${entry.goalKey}::${entry.index}`;
-        const goalTemplate = goalTemplates[entry.goalKey];
-        const fallbackItem = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[entry.index] : null;
-        const itemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : {};
-        const display = resolveBenchmarkDisplayData(itemKey, entry.goalKey, entry.index, itemState, fallbackItem);
-        const ageMeta = getBenchmarkAgeMeta(display.updatedAt || (benchmarkDataSource && benchmarkDataSource.lastUpdated));
-        if (ageMeta.needsRefresh) {
-          staleList.push({ itemKey, title: entry.title, goalKey: entry.goalKey });
-        }
-      });
-
-      if (!staleList.length) {
-        benchmarkDashboardSummary.hidden = true;
-        benchmarkDashboardSummaryList.innerHTML = '';
-        return;
-      }
-
-      benchmarkDashboardSummary.hidden = false;
-      benchmarkDashboardSummaryList.innerHTML = staleList
-        .slice(0, 24)
-        .map((entry) => `<button type="button" class="benchmark-dashboard-link" data-benchmark-focus-key="${escapeHtml(entry.itemKey)}" data-benchmark-focus-goal="${escapeHtml(entry.goalKey)}">${escapeHtml(entry.title)}</button>`)
-        .join('');
     }
 
     function findBenchmarkGoalNumberFromLine(line) {
@@ -1976,85 +1818,6 @@
           saveButton.textContent = beforeText || '저장';
         }
       }
-    }
-
-    async function applyAiBenchmarkUpdatesToLocalState(rawText, options = {}) {
-      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
-      const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
-      const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
-      const parsed = parseAiBenchmarkText(rawText);
-      if (!parsed) {
-        return { ok: false, count: 0, total: 0, reason: 'parse-failed', unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
-      }
-
-      const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
-      const plannerState = normalizePlannerState(loadPlannerState());
-      const updates = [];
-      const nowIso = new Date().toISOString();
-      const startedAt = Date.now();
-
-      Object.entries(matched).forEach(([itemKey, card]) => {
-        const [goalKey, indexText] = itemKey.split('::');
-        const goalTemplate = goalTemplates[goalKey];
-        const itemIndex = Number(indexText);
-        const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
-        if (!goalTemplate || !item) return;
-        updates.push({
-          itemKey,
-          goalKey,
-          item,
-          payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
-            skf: card.benchmarking.skf || '',
-            schaeffler: card.benchmarking.schaeffler || '',
-            koreaNsk: card.benchmarking.koreaNsk || '',
-            timken: card.benchmarking.timken || '',
-            updatedAt: nowIso
-          }))
-        });
-      });
-
-      if (!updates.length) {
-        return { ok: false, count: 0, total: unmatched.length, reason: 'no-matches', unmatched, missingFromResponse, appCardCount, aiResponseCount, failedCards: [], durationMs: Date.now() - startedAt };
-      }
-
-      const filteredUpdates = retryItemKeySet ? updates.filter((entry) => retryItemKeySet.has(entry.itemKey)) : updates;
-      if (!filteredUpdates.length) {
-        return { ok: false, count: 0, total: updates.length, reason: 'retry-no-targets', unmatched, missingFromResponse, appCardCount, aiResponseCount, failedCards: [], durationMs: Date.now() - startedAt };
-      }
-
-      filteredUpdates.forEach((update, idx) => {
-        const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
-        const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
-        const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
-        itemState.benchmarking = { ...update.payload };
-        markItemUpdated(itemState);
-        onProgress(idx + 1, filteredUpdates.length);
-      });
-
-      savePlannerState(plannerState, { reason: 'ai-benchmark-local-apply' });
-      syncOverviewWidgets(plannerState);
-      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
-        updateGoalCard(currentGoalKey);
-      }
-
-      const durationMs = Date.now() - startedAt;
-      const exportPayload = buildBenchmarkDataJsonPayload(plannerState);
-      if (benchmarkJsonOutput) {
-        benchmarkJsonOutput.value = JSON.stringify(exportPayload, null, 2);
-      }
-
-      return {
-        ok: true,
-        count: filteredUpdates.length,
-        total: filteredUpdates.length + unmatched.length,
-        reason: '',
-        unmatched,
-        missingFromResponse,
-        appCardCount,
-        aiResponseCount,
-        failedCards: [],
-        durationMs
-      };
     }
 
     function sanitizeFirestoreText(value) {
@@ -3129,6 +2892,10 @@
 
     function applyEditabilityState() {
       const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+
+      if (benchmarkBackupSection) {
+        benchmarkBackupSection.hidden = !EDIT_MODE_REQUESTED;
+      }
 
       getCards().forEach((card) => {
         const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
@@ -4642,8 +4409,6 @@
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
       renderMandalartBoard(state);
-      renderBenchmarkDataBasis();
-      renderBenchmarkDashboardSummary(state);
     }
 
     function focusDetailCardByKey(focusKey, focusStepIndex = -1) {
@@ -6294,7 +6059,7 @@
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
         const benchmarkDisplay = resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, item);
-        const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt || (benchmarkDataSource && benchmarkDataSource.lastUpdated));
+        const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt);
         const benchmarkUpdatedText = benchmarkAge.text;
         const benchmarkItems = [
           { label: 'SKF 본사 실행 내용', value: benchmarkDisplay.values.skf || '' },
@@ -6302,9 +6067,6 @@
           { label: '한국NSK', value: benchmarkDisplay.values.nsk || '' },
           { label: '팀켄', value: benchmarkDisplay.values.timken || '' }
         ];
-        const benchmarkDirtyBadgeHtml = benchmarkDisplay.browserDirty
-          ? '<span class="benchmark-browser-dirty-badge">✏️ 브라우저에서 수정됨 — JSON 미반영</span>'
-          : '';
         const staleBadgeHtml = `<span class="benchmark-stale-badge ${benchmarkAge.badgeClass}">${benchmarkAge.days === null ? '기준일 없음' : `${benchmarkAge.days}일 경과`}</span>`;
         const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
           ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
@@ -6313,7 +6075,6 @@
           <div class="benchmark-meta-row">
             <span class="benchmark-updated-label">${escapeHtml(benchmarkUpdatedText)}</span>
             ${staleBadgeHtml}
-            ${benchmarkDirtyBadgeHtml}
             ${benchmarkEditButtonHtml}
           </div>
           <div class="benchmark-exec-grid">
@@ -7588,7 +7349,7 @@
           }, 60000);
 
           try {
-            const result = await applyAiBenchmarkUpdatesToLocalState(rawText, {
+            const result = await applyAiBenchmarkUpdatesFromText(rawText, {
               retryItemKeys,
               onProgress: (done, total) => {
                 if (benchmarkAutoProgress) {
@@ -7618,6 +7379,9 @@
                 renderBenchmarkApplyActions({ showLogin: true });
               } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
+                renderBenchmarkApplyActions({ showRetry: true });
+              } else if (result && result.reason === 'firestore-timeout-repeated') {
+                message = `commit-timeout이 2회 연속 발생해 남은 배치를 중단했습니다.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
@@ -7686,50 +7450,12 @@
         });
       }
 
-      if (benchmarkRefreshBtn) {
-        benchmarkRefreshBtn.addEventListener('click', async () => {
-          await loadBenchmarkDataSource(true);
-          syncOverviewWidgets(loadPlannerState());
-          setBenchmarkAutoStatus('benchmark-data.json을 새로 불러왔습니다.', 'ok');
-        });
-      }
-
-      if (benchmarkExportBtn) {
-        benchmarkExportBtn.addEventListener('click', () => {
+      if (benchmarkBackupExportBtn) {
+        benchmarkBackupExportBtn.addEventListener('click', () => {
           const payload = buildBenchmarkDataJsonPayload(loadPlannerState());
           const jsonText = JSON.stringify(payload, null, 2);
-          if (benchmarkJsonOutput) benchmarkJsonOutput.value = jsonText;
           downloadTextFile(BENCHMARK_DATA_FILE_NAME, jsonText);
-          setBenchmarkAutoStatus('benchmark-data.json 내보내기를 완료했습니다.', 'ok');
-        });
-      }
-
-      if (benchmarkCopyJsonBtn) {
-        benchmarkCopyJsonBtn.addEventListener('click', async () => {
-          const payload = buildBenchmarkDataJsonPayload(loadPlannerState());
-          const jsonText = JSON.stringify(payload, null, 2);
-          if (benchmarkJsonOutput) benchmarkJsonOutput.value = jsonText;
-          try {
-            await navigator.clipboard.writeText(jsonText);
-            setBenchmarkAutoStatus('JSON 내용을 클립보드로 복사했습니다.', 'ok');
-          } catch (error) {
-            if (benchmarkJsonOutput) {
-              benchmarkJsonOutput.focus();
-              benchmarkJsonOutput.select();
-            }
-            setBenchmarkAutoStatus('클립보드 권한이 없어 JSON 미리보기 선택으로 대체했습니다.', 'warn');
-          }
-        });
-      }
-
-      if (benchmarkDashboardSummaryList) {
-        benchmarkDashboardSummaryList.addEventListener('click', (event) => {
-          const button = event.target.closest('[data-benchmark-focus-key]');
-          if (!button) return;
-          const itemKey = button.getAttribute('data-benchmark-focus-key') || '';
-          const goalKey = button.getAttribute('data-benchmark-focus-goal') || '';
-          if (!goalTemplates[goalKey]) return;
-          openGoalDetail(goalKey, itemKey);
+          setBenchmarkAutoStatus('데이터 백업(JSON 다운로드)을 완료했습니다.', 'ok');
         });
       }
 
@@ -7943,7 +7669,6 @@
         setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
       }
 
-      await loadBenchmarkDataSource(false);
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       applyEditabilityState();
