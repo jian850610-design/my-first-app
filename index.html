@@ -1433,6 +1433,11 @@
       };
     }
 
+    function sanitizeFirestoreUpdateData(updateData) {
+      const source = updateData && typeof updateData === 'object' ? updateData : {};
+      return JSON.parse(JSON.stringify(source, (key, value) => (typeof value === 'undefined' ? '' : value)));
+    }
+
     async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
       if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
@@ -1473,14 +1478,13 @@
       }
 
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.writeBatch !== 'function' || !bridge.firestore || typeof bridge.getBenchmarkDocRef !== 'function') {
-        console.error('[Benchmark Apply] Firestore writeBatch 사용 불가', {
+      if (!bridge || typeof bridge.updateDoc !== 'function' || typeof bridge.getBenchmarkDocRef !== 'function') {
+        console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
           hasBridge: Boolean(bridge),
-          hasWriteBatch: Boolean(bridge && bridge.writeBatch),
-          hasFirestore: Boolean(bridge && bridge.firestore),
+          hasUpdateDoc: Boolean(bridge && bridge.updateDoc),
           hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
         });
-        return { ok: false, count: 0, total: 0, reason: 'firestore-batch-unavailable' };
+        return { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable' };
       }
 
       const plannerState = normalizePlannerState(loadPlannerState());
@@ -1519,7 +1523,7 @@
           cardName,
           goalKey,
           item,
-          payload: sanitizeBenchmarkPayload(benchmarkPayload)
+          payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload))
         });
         console.log('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
       });
@@ -1529,33 +1533,60 @@
         return { ok: false, count: 0, reason: 'no-matches' };
       }
 
-      const batch = bridge.writeBatch(bridge.firestore);
-      for (const update of updates) {
+      const settledResults = await Promise.allSettled(updates.map(async (update) => {
         const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-        batch.update(docRef, update.payload);
-      }
+        const safeData = sanitizeFirestoreUpdateData(update.payload);
 
-      try {
-        await batch.commit();
-        console.log('Firestore 커밋 성공!');
-      } catch (error) {
-        const errorMessage = error && error.message ? error.message : String(error);
-        console.error('[Benchmark Apply] writeBatch commit 실패', {
-          totalUpdates: updates.length,
-          missingMappings,
-          errorMessage
+        try {
+          await bridge.updateDoc(docRef, safeData);
+          return { ok: true, itemKey: update.itemKey, cardName: update.cardName, update };
+        } catch (error) {
+          console.error('[Benchmark Apply] updateDoc 실패', {
+            cardName: update.cardName,
+            itemKey: update.itemKey,
+            errorMessage: error && error.message ? error.message : String(error)
+          });
+
+          if (typeof bridge.setDoc === 'function') {
+            try {
+              await bridge.setDoc(docRef, safeData, { merge: true });
+              return { ok: true, itemKey: update.itemKey, cardName: update.cardName, update, mode: 'setDoc-merge' };
+            } catch (fallbackError) {
+              throw {
+                cardName: update.cardName,
+                itemKey: update.itemKey,
+                errorMessage: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
+              };
+            }
+          }
+
+          throw {
+            cardName: update.cardName,
+            itemKey: update.itemKey,
+            errorMessage: error && error.message ? error.message : String(error)
+          };
+        }
+      }));
+
+      const successfulUpdates = [];
+      const failedCards = [];
+      settledResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value && result.value.ok) {
+          successfulUpdates.push(result.value.update);
+          return;
+        }
+
+        const fallbackCardName = updates[index] ? updates[index].cardName : `index-${index}`;
+        const reason = result.status === 'rejected' ? result.reason : null;
+        failedCards.push(fallbackCardName);
+        console.error('[Benchmark Apply] 카드 저장 실패', {
+          cardName: reason && reason.cardName ? reason.cardName : fallbackCardName,
+          itemKey: reason && reason.itemKey ? reason.itemKey : (updates[index] ? updates[index].itemKey : ''),
+          errorMessage: reason && reason.errorMessage ? reason.errorMessage : 'unknown'
         });
-        return {
-          ok: false,
-          count: 0,
-          total: updates.length,
-          reason: 'firestore-batch-failed',
-          failedCards: updates.map((update) => update.cardName),
-          missingMappings
-        };
-      }
+      });
 
-      updates.forEach((update) => {
+      successfulUpdates.forEach((update) => {
         const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
         const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
         const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
@@ -1563,19 +1594,35 @@
         markItemUpdated(itemState);
       });
 
+      const successCount = successfulUpdates.length;
+      const totalCount = updates.length + missingMappings.length;
+      if (!successCount) {
+        console.log('저장 완료!');
+        return {
+          ok: false,
+          count: 0,
+          total: totalCount,
+          reason: 'firestore-update-failed',
+          failedCards,
+          missingMappings
+        };
+      }
+
       savePlannerState(plannerState, { reason: 'ai-benchmark-update' });
       syncOverviewWidgets(plannerState);
       if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
         updateGoalCard(currentGoalKey);
       }
 
+      console.log('저장 완료!');
+
       return {
         ok: true,
-        count: updates.length,
-        total: updates.length,
-        failedCards: [],
+        count: successCount,
+        total: totalCount,
+        failedCards,
         missingMappings,
-        writeResults: [{ mode: 'writeBatch', ok: true, count: updates.length }]
+        writeResults: settledResults
       };
     }
 
@@ -6013,9 +6060,9 @@
               return;
             }
 
-            const successMessage = `총 ${result.total}개 카드의 AI 벤치마킹 동향이 성공적으로 반영되었습니다!`;
+            const successMessage = '성공적으로 카드 데이터가 반영되었습니다!';
             if (benchmarkAutoStatus) {
-              benchmarkAutoStatus.textContent = successMessage;
+              benchmarkAutoStatus.textContent = `${successMessage} (총 ${result.total}개 중 ${result.count}개)`;
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
@@ -6034,8 +6081,11 @@
             }
             window.alert(errorMessage);
           } finally {
-            if (benchmarkAutoStatus && benchmarkAutoStatus.textContent === loadingText) {
-              benchmarkAutoStatus.textContent = '';
+            if (benchmarkAutoStatus) {
+              if (benchmarkAutoStatus.textContent === loadingText) {
+                benchmarkAutoStatus.textContent = '';
+              }
+              benchmarkAutoStatus.classList.remove('loading');
             }
             benchmarkAutoApplyBtn.disabled = false;
           }
