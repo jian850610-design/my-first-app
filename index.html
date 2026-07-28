@@ -1530,13 +1530,14 @@
       }
 
       const batch = bridge.writeBatch(bridge.firestore);
-      updates.forEach((update) => {
+      for (const update of updates) {
         const docRef = bridge.getBenchmarkDocRef(update.itemKey);
         batch.update(docRef, update.payload);
-      });
+      }
 
       try {
         await batch.commit();
+        console.log('Firestore 커밋 성공!');
       } catch (error) {
         const errorMessage = error && error.message ? error.message : String(error);
         console.error('[Benchmark Apply] writeBatch commit 실패', {
@@ -5992,25 +5993,7 @@
           }
 
           try {
-            const timeoutMs = 15000;
-            const timeoutResult = { ok: false, total: 0, count: 0, reason: 'timeout' };
-            const result = await Promise.race([
-              applyAiBenchmarkUpdatesFromText(rawText),
-              new Promise((resolve) => {
-                setTimeout(() => resolve(timeoutResult), timeoutMs);
-              })
-            ]);
-
-            if (result && result.reason === 'timeout') {
-              const timeoutMessage = '처리 시간이 초과되었습니다. 콘솔 로그를 확인하세요.';
-              if (benchmarkAutoStatus) {
-                benchmarkAutoStatus.textContent = timeoutMessage;
-                benchmarkAutoStatus.classList.remove('ok');
-                benchmarkAutoStatus.classList.add('warn');
-              }
-              window.alert(timeoutMessage);
-              return;
-            }
+            const result = await applyAiBenchmarkUpdatesFromText(rawText);
 
             if (!result || !result.ok) {
               const message = result && result.reason === 'no-matches'
@@ -6030,7 +6013,7 @@
               return;
             }
 
-            const successMessage = `총 ${result.total}개 카드의 AI 벤치마킹 동향이 성공적으로 업데이트되었습니다!`;
+            const successMessage = `총 ${result.total}개 카드의 AI 벤치마킹 동향이 성공적으로 반영되었습니다!`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
