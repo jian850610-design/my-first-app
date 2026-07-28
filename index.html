@@ -769,6 +769,7 @@
   </div>
 
   <script>
+    console.log('[VERSION] build ' + new Date().toISOString());
     const todayActivityDate = document.getElementById('todayActivityDate');
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
@@ -1103,6 +1104,45 @@
         .toLowerCase();
     }
 
+    function normalizeKey(value) {
+      if (typeof value !== 'string') return '';
+      return value
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\[\]{}()「」『』<>]/g, ' ')
+        .replace(/[~〜～·•ㆍ/\\|_\-.,:;]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s/g, '');
+    }
+
+    function getDiceSimilarity(left, right) {
+      const a = normalizeKey(left);
+      const b = normalizeKey(right);
+      if (!a || !b) return 0;
+      if (a === b) return 1;
+      if (a.length < 2 || b.length < 2) return 0;
+
+      const makeBigrams = (text) => {
+        const map = new Map();
+        for (let i = 0; i < text.length - 1; i += 1) {
+          const gram = text.slice(i, i + 2);
+          map.set(gram, (map.get(gram) || 0) + 1);
+        }
+        return map;
+      };
+
+      const aBigrams = makeBigrams(a);
+      const bBigrams = makeBigrams(b);
+      let overlap = 0;
+      aBigrams.forEach((count, gram) => {
+        if (!bBigrams.has(gram)) return;
+        overlap += Math.min(count, bBigrams.get(gram));
+      });
+
+      return (2 * overlap) / ((a.length - 1) + (b.length - 1));
+    }
+
     function getGoalKeyFromPromptNumber(goalNumber) {
       return PROMPT_GOAL_NUMBER_TO_KEY[Number(goalNumber)] || '';
     }
@@ -1317,60 +1357,87 @@
     function parseBracketCardsFromText(rawText) {
       if (typeof rawText !== 'string' || !rawText.trim()) return [];
 
-      const bracketRegex = /\[(.*?)\]/g;
-      const matches = Array.from(rawText.matchAll(bracketRegex));
-      if (!matches.length) return [];
+      const lines = rawText.split(/\r?\n/);
+      const parsedCards = [];
+      const cardLineRegex = /^\s*[-•*]?\s*\[?(.+?)\]?\s*:\s*(.*)$/;
+      const companyLineRegex = /^\s*[-•*]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+      let currentCard = null;
+      let activeFieldKey = '';
 
-      const parsedCards = matches.map((match, index) => {
-        const rawTitle = normalizeBenchmarkFieldText(match[1] || '')
-          .replace(/^[\-*:•\s]+/, '')
-          .replace(/[\-*:•\s]+$/, '');
+      const pushCurrentCard = () => {
+        if (currentCard && currentCard.title) parsedCards.push(currentCard);
+      };
 
-        const sectionStart = (match.index || 0) + match[0].length;
-        const sectionEnd = index < matches.length - 1 ? (matches[index + 1].index || rawText.length) : rawText.length;
-        const sectionText = rawText.slice(sectionStart, sectionEnd);
+      for (const rawLine of lines) {
+        const line = typeof rawLine === 'string' ? rawLine : '';
+        if (!line.trim()) continue;
 
-        const benchmarking = { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
-        const companySegmentRegex = /(?:^|\n)\s*(?:[-*•]\s*)?(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*([\s\S]*?)(?=(?:\n\s*(?:[-*•]\s*)?(?:SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：])|$)/gi;
-
-        let companyMatch = companySegmentRegex.exec(sectionText);
-        while (companyMatch) {
+        const companyMatch = line.match(companyLineRegex);
+        if (currentCard && companyMatch) {
           const fieldKey = getBenchmarkFieldKey(companyMatch[1] || '');
-          const content = normalizeBenchmarkFieldText(companyMatch[2] || '');
           if (fieldKey) {
-            benchmarking[fieldKey] = benchmarking[fieldKey]
-              ? `${benchmarking[fieldKey]}\n${content}`
-              : content;
+            currentCard.benchmarking[fieldKey] = normalizeBenchmarkFieldText(companyMatch[2] || '');
+            activeFieldKey = fieldKey;
           }
-          companyMatch = companySegmentRegex.exec(sectionText);
+          continue;
         }
 
-        // Fallback: line-by-line parse when the block does not match the segment regex.
-        if (!benchmarking.skf && !benchmarking.schaeffler && !benchmarking.koreaNsk && !benchmarking.timken) {
-          const lines = sectionText.split(/\r?\n/);
-          let activeFieldKey = '';
-          lines.forEach((line) => {
-            const entry = extractBenchmarkFieldEntry(line);
-            if (entry && entry.fieldKey) {
-              benchmarking[entry.fieldKey] = entry.content || '';
-              activeFieldKey = entry.fieldKey;
-              return;
+        const cardLineMatch = line.match(cardLineRegex);
+        const hasBracket = /\[[^\]]+\]/.test(line);
+        const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
+
+        if (!isGoalLine && cardLineMatch && hasBracket) {
+          const bracketTitleMatch = line.match(/\[([^\]]+)\]/);
+          const title = normalizeBenchmarkFieldText((bracketTitleMatch && bracketTitleMatch[1]) || cardLineMatch[1] || '')
+            .replace(/^[\-*:•\s]+/, '')
+            .replace(/[\-*:•\s]+$/, '');
+          if (!title) continue;
+
+          pushCurrentCard();
+          currentCard = {
+            title,
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          };
+          activeFieldKey = '';
+
+          const inlineTail = normalizeBenchmarkFieldText(cardLineMatch[2] || '');
+          if (inlineTail) {
+            const inlineCompany = inlineTail.match(companyLineRegex);
+            if (inlineCompany) {
+              const inlineField = getBenchmarkFieldKey(inlineCompany[1] || '');
+              if (inlineField) {
+                currentCard.benchmarking[inlineField] = normalizeBenchmarkFieldText(inlineCompany[2] || '');
+                activeFieldKey = inlineField;
+              }
             }
-            const text = normalizeBenchmarkFieldText(line);
-            if (!text || !activeFieldKey) return;
-            benchmarking[activeFieldKey] = benchmarking[activeFieldKey]
-              ? `${benchmarking[activeFieldKey]}\n${text}`
-              : text;
-          });
+          }
+          continue;
         }
 
-        return {
-          title: rawTitle,
-          benchmarking
-        };
-      }).filter((card) => card && card.title);
+        if (!currentCard) continue;
+        const continuationText = normalizeBenchmarkFieldText(line);
+        if (!continuationText || !activeFieldKey) continue;
+        currentCard.benchmarking[activeFieldKey] = currentCard.benchmarking[activeFieldKey]
+          ? `${currentCard.benchmarking[activeFieldKey]}\n${continuationText}`
+          : continuationText;
+      }
 
-      return parsedCards;
+      pushCurrentCard();
+
+      if (!parsedCards.length) {
+        const bracketRegex = /\[(.*?)\]/g;
+        const matches = Array.from(rawText.matchAll(bracketRegex));
+        matches.forEach((match) => {
+          const title = normalizeBenchmarkFieldText(match[1] || '');
+          if (!title) return;
+          parsedCards.push({
+            title,
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          });
+        });
+      }
+
+      return parsedCards.filter((card) => card && card.title);
     }
 
     function parseAiBenchmarkText(rawText) {
@@ -1382,21 +1449,50 @@
       const result = {};
 
       parsedCards.forEach((card) => {
-        const normalizedTitle = normalizeBenchmarkCardTitle(card.title);
+        const normalizedTitle = normalizeKey(card.title);
         if (!normalizedTitle) return;
 
         let bestMatch = null;
+        let bestSimilarity = 0;
         catalog.forEach((candidate) => {
-          const candidateTitle = normalizeBenchmarkCardTitle(candidate.title || candidate.name || '');
+          const candidateTitle = normalizeKey(candidate.title || candidate.name || '');
           if (!candidateTitle) return;
-          if (!candidateTitle.includes(normalizedTitle) && !normalizedTitle.includes(candidateTitle)) return;
-          if (!bestMatch || candidateTitle.length > normalizeBenchmarkCardTitle(bestMatch.title || '').length) {
+          const directMatch = candidateTitle === normalizedTitle
+            || candidateTitle.includes(normalizedTitle)
+            || normalizedTitle.includes(candidateTitle);
+
+          if (directMatch) {
+            const currentBestLength = bestMatch ? normalizeKey(bestMatch.title || '').length : 0;
+            if (!bestMatch || candidateTitle.length > currentBestLength) {
+              bestMatch = candidate;
+            }
+            return;
+          }
+
+          const similarity = getDiceSimilarity(normalizedTitle, candidateTitle);
+          if (similarity > bestSimilarity) {
+            bestSimilarity = similarity;
+          }
+          if (!bestMatch && similarity >= 0.58) {
             bestMatch = candidate;
           }
         });
 
         if (!bestMatch) {
-          console.log('[Benchmark Parser] 카드 매핑 실패', { cardTitle: card.title });
+          const fallbackCandidates = catalog
+            .map((candidate) => ({
+              title: candidate.title,
+              score: getDiceSimilarity(normalizedTitle, normalizeKey(candidate.title || candidate.name || ''))
+            }))
+            .sort((left, right) => right.score - left.score)
+            .slice(0, 8)
+            .map((entry) => `${entry.title} (${entry.score.toFixed(2)})`);
+
+          console.warn('[Benchmark Parser] 카드 매핑 실패', {
+            failedCardTitle: card.title,
+            normalizedTitle,
+            candidates: fallbackCandidates
+          });
           return;
         }
 
@@ -1417,6 +1513,15 @@
       });
 
       return Object.keys(result).length ? result : null;
+    }
+
+    function formatBenchmarkResultSummary(result) {
+      const total = result && Number.isFinite(result.total) ? Number(result.total) : 0;
+      const success = result && Number.isFinite(result.count) ? Number(result.count) : 0;
+      const failed = Math.max(0, total - success);
+      const failedCards = result && Array.isArray(result.failedCards) ? result.failedCards : [];
+      const failedLines = failedCards.length ? `\n실패 목록: ${failedCards.join(', ')}` : '';
+      return `전체 ${total}개 중 성공 ${success}개 / 실패 ${failed}개${failedLines}`;
     }
 
     function sanitizeFirestoreText(value) {
@@ -1635,7 +1740,6 @@
       } catch (error) {
         const errorMessage = error && error.message ? error.message : String(error);
         console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorMessage });
-        window.alert(`저장 실패: ${errorMessage}`);
         response = { ok: false, count: 0, total: 0, reason: errorMessage };
         return response;
       } finally {
@@ -4890,7 +4994,7 @@
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      detailContainer.innerHTML = items.map((item, index) => {
+      const cardsHtml = items.map((item, index) => {
         const itemKey = `${goalKey}::${index}`;
         const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
         const displayTitle = getCardTitleText(existingItemState, item);
@@ -4986,6 +5090,15 @@
           </div>
         </article>`;
       }).join('');
+
+      const fragment = document.createDocumentFragment();
+      const tempContainer = document.createElement('div');
+      tempContainer.innerHTML = cardsHtml;
+      while (tempContainer.firstChild) {
+        fragment.appendChild(tempContainer.firstChild);
+      }
+      detailContainer.innerHTML = '';
+      detailContainer.appendChild(fragment);
       attachDetailItemListeners();
     }
 
@@ -6040,6 +6153,9 @@
       if (benchmarkAutoApplyBtn) {
         benchmarkAutoApplyBtn.addEventListener('click', async () => {
           const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+          if (!benchmarkAutoStatus) {
+            console.warn('[Benchmark Apply] 상태 문구 요소를 찾지 못했습니다. selector: #benchmarkAutoStatus');
+          }
           if (!rawText) {
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = 'AI 결과 텍스트를 먼저 입력해 주세요.';
@@ -6051,25 +6167,45 @@
 
           benchmarkAutoApplyBtn.disabled = true;
           const loadingText = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
+          let isCompleted = false;
+          let isTimedOut = false;
+          let timeoutId = null;
           if (benchmarkAutoStatus) {
+            benchmarkAutoStatus.style.whiteSpace = 'pre-line';
             benchmarkAutoStatus.textContent = loadingText;
             benchmarkAutoStatus.classList.remove('ok', 'warn');
           }
 
+          timeoutId = window.setTimeout(() => {
+            if (isCompleted) return;
+            isTimedOut = true;
+            if (benchmarkAutoStatus) {
+              benchmarkAutoStatus.textContent = '처리 시간이 초과되었습니다. 콘솔 로그를 확인하세요.';
+              benchmarkAutoStatus.classList.remove('ok');
+              benchmarkAutoStatus.classList.add('warn');
+            }
+          }, 30000);
+
           try {
             const result = await applyAiBenchmarkUpdatesFromText(rawText);
+            isCompleted = true;
+            if (timeoutId) {
+              window.clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+
+            if (isTimedOut) {
+              return;
+            }
 
             if (!result || !result.ok) {
               const message = result && result.reason === 'no-matches'
                 ? '매핑 가능한 카드가 없습니다. 카드 제목 또는 회사명(SKF, 셰플러, NSK, 팀켄)을 확인해 주세요.'
-                : `총 ${result && typeof result.total === 'number' ? result.total : 0}개 카드 중 0개 카드가 성공적으로 반영되었습니다.`;
+                : formatBenchmarkResultSummary(result);
               if (benchmarkAutoStatus) {
                 benchmarkAutoStatus.textContent = message;
                 benchmarkAutoStatus.classList.remove('ok');
                 benchmarkAutoStatus.classList.add('warn');
-              }
-              if (!result || result.reason !== 'no-matches') {
-                window.alert(message);
               }
               if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
                 console.error('[Benchmark Apply] 저장 실패 카드 목록', result.failedCards);
@@ -6077,16 +6213,23 @@
               return;
             }
 
-            const successMessage = '성공적으로 카드 데이터가 반영되었습니다!';
+            const successMessage = `성공적으로 카드 데이터가 반영되었습니다!\n${formatBenchmarkResultSummary(result)}`;
             if (benchmarkAutoStatus) {
-              benchmarkAutoStatus.textContent = `${successMessage} (총 ${result.total}개 중 ${result.count}개)`;
+              benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
-            window.alert(successMessage);
             showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
+            isCompleted = true;
+            if (timeoutId) {
+              window.clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            if (isTimedOut) {
+              return;
+            }
             console.error('[Benchmark Apply] 처리 중 치명적 오류', {
               errorMessage: error && error.message ? error.message : String(error)
             });
@@ -6096,8 +6239,11 @@
               benchmarkAutoStatus.classList.remove('ok');
               benchmarkAutoStatus.classList.add('warn');
             }
-            window.alert(errorMessage);
           } finally {
+            isCompleted = true;
+            if (timeoutId) {
+              window.clearTimeout(timeoutId);
+            }
             if (benchmarkAutoStatus) {
               if (benchmarkAutoStatus.textContent === loadingText) {
                 benchmarkAutoStatus.textContent = '';
