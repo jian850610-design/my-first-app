@@ -576,16 +576,31 @@
     .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
     .field-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 22px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 16px; }
-    .field-label { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .field-label { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; flex-wrap: nowrap; width: 100%; min-width: 0; }
     .field-label span { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
     .field-label button { border: none; border-radius: 12px; background: var(--navy); color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .field-label button:hover { background: var(--accent-light); transform: translateY(-1px); }
-    .card-title-group { display: grid; gap: 8px; }
+    .card-title-group { display: grid; gap: 8px; flex: 1 1 auto; min-width: 0; max-width: 100%; }
+    .card-main-title { display: block; min-width: 0; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
+    .button-group { display: flex; gap: 10px; margin-left: auto; flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .card-priority-control { display: grid; gap: 4px; min-width: 0; width: min(170px, 100%); }
+    .card-priority-control select { width: 100%; min-width: 0; }
     .leader-request-tag { display: none; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; background: #fff3cc; color: #8a5b00; border: 1px solid #f2d98a; font-size: 11px; font-weight: 700; }
     .leader-request-tag.visible { display: inline-flex; }
     .leader-star-btn { min-width: 42px; padding: 0 10px; background: #ffffff !important; border: 1px solid #cfdced !important; color: #8da0b6 !important; font-size: 18px !important; line-height: 1 !important; }
     .leader-star-btn.active { color: #e3a200 !important; border-color: #f1cf66 !important; background: #fff8de !important; }
     .leader-star-btn:hover { background: #f5f9ff !important; }
+    @media (max-width: 720px) {
+      .details-grid { grid-template-columns: 1fr; }
+      .field-label { flex-wrap: wrap; }
+      .card-title-group { width: 100%; }
+      .card-main-title { max-width: 100%; }
+      .button-group { width: 100%; margin-left: 0; }
+      .card-priority-control { width: 100%; }
+      .card-edit-btn,
+      .card-save-btn,
+      .leader-star-btn { flex: 0 0 auto; }
+    }
 
     .leader-summary-section { margin-top: 14px; background: #f7fbff; border: 1px solid #d8e7f6; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
     .leader-summary-section strong { font-size: 13px; color: #224b73; }
@@ -1452,6 +1467,20 @@
         dateKey: todayKey,
         state: loadStateFromStorageForDate(todayKey)
       };
+    }
+
+    function getPlannerStateUpdatedAt(state) {
+      const meta = state && state.meta && typeof state.meta === 'object' ? state.meta : {};
+      const updatedAtText = typeof meta.lastUpdatedAt === 'string' ? meta.lastUpdatedAt : '';
+      const updatedAt = parseIsoTimestamp(updatedAtText);
+      return updatedAt > 0 ? updatedAt : 0;
+    }
+
+    function preferMoreRecentPlannerState(localState, remoteState) {
+      const localUpdatedAt = getPlannerStateUpdatedAt(localState);
+      const remoteUpdatedAt = getPlannerStateUpdatedAt(remoteState);
+      if (remoteUpdatedAt > localUpdatedAt) return remoteState;
+      return localState;
     }
 
     function hasAnyPersistedPlannerState() {
@@ -4265,14 +4294,6 @@
         }));
       }
 
-      if (itemKey === FIELD_EVENT_ITEM_KEY) {
-        itemState.steps = itemState.steps.map((step, index) => ({
-          checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
-        }));
-      }
-
       if (itemKey === AI_WEEKLY_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
@@ -5238,14 +5259,14 @@
       const itemState = getItemState(state, FACEBOOK_PAGE_ITEM_KEY, facebookSteps.length);
       itemState.steps = itemState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index)
       }));
 
       const videoSteps = customWorkflowByItemKey[VIDEO_SERIES_ITEM_KEY] || [];
       const videoItemState = getItemState(state, VIDEO_SERIES_ITEM_KEY, videoSteps.length);
       videoItemState.steps = videoItemState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: getDefaultDueDate(VIDEO_SERIES_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(VIDEO_SERIES_ITEM_KEY, index)
       }));
       if (!Array.isArray(videoItemState.historyList) || !videoItemState.historyList.length) {
         videoItemState.historyList = getDefaultHistoryList(VIDEO_SERIES_ITEM_KEY);
@@ -5255,7 +5276,7 @@
       const naverTvState = getItemState(state, NAVER_TV_ITEM_KEY, naverTvSteps.length);
       naverTvState.steps = naverTvState.steps.map((step) => ({
         checked: Boolean(step && step.checked),
-        dueDate: ''
+        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
       }));
       if (!Array.isArray(naverTvState.historyList) || !naverTvState.historyList.length) {
         naverTvState.historyList = getDefaultHistoryList(NAVER_TV_ITEM_KEY);
@@ -5266,7 +5287,7 @@
         const fieldEventState = getItemState(state, itemKey, fieldEventSteps.length);
         fieldEventState.steps = fieldEventState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index)
+          dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
         }));
       });
 
@@ -5274,21 +5295,21 @@
       const aiWeeklyState = getItemState(state, AI_WEEKLY_ITEM_KEY, aiWeeklySteps.length);
       aiWeeklyState.steps = aiWeeklyState.steps.map((step) => ({
         checked: Boolean(step && step.checked),
-        dueDate: ''
+        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
       }));
 
       const offlinePopKitSteps = customWorkflowByItemKey[OFFLINE_POPKIT_ITEM_KEY] || [];
       const offlinePopKitState = getItemState(state, OFFLINE_POPKIT_ITEM_KEY, offlinePopKitSteps.length);
       offlinePopKitState.steps = offlinePopKitState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: getDefaultDueDate(OFFLINE_POPKIT_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_POPKIT_ITEM_KEY, index)
       }));
 
       const offlineSignboardSteps = customWorkflowByItemKey[OFFLINE_SIGNBOARD_ITEM_KEY] || [];
       const offlineSignboardState = getItemState(state, OFFLINE_SIGNBOARD_ITEM_KEY, offlineSignboardSteps.length);
       offlineSignboardState.steps = offlineSignboardState.steps.map((step, index) => ({
         checked: Boolean(step && step.checked),
-        dueDate: getDefaultDueDate(OFFLINE_SIGNBOARD_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_SIGNBOARD_ITEM_KEY, index)
       }));
     }
 
@@ -8656,11 +8677,22 @@
 
         if (prioritySelect) {
           prioritySelect.value = normalizePriorityValue(itemState.priority);
-          prioritySelect.addEventListener('change', () => {
-            itemState.priority = normalizePriorityValue(prioritySelect.value);
+          prioritySelect.addEventListener('change', async () => {
+            const previousPriority = normalizePriorityValue(itemState.priority);
+            const nextPriority = normalizePriorityValue(prioritySelect.value);
+            console.log('[PRIORITY] 변경 시작');
+            console.log('[PRIORITY] 카드ID', itemKey);
+            console.log('[PRIORITY] 기존값', previousPriority);
+            console.log('[PRIORITY] 새값', nextPriority);
+            itemState.priority = nextPriority;
             markItemUpdated(itemState);
-            savePlannerState(plannerState, { reason: 'priority-change' });
+            savePlannerState(plannerState, { reason: 'priority-change', skipFirebaseSync: true });
+            await flushFirebaseSnapshot('priority-change');
             syncOverviewWidgets(plannerState);
+            if (currentGoal && goalTemplates[currentGoal]) {
+              updateGoalCard(currentGoal);
+            }
+            console.log('[PRIORITY] 저장 성공', { itemKey, priority: nextPriority });
           });
         }
 
@@ -9209,17 +9241,30 @@
         });
 
         dueDateInputs.forEach((input, idx) => {
-          input.addEventListener('change', (event) => {
+          input.addEventListener('change', async (event) => {
             event.preventDefault();
             event.stopPropagation();
             if (!itemState.steps[idx]) return;
-            itemState.steps[idx].dueDate = input.value || '';
+            const previousDueDate = typeof itemState.steps[idx].dueDate === 'string' ? itemState.steps[idx].dueDate : '';
+            const nextDueDate = input.value || '';
+            console.log('[DUE] 입력 변경');
+            console.log('[DUE] 카드ID', itemKey);
+            console.log('[DUE] 체크리스트ID', idx);
+            console.log('[DUE] 이전 날짜', previousDueDate);
+            console.log('[DUE] 변경 날짜', nextDueDate);
+            itemState.steps[idx].dueDate = nextDueDate;
             markItemUpdated(itemState);
             updateDueDateBadges();
-            savePlannerState(plannerState);
+            savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
+            await flushFirebaseSnapshot('due-date-change');
             renderLatestActivityPanel(latestActivityPanel, itemState);
             renderGoalSummaryWidget(currentGoal, plannerState);
             syncOverviewWidgets(plannerState);
+            if (currentGoal && goalTemplates[currentGoal]) {
+              updateGoalCard(currentGoal);
+            }
+            console.log('[DUE] Firestore 저장 성공', { itemKey, checklistId: idx, dueDate: nextDueDate });
+            console.log('[DUE] D-Day 갱신 완료', { itemKey, checklistId: idx, dDay: dueDateBadges[idx] ? dueDateBadges[idx].textContent : '' });
           });
         });
 
@@ -9383,6 +9428,9 @@
       }
 
       firebaseDateUnsubscribe = bridge.onValue(bridge.ref(bridge.db, 'plans/skf-daily'), (snapshot) => {
+        if (!currentFirebaseUser) {
+          return;
+        }
         const remoteRoot = snapshot.val();
         let latestEntry = null;
 
@@ -9402,8 +9450,14 @@
             });
         }
 
+        const latestLocalSnapshot = getLatestPlannerSnapshotFromStorage();
         if (!latestEntry) {
-          latestEntry = getLatestPlannerSnapshotFromStorage();
+          latestEntry = latestLocalSnapshot;
+        } else {
+          latestEntry = {
+            ...latestEntry,
+            state: preferMoreRecentPlannerState(latestLocalSnapshot.state, latestEntry.state)
+          };
         }
 
         if (isChecklistTextInputFocused()) {
@@ -9436,13 +9490,18 @@
         if (isChecklistTextInputFocused()) {
           return;
         }
+        if (!currentFirebaseUser) {
+          return;
+        }
         const remoteSnapshot = snapshot.val();
         if (remoteSnapshot && typeof remoteSnapshot === 'object') {
           firebaseSyncSuppressed = true;
           try {
-            const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), remoteSnapshot);
-            setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
-            updateFirebaseLastUpdatedText(mergedState.meta || remoteSnapshot.meta || firebaseLastUpdatedMeta);
+            const localState = loadStateFromStorageForDate(dateKey);
+            const mergedState = applyFirebaseSnapshotToState(localState, remoteSnapshot);
+            const preferredState = preferMoreRecentPlannerState(localState, mergedState);
+            setCurrentPlannerState(preferredState, { skipFirebaseSync: true });
+            updateFirebaseLastUpdatedText(preferredState.meta || remoteSnapshot.meta || firebaseLastUpdatedMeta);
             preserveWindowScroll(() => rerenderCurrentView());
           } finally {
             firebaseSyncSuppressed = false;
