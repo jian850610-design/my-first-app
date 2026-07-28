@@ -525,10 +525,10 @@
     }
   </style>
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js?v=1.0.2';
-    import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js?v=1.0.2';
-    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js?v=1.0.2';
-    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js?v=1.0.2';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -538,16 +538,33 @@
       appId: "1:47316487935:web:bdcbc3bb502b29987006ca"
     };
 
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-    const db = getDatabase(app);
-    const firestore = getFirestore(app);
+    let app = null;
+    let auth = null;
+    let db = null;
+    let firestore = null;
+    let firebaseInitError = null;
 
+    try {
+      app = initializeApp(FIREBASE_CONFIG);
+      auth = getAuth(app);
+      db = getDatabase(app);
+      firestore = getFirestore(app);
+    } catch (error) {
+      firebaseInitError = error;
+      console.error('[Firebase Init] 초기화 실패', error);
+    }
+
+    const initErrorMessage = firebaseInitError && firebaseInitError.message
+      ? firebaseInitError.message
+      : (firebaseInitError ? String(firebaseInitError) : '');
+
+    window.__plannerFirebaseInitError = initErrorMessage;
     window.__plannerFirebase = {
       app,
       auth,
       db,
       firestore,
+      initError: initErrorMessage,
       GoogleAuthProvider,
       getAuth,
       getRedirectResult,
@@ -562,12 +579,15 @@
       setDoc,
       writeBatch,
       getBenchmarkDocRef(itemKey) {
+        if (!firestore) return null;
         return doc(firestore, 'plans', 'skf-daily', 'benchmarks', itemKey);
       },
       getDateRef(dateKey) {
+        if (!db) return null;
         return ref(db, `plans/skf-daily/${dateKey}`);
       },
       getConnectedRef() {
+        if (!db) return null;
         return ref(db, '.info/connected');
       }
     };
@@ -851,6 +871,8 @@
     let firebaseBridgeReady = false;
     let firebaseAuthInitializing = true;
     let firebaseAuthReady = false;
+    let firebaseLoginInProgress = false;
+    let firebaseInitErrorReason = typeof window.__plannerFirebaseInitError === 'string' ? window.__plannerFirebaseInitError : '';
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
@@ -1809,12 +1831,21 @@
       const bridge = await waitForFirebaseBridge();
       if (!bridge) return null;
 
+      if (bridge.initError && !firebaseInitErrorReason) {
+        firebaseInitErrorReason = bridge.initError;
+      }
+
       if (!bridge.auth && typeof bridge.getAuth === 'function' && bridge.app) {
         try {
           bridge.auth = bridge.getAuth(bridge.app);
         } catch (error) {
+          firebaseInitErrorReason = error && error.message ? error.message : String(error);
           console.error('Firebase auth 객체 재초기화 실패', error);
         }
+      }
+
+      if (!bridge.auth && !firebaseInitErrorReason) {
+        firebaseInitErrorReason = 'auth 객체를 생성하지 못했습니다.';
       }
 
       return bridge;
@@ -1968,7 +1999,8 @@
         return;
       }
       firebaseConnectionChip.classList.add('disconnected');
-      firebaseConnectionChip.textContent = '🔴 연결 끊김';
+      const reasonText = firebaseInitErrorReason ? ` (사유: ${firebaseInitErrorReason})` : '';
+      firebaseConnectionChip.textContent = `🔴 연결 끊김${reasonText}`;
     }
 
     function updateFirebaseModeChip() {
@@ -2002,11 +2034,20 @@
           logoutButton.addEventListener('click', handleFirebaseLogout);
         }
       } else {
-        const loginDisabled = firebaseAuthInitializing || !firebaseAuthReady;
-        const loginLabel = firebaseAuthInitializing ? 'Firebase 초기화 중...' : 'Google 로그인';
+        const loginDisabled = firebaseAuthInitializing || !firebaseAuthReady || firebaseLoginInProgress;
+        const loginLabel = firebaseAuthInitializing
+          ? 'Firebase 초기화 중...'
+          : (firebaseLoginInProgress ? '로그인 진행 중...' : 'Google 로그인');
         const loginGuideText = firebaseAuthInitializing
           ? 'Firebase 인증 모듈을 준비하고 있습니다. 잠시만 기다려 주세요.'
-          : '편집을 하려면 Google 로그인이 필요합니다.';
+          : (firebaseInitErrorReason
+            ? `Firebase 초기화 실패: ${firebaseInitErrorReason}`
+            : '편집을 하려면 Google 로그인이 필요합니다.');
+        const loginTitle = firebaseAuthInitializing
+          ? 'Firebase 인증 모듈 초기화 중입니다.'
+          : (firebaseInitErrorReason
+            ? `Firebase 초기화 실패: ${firebaseInitErrorReason}`
+            : (firebaseLoginInProgress ? 'Google 로그인 처리 중입니다.' : 'Google 계정으로 로그인'));
         yellowBanner.innerHTML = `
           <div class="yellow-banner-row">
             <div class="yellow-banner-message">
@@ -2014,7 +2055,7 @@
               <div class="yellow-banner-text">${loginGuideText}</div>
             </div>
             <div class="yellow-banner-actions">
-              <button type="button" class="firebase-auth-btn" id="loginBtn" ${loginDisabled ? 'disabled' : ''}>${loginLabel}</button>
+              <button type="button" class="firebase-auth-btn" id="loginBtn" title="${escapeHtml(loginTitle)}" ${loginDisabled ? 'disabled' : ''}>${loginLabel}</button>
             </div>
           </div>
         `;
@@ -5788,7 +5829,7 @@
 
     function attachFirebaseConnectionListener() {
       const bridge = getFirebaseBridge();
-      if (!bridge || firebaseConnectionUnsubscribe) return;
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.onValue !== 'function' || firebaseConnectionUnsubscribe) return;
       firebaseConnectionUnsubscribe = bridge.onValue(bridge.ref(bridge.db, '.info/connected'), (snapshot) => {
         firebaseConnectionOnline = snapshot.val() === true;
         updateFirebaseConnectionChip();
@@ -5930,44 +5971,47 @@
         return;
       }
 
-      const bridge = await ensureFirebaseAuthBridge();
-      const authInstance = bridge && bridge.auth ? bridge.auth : null;
-      if (!bridge || !authInstance || !bridge.GoogleAuthProvider || !bridge.signInWithPopup) {
-        firebaseAuthReady = false;
-        updateFirebaseAuthControls();
+      if (firebaseLoginInProgress) {
         return;
       }
 
-      const provider = new bridge.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      firebaseLoginInProgress = true;
+      updateFirebaseAuthControls();
+
       try {
+        const bridge = await ensureFirebaseAuthBridge();
+        const authInstance = bridge && bridge.auth ? bridge.auth : null;
+        if (!bridge || !authInstance || !bridge.GoogleAuthProvider || !bridge.signInWithPopup) {
+          firebaseAuthReady = false;
+          if (!firebaseInitErrorReason) {
+            firebaseInitErrorReason = 'Firebase 인증 모듈이 아직 준비되지 않았습니다.';
+          }
+          updateFirebaseConnectionChip();
+          updateFirebaseAuthControls();
+          return;
+        }
+
+        const provider = new bridge.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
         await bridge.signInWithPopup(authInstance, provider);
       } catch (error) {
         console.error('Google 로그인 실패', error);
         const errorCode = error && typeof error.code === 'string' ? error.code : 'unknown';
 
-        if (errorCode === 'auth/popup-blocked' || errorCode === 'auth/cancelled-popup-request') {
-          if (bridge.signInWithRedirect) {
-            try {
-              await bridge.signInWithRedirect(authInstance, provider);
-              return;
-            } catch (redirectError) {
-              console.error('Google 리디렉션 로그인 실패', redirectError);
-            }
-          }
-        }
-
         if (errorCode === 'auth/unauthorized-domain') {
           window.alert('Firebase Authentication의 Authorized domains에 현재 접속 도메인을 추가해야 합니다.');
-          return;
-        }
-
-        if (errorCode === 'auth/operation-not-allowed') {
+        } else if (errorCode === 'auth/popup-blocked') {
+          window.alert('브라우저에서 팝업이 차단되었습니다. 주소창 오른쪽 팝업 차단을 해제한 뒤 다시 시도해 주세요.');
+        } else if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request') {
+          window.alert('로그인 팝업이 닫혀 인증이 취소되었습니다. 다시 시도해 주세요.');
+        } else if (errorCode === 'auth/operation-not-allowed') {
           window.alert('Firebase 콘솔에서 Google 로그인 제공자가 아직 활성화되지 않았습니다.');
-          return;
+        } else {
+          window.alert(`Google 로그인에 실패했습니다. 에러 코드: ${errorCode}`);
         }
-
-        window.alert(`Google 로그인에 실패했습니다. 에러 코드: ${errorCode}`);
+      } finally {
+        firebaseLoginInProgress = false;
+        updateFirebaseAuthControls();
       }
     }
 
@@ -5983,7 +6027,15 @@
 
     async function attachFirebaseAuthListener() {
       const bridge = await ensureFirebaseAuthBridge();
-      if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) return;
+      if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) {
+        firebaseAuthReady = false;
+        if (!firebaseInitErrorReason) {
+          firebaseInitErrorReason = 'Firebase 인증 모듈 준비에 실패했습니다.';
+        }
+        updateFirebaseConnectionChip();
+        updateFirebaseAuthControls();
+        return;
+      }
       if (bridge.getRedirectResult) {
         try {
           const redirectResult = await bridge.getRedirectResult(bridge.auth);
@@ -5991,6 +6043,7 @@
             currentFirebaseUser = redirectResult.user;
           }
         } catch (error) {
+          console.error('Google 리디렉션 결과 확인 실패 (raw)', error);
           console.error('Google 리디렉션 결과 확인 실패', error);
         }
       }
@@ -6008,6 +6061,9 @@
       updateFirebaseAuthControls();
 
       const bridge = await ensureFirebaseAuthBridge();
+      if (bridge && bridge.initError) {
+        firebaseInitErrorReason = bridge.initError;
+      }
       firebaseBridgeReady = Boolean(bridge);
       firebaseAuthReady = Boolean(bridge && bridge.auth && bridge.GoogleAuthProvider && (bridge.signInWithPopup || bridge.signInWithRedirect));
 
