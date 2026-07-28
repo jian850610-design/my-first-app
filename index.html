@@ -253,6 +253,16 @@
     .journal-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .journal-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .journal-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
+    .directive-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .directive-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
+    .directive-history-list { display: grid; gap: 8px; }
+    .directive-history-empty { font-size: 12px; color: #72859a; }
+    .directive-history-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 6px; }
+    .directive-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; }
+    .directive-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; }
+    .directive-history-actions { display: flex; justify-content: flex-end; }
+    .directive-history-delete-btn { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .directive-history-delete-btn:hover { background: #fff1f1; }
     .workflow-section { margin-top: 2px; padding: 6px 8px; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; display: grid; gap: 6px; }
     .principle-box { margin-top: 2px; border: 1px solid #d9e6f4; border-radius: 14px; background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%); padding: 11px 12px; display: grid; gap: 8px; }
     .principle-box-title { font-size: 12px; font-weight: 800; color: #295477; letter-spacing: 0.04em; }
@@ -2969,6 +2979,7 @@
             activityUpdatedAt: typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '',
             directive: typeof itemState.directive === 'string' ? itemState.directive : '',
             directiveUpdatedAt: typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '',
+            directiveHistory: Array.isArray(itemState.directiveHistory) ? itemState.directiveHistory : [],
             latestCommentSummary: typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '',
             remark: typeof itemState.remark === 'string' ? itemState.remark : '',
             benchmarkUpdatedAt: typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '',
@@ -3031,6 +3042,9 @@
           itemState.activityUpdatedAt = typeof remoteItem?.activityUpdatedAt === 'string' ? remoteItem.activityUpdatedAt : (typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '');
           itemState.directive = typeof remoteItem?.directive === 'string' ? remoteItem.directive : (typeof itemState.directive === 'string' ? itemState.directive : '');
           itemState.directiveUpdatedAt = typeof remoteItem?.directiveUpdatedAt === 'string' ? remoteItem.directiveUpdatedAt : (typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '');
+          itemState.directiveHistory = Array.isArray(remoteItem?.directiveHistory)
+            ? remoteItem.directiveHistory
+            : (Array.isArray(itemState.directiveHistory) ? itemState.directiveHistory : []);
           itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
           itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
           itemState.benchmarkUpdatedAt = typeof remoteItem?.benchmarkUpdatedAt === 'string' ? remoteItem.benchmarkUpdatedAt : (typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '');
@@ -3895,6 +3909,7 @@
         itemState.activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
         itemState.directive = typeof itemState.directive === 'string' ? itemState.directive : '';
         itemState.directiveUpdatedAt = typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '';
+        if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
         itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
         itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
         itemState.benchmarkUpdatedAt = typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '';
@@ -4128,6 +4143,7 @@
       if (typeof itemState.activityUpdatedAt !== 'string') itemState.activityUpdatedAt = '';
       if (typeof itemState.directive !== 'string') itemState.directive = '';
       if (typeof itemState.directiveUpdatedAt !== 'string') itemState.directiveUpdatedAt = '';
+      if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
       if (typeof itemState.benchmarkUpdatedAt !== 'string') itemState.benchmarkUpdatedAt = '';
       recalculateItemActivityTimestamp(itemState);
       itemState.priority = normalizePriorityValue(itemState.priority);
@@ -4227,6 +4243,45 @@
           </div>
         `;
         }).join('');
+    }
+
+    function renderDirectiveHistory(listElement, historyEntries) {
+      if (!listElement) return;
+      const entries = Array.isArray(historyEntries) ? historyEntries.slice() : [];
+      const sorted = entries
+        .filter((entry) => entry && typeof entry.text === 'string' && entry.text.trim())
+        .sort((left, right) => {
+          const leftTime = parseIsoTimestamp(left && left.createdAt);
+          const rightTime = parseIsoTimestamp(right && right.createdAt);
+          return rightTime - leftTime;
+        });
+
+      if (!sorted.length) {
+        listElement.innerHTML = '<div class="directive-history-empty">저장된 지시사항 이력이 없습니다.</div>';
+        return;
+      }
+
+      listElement.innerHTML = sorted.map((entry) => {
+        const createdAtText = formatEntryDateTime(entry.createdAt || '');
+        const entryId = entry.id ? String(entry.id) : '';
+        return `
+          <div class="directive-history-item" data-directive-history-id="${escapeHtml(entryId)}">
+            <div class="directive-history-meta">[${escapeHtml(createdAtText)}]</div>
+            <div class="directive-history-text">${escapeHtml(entry.text)}</div>
+            <div class="directive-history-actions">
+              <button type="button" class="directive-history-delete-btn" data-directive-history-delete="${escapeHtml(entryId)}">삭제</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteDirectiveHistoryEntry(itemState, historyId) {
+      if (!itemState || typeof itemState !== 'object') return false;
+      if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
+      const before = itemState.directiveHistory.length;
+      itemState.directiveHistory = itemState.directiveHistory.filter((entry) => String(entry && entry.id ? entry.id : '') !== String(historyId || ''));
+      return itemState.directiveHistory.length < before;
     }
 
     function formatDateOnly(timestamp) {
@@ -4437,25 +4492,13 @@
       if (!panelElement) return;
       const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
       const latestComment = getLatestCommentPreview(itemState || {});
-      const directiveSummary = getDirectivePreviewText(itemState || {});
       const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
-      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
-      const completedSteps = steps.filter((step) => step && step.checked).length;
-      const latestCompletedAt = steps
-        .map((step) => (step && typeof step.completedAt === 'string' ? step.completedAt : ''))
-        .filter(Boolean)
-        .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || '';
-      const summaryText = `⚡ 업무 단계 수행 현황: 총 ${steps.length}단계 중 ${completedSteps}단계 수행 완료 (최근 수행: ${latestCompletedAt ? formatEntryDateTime(latestCompletedAt) : '-'})`;
       panelElement.innerHTML = `
         <div class="latest-activity-title">⚡ 최신 업무 수행 현황</div>
         <div class="latest-activity-grid">
           <div class="latest-activity-item">
             <div class="latest-activity-label">🕒 최근 실행 일시</div>
             <div class="latest-activity-value">최근 작업: ${escapeHtml(recentTimestamp)}</div>
-          </div>
-          <div class="latest-activity-item latest-comment-box">
-            <div class="latest-activity-label">📌 현재 지시사항</div>
-            <div class="latest-activity-value latest-comment-value">${escapeHtml(directiveSummary)}</div>
           </div>
           <div class="latest-activity-item latest-comment-box">
             <div class="latest-activity-label">✅ 최근 수행 내용</div>
@@ -4465,10 +4508,6 @@
             <div class="latest-activity-label">📊 누적 이력 건수</div>
             <div class="latest-activity-value">누적 이력: 총 ${historyCount}건</div>
           </div>
-        </div>
-        <div class="latest-activity-item latest-comment-box">
-          <div class="latest-activity-label">단계별 수행 요약</div>
-          <div class="latest-activity-value latest-comment-value">${escapeHtml(summaryText)}</div>
         </div>
       `;
     }
@@ -8224,6 +8263,10 @@
               <div class="journal-controls">
                 <button type="button" class="directive-save-btn journal-save-btn">저장</button>
               </div>
+              <div class="directive-history-section">
+                <div class="directive-history-title">지시사항 이력</div>
+                <div class="directive-history-list"></div>
+              </div>
             </div>
             <div class="journal-section">
               <div class="journal-top">
@@ -8281,6 +8324,7 @@
         const journalSection = card.querySelector('.journal-section');
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
         const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
+        const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
         const journalInput = journalSection ? journalSection.querySelector('.journal-input') : null;
         const journalSaveButton = journalSection ? journalSection.querySelector('.journal-save-btn') : null;
         const journalTimeline = journalSection ? journalSection.querySelector('.journal-timeline') : null;
@@ -8465,6 +8509,7 @@
 
         renderTimeline(journalTimeline, itemState.comments);
         rerenderHistoryArchive();
+        renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
 
         if (resetRoundButton) {
           resetRoundButton.addEventListener('click', async () => {
@@ -8756,12 +8801,42 @@
 
         if (directiveSaveButton) {
           directiveSaveButton.addEventListener('click', () => {
-            itemState.directive = directiveInput ? directiveInput.value.trim() : '';
+            const directiveText = directiveInput ? directiveInput.value.trim() : '';
+            itemState.directive = directiveText;
             itemState.directiveUpdatedAt = itemState.directive ? new Date().toISOString() : '';
+            if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
+            if (directiveText) {
+              itemState.directiveHistory.push({
+                id: `directive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                text: directiveText,
+                createdAt: new Date().toISOString()
+              });
+            }
             markItemUpdated(itemState);
             recalculateItemActivityTimestamp(itemState);
             syncDirectiveDraft(itemKey, '');
             savePlannerState(plannerState, { reason: 'directive-save' });
+            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+            renderLatestActivityPanel(latestActivityPanel, itemState);
+            syncOverviewWidgets(plannerState);
+          });
+        }
+
+        if (directiveHistoryList) {
+          directiveHistoryList.addEventListener('click', (event) => {
+            const deleteButton = event.target.closest('[data-directive-history-delete]');
+            if (!deleteButton) return;
+
+            const targetId = deleteButton.getAttribute('data-directive-history-delete') || '';
+            if (!targetId) return;
+            const confirmed = window.confirm('이 지시사항 이력을 삭제하시겠습니까?');
+            if (!confirmed) return;
+
+            const deleted = deleteDirectiveHistoryEntry(itemState, targetId);
+            if (!deleted) return;
+            markItemUpdated(itemState);
+            savePlannerState(plannerState, { reason: 'directive-history-delete' });
+            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
           });
