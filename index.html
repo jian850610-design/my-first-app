@@ -484,6 +484,17 @@
     .benchmark-auto-status { font-size: 12px; color: #4f6781; }
     .benchmark-auto-status.ok { color: #0f6c43; }
     .benchmark-auto-status.warn { color: #9a4d00; }
+    .benchmark-auto-progress { font-size: 12px; color: #0f5f9d; font-weight: 800; }
+    .benchmark-manual-mapping { display: grid; gap: 10px; padding: 14px; border: 1px dashed #e0a53a; border-radius: 14px; background: #fff9ef; }
+    .benchmark-manual-mapping-title { font-size: 13px; font-weight: 800; color: #8a5a00; }
+    .benchmark-manual-mapping-list { display: grid; gap: 8px; }
+    .benchmark-manual-mapping-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 10px; background: #ffffff; border: 1px solid #f0d9a8; border-radius: 10px; }
+    .benchmark-manual-mapping-title-text { font-size: 12px; color: #23425f; font-weight: 700; }
+    .benchmark-manual-mapping-select { font-size: 12px; padding: 6px 8px; border: 1px solid #cfdeed; border-radius: 8px; background: #fff; color: #23425f; }
+    .benchmark-manual-mapping-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #0f5f9d; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .benchmark-manual-mapping-btn:hover { background: #0b73bc; }
+    .benchmark-manual-mapping-btn:disabled { opacity: 0.5; cursor: default; }
+    .benchmark-manual-mapping-resolved { font-size: 12px; color: #0f6c43; font-weight: 700; }
     .benchmark-exec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
     .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -726,8 +737,13 @@
           <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [카드명], SKF 본사 / 셰플러 / 한국NSK / 팀켄 항목을 파싱합니다."></textarea>
           <div class="benchmark-auto-actions">
             <button type="button" class="benchmark-auto-btn" id="benchmarkAutoApplyBtn">카드로 자동 반영하기</button>
+            <span class="benchmark-auto-progress" id="benchmarkAutoProgress"></span>
           </div>
           <div class="benchmark-auto-status" id="benchmarkAutoStatus">AI 결과를 붙여넣으면 각 카드의 벤치마킹 필드로 자동 업데이트됩니다.</div>
+          <div class="benchmark-manual-mapping" id="benchmarkManualMappingSection" hidden>
+            <div class="benchmark-manual-mapping-title">⚠️ 자동 매칭 실패 카드 — 후보 중에서 직접 연결해 주세요</div>
+            <div class="benchmark-manual-mapping-list" id="benchmarkManualMappingList"></div>
+          </div>
         </div>
       </section>
     </section>
@@ -839,6 +855,9 @@
     const benchmarkAutoInput = document.getElementById('benchmarkAutoInput');
     const benchmarkAutoApplyBtn = document.getElementById('benchmarkAutoApplyBtn');
     const benchmarkAutoStatus = document.getElementById('benchmarkAutoStatus');
+    const benchmarkAutoProgress = document.getElementById('benchmarkAutoProgress');
+    const benchmarkManualMappingSection = document.getElementById('benchmarkManualMappingSection');
+    const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -883,92 +902,52 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
-    const BENCHMARK_PROMPT_TEXT = `Copy오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.
+    // 프롬프트는 하드코딩된 문자열이 아니라 goalTemplates(실제 카드 데이터)를 순회해 런타임에 생성한다.
+    // 카드명이 나중에 수정되어도 프롬프트가 항상 실제 카드명과 100% 일치하도록 보장한다.
+    function buildBenchmarkPromptText() {
+      const goalNumbers = Object.keys(PROMPT_GOAL_NUMBER_TO_KEY).map(Number).sort((left, right) => left - right);
 
-반드시 아래 [양식] 태그 구성과 하위 항목(SKF 본사, 셰플러, 한국NSK, 팀켄) 구분을 엄격히 유지해서 출력해 주세요. 각 회사별로 1~2문장의 명확한 실행 동향만 작성해 주세요.
+      const getVisibleItems = (goalTemplate) => (goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items : [])
+        .filter((item) => item && typeof item.title === 'string' && item.title.trim() && !REMOVED_PROMPT_CARD_TITLES.has(item.title.trim()));
 
-[출력 양식 예시]
-@목표: 1. 글로벌 SNS & 영상
-- [신규 페이스북 페이지 런칭 및 운영]:
-  * SKF 본사: (SKF 본사 및 한국 법인의 관련 실행 내용)
-  * 셰플러: (셰플러의 관련 실행 내용)
-  * 한국NSK: (한국NSK의 관련 실행 내용)
-  * 팀켄: (팀켄의 관련 실행 내용)
-- [SKF 홈페이지 내 영상 통합 라이브러리 신설]:
-  * SKF 본사: ...
-  * 셰플러: ...
-  * 한국NSK: ...
-  * 팀켄: ...
+      const exampleGoalNumber = goalNumbers[0];
+      const exampleGoalKey = PROMPT_GOAL_NUMBER_TO_KEY[exampleGoalNumber];
+      const exampleGoalTemplate = goalTemplates[exampleGoalKey];
+      const exampleItems = getVisibleItems(exampleGoalTemplate).slice(0, 2);
 
---------------------------------------------------
-@목표: 1. 글로벌 SNS & 영상
-- [신규 페이스북 페이지 런칭 및 운영]:
-- [SKF 홈페이지 내 영상 통합 라이브러리 신설]:
-- [주요 제품/기기 사용 가이드 영상 시리즈 지속 제작]:
-- [타 국가/본사 SNS 우수 사례 벤치마킹]:
-- [네이버 블로그 콘텐츠 연계]:
-- [SNS별 월간 콘텐츠 캘린더 작성]:
+      const exampleBlock = [
+        `@목표: ${exampleGoalNumber}. ${exampleGoalTemplate ? exampleGoalTemplate.label : ''}`,
+        ...exampleItems.map((item) => [
+          `- [${item.title.trim()}]:`,
+          '  * SKF 본사: (SKF 본사 및 한국 법인의 관련 실행 내용)',
+          '  * 셰플러: (셰플러의 관련 실행 내용)',
+          '  * 한국NSK: (한국NSK의 관련 실행 내용)',
+          '  * 팀켄: (팀켄의 관련 실행 내용)'
+        ].join('\n'))
+      ].join('\n');
 
-@목표: 2. 네이버 플랫폼 최적화
-- [네이버 TV 채널 운영 및 이벤트/행사 숏폼 영상 제작]:
-- [SKF 테크노트 심층 기술 리뷰 작성]:
-- [SKF 코리아/4C Story 조직문화 홍보]:
-- [카테고리별 방문/유입 키워드 정기 분석]:
-- [SKF 월드뉴스/인사이트 신속 로컬화]:
-- [SKF 신제품 소개 블로그-네이버 TV 연계]:
-- [SKF 제품 활용법 B2B 검색 최적화]:
+      const bodyBlocks = goalNumbers.map((goalNumber) => {
+        const goalKey = PROMPT_GOAL_NUMBER_TO_KEY[goalNumber];
+        const goalTemplate = goalTemplates[goalKey];
+        const cardLines = getVisibleItems(goalTemplate).map((item) => `- [${item.title.trim()}]:`);
+        if (!cardLines.length) return '';
+        return [`@목표: ${goalNumber}. ${goalTemplate.label}`, ...cardLines].join('\n');
+      }).filter(Boolean);
 
-@목표: 3. 현장/고객 커뮤니케이션 강화
-- [2027 캘린더용 현장/고객 사진 취합]:
-- [사용자 간담회(TKSA/TLDD) 행사 지원]:
-- [대리점/고객사 현장 방문 및 VOC 수집]:
-- [복잡한 기술을 쉬운 고객 언어로 번역]:
-- [B2B 성공 사례(Use Case) 발굴/콘텐츠화]:
-- [세일즈 피칭용 세일즈킷 및 백서 지원]:
-- [현장 피드백 반영 온/오프라인 세미나 기획]:
-- [하반기 주요 고객 세미나 & 간담회(1탄~4탄) 순차 개최]:
-
-@목표: 4. 웹사이트/이커머스/인트라넷
-- [SKF 코리아 홈페이지 한글화/메뉴 생성]:
-- [본사 웹 업데이트 내용 신속 로컬화]:
-- [채널 통합(SNS Unification) 완수]:
-- [온라인몰 대리점 견적 이관 퍼널 고도화]:
-- [주요 콘텐츠 및 제품 페이지 최신화]:
-- [견적 이관 프로세스 내 이탈 포인트 분석]:
-- [웹사이트 및 온라인몰 체류시간 증대]:
-- [사내 인트라넷(SHAREPOINT) 구축/관리]:
-
-@목표: 5. AI 친화적 업무 문화
-- [주간 Teams 채널에 AI 트렌드/뉴스 공유]:
-- [정기 AI Talk 세션 출석률 70% 달성 / 인사이트 전파]:
-- [SKF 핵심 가치 'Curiosity(호기심)' 실천]:
-- [AI Talk 세션 인사이트 팀 내 적극 전파]:
-- [팀 내 AI 친화적인 분위기 조성 독려]:
-- [AI 번역(DeepL)/이미지 툴 실무 테스트]:
-- [반복적인 마케팅 업무 AI 자동화 방안 검토]:
-
-@목표: 6. 오프라인 브랜드 & 행사
-- [SKF 브랜드 경험(BX) 중심의 온·오프라인 행사 기획]:
-- [대리점 간판 및 오프라인 브랜드 자산 지속 리뉴얼]:
-- [인터널 브랜딩(Internal Branding) 관점의 사내 행사 기획]:
-- [하반기 프로모션 굿즈(수건 등) 제작/기안]:
-- [Q3 CRM 프로모션 (여름 대리점 빙수/간식)]:
-- [B2B 타깃 맞춤형 온/오프라인 프로모션 기획]:
-- [행사 완료 후 레슨런(Lesson-learned) 도출]:
-- [2026 New Signboard Implementation & 블로그 콘텐츠화]:
-- [2027년 1회 참가용 주요 박람회 후보 조사 및 기안 수립]:
-
-@목표: 7. 영업 지원 및 프로모션
-- [2026 ISO 18436-2 Cat.II 진동분석 교육 운영 및 마케팅]:
-- [Top Management/VIP 프리미엄 굿즈 기획]:
-- [하반기 프로모션 굿즈 제작]:
-
-@목표: 8. 마케터 역량 및 마인드셋
-- [베어링/회전기기 관련 기초 기술 지속 학습]:
-- [3년/5년 뒤 B2B 마케터 커리어 로드맵 점검]:
-- [글로벌 업무 효율을 위한 비즈니스 영어 학습]:
-- [지속 가능한 업무를 위한 운동/스트레스 관리]:
-- [마케팅 및 비즈니스 관련 도서 월 2권 독서]:`;
+      return [
+        '오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.',
+        '',
+        '반드시 아래 [양식] 태그 구성과 하위 항목(SKF 본사, 셰플러, 한국NSK, 팀켄) 구분을 엄격히 유지해서 출력해 주세요. 각 회사별로 1~2문장의 명확한 실행 동향만 작성해 주세요.',
+        '',
+        '아래 대괄호 [] 안의 카드명은 한 글자도 변경하지 말고 그대로 복사해서 출력하세요. 카드명을 요약하거나 다듬지 마세요.',
+        '',
+        '[출력 양식 예시]',
+        exampleBlock,
+        '',
+        '--------------------------------------------------',
+        bodyBlocks.join('\n\n')
+      ].join('\n');
+    }
 
     const PROMPT_GOAL_NUMBER_TO_KEY = {
       1: 'global-sns',
@@ -1126,8 +1105,10 @@
 
     function normalizeBenchmarkCardTitle(title) {
       return normalizeBenchmarkFieldText(title)
+        .normalize('NFKC')
         .replace(/[\[\]{}()「」『』<>]/g, '')
-        .replace(/[\s·•ㆍ/\\_-]+/g, '')
+        .replace(/['\u2018\u2019"\u201C\u201D`]/g, '')
+        .replace(/[\s\u3000·•ㆍ・/\\／&_-]+/g, '')
         .toLowerCase();
     }
 
@@ -1137,10 +1118,11 @@
         .normalize('NFKC')
         .toLowerCase()
         .replace(/[\[\]{}()「」『』<>]/g, ' ')
-        .replace(/[~〜～·•ㆍ/\\|_\-.,:;]+/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/['\u2018\u2019"\u201C\u201D`]/g, '')
+        .replace(/[~〜～·•ㆍ・/\\／|_\-.,:;&]+/g, ' ')
+        .replace(/[\s\u3000]+/g, ' ')
         .trim()
-        .replace(/\s/g, '');
+        .replace(/[\s\u3000]/g, '');
     }
 
     function getDiceSimilarity(left, right) {
@@ -1467,68 +1449,121 @@
       return parsedCards.filter((card) => card && card.title);
     }
 
+    const BENCHMARK_ALIAS_STORAGE_KEY = 'skfBenchmarkCardAliasMapV1';
+
+    function getBenchmarkAliasMap() {
+      try {
+        const raw = window.localStorage.getItem(BENCHMARK_ALIAS_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveBenchmarkAlias(normalizedRawTitle, itemKey) {
+      if (!normalizedRawTitle || !itemKey) return;
+      try {
+        const aliasMap = getBenchmarkAliasMap();
+        aliasMap[normalizedRawTitle] = itemKey;
+        window.localStorage.setItem(BENCHMARK_ALIAS_STORAGE_KEY, JSON.stringify(aliasMap));
+        console.log('[Benchmark Alias] 별칭 저장:', normalizedRawTitle, '→', itemKey);
+      } catch (error) {
+        console.warn('[Benchmark Alias] 별칭 저장 실패', error);
+      }
+    }
+
+    // 매칭 실패 카드는 버리지 않고 유사도 상위 5개 후보와 함께 unmatched 목록으로 반환한다.
+    // 별칭(alias) 맵에 이미 사용자가 수동으로 연결한 기록이 있으면 최우선으로 사용한다.
     function parseAiBenchmarkText(rawText) {
       const parsedCards = parseBracketCardsFromText(rawText);
       console.log('파싱된 카드들:', parsedCards);
       if (!parsedCards.length) return null;
 
       const catalog = getBenchmarkCardCatalog();
-      const result = {};
+      const catalogByItemKey = new Map(catalog.map((entry) => [`${entry.goalKey}::${entry.index}`, entry]));
+      const aliasMap = getBenchmarkAliasMap();
+      const matched = {};
+      const unmatched = [];
 
       parsedCards.forEach((card) => {
         const normalizedTitle = normalizeKey(card.title);
         if (!normalizedTitle) return;
 
         let bestMatch = null;
-        let bestSimilarity = 0;
-        catalog.forEach((candidate) => {
-          const candidateTitle = normalizeKey(candidate.title || candidate.name || '');
-          if (!candidateTitle) return;
-          const directMatch = candidateTitle === normalizedTitle
-            || candidateTitle.includes(normalizedTitle)
-            || normalizedTitle.includes(candidateTitle);
+        let matchSource = '';
 
-          if (directMatch) {
-            const currentBestLength = bestMatch ? normalizeKey(bestMatch.title || '').length : 0;
-            if (!bestMatch || candidateTitle.length > currentBestLength) {
-              bestMatch = candidate;
-            }
-            return;
-          }
-
-          const similarity = getDiceSimilarity(normalizedTitle, candidateTitle);
-          if (similarity > bestSimilarity) {
-            bestSimilarity = similarity;
-          }
-          if (!bestMatch && similarity >= 0.58) {
-            bestMatch = candidate;
-          }
-        });
+        const aliasItemKey = aliasMap[normalizedTitle];
+        if (aliasItemKey && catalogByItemKey.has(aliasItemKey)) {
+          bestMatch = catalogByItemKey.get(aliasItemKey);
+          matchSource = 'alias';
+        }
 
         if (!bestMatch) {
-          const fallbackCandidates = catalog
+          let bestSimilarity = 0;
+          catalog.forEach((candidate) => {
+            const candidateTitle = normalizeKey(candidate.title || candidate.name || '');
+            if (!candidateTitle) return;
+            const directMatch = candidateTitle === normalizedTitle
+              || candidateTitle.includes(normalizedTitle)
+              || normalizedTitle.includes(candidateTitle);
+
+            if (directMatch) {
+              const currentBestLength = bestMatch ? normalizeKey(bestMatch.title || '').length : 0;
+              if (!bestMatch || candidateTitle.length > currentBestLength) {
+                bestMatch = candidate;
+                matchSource = 'direct';
+              }
+              return;
+            }
+
+            const similarity = getDiceSimilarity(normalizedTitle, candidateTitle);
+            if (similarity > bestSimilarity) {
+              bestSimilarity = similarity;
+            }
+            if (!bestMatch && similarity >= 0.58) {
+              bestMatch = candidate;
+              matchSource = 'similarity';
+            }
+          });
+        }
+
+        if (!bestMatch) {
+          const rankedCandidates = catalog
             .map((candidate) => ({
+              itemKey: `${candidate.goalKey}::${candidate.index}`,
               title: candidate.title,
+              goalKey: candidate.goalKey,
+              index: candidate.index,
               score: getDiceSimilarity(normalizedTitle, normalizeKey(candidate.title || candidate.name || ''))
             }))
             .sort((left, right) => right.score - left.score)
-            .slice(0, 8)
-            .map((entry) => `${entry.title} (${entry.score.toFixed(2)})`);
+            .slice(0, 5);
 
           console.warn('[Benchmark Parser] 카드 매핑 실패', {
             failedCardTitle: card.title,
             normalizedTitle,
-            candidates: fallbackCandidates
+            candidates: rankedCandidates.map((entry) => `${entry.title} (${entry.score.toFixed(2)})`)
+          });
+
+          unmatched.push({
+            title: card.title,
+            normalizedTitle,
+            benchmarking: card.benchmarking,
+            candidates: rankedCandidates
           });
           return;
         }
 
+        console.log('[Benchmark Parser] 카드 매핑 성공', { rawTitle: card.title, matchedTitle: bestMatch.title, matchSource });
+
         const itemKey = `${bestMatch.goalKey}::${bestMatch.index}`;
-        const existing = result[itemKey] && result[itemKey].benchmarking
-          ? result[itemKey].benchmarking
+        const existing = matched[itemKey] && matched[itemKey].benchmarking
+          ? matched[itemKey].benchmarking
           : { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
 
-        result[itemKey] = {
+        matched[itemKey] = {
           title: card.title,
           benchmarking: {
             skf: card.benchmarking?.skf || existing.skf || '',
@@ -1539,7 +1574,8 @@
         };
       });
 
-      return Object.keys(result).length ? result : null;
+      if (!Object.keys(matched).length && !unmatched.length) return null;
+      return { matched, unmatched };
     }
 
     function formatBenchmarkResultSummary(result) {
@@ -1605,25 +1641,29 @@
       }
     }
 
-    async function applyAiBenchmarkUpdatesFromText(rawText) {
-      let response = { ok: false, count: 0, total: 0, reason: 'unknown' };
+    async function applyAiBenchmarkUpdatesFromText(rawText, options = {}) {
+      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [] };
 
       try {
-        const parsedCards = parseAiBenchmarkText(rawText);
-        if (!parsedCards) {
+        const parsed = parseAiBenchmarkText(rawText);
+        if (!parsed) {
           console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
-          response = { ok: false, count: 0, reason: 'parse-failed', total: 0 };
+          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [] };
           return response;
         }
 
+        const { matched, unmatched } = parsed;
+
         const bridge = await waitForFirebaseBridge();
-        if (!bridge || typeof bridge.updateDoc !== 'function' || typeof bridge.getBenchmarkDocRef !== 'function') {
+        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || !bridge.firestore || typeof bridge.writeBatch !== 'function') {
           console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
             hasBridge: Boolean(bridge),
-            hasUpdateDoc: Boolean(bridge && bridge.updateDoc),
+            hasWriteBatch: Boolean(bridge && bridge.writeBatch),
+            hasFirestore: Boolean(bridge && bridge.firestore),
             hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
           });
-          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable' };
+          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched };
           return response;
         }
 
@@ -1632,7 +1672,7 @@
         const missingMappings = [];
         const nowIso = new Date().toISOString();
 
-        Object.entries(parsedCards).forEach(([itemKey, card]) => {
+        Object.entries(matched).forEach(([itemKey, card]) => {
           const [goalKey, indexText] = itemKey.split('::');
           const goalTemplate = goalTemplates[goalKey];
           const itemIndex = Number(indexText);
@@ -1670,62 +1710,62 @@
 
         if (!updates.length) {
           console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
-          response = { ok: false, count: 0, reason: 'no-matches', total: 0 };
+          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched };
           return response;
         }
 
-        const settledResults = await Promise.allSettled(updates.map(async (update) => {
-          const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-          const safeData = sanitizeFirestoreUpdateData(update.payload);
-
-          try {
-            await bridge.updateDoc(docRef, safeData);
-            return { ok: true, itemKey: update.itemKey, cardName: update.cardName, update };
-          } catch (error) {
-            console.error('[Benchmark Apply] updateDoc 실패', {
-              cardName: update.cardName,
-              itemKey: update.itemKey,
-              errorMessage: error && error.message ? error.message : String(error)
-            });
-
-            if (typeof bridge.setDoc === 'function') {
-              try {
-                await bridge.setDoc(docRef, safeData, { merge: true });
-                return { ok: true, itemKey: update.itemKey, cardName: update.cardName, update, mode: 'setDoc-merge' };
-              } catch (fallbackError) {
-                throw {
-                  cardName: update.cardName,
-                  itemKey: update.itemKey,
-                  errorMessage: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
-                };
-              }
-            }
-
-            throw {
-              cardName: update.cardName,
-              itemKey: update.itemKey,
-              errorMessage: error && error.message ? error.message : String(error)
-            };
-          }
-        }));
+        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 한 번에 커밋한다(청크당 최대 20개).
+        const BATCH_CHUNK_SIZE = 20;
+        const chunks = [];
+        for (let i = 0; i < updates.length; i += BATCH_CHUNK_SIZE) {
+          chunks.push(updates.slice(i, i + BATCH_CHUNK_SIZE));
+        }
 
         const successfulUpdates = [];
         const failedCards = [];
-        settledResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value && result.value.ok) {
-            successfulUpdates.push(result.value.update);
-            return;
+        let processedCount = 0;
+
+        for (const chunk of chunks) {
+          try {
+            const batch = bridge.writeBatch(bridge.firestore);
+            chunk.forEach((update) => {
+              const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+              batch.set(docRef, update.payload, { merge: true });
+            });
+            await batch.commit();
+            chunk.forEach((update) => successfulUpdates.push(update));
+            console.log('[Benchmark Apply] 배치 커밋 성공', { count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
+          } catch (error) {
+            const errorCode = error && error.code ? error.code : 'unknown';
+            const errorMessage = error && error.message ? error.message : String(error);
+            console.error('[Benchmark Apply] writeBatch 커밋 실패, 카드별 개별 저장으로 재시도', {
+              errorCode,
+              errorMessage,
+              affectedCards: chunk.map((update) => update.cardName)
+            });
+
+            for (const update of chunk) {
+              try {
+                const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+                await bridge.setDoc(docRef, update.payload, { merge: true });
+                successfulUpdates.push(update);
+                console.log('[Benchmark Apply] 개별 저장 성공', { itemKey: update.itemKey, cardName: update.cardName });
+              } catch (singleError) {
+                failedCards.push(update.cardName);
+                console.error('[Benchmark Apply] 개별 저장 실패', {
+                  itemKey: update.itemKey,
+                  cardName: update.cardName,
+                  errorCode: singleError && singleError.code ? singleError.code : 'unknown',
+                  errorMessage: singleError && singleError.message ? singleError.message : String(singleError)
+                });
+              }
+            }
           }
 
-          const fallbackCardName = updates[index] ? updates[index].cardName : `index-${index}`;
-          const reason = result.status === 'rejected' ? result.reason : null;
-          failedCards.push(fallbackCardName);
-          console.error('[Benchmark Apply] 카드 저장 실패', {
-            cardName: reason && reason.cardName ? reason.cardName : fallbackCardName,
-            itemKey: reason && reason.itemKey ? reason.itemKey : (updates[index] ? updates[index].itemKey : ''),
-            errorMessage: reason && reason.errorMessage ? reason.errorMessage : 'unknown'
-          });
-        });
+          processedCount += chunk.length;
+          onProgress(processedCount, updates.length);
+          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${updates.length}`);
+        }
 
         successfulUpdates.forEach((update) => {
           const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
@@ -1736,7 +1776,14 @@
         });
 
         const successCount = successfulUpdates.length;
-        const totalCount = updates.length + missingMappings.length;
+        const totalCount = updates.length + missingMappings.length + unmatched.length;
+
+        console.log('[Benchmark Apply] 전체 반영 완료', {
+          성공: successCount,
+          실패: failedCards.length + missingMappings.length,
+          매핑실패: unmatched.length
+        });
+
         if (!successCount) {
           response = {
             ok: false,
@@ -1744,7 +1791,8 @@
             total: totalCount,
             reason: 'firestore-update-failed',
             failedCards,
-            missingMappings
+            missingMappings,
+            unmatched
           };
           return response;
         }
@@ -1761,17 +1809,127 @@
           total: totalCount,
           failedCards,
           missingMappings,
-          writeResults: settledResults
+          unmatched
         };
         return response;
       } catch (error) {
+        const errorCode = error && error.code ? error.code : 'unknown';
         const errorMessage = error && error.message ? error.message : String(error);
-        console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorMessage });
-        response = { ok: false, count: 0, total: 0, reason: errorMessage };
+        console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
+        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [] };
         return response;
       } finally {
-        console.log('저장 완료!');
+        console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
       }
+    }
+
+    // 자동 매칭에 실패한 카드를 사용자가 후보 중 하나로 직접 연결할 때 사용한다.
+    // 성공 시 별칭(alias)을 localStorage에 저장해 다음번에는 자동으로 매칭되게 한다.
+    async function applyManualBenchmarkCardMapping(entry, chosenItemKey) {
+      try {
+        const [goalKey, indexText] = chosenItemKey.split('::');
+        const goalTemplate = goalTemplates[goalKey];
+        const itemIndex = Number(indexText);
+        const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+        if (!goalTemplate || !item) {
+          console.error('[Benchmark Manual Map] 선택된 카드를 찾을 수 없습니다.', { chosenItemKey });
+          return { ok: false, reason: 'invalid-item-key' };
+        }
+
+        const benchmarkPayload = {
+          skf: (entry.benchmarking && entry.benchmarking.skf) || '',
+          schaeffler: (entry.benchmarking && entry.benchmarking.schaeffler) || '',
+          koreaNsk: (entry.benchmarking && entry.benchmarking.koreaNsk) || '',
+          timken: (entry.benchmarking && entry.benchmarking.timken) || '',
+          sourceText: entry.title,
+          updatedAt: new Date().toISOString()
+        };
+        const safePayload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload));
+
+        const result = await upsertBenchmarkFirestoreDoc(chosenItemKey, safePayload, item.title);
+        if (!result.ok) {
+          console.error('[Benchmark Manual Map] 저장 실패', { chosenItemKey, reason: result.reason });
+          return { ok: false, reason: result.reason || 'write-failed' };
+        }
+
+        const plannerState = normalizePlannerState(loadPlannerState());
+        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, chosenItemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, chosenItemKey, itemPrinciples);
+        const itemState = getItemState(plannerState, chosenItemKey, checklistSteps.length, itemPrinciples);
+        itemState.benchmarking = { ...safePayload };
+        markItemUpdated(itemState);
+        savePlannerState(plannerState, { reason: 'ai-benchmark-manual-map' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+
+        saveBenchmarkAlias(entry.normalizedTitle || normalizeKey(entry.title), chosenItemKey);
+
+        console.log('[Benchmark Manual Map] 수동 연결 완료', { rawTitle: entry.title, itemKey: chosenItemKey, cardTitle: item.title });
+        return { ok: true, cardTitle: item.title };
+      } catch (error) {
+        console.error('[Benchmark Manual Map] 예외 발생', {
+          errorCode: error && error.code ? error.code : 'unknown',
+          errorMessage: error && error.message ? error.message : String(error)
+        });
+        return { ok: false, reason: error && error.message ? error.message : String(error) };
+      }
+    }
+
+    // 매핑 실패 카드마다 "입력된 카드명 + 유사도 상위 5개 후보 드롭다운"을 렌더링한다.
+    function renderBenchmarkManualMappingSection(unmatchedList) {
+      if (!benchmarkManualMappingSection || !benchmarkManualMappingList) return;
+      const list = Array.isArray(unmatchedList) ? unmatchedList : [];
+
+      if (!list.length) {
+        benchmarkManualMappingSection.hidden = true;
+        benchmarkManualMappingList.innerHTML = '';
+        return;
+      }
+
+      benchmarkManualMappingSection.hidden = false;
+      benchmarkManualMappingList.innerHTML = list.map((entry, index) => {
+        const options = ['<option value="">후보 선택...</option>']
+          .concat((entry.candidates || []).map((candidate) => `<option value="${escapeHtml(candidate.itemKey)}">${escapeHtml(candidate.title)} (${candidate.score.toFixed(2)})</option>`))
+          .join('');
+        return `
+          <div class="benchmark-manual-mapping-row" data-manual-row-index="${index}">
+            <span class="benchmark-manual-mapping-title-text">${escapeHtml(entry.title)}</span>
+            <select class="benchmark-manual-mapping-select" data-manual-select-index="${index}">${options}</select>
+            <button type="button" class="benchmark-manual-mapping-btn" data-manual-connect-index="${index}">연결</button>
+          </div>
+        `;
+      }).join('');
+
+      benchmarkManualMappingList.querySelectorAll('[data-manual-connect-index]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const index = Number(btn.getAttribute('data-manual-connect-index'));
+          const entry = list[index];
+          const select = benchmarkManualMappingList.querySelector(`[data-manual-select-index="${index}"]`);
+          const chosenItemKey = select ? select.value : '';
+          if (!entry || !chosenItemKey) {
+            window.alert('연결할 카드를 먼저 선택해 주세요.');
+            return;
+          }
+
+          btn.disabled = true;
+          const originalLabel = btn.textContent;
+          btn.textContent = '연결 중...';
+
+          const applyResult = await applyManualBenchmarkCardMapping(entry, chosenItemKey);
+          if (applyResult && applyResult.ok) {
+            const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
+            if (row) {
+              row.innerHTML = `<span class="benchmark-manual-mapping-resolved">✅ "${escapeHtml(entry.title)}" → "${escapeHtml(applyResult.cardTitle)}" 연결 완료 (다음부터 자동 매칭됩니다)</span>`;
+            }
+          } else {
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+            window.alert(`연결에 실패했습니다: ${applyResult && applyResult.reason ? applyResult.reason : '알 수 없는 오류'}`);
+          }
+        });
+      });
     }
 
     function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
@@ -6323,13 +6481,15 @@
       }
 
       if (benchmarkPromptPreview) {
-        benchmarkPromptPreview.value = BENCHMARK_PROMPT_TEXT;
+        benchmarkPromptPreview.value = buildBenchmarkPromptText();
       }
 
       if (copyBenchmarkPromptBtn) {
         copyBenchmarkPromptBtn.addEventListener('click', async () => {
           try {
-            await copyTextToClipboard(BENCHMARK_PROMPT_TEXT);
+            const promptText = buildBenchmarkPromptText();
+            if (benchmarkPromptPreview) benchmarkPromptPreview.value = promptText;
+            await copyTextToClipboard(promptText);
             if (benchmarkPromptStatus) {
               benchmarkPromptStatus.textContent = '통합 프롬프트가 클립보드에 복사되었습니다.';
               benchmarkPromptStatus.classList.remove('warn');
@@ -6370,6 +6530,9 @@
             benchmarkAutoStatus.textContent = loadingText;
             benchmarkAutoStatus.classList.remove('ok', 'warn');
           }
+          if (benchmarkAutoProgress) {
+            benchmarkAutoProgress.textContent = '';
+          }
 
           timeoutId = window.setTimeout(() => {
             if (isCompleted) return;
@@ -6382,12 +6545,20 @@
           }, 30000);
 
           try {
-            const result = await applyAiBenchmarkUpdatesFromText(rawText);
+            const result = await applyAiBenchmarkUpdatesFromText(rawText, {
+              onProgress: (done, total) => {
+                if (benchmarkAutoProgress) {
+                  benchmarkAutoProgress.textContent = `반영 중... ${done}/${total}`;
+                }
+              }
+            });
             isCompleted = true;
             if (timeoutId) {
               window.clearTimeout(timeoutId);
               timeoutId = null;
             }
+
+            renderBenchmarkManualMappingSection(result && Array.isArray(result.unmatched) ? result.unmatched : []);
 
             if (isTimedOut) {
               return;
@@ -6395,7 +6566,7 @@
 
             if (!result || !result.ok) {
               const message = result && result.reason === 'no-matches'
-                ? '매핑 가능한 카드가 없습니다. 카드 제목 또는 회사명(SKF, 셰플러, NSK, 팀켄)을 확인해 주세요.'
+                ? '자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.'
                 : formatBenchmarkResultSummary(result);
               if (benchmarkAutoStatus) {
                 benchmarkAutoStatus.textContent = message;
@@ -6426,6 +6597,7 @@
               return;
             }
             console.error('[Benchmark Apply] 처리 중 치명적 오류', {
+              errorCode: error && error.code ? error.code : 'unknown',
               errorMessage: error && error.message ? error.message : String(error)
             });
             const errorMessage = '처리 중 오류가 발생했습니다. 콘솔 로그를 확인하세요.';
@@ -6444,6 +6616,9 @@
                 benchmarkAutoStatus.textContent = '';
               }
               benchmarkAutoStatus.classList.remove('loading');
+            }
+            if (benchmarkAutoProgress) {
+              benchmarkAutoProgress.textContent = '';
             }
             benchmarkAutoApplyBtn.disabled = false;
           }
