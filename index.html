@@ -499,6 +499,15 @@
     .benchmark-manual-mapping-btn:disabled { opacity: 0.5; cursor: default; }
     .benchmark-manual-mapping-resolved { font-size: 12px; color: #0f6c43; font-weight: 700; }
     .benchmark-manual-mapping-empty { font-size: 12px; color: #9a4d00; font-style: italic; }
+    .benchmark-manual-mapping-ignore-btn { border: 1px solid #cfcfcf; border-radius: 8px; background: #f5f5f5; color: #555; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .benchmark-manual-mapping-ignore-btn:hover { background: #ebebeb; }
+    /* [hidden] 기본값을 깔려 적용하기 위해 이 섹션도 display:none을 기본값으로 둔다. */
+    .benchmark-missing-cards { display: none; gap: 10px; padding: 14px; border: 1px dashed #6b8cae; border-radius: 14px; background: #f2f7fc; }
+    .benchmark-missing-cards:not([hidden]) { display: grid; }
+    .benchmark-missing-cards-title { font-size: 13px; font-weight: 800; color: #1f507a; }
+    .benchmark-missing-cards-list { display: grid; gap: 6px; }
+    .benchmark-missing-card-row { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #ffffff; border: 1px solid #d7e5f2; border-radius: 8px; font-size: 12px; color: #23425f; }
+    .benchmark-missing-card-goal { font-weight: 800; color: #1f507a; white-space: nowrap; }
     .benchmark-exec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
     .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -862,6 +871,8 @@
     const benchmarkAutoProgress = document.getElementById('benchmarkAutoProgress');
     const benchmarkManualMappingSection = document.getElementById('benchmarkManualMappingSection');
     const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
+    const benchmarkMissingCardsSection = document.getElementById('benchmarkMissingCardsSection');
+    const benchmarkMissingCardsList = document.getElementById('benchmarkMissingCardsList');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
