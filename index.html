@@ -1413,16 +1413,20 @@
         // 4) 같은 목표 내에서만 유사도 0.6 이상 (goalNumber를 모르면 이 단계는 건너뛴다)
         if (!bestMatch && card.goalNumber) {
           let bestSimilarity = 0;
+          let bestCandidate = null;
           catalog
             .filter((candidate) => candidate.goalNumber === card.goalNumber)
             .forEach((candidate) => {
               const similarity = getDiceSimilarity(normalizedTitle, candidate.normalizedKey);
-              if (similarity > bestSimilarity) bestSimilarity = similarity;
-              if (similarity >= 0.6 && (!bestMatch || similarity > bestSimilarity)) {
-                bestMatch = candidate;
-                matchSource = 'same-goal-similarity';
+              if (similarity > bestSimilarity) {
+                bestSimilarity = similarity;
+                bestCandidate = candidate;
               }
             });
+          if (bestCandidate && bestSimilarity >= 0.6) {
+            bestMatch = bestCandidate;
+            matchSource = 'same-goal-similarity';
+          }
         }
 
         if (!bestMatch) {
@@ -1800,7 +1804,7 @@
       }
     }
 
-    // 매핑 실패 카드마다 "입력된 카드명 + 유사도 상위 5개 후보 드롭다운"을 렌더링한다.
+    // 매핑 실패 카드마다 "입력된 카드명 + 같은 목표 내 후보 드롭다운"을 렌더링한다.
     // 배너는 실패 목록이 실제로 있을 때만 표시하며(length 검사), 렌더링 전에 이전 내용을 항상 비운다.
     function renderBenchmarkManualMappingSection(unmatchedList) {
       if (!benchmarkManualMappingSection || !benchmarkManualMappingList) {
@@ -1837,7 +1841,10 @@
                 '</select>',
                 `<button type="button" class="benchmark-manual-mapping-btn" data-manual-connect-index="${index}">연결</button>`
               ].join('')
-            : '<span class="benchmark-manual-mapping-empty">후보 없음 — 카드명을 확인해 주세요</span>';
+            : [
+                '<span class="benchmark-manual-mapping-empty">이 목표에 해당 카드가 없습니다 — 무시하거나 카드를 새로 만드세요</span>',
+                `<button type="button" class="benchmark-manual-mapping-ignore-btn" data-manual-ignore-index="${index}">무시</button>`
+              ].join('');
 
           rowsHtml.push(`
             <div class="benchmark-manual-mapping-row" data-manual-row-index="${index}">
@@ -1861,6 +1868,17 @@
 
       benchmarkManualMappingList.innerHTML = rowsHtml.join('');
       benchmarkManualMappingSection.hidden = false;
+
+      benchmarkManualMappingList.querySelectorAll('[data-manual-ignore-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const index = Number(btn.getAttribute('data-manual-ignore-index'));
+          const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
+          if (row) row.remove();
+          if (!benchmarkManualMappingList.querySelector('[data-manual-row-index]')) {
+            benchmarkManualMappingSection.hidden = true;
+          }
+        });
+      });
 
       benchmarkManualMappingList.querySelectorAll('[data-manual-connect-index]').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -1896,6 +1914,36 @@
           }
         });
       });
+    }
+
+    // AI 응답에서 아예 언급되지 않은 앱 카드 목록을 표시한다(리포트 5번 요구사항).
+    // 파싱을 새로 시작할 때마다 이전 목록을 항상 먼저 비운다.
+    function renderBenchmarkMissingCardsSection(missingList) {
+      if (!benchmarkMissingCardsSection || !benchmarkMissingCardsList) {
+        console.error('[Benchmark Missing] 리포트 DOM 요소를 찾지 못했습니다. id 셀렉터를 확인하세요.', {
+          hasSection: Boolean(benchmarkMissingCardsSection),
+          hasList: Boolean(benchmarkMissingCardsList)
+        });
+        return;
+      }
+
+      benchmarkMissingCardsList.innerHTML = '';
+      benchmarkMissingCardsSection.hidden = true;
+
+      const list = Array.isArray(missingList) ? missingList : [];
+      if (!list.length) return;
+
+      try {
+        const rowsHtml = list.map((entry) => {
+          const goalNumber = entry && entry.goalNumber ? entry.goalNumber : '?';
+          const title = entry && typeof entry.title === 'string' && entry.title ? entry.title : '(제목 없음)';
+          return `<div class="benchmark-missing-card-row"><span class="benchmark-missing-card-goal">@${goalNumber}</span><span>${escapeHtml(title)}</span></div>`;
+        }).join('');
+        benchmarkMissingCardsList.innerHTML = rowsHtml;
+        benchmarkMissingCardsSection.hidden = false;
+      } catch (error) {
+        console.error('[Benchmark Missing] 렌더링 실패', { errorMessage: error && error.message ? error.message : String(error) });
+      }
     }
 
     function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
@@ -6448,8 +6496,9 @@
         benchmarkPromptPreview.value = buildBenchmarkPromptText();
       }
 
-      // 최초 로드 시에는 파싱을 실행한 적이 없으므로 실패 목록이 존재할 수 없다 — 배너를 항상 숨긴 채로 초기화한다.
+      // 최초 로드 시에는 파싱을 실행한 적이 없으므로 실패/누락 목록이 존재할 수 없다 — 배너를 항상 숨긴 채로 초기화한다.
       renderBenchmarkManualMappingSection([]);
+      renderBenchmarkMissingCardsSection([]);
 
       if (copyBenchmarkPromptBtn) {
         copyBenchmarkPromptBtn.addEventListener('click', async () => {
@@ -6532,15 +6581,18 @@
             }
 
             renderBenchmarkManualMappingSection(result && Array.isArray(result.unmatched) ? result.unmatched : []);
+            renderBenchmarkMissingCardsSection(result && Array.isArray(result.missingFromResponse) ? result.missingFromResponse : []);
+            console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
 
             if (isTimedOut) {
               return;
             }
 
             if (!result || !result.ok) {
+              const reportLine = formatBenchmarkResultSummary(result);
               const message = result && result.reason === 'no-matches'
-                ? '자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.'
-                : formatBenchmarkResultSummary(result);
+                ? `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`
+                : reportLine;
               if (benchmarkAutoStatus) {
                 benchmarkAutoStatus.textContent = message;
                 benchmarkAutoStatus.classList.remove('ok');
