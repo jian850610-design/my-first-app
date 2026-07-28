@@ -843,8 +843,15 @@
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
     let dashboardSearchTerm = '';
-    const newsCache = new Map();
     let newsRequestSerial = 0;
+    const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
+    const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
+    const NEWS_MAX_AGE_DAYS = 30;
+    const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
+    const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
+    const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2'];
+    let sharedNewsPromise = null;
+    migrateNewsCache();
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
     const NAVER_TV_ITEM_KEY = 'naver-platform::0';
@@ -959,8 +966,6 @@
 @목표: 8. 마케터 역량 및 마인드셋
 - [베어링/회전기기 관련 기초 기술 지속 학습]:
 - [3년/5년 뒤 B2B 마케터 커리어 로드맵 점검]:
-- [타 부서(영업/기술/HR) 협업 시 배려하는 소통]:
-- [실패에서 교훈을 찾는 회복 탄력성 키우기]:
 - [글로벌 업무 효율을 위한 비즈니스 영어 학습]:
 - [지속 가능한 업무를 위한 운동/스트레스 관리]:
 - [마케팅 및 비즈니스 관련 도서 월 2권 독서]:`;
@@ -2694,11 +2699,13 @@
       });
 
       migrateGoalItemIndexes(items, 'marketing-skill', {
+        1: 'delete',
+        2: 1,
         3: 'delete',
-        4: 3,
-        5: 4,
-        6: 5,
-        7: 6
+        4: 2,
+        5: 3,
+        6: 4,
+        7: 5
       });
     }
 
@@ -4156,9 +4163,7 @@
         goalText: '마케팅 역량과 마인드셋을 강화하는 실무 과제를 도출합니다.',
         principles: [
           'SKF 핵심 제품 카탈로그 및 가이드북 숙지',
-          '타 부서(영업/기술/HR) 협업 시 배려하는 소통',
-          '실패에서 교훈을 찾는 회복 탄력성 기르기',
-          '지속 가능한 업무를 위한 운동 및 스트레스 관리'
+          '주간 회의(Weekly) Action Plan 데드라인 엄수'
         ],
         items: [
           {
@@ -4169,24 +4174,14 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '타 부서(영업/기술/HR) 협업 시 배려하는 소통',
-            summary: 'AI 도구와 디지털 마케팅 툴을 활용한 실습 과제를 설계합니다.',
-            hq: 'SKF는 AI 보조 콘텐츠 작성과 고객 분석 툴 실습을 병행하고 있습니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 AI 생성 콘텐츠와 데이터 분석 실습을 통해 역량을 강화합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
             title: '지속 가능한 업무를 위한 운동/스트레스 관리',
             summary: '성과 사례와 경쟁사 동향을 비교 분석해 내부 교육 자료로 정리합니다.',
+            principles: [
+              '실패 상황은 주간 단위로 짧게 복기하고, 교훈 1개를 다음 실행 계획에 반드시 반영',
+              '업무 과부하 신호를 조기 인지해 운동/휴식 루틴으로 스트레스 누적을 방지'
+            ],
             hq: 'SKF는 본사 사례와 글로벌 성공 사례를 내부 워크숍에서 공유합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 외부 트렌드와 자사 사례를 결합한 교육 자료를 제작합니다.',
-            link: 'https://www.skf.com/group/news'
-          },
-          {
-            title: '실패에서 교훈을 찾는 회복 탄력성 키우기',
-            summary: '신입 및 실무자를 위한 마케팅 온보딩 워크숍을 운영합니다.',
-            hq: 'SKF는 신규 인원을 위한 제품 및 마케팅 워크숍을 정기적으로 진행합니다.',
-            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 실무 중심 교육을 통해 빠른 현장 적응을 지원합니다.',
             link: 'https://www.skf.com/group/news'
           },
           {
@@ -4199,6 +4194,10 @@
           {
             title: '3년/5년 뒤 B2B 마케터 커리어 로드맵 점검',
             summary: '개별 과제를 중심으로 1:1 코칭과 피드백을 제공합니다.',
+            principles: [
+              '타 부서(영업/기술/HR)의 목표와 제약을 먼저 파악하고 협업 커뮤니케이션 계획을 수립',
+              '협업 요청/피드백 시 상대 부서 일정과 우선순위를 고려한 배려형 소통 원칙을 준수'
+            ],
             hq: 'SKF는 실무 과제에 대한 코칭을 통해 실행력을 높입니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 과제 중심 코칭으로 실행력을 강화합니다.',
             link: 'https://www.skf.com/group/news'
@@ -4889,44 +4888,205 @@
       }).join('');
     }
 
-    function getNewsQueryConfigForGoal(goalKey) {
-      const defaultConfig = {
-        query: '(셰플러 OR NSK OR 베어링 OR 예지보전 OR 스마트팩토리)',
-        displayKeywords: '셰플러, NSK, 베어링, 예지보전, 스마트팩토리'
-      };
-      const configMap = {
-        'global-sns': defaultConfig,
-        'naver-platform': defaultConfig,
-        'field-communication': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (전시회 OR 세미나 OR 고객사례)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 전시회, 세미나, 고객사례'
-        },
-        'ai-culture': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (AI OR 자동화 OR 예지보전)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, AI, 자동화, 예지보전'
-        },
-        'web-ecosystem': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (SEO OR B2B OR 콘텐츠)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, SEO, B2B, 콘텐츠'
-        },
-        'offline-brand': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (전시회 OR 오프라인마케팅 OR 브랜드)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 전시회, 오프라인마케팅, 브랜드'
-        },
-        'sales-support': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (영업지원 OR B2B OR 제품자료)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 영업지원, B2B, 제품자료'
-        },
-        'marketing-skill': {
-          query: '(셰플러 OR NSK OR 팀켄 OR 베어링) (마케팅트렌드 OR 산업동향 OR B2B)',
-          displayKeywords: '셰플러, NSK, 팀켄, 베어링, 마케팅트렌드, 산업동향, B2B'
-        }
-      };
-      return configMap[goalKey] || defaultConfig;
+    // 카테고리 키워드는 검색어(AND 필터)가 아니라 "정렬 가중치"로만 사용한다.
+    // (예전 버전은 이 키워드를 검색 쿼리에 AND로 강제해서 결과가 0건이 되는 원인이었음)
+    const NEWS_CATEGORY_WEIGHT_KEYWORDS = {
+      'field-communication': ['전시회', '세미나', '고객사례'],
+      'ai-culture': ['AI', '자동화', '예지보전'],
+      'web-ecosystem': ['SEO', 'B2B', '콘텐츠'],
+      'offline-brand': ['전시회', '오프라인', '브랜드'],
+      'sales-support': ['영업', 'B2B', '제품'],
+      'marketing-skill': ['마케팅', '트렌드', '산업동향', 'B2B']
+    };
+
+    function getNewsCategoryWeightKeywords(goalKey) {
+      return NEWS_CATEGORY_WEIGHT_KEYWORDS[goalKey] || [];
+    }
+
+    function scoreNewsItemForGoal(item, weightKeywords) {
+      if (!Array.isArray(weightKeywords) || !weightKeywords.length) return 0;
+      const title = typeof item.title === 'string' ? item.title : '';
+      return weightKeywords.reduce((score, keyword) => (title.includes(keyword) ? score + 1 : score), 0);
+    }
+
+    // rss2json이 반환하는 pubDate는 "2026-07-05 11:11:25" 형태(공백 구분)라
+    // 일부 브라우저(Safari 등)의 Date 파서가 실패할 수 있다. 공백을 T로 바꿔 ISO 형태로 정규화한다.
+    function parseNewsPubDate(pubDate) {
+      if (!pubDate || typeof pubDate !== 'string') return null;
+      const trimmed = pubDate.trim();
+      const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(trimmed)
+        ? trimmed.replace(' ', 'T')
+        : trimmed;
+      const date = new Date(normalized);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function isWithinNewsWindow(pubDate, maxAgeDays) {
+      const date = parseNewsPubDate(pubDate);
+      if (!date) return false;
+      const ageMs = Date.now() - date.getTime();
+      return ageMs >= 0 && ageMs <= maxAgeDays * 24 * 60 * 60 * 1000;
     }
 
     function formatNewsPubDate(pubDate) {
-      return formatDateOnly(pubDate) || '';
+      const date = parseNewsPubDate(pubDate);
+      return date ? formatDateOnly(date.getTime()) : '';
+    }
+
+    // textarea.innerHTML → .value 트릭으로 "&amp;", "&#39;" 같은 HTML 엔티티를 안전하게 디코딩한다.
+    function decodeHtmlEntities(text) {
+      if (typeof text !== 'string' || !text) return '';
+      const decodeEl = document.createElement('textarea');
+      decodeEl.innerHTML = text;
+      return decodeEl.value;
+    }
+
+    function migrateNewsCache() {
+      try {
+        NEWS_LEGACY_CACHE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+        const raw = window.localStorage.getItem(NEWS_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.items) || !parsed.items.length) {
+          console.log('[news] 캐시된 빈 결과(0건)를 발견해 제거합니다. 다시 불러옵니다.');
+          window.localStorage.removeItem(NEWS_CACHE_KEY);
+        }
+      } catch (error) {
+        try { window.localStorage.removeItem(NEWS_CACHE_KEY); } catch (removeError) { /* noop */ }
+      }
+    }
+
+    function readNewsCache() {
+      try {
+        const raw = window.localStorage.getItem(NEWS_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.items) || !parsed.items.length) return null;
+        if (typeof parsed.fetchedAt !== 'number' || Date.now() - parsed.fetchedAt > NEWS_CACHE_TTL_MS) return null;
+        return parsed;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    // 빈 결과(0건)는 절대 캐시하지 않는다 — 요청사항 5, 문제 원인 4 방지.
+    function writeNewsCache(items) {
+      if (!Array.isArray(items) || !items.length) {
+        console.log('[news] 결과 0건 → localStorage에 캐시하지 않음');
+        return;
+      }
+      try {
+        window.localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), items }));
+        console.log('[news] localStorage 캐시 저장 완료:', items.length, '건 (TTL 30분)');
+      } catch (error) {
+        console.warn('[news] localStorage 캐시 저장 실패', error);
+      }
+    }
+
+    function fetchNewsViaRss2Json(query) {
+      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+      console.log('[news] 1차 시도: rss2json 요청', apiUrl);
+      return fetch(apiUrl, { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
+          return response.json();
+        })
+        .then((data) => {
+          const count = data && Array.isArray(data.items) ? data.items.length : 0;
+          console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
+          if (!data || data.status !== 'ok') {
+            throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
+          }
+          return Array.isArray(data.items) ? data.items : [];
+        });
+    }
+
+    // rss2json이 실패(429, 네트워크 오류 등)할 때 쓰는 대체 경로: CORS 프록시로 원본 RSS XML을 받아 직접 파싱한다.
+    function fetchNewsViaAllOrigins(query) {
+      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
+      console.log('[news] 2차 시도(fallback): allorigins 요청', proxyUrl);
+      return fetch(proxyUrl, { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
+          return response.text();
+        })
+        .then((xmlText) => {
+          const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+          if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
+          const entries = Array.from(xmlDoc.querySelectorAll('item'));
+          console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
+          return entries.map((entry) => {
+            const getText = (selector) => {
+              const el = entry.querySelector(selector);
+              return el ? el.textContent : '';
+            };
+            return {
+              title: getText('title'),
+              link: getText('link'),
+              pubDate: getText('pubDate'),
+              source: { title: getText('source') || 'Google News' }
+            };
+          });
+        });
+    }
+
+    // 목표별로 매번 호출하지 않고, 하나의 OR 쿼리 결과를 모든 목표 페이지가 공유한다 (요청 5: 요청 수 절감).
+    function loadSharedNewsItems() {
+      if (sharedNewsPromise) return sharedNewsPromise;
+
+      const cached = readNewsCache();
+      if (cached) {
+        console.log('[news] localStorage 캐시 사용 (TTL 30분 이내), 건수=', cached.items.length);
+        sharedNewsPromise = Promise.resolve({ items: cached.items, totalCount: cached.items.length, error: null });
+        return sharedNewsPromise;
+      }
+
+      console.log('[news] 검색 쿼리(회사/업계 키워드 OR 결합):', NEWS_SEARCH_QUERY);
+      sharedNewsPromise = fetchNewsViaRss2Json(NEWS_SEARCH_QUERY)
+        .catch((primaryError) => {
+          console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
+          return fetchNewsViaAllOrigins(NEWS_SEARCH_QUERY).catch((fallbackError) => {
+            console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
+            throw new Error(`${(primaryError && primaryError.message) || 'rss2json 오류'} / fallback 실패: ${(fallbackError && fallbackError.message) || '알 수 없음'}`);
+          });
+        })
+        .then((items) => {
+          console.log('[news] 원본 수신 건수:', items.length);
+          writeNewsCache(items);
+          return { items, totalCount: items.length, error: null };
+        })
+        .catch((error) => {
+          console.error('[news] 뉴스 수집 최종 실패:', error && error.message);
+          sharedNewsPromise = null; // 다음 목표 전환 시 재시도할 수 있도록 초기화
+          return { items: [], totalCount: 0, error: (error && error.message) || '알 수 없는 오류' };
+        });
+
+      return sharedNewsPromise;
+    }
+
+    function renderNewsItemsIntoWidget(items) {
+      newsWidgetList.innerHTML = items.slice(0, 4).map((item) => {
+        const rawTitle = typeof item.title === 'string' ? item.title.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음';
+        const title = decodeHtmlEntities(rawTitle);
+        const rawSourceName = item && item.source && typeof item.source.title === 'string'
+          ? item.source.title
+          : (typeof item.author === 'string' && item.author ? item.author : 'Google News');
+        const sourceName = decodeHtmlEntities(rawSourceName);
+        const pubDate = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
+        const href = item && typeof item.link === 'string' ? item.link : '#';
+        return `
+          <a class="news-card" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+            <div class="news-card-title">${escapeHtml(title)}</div>
+            <div class="news-card-meta">
+              <span class="news-card-source">${escapeHtml(sourceName)}</span>
+              <span class="news-card-date">${escapeHtml(pubDate)}</span>
+            </div>
+          </a>
+        `;
+      }).join('');
+      newsWidgetLoading.hidden = true;
     }
 
     function renderNewsWidget(goalKey, state) {
@@ -4939,72 +5099,51 @@
         return;
       }
 
-      const newsQueryConfig = getNewsQueryConfigForGoal(goalKey);
-      const query = `${newsQueryConfig.query} when:1m`;
-      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
       const requestId = ++newsRequestSerial;
-      const cached = newsCache.get(goalKey);
+      const weightKeywords = getNewsCategoryWeightKeywords(goalKey);
 
       newsWidget.hidden = false;
       newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${newsQueryConfig.displayKeywords} · 수집 범위: 최근 1개월 이내 B2B/경쟁사 뉴스`;
+      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${NEWS_CORE_KEYWORDS.join(', ')} · 수집 범위: 최근 ${NEWS_MAX_AGE_DAYS}일 이내 B2B/경쟁사 뉴스`;
 
-      const renderItems = (items) => {
-        const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
-        if (!visibleItems.length) {
+      newsWidgetList.innerHTML = '';
+      newsWidgetLoading.hidden = false;
+      newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
+
+      loadSharedNewsItems().then((result) => {
+        if (requestId !== newsRequestSerial) return;
+        const items = Array.isArray(result.items) ? result.items : [];
+        const totalCount = result.totalCount || 0;
+        console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
+
+        if (result.error) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = '🎉 오늘 새로 확인된 뉴스가 없습니다.';
+          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
           return;
         }
 
-        newsWidgetList.innerHTML = visibleItems.map((item) => {
-          const title = typeof item.title === 'string' ? item.title.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음';
-          const sourceName = item && item.source && typeof item.source.title === 'string'
-            ? item.source.title
-            : (typeof item.author === 'string' && item.author ? item.author : 'Google News');
-          const pubDate = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
-          const href = item && typeof item.link === 'string' ? item.link : '#';
-          return `
-            <a class="news-card" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
-              <div class="news-card-title">${escapeHtml(title)}</div>
-              <div class="news-card-meta">
-                <span class="news-card-source">${escapeHtml(sourceName)}</span>
-                <span class="news-card-date">${escapeHtml(pubDate)}</span>
-              </div>
-            </a>
-          `;
-        }).join('');
-        newsWidgetLoading.hidden = true;
-      };
+        const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
+        console.log(`[news][${goalKey}] 최근 ${NEWS_MAX_AGE_DAYS}일 필터 후 ${withinWindow.length}건 (전체 ${totalCount}건)`);
 
-      if (cached && Array.isArray(cached.items) && cached.items.length) {
-        renderItems(cached.items);
-      } else {
-        newsWidgetList.innerHTML = '';
-        newsWidgetLoading.hidden = false;
-        newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
-      }
-
-      fetch(apiUrl, { cache: 'no-store' })
-        .then((response) => response.ok ? response.json() : Promise.reject(new Error('RSS fetch failed')))
-        .then((data) => {
-          if (requestId !== newsRequestSerial) return;
-          const items = Array.isArray(data && data.items) ? data.items : [];
-          newsCache.set(goalKey, { fetchedAt: Date.now(), items });
-          renderItems(items);
-        })
-        .catch(() => {
-          if (requestId !== newsRequestSerial) return;
-          if (cached && Array.isArray(cached.items) && cached.items.length) {
-            renderItems(cached.items);
-            return;
-          }
+        if (!withinWindow.length) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = '최신 뉴스를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
-        });
+          newsWidgetLoading.textContent = `최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`;
+          return;
+        }
+
+        const sorted = withinWindow
+          .map((item) => ({
+            item,
+            score: scoreNewsItemForGoal(item, weightKeywords),
+            time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime()
+          }))
+          .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+          .map((entry) => entry.item);
+
+        renderNewsItemsIntoWidget(sorted);
+      });
     }
 
     function autoSizeWorkflowTextarea(textarea) {
