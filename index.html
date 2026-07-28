@@ -1291,7 +1291,12 @@
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
     const NAVER_TV_ITEM_KEY = 'naver-platform::0';
-    const FIELD_EVENT_ITEM_KEY = 'field-communication::1';
+    const FIELD_EVENT_ITEM_KEY_1 = 'field-communication::1';
+    const FIELD_EVENT_ITEM_KEY_2 = 'field-communication::2';
+    const FIELD_EVENT_ITEM_KEY_3 = 'field-communication::3';
+    const FIELD_EVENT_ITEM_KEY_4 = 'field-communication::4';
+    const FIELD_EVENT_ITEM_KEYS = [FIELD_EVENT_ITEM_KEY_1, FIELD_EVENT_ITEM_KEY_2, FIELD_EVENT_ITEM_KEY_3, FIELD_EVENT_ITEM_KEY_4];
+    const FIELD_EVENT_ITEM_KEY = FIELD_EVENT_ITEM_KEY_1;
     const AI_WEEKLY_ITEM_KEY = 'ai-culture::0';
     const OFFLINE_POPKIT_ITEM_KEY = 'offline-brand::1';
     const OFFLINE_SIGNBOARD_ITEM_KEY = 'offline-brand::3';
@@ -3728,19 +3733,25 @@
         '네이버 TV 채널 업로드 및 네이버 블로그/포스트 연계 공유 (마감일: 수시 진행)',
         '댓글/조회수 모니터링 및 네이버 TV 채널 상시 유지 관리 (마감일: 상시 진행)'
       ],
-      [FIELD_EVENT_ITEM_KEY]: [
+      [FIELD_EVENT_ITEM_KEY_1]: [
         '[1탄/런칭] 한화리조트/벡스코/베니키아 장소 비교, 대관계약 및 아젠다 확정',
         '[1탄/런칭] 영업/기술팀 협업 초청 타깃 명단 확정 및 초청장 발송',
         '[1탄/런칭] 발표 PPT 작성, 현장 시연 장비 및 배포용 프로모션 물품 준비',
-        '[1탄/런칭] 10월 중순 런칭 행사 개최(1시간 소요) 및 참석자 VOC 수집',
+        '[1탄/런칭] 10월 중순 런칭 행사 개최(1시간 소요) 및 참석자 VOC 수집'
+      ],
+      [FIELD_EVENT_ITEM_KEY_2]: [
         '[2탄/TKSA] TKSA 사용자 초청 타깃 명단 확보 및 수집',
         '[2탄/TKSA] 사용자 주요 문의 및 피드백 안건 수집',
         '[2탄/TKSA] 간담회 장소 세팅 및 발표 자료 준비',
-        '[2탄/TKSA] TKSA 간담회 진행 및 개선점 VOC 정리',
+        '[2탄/TKSA] TKSA 간담회 진행 및 개선점 VOC 정리'
+      ],
+      [FIELD_EVENT_ITEM_KEY_3]: [
         '[3탄/VIP] 서울 5성급 호텔 대관 확정 및 세미나 아젠다 수립',
         '[3탄/VIP] VIP 고객사 50명 초청장 발송 및 참석 확정 관리',
         '[3탄/VIP] VIP 텀블러/프리미엄 굿즈 제작 및 현장 세팅 준비',
-        '[3탄/VIP] 11/24~27 비즈니스 스웨덴 세미나 개최 및 VIP 응대',
+        '[3탄/VIP] 11/24~27 비즈니스 스웨덴 세미나 개최 및 VIP 응대'
+      ],
+      [FIELD_EVENT_ITEM_KEY_4]: [
         '[4탄/QC교류회] 유저 교류회 핵심 기술 주제 선정',
         '[4탄/QC교류회] 기술 발표 자료 작성 및 유저 초청',
         '[4탄/QC교류회] Technology Exchange Meeting 행사 개최',
@@ -3812,6 +3823,10 @@
     };
     const defaultChecksByItemKey = {
       'field-communication::0': [true, false, false, false],
+      [FIELD_EVENT_ITEM_KEY_1]: [false, false, false, false],
+      [FIELD_EVENT_ITEM_KEY_2]: [false, false, false, false],
+      [FIELD_EVENT_ITEM_KEY_3]: [false, false, false, false],
+      [FIELD_EVENT_ITEM_KEY_4]: [false, false, false, false],
       'offline-brand::4': [true, false, false, false, false],
       'sales-support::0': [true, true, false, false, false, false]
     };
@@ -3819,7 +3834,10 @@
       'global-sns::0': ['2026-07-31', '2026-08-14', '2026-08-21', '2026-08-28'],
       [VIDEO_SERIES_ITEM_KEY]: ['2026-07-31', '2026-08-07', '2026-08-21', '2026-09-11'],
       [NAVER_TV_ITEM_KEY]: ['', '', '', ''],
-      [FIELD_EVENT_ITEM_KEY]: ['2026-08-31', '2026-09-15', '2026-09-30', '2026-10-15', '2026-10-23', '2026-10-30', '2026-11-03', '2026-11-06', '2026-10-30', '2026-11-13', '2026-11-20', '2026-11-27', '2026-12-04', '2026-12-11', '2026-12-18', '2026-12-24'],
+      [FIELD_EVENT_ITEM_KEY_1]: ['2026-08-31', '2026-09-15', '2026-09-30', '2026-10-15'],
+      [FIELD_EVENT_ITEM_KEY_2]: ['2026-10-23', '2026-10-30', '2026-11-03', '2026-11-06'],
+      [FIELD_EVENT_ITEM_KEY_3]: ['2026-10-30', '2026-11-13', '2026-11-20', '2026-11-27'],
+      [FIELD_EVENT_ITEM_KEY_4]: ['2026-12-04', '2026-12-11', '2026-12-18', '2026-12-24'],
       [AI_WEEKLY_ITEM_KEY]: ['', '', ''],
       'offline-brand::0': ['2026-08-07', '2026-08-14', '2026-08-21', '2026-08-31'],
       [OFFLINE_POPKIT_ITEM_KEY]: ['2026-08-14', '2026-08-31', '2026-09-18', '2026-09-30'],
@@ -3922,6 +3940,94 @@
       });
     }
 
+    function splitFieldCommunicationSeriesCard(items) {
+      if (!items || typeof items !== 'object') return;
+
+      const combinedKey = 'field-communication::1';
+      const combinedItem = items[combinedKey];
+      if (!combinedItem || items[FIELD_EVENT_ITEM_KEY_4]) return;
+
+      const sourceSteps = Array.isArray(combinedItem.steps) ? combinedItem.steps : [];
+      if (sourceSteps.length < 12) return;
+
+      const splitConfigs = [
+        {
+          key: FIELD_EVENT_ITEM_KEY_1,
+          title: '하반기 주요 고객 세미나 & 간담회 (1탄)',
+          summary: '담당: Jay | 신제품 런칭 중심 고객 세미나를 준비하고 운영합니다.'
+        },
+        {
+          key: FIELD_EVENT_ITEM_KEY_2,
+          title: '하반기 주요 고객 세미나 & 간담회 (2탄)',
+          summary: '담당: Jay | TKSA 사용자 초청 간담회를 준비하고 운영합니다.'
+        },
+        {
+          key: FIELD_EVENT_ITEM_KEY_3,
+          title: '하반기 주요 고객 세미나 & 간담회 (3탄)',
+          summary: '담당: Jay | VIP 고객 초청 프리미엄 세미나를 준비하고 운영합니다.'
+        },
+        {
+          key: FIELD_EVENT_ITEM_KEY_4,
+          title: '하반기 주요 고객 세미나 & 간담회 (4탄)',
+          summary: '담당: Jay | QC 교류회 및 기술 세미나를 준비하고 운영합니다.'
+        }
+      ];
+
+      splitConfigs.forEach((config, index) => {
+        const stepStart = index * 4;
+        const splitSteps = sourceSteps.slice(stepStart, stepStart + 4).map((step, stepIndex) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : getDefaultDueDate(config.key, stepIndex),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+        }));
+
+        items[config.key] = {
+          steps: splitSteps,
+          note: '',
+          noteUpdatedAt: '',
+          activityUpdatedAt: '',
+          directive: '',
+          directiveUpdatedAt: '',
+          directiveHistory: [],
+          latestCommentSummary: '',
+          remark: '',
+          benchmarkUpdatedAt: typeof combinedItem.benchmarkUpdatedAt === 'string' ? combinedItem.benchmarkUpdatedAt : '',
+          priority: normalizePriorityValue(combinedItem.priority),
+          comments: [],
+          historyList: [],
+          cycleCompletedCount: 0,
+          totalCycles: 0,
+          activityLog: [],
+          seriesDraftName: '',
+          customTitle: config.title,
+          customSummary: config.summary,
+          customGuidelines: Array.isArray(combinedItem.customGuidelines) ? combinedItem.customGuidelines.slice() : [],
+          customSteps: [],
+          isLeaderRequested: combinedItem.isLeaderRequested === true,
+          benchmarking: {
+            skf: typeof combinedItem.benchmarking?.skf === 'string' ? combinedItem.benchmarking.skf : '',
+            schaeffler: typeof combinedItem.benchmarking?.schaeffler === 'string' ? combinedItem.benchmarking.schaeffler : '',
+            koreaNsk: typeof combinedItem.benchmarking?.koreaNsk === 'string' ? combinedItem.benchmarking.koreaNsk : '',
+            timken: typeof combinedItem.benchmarking?.timken === 'string' ? combinedItem.benchmarking.timken : '',
+            sourceText: typeof combinedItem.benchmarking?.sourceText === 'string' ? combinedItem.benchmarking.sourceText : '',
+            updatedAt: typeof combinedItem.benchmarking?.updatedAt === 'string' ? combinedItem.benchmarking.updatedAt : ''
+          },
+          lastUpdatedAt: typeof combinedItem.lastUpdatedAt === 'string' ? combinedItem.lastUpdatedAt : '',
+          lastUpdatedByName: typeof combinedItem.lastUpdatedByName === 'string' ? combinedItem.lastUpdatedByName : '',
+          lastUpdatedByEmail: typeof combinedItem.lastUpdatedByEmail === 'string' ? combinedItem.lastUpdatedByEmail : '',
+          lastUpdatedByUid: typeof combinedItem.lastUpdatedByUid === 'string' ? combinedItem.lastUpdatedByUid : '',
+          principles: Array.isArray(combinedItem.principles) ? combinedItem.principles.slice() : [],
+          title: config.title,
+          summary: config.summary,
+          hq: combinedItem.hq,
+          competitor: combinedItem.competitor,
+          link: combinedItem.link
+        };
+      });
+
+      delete items[combinedKey];
+    }
+
     function normalizeRemovedCardIndexes(items) {
       if (!items || typeof items !== 'object') return;
 
@@ -3933,10 +4039,11 @@
       });
 
       migrateGoalItemIndexes(items, 'field-communication', {
-        2: 'delete',
-        3: 2,
-        4: 3
+        3: 6,
+        2: 5
       });
+
+      splitFieldCommunicationSeriesCard(items);
 
       migrateGoalItemIndexes(items, 'ai-culture', {
         1: 'delete',
@@ -5154,12 +5261,14 @@
         naverTvState.historyList = getDefaultHistoryList(NAVER_TV_ITEM_KEY);
       }
 
-      const fieldEventSteps = customWorkflowByItemKey[FIELD_EVENT_ITEM_KEY] || [];
-      const fieldEventState = getItemState(state, FIELD_EVENT_ITEM_KEY, fieldEventSteps.length);
-      fieldEventState.steps = fieldEventState.steps.map((step, index) => ({
-        checked: Boolean(step && step.checked),
-        dueDate: getDefaultDueDate(FIELD_EVENT_ITEM_KEY, index)
-      }));
+      FIELD_EVENT_ITEM_KEYS.forEach((itemKey) => {
+        const fieldEventSteps = customWorkflowByItemKey[itemKey] || [];
+        const fieldEventState = getItemState(state, itemKey, fieldEventSteps.length);
+        fieldEventState.steps = fieldEventState.steps.map((step, index) => ({
+          checked: Boolean(step && step.checked),
+          dueDate: getDefaultDueDate(itemKey, index)
+        }));
+      });
 
       const aiWeeklySteps = customWorkflowByItemKey[AI_WEEKLY_ITEM_KEY] || [];
       const aiWeeklyState = getItemState(state, AI_WEEKLY_ITEM_KEY, aiWeeklySteps.length);
@@ -5313,8 +5422,29 @@
             link: 'https://www.skf.com/group/news'
           },
           {
-            title: '하반기 주요 고객 세미나 & 간담회 (1탄~4탄) 순차 개최',
-            summary: '담당: Jay | 신제품 런칭(예산 2~3백) ➔ TKSA 간담회 ➔ 비즈니스 스웨덴 세미나(예산 2천) ➔ Quick Collector 기술교류회를 순차 진행합니다.',
+            title: '하반기 주요 고객 세미나 & 간담회 (1탄)',
+            summary: '담당: Jay | 신제품 런칭 중심 고객 세미나를 준비하고 운영합니다.',
+            hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
+            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
+            link: 'https://www.skf.com/group/news-management'
+          },
+          {
+            title: '하반기 주요 고객 세미나 & 간담회 (2탄)',
+            summary: '담당: Jay | TKSA 사용자 초청 간담회를 준비하고 운영합니다.',
+            hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
+            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
+            link: 'https://www.skf.com/group/news-management'
+          },
+          {
+            title: '하반기 주요 고객 세미나 & 간담회 (3탄)',
+            summary: '담당: Jay | VIP 고객 초청 프리미엄 세미나를 준비하고 운영합니다.',
+            hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
+            competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
+            link: 'https://www.skf.com/group/news-management'
+          },
+          {
+            title: '하반기 주요 고객 세미나 & 간담회 (4탄)',
+            summary: '담당: Jay | QC 교류회 및 기술 세미나를 준비하고 운영합니다.',
             hq: 'SKF 본사는 단계별 고객 세미나와 사용자 간담회를 통해 현장 VOC를 축적하고 후속 실행 플랜으로 연결합니다.',
             competitor: '경쟁사(셰플러, NSK, NTN, 팀켄)는 분기별 고객 행사 운영표를 기반으로 초청, 운영, VOC 회수를 체계적으로 관리합니다.',
             link: 'https://www.skf.com/group/news-management'
