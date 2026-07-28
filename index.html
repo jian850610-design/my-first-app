@@ -523,7 +523,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -844,11 +844,24 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
-    const BENCHMARK_PROMPT_TEXT = `--------------------------------------------------
-  오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.
-아래 [양식] 태그 구성을 정확히 유지해서 출력해 주세요.
+    const BENCHMARK_PROMPT_TEXT = `Copy오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.
 
-[양식]
+반드시 아래 [양식] 태그 구성과 하위 항목(SKF 본사, 셰플러, 한국NSK, 팀켄) 구분을 엄격히 유지해서 출력해 주세요. 각 회사별로 1~2문장의 명확한 실행 동향만 작성해 주세요.
+
+[출력 양식 예시]
+@목표: 1. 글로벌 SNS & 영상
+- [신규 페이스북 페이지 런칭 및 운영]:
+  * SKF 본사: (SKF 본사 및 한국 법인의 관련 실행 내용)
+  * 셰플러: (셰플러의 관련 실행 내용)
+  * 한국NSK: (한국NSK의 관련 실행 내용)
+  * 팀켄: (팀켄의 관련 실행 내용)
+- [SKF 홈페이지 내 영상 통합 라이브러리 신설]:
+  * SKF 본사: ...
+  * 셰플러: ...
+  * 한국NSK: ...
+  * 팀켄: ...
+
+--------------------------------------------------
 @목표: 1. 글로벌 SNS & 영상
 - [신규 페이스북 페이지 런칭 및 운영]:
 - [SKF 홈페이지 내 영상 통합 라이브러리 신설]:
@@ -918,8 +931,7 @@
 - [실패에서 교훈을 찾는 회복 탄력성 키우기]:
 - [글로벌 업무 효율을 위한 비즈니스 영어 학습]:
 - [지속 가능한 업무를 위한 운동/스트레스 관리]:
-- [마케팅 및 비즈니스 관련 도서 월 2권 독서]:
---------------------------------------------------`;
+- [마케팅 및 비즈니스 관련 도서 월 2권 독서]:`;
 
     const PROMPT_GOAL_NUMBER_TO_KEY = {
       1: 'global-sns',
@@ -1095,13 +1107,102 @@
       return '';
     }
 
+    function getGoalNumberFromGoalKey(goalKey) {
+      const entry = Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).find(([, mappedGoalKey]) => mappedGoalKey === goalKey);
+      return entry ? Number(entry[0]) : null;
+    }
+
+    let benchmarkCardCatalogCache = null;
+
+    function getBenchmarkCardCatalog() {
+      if (Array.isArray(benchmarkCardCatalogCache)) return benchmarkCardCatalogCache;
+
+      benchmarkCardCatalogCache = [];
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
+        const goalNumber = getGoalNumberFromGoalKey(goalKey);
+        goalTemplate.items.forEach((item, index) => {
+          const title = typeof item.title === 'string' ? item.title.trim() : '';
+          if (!title) return;
+          benchmarkCardCatalogCache.push({
+            goalKey,
+            goalNumber,
+            index,
+            title,
+            normalizedTitle: normalizeBenchmarkCardTitle(title)
+          });
+        });
+      });
+      benchmarkCardCatalogCache.sort((left, right) => right.normalizedTitle.length - left.normalizedTitle.length);
+      return benchmarkCardCatalogCache;
+    }
+
+    function findBenchmarkGoalNumberFromLine(line) {
+      const normalized = normalizeBenchmarkFieldText(line);
+      const patterns = [
+        /(?:^|[\s@])목표\s*[:：\-]?\s*(\d+)/i,
+        /^\s*@?\s*(\d+)\s*(?:번|번째|단계)?\s*(?:목표|카드)?\b/i,
+        /^\s*(\d+)\s*[.)]\s*(?:목표|카드)?\b/i
+      ];
+
+      for (const pattern of patterns) {
+        const match = normalized.match(pattern);
+        if (match && match[1]) return Number(match[1]);
+      }
+      return null;
+    }
+
+    function findBenchmarkCardMatchFromLine(line, goalKey = '') {
+      const normalizedLine = normalizeBenchmarkCardTitle(line);
+      if (!normalizedLine) return null;
+
+      const candidates = goalKey
+        ? getBenchmarkCardCatalog().filter((candidate) => candidate.goalKey === goalKey)
+        : getBenchmarkCardCatalog();
+
+      let bestMatch = null;
+      candidates.forEach((candidate) => {
+        if (!candidate.normalizedTitle) return;
+        if (!normalizedLine.includes(candidate.normalizedTitle) && !candidate.normalizedTitle.includes(normalizedLine)) return;
+        if (!bestMatch || candidate.normalizedTitle.length > bestMatch.normalizedTitle.length) {
+          bestMatch = candidate;
+        }
+      });
+
+      return bestMatch;
+    }
+
+    function extractBenchmarkFieldEntry(line) {
+      const fieldPatterns = [
+        { key: 'skf', regex: /^\s*(?:[-*•]\s*)?(?:SKF(?:\s*본사)?|본사|HQ|Headquarters?)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
+        { key: 'schaeffler', regex: /^\s*(?:[-*•]\s*)?(?:셰플러|Schaeffler)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
+        { key: 'koreaNsk', regex: /^\s*(?:[-*•]\s*)?(?:한국\s*N\s*S\s*K|한국NSK|NSK)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
+        { key: 'timken', regex: /^\s*(?:[-*•]\s*)?(?:팀켄|Timken)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i }
+      ];
+
+      for (const entry of fieldPatterns) {
+        const match = line.match(entry.regex);
+        if (match) {
+          return {
+            fieldKey: entry.key,
+            content: normalizeBenchmarkFieldText(match[1] || '')
+          };
+        }
+      }
+
+      return null;
+    }
+
     function parseAiBenchmarkOutput(rawText) {
       if (typeof rawText !== 'string') return null;
       const lines = rawText.split(/\r?\n/);
       const parsed = {};
       let currentGoalNumber = null;
+      let currentGoalKey = '';
       let currentCard = null;
       let activeFieldKey = '';
+      const unmatchedLines = [];
+      const unmatchedCardCandidates = [];
 
       const pushCard = (goalNumber, card) => {
         if (!goalNumber || !card || !card.title) return;
@@ -1111,38 +1212,58 @@
 
       lines.forEach((rawLine) => {
         const line = rawLine.trimEnd();
-        const goalMatch = line.match(/^\s*@목표:\s*(\d+)\s*\.?\s*(.*)$/);
+        const goalNumberFromLine = findBenchmarkGoalNumberFromLine(line);
+        const goalMatch = line.match(/^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?\s*(.*)$/i);
         if (goalMatch) {
           if (currentCard) pushCard(currentGoalNumber, currentCard);
           currentGoalNumber = Number(goalMatch[1]);
+          currentGoalKey = getGoalKeyFromPromptNumber(currentGoalNumber);
           currentCard = null;
           activeFieldKey = '';
+          console.log('[Benchmark Parser] 목표 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey });
           return;
         }
 
-        const cardMatch = line.match(/^\s*-\s*\[(.+?)\]\s*:\s*(.*)$/);
-        if (cardMatch && currentGoalNumber !== null) {
+        if (goalNumberFromLine && currentGoalNumber !== goalNumberFromLine) {
+          if (currentCard) pushCard(currentGoalNumber, currentCard);
+          currentGoalNumber = goalNumberFromLine;
+          currentGoalKey = getGoalKeyFromPromptNumber(currentGoalNumber);
+          currentCard = null;
+          activeFieldKey = '';
+          console.log('[Benchmark Parser] 느슨한 목표 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey });
+        }
+
+        const cardMatch = findBenchmarkCardMatchFromLine(line, currentGoalKey);
+        if (cardMatch) {
           if (currentCard) pushCard(currentGoalNumber, currentCard);
           currentCard = {
-            title: normalizeBenchmarkFieldText(cardMatch[1]),
+            title: cardMatch.title,
+            matchedGoalKey: cardMatch.goalKey,
+            matchedItemIndex: cardMatch.index,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           };
-          const inlineContent = normalizeBenchmarkFieldText(cardMatch[2]);
-          if (inlineContent) currentCard.rawLines = [inlineContent];
+          currentGoalNumber = cardMatch.goalNumber || currentGoalNumber;
+          currentGoalKey = cardMatch.goalKey || currentGoalKey;
+          const cleanedLine = normalizeBenchmarkFieldText(line).replace(/^[-*•\d.\s\[\]]+/g, '');
+          if (cleanedLine && cleanedLine !== normalizeBenchmarkCardTitle(cardMatch.title)) {
+            currentCard.rawLines = [cleanedLine];
+          }
           activeFieldKey = '';
+          console.log('[Benchmark Parser] 카드 제목 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey, title: currentCard.title, itemIndex: currentCard.matchedItemIndex });
           return;
         }
 
-        if (!currentCard) return;
+        if (!currentCard) {
+          if (line.trim()) unmatchedLines.push(line);
+          return;
+        }
 
-        const fieldMatch = line.match(/^\s*(?:[-*•]\s*)?(SKF 본사(?: 실행 내용)?|셰플러(?: 실행 내용)?|한국\s*NSK(?: 실행 내용)?|팀켄(?: 실행 내용)?|Schaeffler|Timken|NSK)\s*[:：-]\s*(.*)$/i);
-        if (fieldMatch) {
-          const fieldKey = getBenchmarkFieldKey(fieldMatch[1]);
-          if (fieldKey) {
-            currentCard.benchmarking[fieldKey] = normalizeBenchmarkFieldText(fieldMatch[2]);
-            activeFieldKey = fieldKey;
-            return;
-          }
+        const fieldEntry = extractBenchmarkFieldEntry(line);
+        if (fieldEntry && fieldEntry.fieldKey) {
+          currentCard.benchmarking[fieldEntry.fieldKey] = fieldEntry.content;
+          activeFieldKey = fieldEntry.fieldKey;
+          console.log('[Benchmark Parser] 필드 감지', { line, title: currentCard.title, fieldKey: fieldEntry.fieldKey, content: fieldEntry.content });
+          return;
         }
 
         const continuationText = normalizeBenchmarkFieldText(line);
@@ -1150,13 +1271,28 @@
         if (activeFieldKey) {
           const existing = currentCard.benchmarking[activeFieldKey];
           currentCard.benchmarking[activeFieldKey] = existing ? `${existing}\n${continuationText}` : continuationText;
+          console.log('[Benchmark Parser] 필드 이어붙임', { title: currentCard.title, fieldKey: activeFieldKey, text: continuationText });
           return;
         }
         if (!Array.isArray(currentCard.rawLines)) currentCard.rawLines = [];
         currentCard.rawLines.push(continuationText);
+        unmatchedCardCandidates.push({ title: currentCard.title, line: continuationText });
+        console.log('[Benchmark Parser] 카드/필드 미매칭 라인 누적', { title: currentCard.title, line: continuationText });
       });
 
       if (currentCard) pushCard(currentGoalNumber, currentCard);
+      if (!Object.keys(parsed).length) {
+        console.log('[Benchmark Parser] 카드 파싱 실패', {
+          rawLineCount: lines.length,
+          unmatchedLines,
+          unmatchedCardCandidates
+        });
+      } else {
+        console.log('[Benchmark Parser] 카드 파싱 완료', {
+          goalNumbers: Object.keys(parsed),
+          cardCount: Object.values(parsed).reduce((sum, cards) => sum + cards.length, 0)
+        });
+      }
       return parsed;
     }
 
@@ -1196,7 +1332,7 @@
 
     async function upsertBenchmarkFirestoreDoc(itemKey, payload) {
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function' || typeof bridge.setDoc !== 'function') {
+      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
         return { ok: false, reason: 'firestore-unavailable' };
       }
 
@@ -1205,19 +1341,15 @@
         await bridge.updateDoc(docRef, payload);
         return { ok: true, mode: 'updateDoc' };
       } catch (error) {
-        try {
-          await bridge.setDoc(docRef, payload, { merge: true });
-          return { ok: true, mode: 'setDoc-merge' };
-        } catch (fallbackError) {
-          console.error('Firestore 벤치마킹 저장 실패', itemKey, fallbackError);
-          return { ok: false, reason: 'write-failed', error: fallbackError };
-        }
+        console.error('Firestore 벤치마킹 저장 실패', { itemKey, payload, error });
+        return { ok: false, reason: 'write-failed', error };
       }
     }
 
     async function applyAiBenchmarkUpdatesFromText(rawText) {
       const parsedCards = parseAiBenchmarkText(rawText);
       if (!parsedCards) {
+        console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
         return { ok: false, count: 0, reason: 'parse-failed' };
       }
 
@@ -1245,9 +1377,11 @@
         };
         markItemUpdated(itemState);
         updates.push({ itemKey, payload: itemState.benchmarking });
+        console.log('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, title: card.title, benchmarking: itemState.benchmarking });
       });
 
       if (!updates.length) {
+        console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
         return { ok: false, count: 0, reason: 'no-matches' };
       }
 
@@ -1256,6 +1390,7 @@
         // eslint-disable-next-line no-await-in-loop
         const result = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload);
         writeResults.push(result);
+        console.log('[Benchmark Apply] Firestore 반영 결과', { itemKey: update.itemKey, result });
       }
 
       const successCount = writeResults.filter((result) => result && result.ok).length;
@@ -1267,9 +1402,6 @@
       syncOverviewWidgets(plannerState);
       if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
         updateGoalCard(currentGoalKey);
-      }
-      if (dashboardView && !dashboardView.classList.contains('hidden-view')) {
-        showView('dashboard');
       }
 
       return { ok: true, count: successCount };
@@ -5618,51 +5750,52 @@
             }
           }
         });
+      }
 
-        if (benchmarkAutoApplyBtn) {
-          benchmarkAutoApplyBtn.addEventListener('click', async () => {
-            const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
-            if (!rawText) {
+      if (benchmarkAutoApplyBtn) {
+        benchmarkAutoApplyBtn.addEventListener('click', async () => {
+          const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+          if (!rawText) {
+            if (benchmarkAutoStatus) {
+              benchmarkAutoStatus.textContent = 'AI 결과 텍스트를 먼저 입력해 주세요.';
+              benchmarkAutoStatus.classList.remove('ok');
+              benchmarkAutoStatus.classList.add('warn');
+            }
+            return;
+          }
+
+          benchmarkAutoApplyBtn.disabled = true;
+          if (benchmarkAutoStatus) {
+            benchmarkAutoStatus.textContent = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
+            benchmarkAutoStatus.classList.remove('ok', 'warn');
+          }
+
+          try {
+            const result = await applyAiBenchmarkUpdatesFromText(rawText);
+            if (!result || !result.ok) {
+              const message = result && result.reason === 'no-matches'
+                ? '매핑 가능한 카드가 없습니다. 카드 제목 또는 회사명(SKF, 셰플러, NSK, 팀켄)을 확인해 주세요.'
+                : 'Firestore 업데이트에 실패했습니다. 잠시 후 다시 시도해 주세요.';
               if (benchmarkAutoStatus) {
-                benchmarkAutoStatus.textContent = 'AI 결과 텍스트를 먼저 입력해 주세요.';
+                benchmarkAutoStatus.textContent = message;
                 benchmarkAutoStatus.classList.remove('ok');
                 benchmarkAutoStatus.classList.add('warn');
               }
               return;
             }
 
-            benchmarkAutoApplyBtn.disabled = true;
+            const successMessage = `총 ${result.count}개 카드가 성공적으로 반영되었습니다.`;
             if (benchmarkAutoStatus) {
-              benchmarkAutoStatus.textContent = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
-              benchmarkAutoStatus.classList.remove('ok', 'warn');
+              benchmarkAutoStatus.textContent = successMessage;
+              benchmarkAutoStatus.classList.remove('warn');
+              benchmarkAutoStatus.classList.add('ok');
             }
-
-            try {
-              const result = await applyAiBenchmarkUpdatesFromText(rawText);
-              if (!result || !result.ok) {
-                const message = result && result.reason === 'no-matches'
-                  ? '매핑 가능한 카드가 없습니다. @목표 번호와 [카드명]을 확인해 주세요.'
-                  : 'Firestore 업데이트에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-                if (benchmarkAutoStatus) {
-                  benchmarkAutoStatus.textContent = message;
-                  benchmarkAutoStatus.classList.remove('ok');
-                  benchmarkAutoStatus.classList.add('warn');
-                }
-                return;
-              }
-
-              if (benchmarkAutoStatus) {
-                benchmarkAutoStatus.textContent = `${result.count}개 카드의 AI 벤치마킹 데이터가 성공적으로 업데이트되었습니다!`;
-                benchmarkAutoStatus.classList.remove('warn');
-                benchmarkAutoStatus.classList.add('ok');
-              }
-              window.alert(`${result.count}개 카드의 AI 벤치마킹 데이터가 성공적으로 업데이트되었습니다!`);
-              rerenderCurrentView();
-            } finally {
-              benchmarkAutoApplyBtn.disabled = false;
-            }
-          });
-        }
+            window.alert(successMessage);
+            rerenderCurrentView();
+          } finally {
+            benchmarkAutoApplyBtn.disabled = false;
+          }
+        });
       }
 
       if (quickGoalSelect) {
