@@ -470,6 +470,20 @@
     .benchmark-prompt-status.ok { color: #0f6c43; }
     .benchmark-prompt-status.warn { color: #9a4d00; }
     .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
+    .benchmark-auto-panel { display: grid; gap: 10px; padding: 14px; border: 1px solid #d7e5f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%); }
+    .benchmark-auto-title { font-size: 13px; font-weight: 800; color: #173f66; }
+    .benchmark-auto-textarea { width: 100%; min-height: 180px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; }
+    .benchmark-auto-textarea:focus { outline: none; border-color: #0f5f9d; box-shadow: 0 0 0 4px rgba(15, 95, 157, 0.10); }
+    .benchmark-auto-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .benchmark-auto-btn { border: 1px solid #8fb3d8; border-radius: 10px; background: #0f5f9d; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .benchmark-auto-btn:hover { background: #0b73bc; }
+    .benchmark-auto-status { font-size: 12px; color: #4f6781; }
+    .benchmark-auto-status.ok { color: #0f6c43; }
+    .benchmark-auto-status.warn { color: #9a4d00; }
+    .benchmark-exec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
+    .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
+    .benchmark-exec-item p { margin: 0; font-size: 12px; line-height: 1.55; color: #23425f; white-space: pre-wrap; }
 
     .field-input { display: grid; gap: 10px; }
     .field-input input,
@@ -509,6 +523,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getFirestore, doc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -522,11 +537,13 @@
     const app = initializeApp(FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getDatabase(app);
+    const firestore = getFirestore(app);
 
     window.__plannerFirebase = {
       app,
       auth,
       db,
+      firestore,
       GoogleAuthProvider,
       getRedirectResult,
       onAuthStateChanged,
@@ -535,6 +552,11 @@
       onValue,
       ref,
       set,
+      updateDoc,
+      setDoc,
+      getBenchmarkDocRef(itemKey) {
+        return doc(firestore, 'plans', 'skf-daily', 'benchmarks', itemKey);
+      },
       getDateRef(dateKey) {
         return ref(db, `plans/skf-daily/${dateKey}`);
       },
@@ -672,6 +694,14 @@
         </div>
         <div class="benchmark-prompt-status" id="benchmarkPromptStatus">복사 대기 중</div>
         <textarea class="benchmark-prompt-preview" id="benchmarkPromptPreview" readonly></textarea>
+        <div class="benchmark-auto-panel">
+          <div class="benchmark-auto-title">AI 결과 입력 및 자동 반영</div>
+          <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [카드명], SKF 본사 / 셰플러 / 한국NSK / 팀켄 항목을 파싱합니다."></textarea>
+          <div class="benchmark-auto-actions">
+            <button type="button" class="benchmark-auto-btn" id="benchmarkAutoApplyBtn">카드로 자동 반영하기</button>
+          </div>
+          <div class="benchmark-auto-status" id="benchmarkAutoStatus">AI 결과를 붙여넣으면 각 카드의 벤치마킹 필드로 자동 업데이트됩니다.</div>
+        </div>
       </section>
     </section>
 
@@ -778,6 +808,9 @@
     const copyBenchmarkPromptBtn = document.getElementById('copyBenchmarkPromptBtn');
     const benchmarkPromptStatus = document.getElementById('benchmarkPromptStatus');
     const benchmarkPromptPreview = document.getElementById('benchmarkPromptPreview');
+    const benchmarkAutoInput = document.getElementById('benchmarkAutoInput');
+    const benchmarkAutoApplyBtn = document.getElementById('benchmarkAutoApplyBtn');
+    const benchmarkAutoStatus = document.getElementById('benchmarkAutoStatus');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -1035,6 +1068,130 @@
       const totalCardLines = Object.values(parsed).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
       if (!totalCardLines) return null;
       return parsed;
+    }
+
+    function normalizeBenchmarkFieldText(value) {
+      if (typeof value !== 'string') return '';
+      return value.replace(/\s+$/g, '').trim();
+    }
+
+    function normalizeBenchmarkCardTitle(title) {
+      return normalizeBenchmarkFieldText(title)
+        .replace(/[\[\]{}()「」『』<>]/g, '')
+        .replace(/[\s·•ㆍ/\\_-]+/g, '')
+        .toLowerCase();
+    }
+
+    function getGoalKeyFromPromptNumber(goalNumber) {
+      return PROMPT_GOAL_NUMBER_TO_KEY[Number(goalNumber)] || '';
+    }
+
+    function getBenchmarkFieldKey(label) {
+      const normalized = normalizeBenchmarkCardTitle(label);
+      if (normalized.includes('본사') || normalized.includes('skf')) return 'skf';
+      if (normalized.includes('셰플러') || normalized.includes('schaeffler')) return 'schaeffler';
+      if (normalized.includes('한국nsk') || normalized.includes('nsk')) return 'koreaNsk';
+      if (normalized.includes('팀켄') || normalized.includes('timken')) return 'timken';
+      return '';
+    }
+
+    function parseAiBenchmarkOutput(rawText) {
+      if (typeof rawText !== 'string') return null;
+      const lines = rawText.split(/\r?\n/);
+      const parsed = {};
+      let currentGoalNumber = null;
+      let currentCard = null;
+      let activeFieldKey = '';
+
+      const pushCard = (goalNumber, card) => {
+        if (!goalNumber || !card || !card.title) return;
+        if (!parsed[goalNumber]) parsed[goalNumber] = [];
+        parsed[goalNumber].push(card);
+      };
+
+      lines.forEach((rawLine) => {
+        const line = rawLine.trimEnd();
+        const goalMatch = line.match(/^\s*@목표:\s*(\d+)\s*\.?\s*(.*)$/);
+        if (goalMatch) {
+          if (currentCard) pushCard(currentGoalNumber, currentCard);
+          currentGoalNumber = Number(goalMatch[1]);
+          currentCard = null;
+          activeFieldKey = '';
+          return;
+        }
+
+        const cardMatch = line.match(/^\s*-\s*\[(.+?)\]\s*:\s*(.*)$/);
+        if (cardMatch && currentGoalNumber !== null) {
+          if (currentCard) pushCard(currentGoalNumber, currentCard);
+          currentCard = {
+            title: normalizeBenchmarkFieldText(cardMatch[1]),
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          };
+          const inlineContent = normalizeBenchmarkFieldText(cardMatch[2]);
+          if (inlineContent) currentCard.rawLines = [inlineContent];
+          activeFieldKey = '';
+          return;
+        }
+
+        if (!currentCard) return;
+
+        const fieldMatch = line.match(/^\s*(?:[-*•]\s*)?(SKF 본사(?: 실행 내용)?|셰플러(?: 실행 내용)?|한국\s*NSK(?: 실행 내용)?|팀켄(?: 실행 내용)?|Schaeffler|Timken|NSK)\s*[:：-]\s*(.*)$/i);
+        if (fieldMatch) {
+          const fieldKey = getBenchmarkFieldKey(fieldMatch[1]);
+          if (fieldKey) {
+            currentCard.benchmarking[fieldKey] = normalizeBenchmarkFieldText(fieldMatch[2]);
+            activeFieldKey = fieldKey;
+            return;
+          }
+        }
+
+        const continuationText = normalizeBenchmarkFieldText(line);
+        if (!continuationText) return;
+        if (activeFieldKey) {
+          const existing = currentCard.benchmarking[activeFieldKey];
+          currentCard.benchmarking[activeFieldKey] = existing ? `${existing}\n${continuationText}` : continuationText;
+          return;
+        }
+        if (!Array.isArray(currentCard.rawLines)) currentCard.rawLines = [];
+        currentCard.rawLines.push(continuationText);
+      });
+
+      if (currentCard) pushCard(currentGoalNumber, currentCard);
+      return parsed;
+    }
+
+    function parseAiBenchmarkText(rawText) {
+      const structured = parseAiBenchmarkOutput(rawText);
+      if (!structured) return null;
+
+      const result = {};
+      Object.entries(structured).forEach(([goalNumberText, cards]) => {
+        const goalKey = getGoalKeyFromPromptNumber(goalNumberText);
+        if (!goalKey || !Array.isArray(cards)) return;
+        const goalTemplate = goalTemplates[goalKey];
+        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
+
+        cards.forEach((card) => {
+          const normalizedTitle = normalizeBenchmarkCardTitle(card.title);
+          const matchedIndex = goalTemplate.items.findIndex((item) => {
+            const itemTitle = normalizeBenchmarkCardTitle(item.title);
+            return itemTitle === normalizedTitle || itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle);
+          });
+          if (matchedIndex < 0) return;
+          const itemKey = `${goalKey}::${matchedIndex}`;
+          result[itemKey] = {
+            title: card.title,
+            benchmarking: {
+              skf: card.benchmarking?.skf || '',
+              schaeffler: card.benchmarking?.schaeffler || '',
+              koreaNsk: card.benchmarking?.koreaNsk || '',
+              timken: card.benchmarking?.timken || ''
+            }
+          };
+        });
+      });
+
+      return Object.keys(result).length ? result : null;
     }
 
     function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
