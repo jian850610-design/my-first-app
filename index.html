@@ -644,8 +644,10 @@
     const NEWS_COMMON_QUERY = '("SKF" OR "Schaeffler" OR "Timken") (베어링 OR 산업 OR 제조) -골프 -PGA -투어 -우승 -랭킹 -스코티';
     const NEWS_SEARCH_QUERY = NEWS_COMMON_QUERY;
     const NEWS_CUTOFF_DATE = '2026-01-01';
+    const NEWS_MAX_AGE_DAYS = 90;
     const NEWS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
     const NEWS_CACHE_KEY_PREFIX = 'skfMarketingNewsCache';
+    const NEWS_CACHE_KEY = `${NEWS_CACHE_KEY_PREFIX}::legacy`;
     const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2', 'skfMarketingNewsCacheV3'];
     const newsPromiseByGoal = Object.create(null);
     const NEWS_CONFIG_DOC_KEY = 'catalog';
@@ -653,7 +655,11 @@
     const NEWS_RAW_CACHE_META_KEY = 'skfMarketingNewsRawMetaV1';
     const NEWS_DEFAULT_EXCLUDE_WORDS = ['골프', 'PGA', 'LPGA', '투어', '우승', '랭킹', '스코티', '마스터스'];
     const NEWS_DEFAULT_QUERIES = [
-      { id: 'default-1', label: '기본 검색', query: NEWS_SEARCH_QUERY, enabled: true, sortOrder: 0 }
+      '"SKF" (베어링 OR 씰 OR 윤활 OR 예지보전)',
+      '"셰플러" OR "Schaeffler" (베어링 OR 자동차부품 OR 산업)',
+      '"NSK" OR "팀켄" OR "Timken" (베어링 OR 산업)',
+      '베어링 (시장 OR 산업 OR 제조)',
+      '예지보전 OR "상태감시" OR "스마트팩토리"'
     ];
     let newsConfigState = null;
     let newsConfigLoaded = false;
@@ -6142,7 +6148,18 @@
           updatedByUid: ''
         },
         excludeWords: NEWS_DEFAULT_EXCLUDE_WORDS.slice(),
-        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => normalizeNewsConfigItem({ ...item, sortOrder: index }, index)),
+        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => {
+          if (typeof item === 'string') {
+            return normalizeNewsConfigItem({
+              id: `default-${index + 1}`,
+              label: `기본 쿼리 ${index + 1}`,
+              query: item,
+              enabled: true,
+              sortOrder: index
+            }, index);
+          }
+          return normalizeNewsConfigItem({ ...(item || {}), sortOrder: index }, index);
+        }),
         hiddenArticles: [],
         stats: {
           lastFetchedAt: '',
@@ -8915,10 +8932,33 @@
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
-      await loadNewsConfigOnce();
-      attachNewsWidgetInteractionHandlers();
+
+      let newsInitError = null;
+      try {
+        await loadNewsConfigOnce();
+        attachNewsWidgetInteractionHandlers();
+      } catch (error) {
+        newsInitError = error;
+        console.error('[news] 초기화 실패', error);
+      }
+
       void loadKpiCatalogOnce();
       applyEditabilityState();
+
+      if (newsInitError) {
+        const fallbackGoalId = currentGoalKey || Object.keys(goalTemplates)[0] || '';
+        if (newsWidget) newsWidget.hidden = false;
+        if (newsWidgetTitle) {
+          if (fallbackGoalId && goalTemplates[fallbackGoalId]) {
+            newsWidgetTitle.textContent = `📰 실시간 ${goalTemplates[fallbackGoalId].label} 관련 B2B & 시장 동향`;
+          } else {
+            newsWidgetTitle.textContent = '📰 실시간 B2B & 시장 동향';
+          }
+        }
+        if (newsWidgetList) newsWidgetList.innerHTML = '';
+        clearNewsWidgetEmptyState();
+        renderNewsErrorState('뉴스를 불러오지 못했습니다', newsInitError && newsInitError.message ? newsInitError.message : String(newsInitError), fallbackGoalId);
+      }
     }
 
     initializeApp();
