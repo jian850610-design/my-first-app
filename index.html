@@ -1364,73 +1364,88 @@
 
     // 매칭 실패 카드는 버리지 않고 유사도 상위 5개 후보와 함께 unmatched 목록으로 반환한다.
     // 별칭(alias) 맵에 이미 사용자가 수동으로 연결한 기록이 있으면 최우선으로 사용한다.
+    // 매칭 우선순위: 1) [ID] 완전 일치 → 2) localStorage 별칭 완전 일치 → 3) normalizeKey 완전 일치
+    // → 4) 같은 목표 내에서만 유사도(Dice) 0.6 이상 → 5) 실패 처리.
+    // 4)는 반드시 card.goalNumber(= AI 응답에서 그 카드가 속한 "@목표: N." 섹션)로만 후보를 제한한다.
+    // 그래야 "하반기 프로모션 굿즈 제작"(목표7)이 다른 목표의 유사한 이름의 카드로 잘못 붙는 것을 막을 수 있다.
     function parseAiBenchmarkText(rawText) {
       const parsedCards = parseBracketCardsFromText(rawText);
-      console.log('파싱된 카드들:', parsedCards);
+      console.log('[Benchmark Parser] 파싱된 카드들:', parsedCards);
       if (!parsedCards.length) return null;
 
       const catalog = getBenchmarkCardCatalog();
+      const catalogById = new Map(catalog.map((entry) => [entry.id, entry]));
       const catalogByItemKey = new Map(catalog.map((entry) => [`${entry.goalKey}::${entry.index}`, entry]));
+      const catalogByNormalizedKey = new Map(catalog.map((entry) => [entry.normalizedKey, entry]));
       const aliasMap = getBenchmarkAliasMap();
       const matched = {};
       const unmatched = [];
+      const matchedItemKeys = new Set();
 
       parsedCards.forEach((card) => {
         const normalizedTitle = normalizeKey(card.title);
-        if (!normalizedTitle) return;
+        if (!normalizedTitle && !card.id) return;
 
         let bestMatch = null;
         let matchSource = '';
 
-        const aliasItemKey = aliasMap[normalizedTitle];
-        if (aliasItemKey && catalogByItemKey.has(aliasItemKey)) {
-          bestMatch = catalogByItemKey.get(aliasItemKey);
-          matchSource = 'alias';
+        // 1) [ID] 완전 일치
+        if (card.id && catalogById.has(card.id)) {
+          bestMatch = catalogById.get(card.id);
+          matchSource = 'id';
         }
 
+        // 2) localStorage 별칭(사용자가 수동으로 연결한 기록) 완전 일치
         if (!bestMatch) {
+          const aliasItemKey = aliasMap[normalizedTitle];
+          if (aliasItemKey && catalogByItemKey.has(aliasItemKey)) {
+            bestMatch = catalogByItemKey.get(aliasItemKey);
+            matchSource = 'alias';
+          }
+        }
+
+        // 3) normalizeKey 완전 일치 (전체 카탈로그 대상 — 완전 일치이므로 목표 제한 불필요)
+        if (!bestMatch && normalizedTitle && catalogByNormalizedKey.has(normalizedTitle)) {
+          bestMatch = catalogByNormalizedKey.get(normalizedTitle);
+          matchSource = 'normalized-exact';
+        }
+
+        // 4) 같은 목표 내에서만 유사도 0.6 이상 (goalNumber를 모르면 이 단계는 건너뛴다)
+        if (!bestMatch && card.goalNumber) {
           let bestSimilarity = 0;
-          catalog.forEach((candidate) => {
-            const candidateTitle = normalizeKey(candidate.title || candidate.name || '');
-            if (!candidateTitle) return;
-            const directMatch = candidateTitle === normalizedTitle
-              || candidateTitle.includes(normalizedTitle)
-              || normalizedTitle.includes(candidateTitle);
-
-            if (directMatch) {
-              const currentBestLength = bestMatch ? normalizeKey(bestMatch.title || '').length : 0;
-              if (!bestMatch || candidateTitle.length > currentBestLength) {
+          catalog
+            .filter((candidate) => candidate.goalNumber === card.goalNumber)
+            .forEach((candidate) => {
+              const similarity = getDiceSimilarity(normalizedTitle, candidate.normalizedKey);
+              if (similarity > bestSimilarity) bestSimilarity = similarity;
+              if (similarity >= 0.6 && (!bestMatch || similarity > bestSimilarity)) {
                 bestMatch = candidate;
-                matchSource = 'direct';
+                matchSource = 'same-goal-similarity';
               }
-              return;
-            }
-
-            const similarity = getDiceSimilarity(normalizedTitle, candidateTitle);
-            if (similarity > bestSimilarity) {
-              bestSimilarity = similarity;
-            }
-            if (!bestMatch && similarity >= 0.58) {
-              bestMatch = candidate;
-              matchSource = 'similarity';
-            }
-          });
+            });
         }
 
         if (!bestMatch) {
-          const rankedCandidates = catalog
-            .map((candidate) => ({
-              itemKey: `${candidate.goalKey}::${candidate.index}`,
-              title: candidate.title,
-              goalKey: candidate.goalKey,
-              index: candidate.index,
-              score: getDiceSimilarity(normalizedTitle, normalizeKey(candidate.title || candidate.name || ''))
-            }))
-            .sort((left, right) => right.score - left.score)
-            .slice(0, 5);
+          // 후보 추천도 같은 목표 내에서만 제공한다. goalNumber를 모르면 후보 없음으로 처리한다.
+          const rankedCandidates = card.goalNumber
+            ? catalog
+                .filter((candidate) => candidate.goalNumber === card.goalNumber)
+                .map((candidate) => ({
+                  itemKey: `${candidate.goalKey}::${candidate.index}`,
+                  title: candidate.title,
+                  goalKey: candidate.goalKey,
+                  goalNumber: candidate.goalNumber,
+                  index: candidate.index,
+                  score: getDiceSimilarity(normalizedTitle, candidate.normalizedKey)
+                }))
+                .sort((left, right) => right.score - left.score)
+                .slice(0, 5)
+            : [];
 
           console.warn('[Benchmark Parser] 카드 매핑 실패', {
             failedCardTitle: card.title,
+            cardId: card.id,
+            goalNumber: card.goalNumber,
             normalizedTitle,
             candidates: rankedCandidates.map((entry) => `${entry.title} (${entry.score.toFixed(2)})`)
           });
@@ -1438,6 +1453,7 @@
           unmatched.push({
             title: card.title,
             normalizedTitle,
+            goalNumber: card.goalNumber,
             benchmarking: card.benchmarking,
             candidates: rankedCandidates
           });
@@ -1447,6 +1463,7 @@
         console.log('[Benchmark Parser] 카드 매핑 성공', { rawTitle: card.title, matchedTitle: bestMatch.title, matchSource });
 
         const itemKey = `${bestMatch.goalKey}::${bestMatch.index}`;
+        matchedItemKeys.add(itemKey);
         const existing = matched[itemKey] && matched[itemKey].benchmarking
           ? matched[itemKey].benchmarking
           : { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
@@ -1462,17 +1479,29 @@
         };
       });
 
+      // 앱에는 있지만 AI 응답에 전혀 언급되지 않은 카드(리포트/재질문용)
+      const missingFromResponse = catalog
+        .filter((entry) => !matchedItemKeys.has(`${entry.goalKey}::${entry.index}`))
+        .map((entry) => ({ itemKey: `${entry.goalKey}::${entry.index}`, title: entry.title, goalKey: entry.goalKey, goalNumber: entry.goalNumber }));
+
       if (!Object.keys(matched).length && !unmatched.length) return null;
-      return { matched, unmatched };
+      return {
+        matched,
+        unmatched,
+        missingFromResponse,
+        appCardCount: catalog.length,
+        aiResponseCount: parsedCards.length
+      };
     }
 
+    // "앱 카드 N개 / AI 응답 M개 / 매칭 성공 X개 / 앱에 없는 카드 Y개 / 응답에 누락된 카드 Z개" 형식의 리포트 문구.
     function formatBenchmarkResultSummary(result) {
-      const total = result && Number.isFinite(result.total) ? Number(result.total) : 0;
-      const success = result && Number.isFinite(result.count) ? Number(result.count) : 0;
-      const failed = Math.max(0, total - success);
-      const failedCards = result && Array.isArray(result.failedCards) ? result.failedCards : [];
-      const failedLines = failedCards.length ? `\n실패 목록: ${failedCards.join(', ')}` : '';
-      return `전체 ${total}개 중 성공 ${success}개 / 실패 ${failed}개${failedLines}`;
+      const appCardCount = result && Number.isFinite(result.appCardCount) ? Number(result.appCardCount) : 0;
+      const aiResponseCount = result && Number.isFinite(result.aiResponseCount) ? Number(result.aiResponseCount) : 0;
+      const successCount = result && Number.isFinite(result.count) ? Number(result.count) : 0;
+      const notInAppCount = result && Array.isArray(result.unmatched) ? result.unmatched.length : 0;
+      const missingCount = result && Array.isArray(result.missingFromResponse) ? result.missingFromResponse.length : 0;
+      return `앱 카드 ${appCardCount}개 / AI 응답 ${aiResponseCount}개 / 매칭 성공 ${successCount}개 / 앱에 없는 카드 ${notInAppCount}개 / 응답에 누락된 카드 ${missingCount}개`;
     }
 
     function sanitizeFirestoreText(value) {
@@ -1531,17 +1560,17 @@
 
     async function applyAiBenchmarkUpdatesFromText(rawText, options = {}) {
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
-      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [] };
+      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0 };
 
       try {
         const parsed = parseAiBenchmarkText(rawText);
         if (!parsed) {
           console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
-          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [] };
+          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
           return response;
         }
 
-        const { matched, unmatched } = parsed;
+        const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
 
         const bridge = await waitForFirebaseBridge();
         if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || !bridge.firestore || typeof bridge.writeBatch !== 'function') {
@@ -1551,7 +1580,7 @@
             hasFirestore: Boolean(bridge && bridge.firestore),
             hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
           });
-          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched };
+          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
         }
 
@@ -1598,7 +1627,7 @@
 
         if (!updates.length) {
           console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
-          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched };
+          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
         }
 
@@ -1680,7 +1709,10 @@
             reason: 'firestore-update-failed',
             failedCards,
             missingMappings,
-            unmatched
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount
           };
           return response;
         }
@@ -1697,14 +1729,17 @@
           total: totalCount,
           failedCards,
           missingMappings,
-          unmatched
+          unmatched,
+          missingFromResponse,
+          appCardCount,
+          aiResponseCount
         };
         return response;
       } catch (error) {
         const errorCode = error && error.code ? error.code : 'unknown';
         const errorMessage = error && error.message ? error.message : String(error);
         console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
-        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [] };
+        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
         return response;
       } finally {
         console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
