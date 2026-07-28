@@ -1,4 +1,4 @@
-﻿
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -56,6 +56,560 @@
     .firebase-date-label { font-size: 12px; color: #6e5500; font-weight: 800; letter-spacing: 0.04em; }
     .firebase-date-picker { border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 12px; background: rgba(255,255,255,0.85); color: #2f2300; padding: 10px 12px; font-size: 13px; font-weight: 800; outline: none; }
     .firebase-date-picker:focus { border-color: rgba(125, 95, 0, 0.5); box-shadow: 0 0 0 3px rgba(125, 95, 0, 0.14); }
+    .firebase-mode-chip { border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255, 183, 0, 0.50); background: rgba(255, 244, 196, 0.9); color: #7a4d00; font-size: 12px; font-weight: 900; line-height: 1; }
+    .firebase-mode-chip.read { border-color: rgba(148, 171, 198, 0.5); background: rgba(233, 239, 247, 0.95); color: #50637a; }
+    .firebase-mode-chip.edit { border-color: rgba(255, 200, 58, 0.7); background: rgba(255, 245, 196, 0.98); color: #7a4d00; }
+    .firebase-auth-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .firebase-auth-btn,
+    .firebase-logout-btn { border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 12px; background: rgba(255,255,255,0.76); color: #523900; padding: 10px 12px; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .firebase-auth-btn:hover,
+    .firebase-logout-btn:hover { background: rgba(255,255,255,0.95); }
+    .firebase-auth-btn:disabled { opacity: 0.65; cursor: not-allowed; background: rgba(255,255,255,0.65); }
+    .yellow-banner { display: grid; gap: 12px; margin-top: 14px; padding: 16px 18px; border-radius: 18px; border: 1px solid #f0d56a; background: linear-gradient(180deg, #fff8cf 0%, #ffe98f 100%); box-shadow: 0 10px 22px rgba(145, 112, 0, 0.16); }
+    .yellow-banner[hidden] { display: none; }
+    .yellow-banner-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+    .yellow-banner-label { font-size: 12px; font-weight: 900; color: #7b5600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .yellow-banner-message { display: grid; gap: 6px; min-width: 0; }
+    .yellow-banner-text { font-size: 14px; font-weight: 800; color: #3f2d00; line-height: 1.5; white-space: pre-line; }
+    .yellow-banner-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .firebase-user-badge { display: none; align-items: center; gap: 10px; border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 16px; padding: 8px 10px; background: rgba(255,255,255,0.82); color: #3f2d00; }
+    .firebase-user-badge.visible { display: inline-flex; }
+    .firebase-user-meta { display: grid; gap: 2px; min-width: 0; }
+    .firebase-user-name { font-size: 12px; font-weight: 900; color: #3f2d00; line-height: 1.2; }
+    .firebase-user-email,
+    .firebase-user-uid { font-size: 10px; color: #6d571f; line-height: 1.2; word-break: break-all; }
+    .firebase-status-strip { margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1px solid #d6e2ec; background: rgba(255,255,255,0.88); box-shadow: 0 8px 18px rgba(8, 23, 49, 0.06); display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
+    .firebase-status-strip .firebase-chip { color: #24405d; border-color: #d6e2ec; background: #f7fbff; }
+    .firebase-status-strip .firebase-chip.connected { border-color: rgba(53, 214, 143, 0.36); background: rgba(53, 214, 143, 0.12); }
+    .firebase-status-strip .firebase-chip.saving { border-color: rgba(255, 206, 86, 0.34); background: rgba(255, 206, 86, 0.14); }
+    .firebase-status-strip .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.34); background: rgba(255, 112, 112, 0.14); }
+    .firebase-status-strip .firebase-update-text,
+    .firebase-status-strip .firebase-date-label { color: #50637a; }
+    .firebase-status-strip .firebase-date-picker { border-color: #d6e2ec; background: #ffffff; color: #24405d; }
+    .firebase-status-strip .firebase-date-picker:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
+    .dashboard-search-label { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.88); }
+    .dashboard-search-input { width: 100%; border: 1px solid rgba(255,255,255,0.24); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 12px 14px; font-size: 14px; outline: none; }
+    .dashboard-search-input::placeholder { color: rgba(255,255,255,0.62); }
+    .dashboard-search-input:focus { border-color: rgba(255,255,255,0.58); box-shadow: 0 0 0 3px rgba(255,255,255,0.16); }
+    .dashboard-search-help { font-size: 12px; color: rgba(255,255,255,0.72); }
+
+    .top-goals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
+    .view { display: grid; gap: 16px; }
+    .hidden-view { display: none; }
+
+    .detail-nav { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .back-dashboard-btn { border: none; border-radius: 12px; background: var(--navy); color: white; padding: 10px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .back-dashboard-btn:hover { background: var(--accent-light); }
+
+    .mandalart-section { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
+    .mandalart-section strong { display: block; margin-bottom: 12px; color: #264a6d; font-size: 13px; }
+    .mandalart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .mandalart-cell { height: auto; border: 1px dashed #d8e5f1; border-radius: 14px; padding: 8px; background: #fbfdff; }
+    .mandalart-center { border-style: solid; border-color: #9cb8d3; background: linear-gradient(135deg, #e8f2ff 0%, #f1f7ff 100%); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 16px; font-weight: 800; color: #1d4f7f; line-height: 1.35; }
+    .mandalart-goal-btn { width: 100%; height: auto; border: 1px solid #cfdeed; border-radius: 12px; background: white; text-align: left; padding: 9px; cursor: pointer; display: grid; gap: 6px; align-content: start; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease; }
+    .mandalart-goal-btn:hover,
+    .mandalart-goal-btn:focus-visible { background: #f3f8ff; border-color: #2b7bbd; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.18); transform: translateY(-3px); }
+    .mandalart-goal-btn.search-hit { border-color: #e3a200; box-shadow: 0 14px 28px rgba(179, 130, 0, 0.2); background: #fffdf2; }
+    .mandalart-goal-title { font-size: 12px; font-weight: 800; color: #244c72; line-height: 1.3; min-height: 30px; }
+    .mandalart-goal-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #5f7590; }
+    .mandalart-star { font-weight: 700; color: #9b6b00; }
+    .mandalart-activity-meta { font-size: 11px; color: #5f7590; font-weight: 700; }
+    .mandalart-keyword-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mandalart-keyword-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
+    .mandalart-comment-box { margin-top: 2px; padding: 8px 9px; border-radius: 10px; background: #f7fbff; border: 1px solid #dde9f4; display: grid; gap: 4px; }
+    .mandalart-comment-label { font-size: 10px; font-weight: 800; color: #4d6d8c; }
+    .mandalart-comment-date { font-size: 10px; color: #698099; }
+    .mandalart-comment-title { font-size: 11px; font-weight: 700; color: #244c72; }
+    .mandalart-comment-text { font-size: 11px; color: #425c77; line-height: 1.45; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .mandalart-comment-empty { font-size: 11px; color: #96a7b9; }
+    .mandalart-cta { margin-top: auto; justify-self: end; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; border: 1px solid #0d548b; }
+    .mandalart-goal-btn:hover .mandalart-cta,
+    .mandalart-goal-btn:focus-visible .mandalart-cta { background: #0b73bc; border-color: #0b73bc; }
+    .goal-highlight-card,
+    .summary-card { background: var(--card); border-radius: 20px; padding: 24px; border: 1px solid var(--border); box-shadow: 0 16px 35px rgba(18, 35, 61, 0.08); }
+    .goal-highlight-card { display: grid; gap: 14px; }
+    .goal-highlight-card strong,
+    .summary-card strong { display: block; font-size: 13px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 12px; }
+    .goal-highlight-card p { margin: 0; color: var(--text); line-height: 1.8; font-size: 15px; }
+    .summary-card .value { font-size: clamp(34px, 3vw, 46px); font-weight: 800; color: var(--text); line-height: 1; }
+    .summary-card .note { margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .summary-card .value--blue { color: var(--success); }
+    .summary-card .value--red { color: var(--warning); }
+
+    .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .summary-card { border-radius: 16px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(18, 35, 61, 0.06); }
+    .summary-card strong { font-size: 11px; margin-bottom: 6px; letter-spacing: 0.08em; }
+    .summary-card .value { font-size: clamp(22px, 2vw, 30px); }
+    .summary-card .note { margin-top: 4px; font-size: 11px; line-height: 1.4; }
+
+    .today-activity-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
+    .today-activity-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .today-activity-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
+    .today-activity-date { font-size: 12px; font-weight: 800; color: #5a748f; background: #eef5ff; border: 1px solid #d8e6f5; border-radius: 999px; padding: 6px 10px; }
+    .today-activity-clear-btn { display: none; border: 1px solid #d9a8a8; border-radius: 10px; background: #fff7f7; color: #9a3737; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
+    .today-activity-clear-btn:hover { background: #ffecec; }
+    .today-activity-meta { font-size: 12px; color: #688099; }
+    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
+    .today-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
+    .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 16px; background: #ffffff; padding: 12px 14px; display: grid; gap: 6px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
+    .today-activity-item:hover { transform: translateY(-1px); border-color: #9cc3e5; box-shadow: 0 10px 22px rgba(19, 73, 122, 0.12); }
+    .today-activity-delete-btn { display: none; border: 1px solid #efc6c6; border-radius: 12px; background: #fff6f6; color: #af4545; padding: 0 11px; min-width: 44px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .today-activity-delete-btn.visible { display: inline-flex; align-items: center; justify-content: center; }
+    .today-activity-delete-btn:hover { background: #ffecec; }
+    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; background: #eef5ff; color: #24547f; }
+    .today-activity-item-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.45; }
+    .today-activity-item-detail { font-size: 12px; color: #4e657f; line-height: 1.6; white-space: pre-wrap; }
+    .today-activity-item-meta { font-size: 11px; color: #70859c; }
+
+    .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
+    .team-overview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .team-overview-title { font-size: 16px; font-weight: 800; color: #183b5f; }
+    .team-overview-subtitle { font-size: 12px; color: #66819b; margin-top: 4px; }
+    .team-overview-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .team-overview-filter { height: 34px; border: 1px solid #c9d9ea; border-radius: 10px; background: #ffffff; color: #244a70; padding: 0 10px; font-size: 12px; font-weight: 700; }
+    .team-overview-toggle-btn { height: 34px; border: 1px solid #95b8db; border-radius: 10px; background: #f3f8ff; color: #1f507a; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .team-overview-toggle-btn:hover { background: #e7f1ff; }
+    .team-overview-body { display: block; }
+    .team-overview-section.collapsed .team-overview-body { display: none; }
+    .team-overview-filter-notice { margin: 0 0 8px; border-radius: 10px; border: 1px solid #f1dd9d; background: #fff7dc; color: #7b5a08; padding: 8px 10px; font-size: 12px; font-weight: 700; }
+    .team-overview-table-wrap { width: 100%; overflow: auto; border: 1px solid #d8e5f1; border-radius: 12px; background: #ffffff; }
+    .team-overview-table { width: 100%; border-collapse: collapse; min-width: 1060px; }
+    .team-overview-table th,
+    .team-overview-table td { border: 1px solid #dbe7f3; padding: 8px 9px; font-size: 12px; color: #23425f; vertical-align: top; line-height: 1.45; }
+    .team-overview-table th { background: #edf4fc; color: #21486f; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+    .team-overview-table td { background: #ffffff; }
+    .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
+    .team-overview-cell-title { font-weight: 800; color: #1d456d; }
+    .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
+    .team-overview-row-clickable { cursor: pointer; }
+    .team-overview-row-clickable:hover td { background: #f2f8ff; }
+    .team-overview-card-link { appearance: none; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
+    .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
+    .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
+    .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
+    .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
+    .team-overview-cell-muted { color: #6a7f95; }
+    .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
+
+    .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
+    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; scroll-margin-top: 88px; }
+    .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
+    .detail-item-card h3 { margin: 0; font-size: 17px; color: var(--text); }
+    .detail-item-card.row-jump-highlight {
+      animation: detailCardJumpHighlight 2.6s ease-out;
+      border-color: #18a0dc;
+      box-shadow: 0 0 0 4px rgba(24, 160, 220, 0.16), 0 18px 30px rgba(14, 27, 45, 0.16);
+    }
+    @keyframes detailCardJumpHighlight {
+      0% { background: #f8fdff; transform: translateY(0) scale(1); }
+      18% { background: #e8f8ff; transform: translateY(-2px) scale(1.01); }
+      38% { background: #fff7d7; }
+      60% { background: #e8f8ff; }
+      100% { background: inherit; transform: translateY(0) scale(1); }
+    }
+    .detail-item-description { color: var(--muted); line-height: 1.4; font-size: 13px; white-space: pre-line; margin: 0; }
+    .detail-item-meta { display: grid; gap: 8px; }
+    .detail-item-meta strong { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .detail-item-meta p { margin: 0 0 8px; color: var(--text); line-height: 1.4; font-size: 13px; }
+    .detail-item-meta p:last-child { margin-bottom: 0; }
+    .detail-item-competitor-list { display: grid; gap: 6px; margin-top: 4px; }
+    .detail-item-competitor-line { color: var(--text); font-size: 12px; line-height: 1.4; }
+    .detail-item-competitor-line strong { display: inline-block; min-width: 88px; color: var(--muted); font-size: 12px; }
+    .detail-item-link { color: var(--accent); text-decoration: none; word-break: break-all; }
+    .detail-item-link-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .detail-item-link-grid a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 12px; border: 1px solid rgba(15,95,157,0.12); background: #f5f9ff; color: var(--accent); text-decoration: none; font-size: 12px; }
+    .detail-item-link-grid a:hover { background: rgba(15,95,157,0.08); }
+    .detail-item-action { display: grid; gap: 8px; }
+    .detail-item-action textarea { width: 100%; min-height: 74px; border: 1px solid #d8dfe7; border-radius: 14px; padding: 10px 12px; font-size: 13px; color: var(--text); background: #fbfdff; resize: vertical; outline: none; }
+    .detail-item-action textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(22, 184, 198, 0.12); }
+    .journal-section { margin-top: 2px; border: 1px solid #dbe6f1; border-radius: 12px; background: #fbfdff; padding: 6px 8px; display: grid; gap: 6px; }
+    .journal-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .journal-top strong { margin: 0; font-size: 12px; letter-spacing: 0.08em; color: #3f5874; text-transform: uppercase; }
+    .journal-saved { font-size: 11px; color: #0a5e9f; font-weight: 700; opacity: 0; transition: opacity 0.2s ease; }
+    .journal-saved.visible { opacity: 1; }
+    .journal-input { width: 100%; min-height: 56px; border: 1px solid #d8dfe7; border-radius: 10px; padding: 7px 9px; font-size: 12px; color: var(--text); background: #ffffff; resize: vertical; outline: none; line-height: 1.4; }
+    .journal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(22, 184, 198, 0.1); }
+    .journal-controls { display: flex; justify-content: flex-end; }
+    .journal-save-btn { border: none; border-radius: 10px; background: var(--accent); color: white; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .journal-save-btn:hover { background: var(--accent-light); }
+    .journal-timeline { display: grid; gap: 8px; margin-top: 2px; }
+    .journal-empty { font-size: 12px; color: #72859a; }
+    .journal-entry { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 4px; }
+    .journal-entry-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .journal-actions { display: inline-flex; gap: 6px; }
+    .journal-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 3px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .journal-action-btn:hover { background: #eef5fd; }
+    .journal-action-btn.delete { border-color: #f1c5c5; color: #b54545; }
+    .journal-action-btn.delete:hover { background: #fff1f1; }
+    .journal-entry-meta { font-size: 11px; color: #5f7690; font-weight: 700; }
+    .journal-entry-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; }
+    .journal-edit { display: grid; gap: 8px; margin-top: 4px; }
+    .journal-edit-input { width: 100%; min-height: 72px; border: 1px solid #cad9ea; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: #1f3550; resize: vertical; outline: none; background: #ffffff; }
+    .journal-edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .journal-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .journal-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .journal-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
+    .workflow-section { margin-top: 2px; padding: 6px 8px; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; display: grid; gap: 6px; }
+    .principle-box { margin-top: 2px; border: 1px solid #d9e6f4; border-radius: 14px; background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%); padding: 11px 12px; display: grid; gap: 8px; }
+    .principle-box-title { font-size: 12px; font-weight: 800; color: #295477; letter-spacing: 0.04em; }
+    .principle-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+    .principle-list li { font-size: 12px; color: #36556f; line-height: 1.5; }
+    .workflow-header { display: flex; align-items: flex-start; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+    .workflow-header strong { margin: 0; font-size: 12px; color: #3f5874; letter-spacing: 0.06em; text-transform: uppercase; }
+    .workflow-count { font-size: 12px; color: #6b7f95; }
+    .workflow-header-tools { display: inline-flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+    .workflow-cycle-count { border-radius: 999px; padding: 4px 9px; background: #eaf2fb; color: #2f5377; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .workflow-reset-round-btn { border: 1px solid #8eb6dd; border-radius: 9px; background: #f1f8ff; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .workflow-reset-round-btn:hover { background: #e5f1ff; }
+    .workflow-reset-round-btn:active { transform: translateY(1px); }
+    .workflow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+    .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
+    .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    .workflow-item,
+    .checklist-item { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; margin: 0; font-size: 13px; line-height: 1.35; color: #24405d; border-radius: 8px; background: rgba(255, 255, 255, 0.7); }
+    .workflow-step-text-display,
+    .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.35; white-space: normal; word-break: keep-all; overflow-wrap: break-word; }
+    .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 140px; width: auto; min-height: 26px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 4px 6px; outline: none; }
+    .detail-item-card.editing .workflow-step-text-display { display: none; }
+    .detail-item-card.editing .workflow-step-text-input { display: inline-flex; }
+    .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
+    .workflow-item input[type="checkbox"] { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .workflow-item label { cursor: pointer; }
+    .workflow-due-date { width: 120px; border: 1px solid #cfdced; border-radius: 8px; padding: 3px 6px; background: #ffffff; color: #294765; font-size: 11px; }
+    .workflow-due-date:disabled { background: #f4f7fb; color: #8a97a7; cursor: default; }
+    .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .workflow-dday-badge { min-width: 68px; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 700; }
+    .workflow-dday-badge.unset { background: #eef3f8; color: #6a7d93; }
+    .workflow-dday-badge.upcoming { background: #e8f3ff; color: #0f5f9d; }
+    .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
+    .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
+    .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
+    .workflow-completed-at-badge { min-width: 90px; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 800; }
+    .workflow-completed-at-badge.pending { background: #f5f7fa; color: #8a97a7; }
+    .workflow-completed-at-badge.done { background: #edf9f1; color: #0d7a46; }
+    .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
+    .workflow-delete-step-btn:hover { background: #fff1f1; }
+    .detail-item-card.editing .workflow-delete-step-btn { display: inline-flex; }
+    .workflow-add-row { display: none; margin-top: 2px; }
+    .detail-item-card.editing .workflow-add-row { display: block; }
+    .workflow-add-step-btn { border: 1px dashed #8fb3d8; border-radius: 9px; background: #f4f9ff; color: #24547f; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .workflow-add-step-btn:hover { background: #e8f2ff; }
+    .workflow-add-step-btn:disabled { opacity: 0.55; cursor: default; }
+    .card-edit-btn, .card-save-btn { border: none; border-radius: 12px; color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
+    .card-edit-btn { background: #5d6f86; }
+    .card-edit-btn:hover { background: #4a5f78; transform: translateY(-1px); }
+    .card-save-btn { display: none; background: #0b73bc; }
+    .card-save-btn:hover { background: #0f5f9d; transform: translateY(-1px); }
+    .detail-item-card.editing .card-edit-btn { display: none; }
+    .detail-item-card.editing .card-save-btn { display: inline-flex; align-items: center; justify-content: center; }
+    .card-editor-panel { display: none; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; gap: 8px; }
+    .detail-item-card.editing .card-editor-panel { display: grid; }
+    .card-editor-field { display: grid; gap: 4px; }
+    .card-editor-field label { font-size: 11px; color: #4a627d; font-weight: 700; }
+    .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 10px; padding: 8px 10px; background: #ffffff; color: #1f3d5b; font-size: 12px; outline: none; }
+    .card-editor-textarea { min-height: 72px; resize: vertical; line-height: 1.45; }
+    .card-editor-input:focus, .card-editor-textarea:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
+    .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
+    .history-archive-toggle::-webkit-details-marker { display: none; }
+    .history-archive-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-archive-count-wrap { font-size: 12px; color: #5f7892; font-weight: 700; white-space: nowrap; margin-left: 6px; }
+    .history-archive-count { font-size: 12px; color: #244a70; }
+    .history-archive-body { display: grid; gap: 10px; }
+    .history-manual-row { display: grid; grid-template-columns: minmax(180px, 1fr) 132px auto; gap: 8px; align-items: center; }
+    .history-manual-input,
+    .history-manual-date,
+    .archive-project-input { min-height: 38px; border: 1px solid #cfddec; border-radius: 10px; padding: 8px 10px; font-size: 12px; color: #204061; background: #ffffff; outline: none; }
+    .history-manual-input:focus,
+    .history-manual-date:focus,
+    .archive-project-input:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .history-manual-save-btn { border: none; border-radius: 10px; background: #0b73bc; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .history-manual-save-btn:hover { background: #0f5f9d; }
+    .archive-action-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .archive-complete-reset-btn { display: none; border: none; border-radius: 10px; background: #0f5f9d; color: #ffffff; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .archive-complete-reset-btn:hover { background: #2b7bbd; }
+    .archive-complete-reset-btn.visible { display: inline-flex; justify-content: center; align-items: center; }
+    .history-archive-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .history-archive-item { border: 1px solid #dce8f4; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 5px; }
+    .history-archive-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .history-archive-item-heading { display: grid; gap: 3px; }
+    .history-archive-actions { display: inline-flex; align-items: center; gap: 6px; }
+    .history-archive-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .history-archive-action-btn:hover { background: #eef5fd; }
+    .history-archive-action-btn.delete { border-color: #f1c5c5; color: #b54545; }
+    .history-archive-action-btn.delete:hover { background: #fff1f1; }
+    .history-archive-item-title { font-size: 12px; font-weight: 700; color: #1f476d; }
+    .history-archive-item-date { font-size: 11px; color: #68819b; }
+    .history-archive-item-summary { font-size: 12px; color: #2f4a66; line-height: 1.55; white-space: pre-wrap; }
+    .history-archive-edit { display: grid; gap: 7px; margin-top: 2px; }
+    .history-archive-edit-input,
+    .history-archive-edit-date,
+    .history-archive-edit-text { width: 100%; border: 1px solid #cad9ea; border-radius: 9px; padding: 8px 10px; font-size: 12px; color: #1f3550; background: #ffffff; outline: none; }
+    .history-archive-edit-input:focus,
+    .history-archive-edit-date:focus,
+    .history-archive-edit-text:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .history-archive-edit-text { min-height: 78px; resize: vertical; line-height: 1.45; }
+    .history-archive-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .history-archive-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .history-archive-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
+    .history-archive-empty { font-size: 12px; color: #7289a1; }
+    @media (max-width: 720px) {
+      .history-manual-row { grid-template-columns: 1fr; }
+      .history-manual-save-btn { width: 100%; }
+    }
+    .button-group { display: flex; gap: 10px; }
+    .card-priority-control { display: grid; gap: 4px; min-width: 170px; }
+    .card-priority-control label { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: #5a748f; text-transform: uppercase; }
+    .card-priority-select { min-height: 36px; border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #204465; font-size: 12px; font-weight: 800; padding: 0 8px; }
+    .card-priority-select:focus { outline: none; border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .detail-item-progress { display: grid; gap: 8px; margin-top: 2px; }
+    .latest-activity-panel { display: grid; gap: 8px; border: 1px solid #dbe6f1; border-radius: 14px; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); padding: 8px 10px; }
+    .latest-activity-title { font-size: 12px; font-weight: 800; color: #315679; letter-spacing: 0.06em; text-transform: uppercase; }
+    .latest-activity-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .latest-activity-item { border: 1px solid #d7e5f2; border-radius: 10px; background: rgba(255,255,255,0.92); padding: 10px; display: grid; gap: 4px; min-height: 0; }
+    .latest-activity-label { font-size: 11px; font-weight: 800; color: #5d7390; }
+    .latest-activity-value { font-size: 12px; font-weight: 700; color: #203b58; line-height: 1.5; }
+    .latest-comment-box { border-color: #cfe0f0; background: #ffffff; box-shadow: inset 0 0 0 1px rgba(15, 95, 157, 0.04); }
+    .latest-comment-value { font-size: 13px; color: #173b5f; font-weight: 800; white-space: pre-wrap; word-break: break-word; }
+    .detail-item-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+    .goal-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 24px; }
+    .goal-card { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 18px; box-shadow: 0 12px 24px rgba(14, 27, 45, 0.06); display: grid; gap: 14px; min-width: 0; }
+    .goal-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .goal-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .goal-card-select { width: 100%; border: 1px solid #d8dfe7; border-radius: 16px; padding: 12px 14px; background: #fbfdff; color: var(--text); font-size: 14px; outline: none; }
+    .goal-card-select:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(22, 184, 198, 0.10); }
+    .goal-card-metric { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .goal-card-summary-widget { width: 100%; margin-top: 12px; border: 1px solid #d8e7f4; border-radius: 18px; background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%); padding: 14px; display: grid; gap: 12px; box-sizing: border-box; }
+    .goal-card-summary-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .goal-card-summary-title { font-size: 14px; font-weight: 800; color: #174064; line-height: 1.4; }
+    .goal-card-summary-count { font-size: 12px; font-weight: 800; color: #5c748c; background: #ffffff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 5px 9px; }
+    .goal-card-summary-list { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+    .goal-card-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 52px; border: 1px solid #d7e5f2; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); color: #204465; padding: 11px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; box-shadow: 0 8px 18px rgba(19, 73, 122, 0.04); text-align: left; }
+    .goal-card-chip:hover { transform: translateY(-2px); border-color: #9cc3e5; box-shadow: 0 14px 28px rgba(19, 73, 122, 0.14); background: #ffffff; }
+    .goal-card-chip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
+    .goal-card-chip-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; background: #edf5ff; color: #24547f; border: 1px solid #d2e2f2; white-space: nowrap; flex-shrink: 0; }
+    .goal-card-chip-badge.done { background: #e9f7ef; color: #0d7a4b; border-color: #c8e8d6; }
+    .goal-card-chip-badge.overdue { background: #ffe7e7; color: #b23a3a; border-color: #f1c1c1; }
+    .goal-card-chip-badge.today { background: #fff2d7; color: #a15a00; border-color: #f0d4a3; }
+    .goal-card-chip-badge.soon { background: #eef4ff; color: #24547f; border-color: #d2e2f2; }
+    .goal-card-chip-badge.unset { background: #eff3f8; color: #6b7f95; border-color: #d5e0ea; }
+    .goal-card-chip.flash { animation: chipFlash 1.8s ease; }
+    @keyframes chipFlash {
+      0% { box-shadow: 0 0 0 0 rgba(15, 95, 157, 0.0); }
+      20% { box-shadow: 0 0 0 4px rgba(15, 95, 157, 0.18); }
+      100% { box-shadow: 0 0 0 0 rgba(15, 95, 157, 0.0); }
+    }
+    .news-widget { width: 100%; margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
+    .news-widget-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .news-widget-header-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .news-widget-title { font-size: 16px; font-weight: 800; color: #173b5f; line-height: 1.4; }
+    .news-widget-meta { font-size: 12px; color: #688099; }
+    .news-widget-updated { font-size: 12px; font-weight: 800; color: #4f6781; background: #eef5ff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 6px 10px; }
+    .news-widget-action-btn { border: 1px solid #8fb3d8; border-radius: 999px; background: #ffffff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-action-btn:hover { background: #f5faff; }
+    .news-widget-list { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .news-card-wrap { position: relative; }
+    .news-card { display: grid; gap: 10px; width: 100%; border: 1px solid #d8e7f4; border-radius: 18px; background: #ffffff; padding: 14px; color: inherit; text-decoration: none; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; }
+    .news-card:hover { transform: translateY(-2px); border-color: #8fb7db; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.14); background: #f7fbff; }
+    .news-card-tools { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 6px; z-index: 2; }
+    .news-hide-btn { border: 1px solid #efc6c6; border-radius: 999px; background: #fff7f7; color: #b54545; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .news-hide-btn:hover { background: #ffecec; }
+    .news-card-popover { position: absolute; top: 40px; right: 0; width: min(340px, calc(100vw - 52px)); border: 1px solid #d8e3ef; border-radius: 16px; background: #ffffff; box-shadow: 0 18px 30px rgba(8, 23, 49, 0.16); padding: 12px; display: grid; gap: 10px; z-index: 3; }
+    .news-card-popover[hidden] { display: none; }
+    .news-card-popover-title { font-size: 12px; font-weight: 900; color: #173b5f; }
+    .news-card-popover-note { font-size: 11px; color: #6b7f95; line-height: 1.5; }
+    .news-candidate-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .news-candidate-btn { border: 1px solid #d4dfee; border-radius: 999px; background: #f7fbff; color: #244f78; padding: 6px 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-candidate-btn.selected { background: #dff2ff; border-color: #8fc0e2; color: #13507a; }
+    .news-card-popover-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .news-popover-btn { border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #244a70; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-popover-btn.primary { background: #0f5f9d; color: #ffffff; border-color: #0f5f9d; }
+    .news-popover-btn.danger { background: #fff5f5; color: #a13b3b; border-color: #efc6c6; }
+    .news-card-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.55; display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-card-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 11px; color: #6b7f95; }
+    .news-card-source { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; background: #eef5ff; color: #24547f; font-weight: 800; }
+    .news-card-date { white-space: nowrap; }
+    .news-widget-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
+    .news-widget-loading { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #5d7187; font-size: 13px; line-height: 1.6; }
+    .news-widget-empty .news-empty-actions { margin-top: 10px; display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .news-widget-empty .news-empty-btn { border: 1px solid #8fb3d8; border-radius: 999px; background: #ffffff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-empty .news-empty-btn:hover { background: #f5faff; }
+
+    .news-settings-modal[hidden] { display: none; }
+    .news-settings-modal { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 20px; }
+    .news-settings-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 22, 46, 0.58); backdrop-filter: blur(4px); }
+    .news-settings-modal-panel { position: relative; width: min(980px, 100%); max-height: min(90vh, 920px); overflow: auto; background: #fffdf6; border-radius: 22px; border: 1px solid #e4cc78; box-shadow: 0 22px 50px rgba(8, 23, 49, 0.26); padding: 18px; display: grid; gap: 14px; }
+    .news-settings-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .news-settings-modal-kicker { font-size: 11px; font-weight: 900; color: #8a6700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .news-settings-modal-title { font-size: 20px; font-weight: 900; color: #2f2200; line-height: 1.3; }
+    .news-settings-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #f3e1a9; color: #624500; font-size: 22px; font-weight: 900; cursor: pointer; }
+    .news-settings-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .news-settings-tab { border: 1px solid #d9c46b; border-radius: 999px; background: #fff8e0; color: #6c5108; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-settings-tab.active { background: #f3b71a; color: #3f2d00; border-color: #dfaa11; }
+    .news-settings-tab-panels { display: grid; gap: 12px; }
+    .news-settings-panel { display: none; gap: 12px; }
+    .news-settings-panel.active { display: grid; }
+    .news-settings-panel-note { font-size: 12px; color: #755600; line-height: 1.6; }
+    .news-settings-input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .news-settings-input-row input { flex: 1 1 260px; min-height: 40px; border: 1px solid #dfc76e; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .news-settings-input-row input:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .news-settings-primary-btn,
+    .news-settings-secondary-btn { border: none; border-radius: 10px; padding: 9px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-settings-primary-btn { background: #0f5f9d; color: #ffffff; }
+    .news-settings-primary-btn:hover { background: #0b73bc; }
+    .news-settings-secondary-btn { background: #ffffff; color: #614600; border: 1px solid #d9c46b; }
+    .news-settings-secondary-btn:hover { background: #fff8e0; }
+    .news-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .news-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d6e2ec; background: #ffffff; border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #1f507a; font-weight: 800; }
+    .news-chip .news-chip-count { font-size: 10px; color: #6b7f95; font-weight: 700; }
+    .news-chip button { border: none; background: transparent; color: #af4545; cursor: pointer; font-size: 14px; font-weight: 900; line-height: 1; }
+    .news-query-list,
+    .news-hidden-list { display: grid; gap: 10px; }
+    .news-query-row,
+    .news-hidden-row { border: 1px solid #dbe4ef; border-radius: 14px; background: #ffffff; padding: 12px; display: grid; gap: 8px; }
+    .news-query-row-top,
+    .news-hidden-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .news-query-row-title,
+    .news-hidden-row-title { font-size: 13px; font-weight: 800; color: #173b5f; }
+    .news-query-row-meta,
+    .news-hidden-row-meta { font-size: 11px; color: #6b7f95; line-height: 1.5; }
+    .news-query-row-actions,
+    .news-hidden-row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .news-query-row-actions button,
+    .news-hidden-row-actions button { border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #244a70; padding: 6px 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-query-row-actions button.active { background: #e7f3ff; border-color: #8fb3d8; }
+    .news-hidden-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 14px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.6; }
+    .news-settings-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #efdca7; padding-top: 12px; }
+    .news-settings-status { font-size: 12px; color: #7b5f14; font-weight: 700; }
+
+    .detail-panel { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 22px; }
+    .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 24px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); }
+    .detail-card h2 { margin: 0 0 10px; font-size: 20px; color: var(--text); }
+    .detail-card p { margin: 0; color: var(--muted); line-height: 1.75; }
+    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 10px; }
+    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .goal-guideline-badge-subtitle { font-size: 11px; color: #836113; font-weight: 700; }
+    .goal-guideline-badge-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-action-btn { border: 1px solid #d9b84c; border-radius: 10px; background: #ffffff; color: #805900; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-action-btn:hover { background: #fff8de; }
+    .kpi-action-btn.primary { background: #f3b71a; border-color: #dfaa11; color: #3f2d00; }
+    .kpi-action-btn.primary:hover { background: #ffc936; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .kpi-empty { border: 1px dashed #e0c55d; border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.55); color: #6c5510; font-size: 12px; line-height: 1.6; }
+    .kpi-card { border: 1px solid #e0c55d; border-radius: 14px; background: rgba(255,255,255,0.82); box-shadow: 0 8px 18px rgba(123, 90, 8, 0.08); padding: 12px; display: grid; gap: 10px; }
+    .kpi-card.good { border-color: #8dd5ab; }
+    .kpi-card.warn { border-color: #f2d18b; }
+    .kpi-card.poor { border-color: #f0b27f; }
+    .kpi-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .kpi-card-title { font-size: 13px; font-weight: 800; color: #433100; line-height: 1.45; }
+    .kpi-card-title small { display: block; margin-top: 2px; color: #796014; font-weight: 700; font-size: 11px; }
+    .kpi-card-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-icon-btn { border: 1px solid #dfc76e; border-radius: 999px; background: #ffffff; color: #6f5500; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .kpi-icon-btn:hover { background: #fff4c8; }
+    .kpi-stat { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #3f2f08; font-weight: 800; }
+    .kpi-progress-track { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.95); border: 1px solid rgba(178, 153, 63, 0.18); }
+    .kpi-progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4c23b 0%, #ff9f1c 100%); }
+    .kpi-card.good .kpi-progress-bar { background: linear-gradient(90deg, #32c97a 0%, #14a96d 100%); }
+    .kpi-card.warn .kpi-progress-bar { background: linear-gradient(90deg, #ffdb55 0%, #e6a515 100%); }
+    .kpi-card.poor .kpi-progress-bar { background: linear-gradient(90deg, #ffb36b 0%, #ff8d2a 100%); }
+    .kpi-meta-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 11px; color: #6f5d28; font-weight: 700; }
+    .kpi-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; }
+    .kpi-badge.alert { background: #fff0d8; color: #b96a00; border: 1px solid #f0c581; }
+    .kpi-badge.stale { background: #fff1e7; color: #c15a14; border: 1px solid #efb38d; }
+    .kpi-card-editing { border-color: #d4aa2d; box-shadow: 0 10px 20px rgba(123, 90, 8, 0.12); }
+    .kpi-inline-editor { display: none; gap: 8px; border-top: 1px solid rgba(157, 124, 22, 0.16); padding-top: 10px; }
+    .kpi-card-editing .kpi-inline-editor { display: grid; }
+    .kpi-inline-editor input { width: 100%; border: 1px solid #dfc76e; border-radius: 10px; padding: 9px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-inline-editor input:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-inline-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .kpi-inline-btn { border: none; border-radius: 999px; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-inline-btn.save { background: #0f5f9d; color: #ffffff; }
+    .kpi-inline-btn.cancel { background: #f5e7b0; color: #6c5210; }
+    .kpi-edit-banner { border: 1px dashed #d9b84c; border-radius: 10px; padding: 12px; background: rgba(255,255,255,0.65); color: #755600; font-size: 12px; line-height: 1.6; }
+    .kpi-settings-list,
+    .kpi-batch-list { display: grid; gap: 10px; }
+    .kpi-settings-row,
+    .kpi-batch-row { border: 1px solid #e6d28d; border-radius: 14px; background: #ffffff; padding: 12px; display: grid; gap: 8px; }
+    .kpi-settings-row-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .kpi-settings-row-title { font-size: 13px; font-weight: 800; color: #40300b; }
+    .kpi-settings-row-tools { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-mini-btn { border: 1px solid #d9b84c; border-radius: 8px; background: #fff7db; color: #745300; padding: 5px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-mini-btn:hover { background: #fff0b5; }
+    .kpi-setting-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kpi-setting-grid input,
+    .kpi-setting-grid textarea { width: 100%; border: 1px solid #deca83; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-setting-grid textarea { min-height: 72px; resize: vertical; grid-column: 1 / -1; }
+    .kpi-setting-grid input:focus,
+    .kpi-setting-grid textarea:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-modal[hidden] { display: none; }
+    .kpi-modal { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; }
+    .kpi-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 22, 46, 0.58); backdrop-filter: blur(4px); }
+    .kpi-modal-panel { position: relative; width: min(960px, 100%); max-height: min(88vh, 900px); overflow: auto; background: #fffdf7; border-radius: 22px; border: 1px solid #e4cc78; box-shadow: 0 22px 50px rgba(8, 23, 49, 0.26); padding: 18px; display: grid; gap: 14px; }
+    .kpi-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .kpi-modal-kicker { font-size: 11px; font-weight: 900; color: #8a6700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .kpi-modal-title { font-size: 20px; font-weight: 900; color: #2f2200; line-height: 1.3; }
+    .kpi-modal-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #f3e1a9; color: #624500; font-size: 22px; font-weight: 900; cursor: pointer; }
+    .kpi-modal-body { display: grid; gap: 12px; }
+    .kpi-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .kpi-modal-note { font-size: 12px; color: #7b5f14; }
+    .kpi-modal-footer-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-toast { position: fixed; right: 20px; bottom: 20px; z-index: 3000; min-width: 220px; max-width: min(92vw, 420px); padding: 12px 14px; border-radius: 14px; color: #ffffff; font-size: 13px; font-weight: 800; box-shadow: 0 16px 30px rgba(8, 23, 49, 0.22); opacity: 0; transform: translateY(12px); transition: opacity 0.2s ease, transform 0.2s ease; pointer-events: none; }
+    .kpi-toast.visible { opacity: 1; transform: translateY(0); }
+    .kpi-toast.ok { background: linear-gradient(135deg, #0f8f58 0%, #17b16b 100%); }
+    .kpi-toast.warn { background: linear-gradient(135deg, #c96e00 0%, #ff8f1f 100%); }
+
+    .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+    .field-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 22px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 16px; }
+    .field-label { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .field-label span { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .field-label button { border: none; border-radius: 12px; background: var(--navy); color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
+    .field-label button:hover { background: var(--accent-light); transform: translateY(-1px); }
+    .card-title-group { display: grid; gap: 8px; }
+    .leader-request-tag { display: none; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; background: #fff3cc; color: #8a5b00; border: 1px solid #f2d98a; font-size: 11px; font-weight: 700; }
+    .leader-request-tag.visible { display: inline-flex; }
+    .leader-star-btn { min-width: 42px; padding: 0 10px; background: #ffffff !important; border: 1px solid #cfdced !important; color: #8da0b6 !important; font-size: 18px !important; line-height: 1 !important; }
+    .leader-star-btn.active { color: #e3a200 !important; border-color: #f1cf66 !important; background: #fff8de !important; }
+    .leader-star-btn:hover { background: #f5f9ff !important; }
+
+    .leader-summary-section { margin-top: 14px; background: #f7fbff; border: 1px solid #d8e7f6; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+    .leader-summary-section strong { font-size: 13px; color: #224b73; }
+    .leader-summary-list { display: grid; gap: 10px; }
+    .leader-summary-item { border: 1px solid #d5e4f3; background: #ffffff; color: #244f78; padding: 12px 14px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; display: grid; gap: 6px; }
+    .leader-summary-item:hover { background: #edf5ff; border-color: #b7d2ec; }
+    .leader-summary-title { font-size: 13px; color: #133a61; }
+    .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; }
+    .leader-summary-empty { font-size: 12px; color: #70839a; }
+    .urgent-deadline-section { margin-top: 14px; background: linear-gradient(135deg, #fff9ef 0%, #fff4e6 100%); border: 1px solid #f0d8ba; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+    .urgent-deadline-section strong { font-size: 13px; color: #7a4412; }
+    .urgent-deadline-list { display: grid; gap: 8px; }
+    .urgent-deadline-item { border: 1px solid #f0dbc2; background: #ffffff; color: #3d3f45; padding: 10px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; line-height: 1.45; cursor: pointer; text-align: left; display: grid; gap: 6px; }
+    .urgent-deadline-item:hover { background: #fff9f1; border-color: #efc89a; }
+    .urgent-deadline-line { display: flex; gap: 8px; align-items: flex-start; }
+    .urgent-dday-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+    .urgent-dday-badge.overdue { background: #ffe3e3; color: #b22c2c; }
+    .urgent-dday-badge.today { background: #ffeccd; color: #9f5600; }
+    .urgent-dday-badge.soon { background: #fff3de; color: #9a5a13; }
+    .urgent-dday-badge.week { background: #eef5ff; color: #2d5f92; }
+    .urgent-task-title { color: #243d57; }
+    .urgent-task-meta { font-size: 11px; color: #6e7f92; }
+    .urgent-deadline-empty { font-size: 12px; color: #7f6f57; }
+    .detail-item-card.deadline-focus { box-shadow: 0 0 0 3px rgba(217, 116, 0, 0.24), 0 20px 34px rgba(14, 27, 45, 0.12); }
+    .workflow-item.urgent-focus { border-radius: 10px; background: #fff5e8; }
+
+    .benchmark-prompt-section { margin-top: 8px; background: linear-gradient(135deg, #f7fbff 0%, #eef6ff 100%); border: 1px solid #d5e5f4; border-radius: 18px; padding: 16px; display: grid; gap: 12px; box-shadow: 0 10px 24px rgba(13, 29, 52, 0.08); }
+    .benchmark-prompt-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .benchmark-prompt-title { font-size: 15px; font-weight: 800; color: #173f66; }
+    .benchmark-prompt-subtitle { font-size: 12px; color: #5f7893; margin-top: 4px; line-height: 1.6; }
+    .benchmark-prompt-copy-btn { border: 1px solid #8fb3d8; border-radius: 10px; background: #f1f8ff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .benchmark-prompt-copy-btn:hover { background: #e5f1ff; }
+    .benchmark-prompt-status { font-size: 12px; color: #4f6781; }
+    .benchmark-prompt-status.ok { color: #0f6c43; }
     .benchmark-prompt-status.warn { color: #9a4d00; }
     .benchmark-data-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .benchmark-data-btn:hover { background: #e5f1ff; }
@@ -131,36 +685,6 @@
     .benchmark-editor-field textarea { width: 100%; min-height: 74px; border: 1px solid #cfdeed; border-radius: 8px; padding: 8px; font-size: 12px; line-height: 1.4; resize: vertical; background: #fff; color: #23425f; }
     .benchmark-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
-    .news-widget { margin-top: 16px; padding: 14px; border: 1px solid #d8e4ef; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); }
-    .news-widget-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
-    .news-widget-title { font-size: 16px; font-weight: 800; color: #173f66; }
-    .news-widget-meta { font-size: 12px; color: #60758d; margin-top: 4px; }
-    .news-widget-header-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .news-widget-updated { font-size: 12px; color: #6a7d91; font-weight: 700; }
-    .news-widget-action-btn { border: 1px solid #b9cfe4; border-radius: 9px; background: #fff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
-    .news-widget-action-btn:hover { background: #f2f8ff; }
-    .news-widget-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .news-card { border: 1px solid #d6e3ee; border-radius: 11px; background: #ffffff; min-height: 102px; }
-    .news-card-link { display: grid; gap: 7px; height: 100%; padding: 10px 11px; color: inherit; text-decoration: none; }
-    .news-card-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: #1a3651; text-decoration: none; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .news-card-link:hover .news-card-title { text-decoration: underline; }
-    .news-card-meta { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #738396; white-space: nowrap; overflow: hidden; }
-    .news-card-source, .news-card-date { overflow: hidden; text-overflow: ellipsis; }
-    .news-card-date::before { content: '·'; margin-right: 6px; color: #9ba9b8; }
-    .news-card-date-muted { color: #9aa8b7; }
-    .news-widget-loading { margin-top: 8px; }
-    .news-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .news-skeleton-card { min-height: 102px; border: 1px solid #d6e3ee; border-radius: 11px; padding: 10px 11px; background: #fff; }
-    .news-skeleton-line { height: 11px; border-radius: 6px; background: linear-gradient(90deg, #ecf2f8 0%, #f7fbff 50%, #ecf2f8 100%); background-size: 220% 100%; animation: newsShimmer 1.2s infinite; }
-    .news-skeleton-line + .news-skeleton-line { margin-top: 7px; }
-    .news-skeleton-line.title { width: 88%; }
-    .news-skeleton-line.title-2 { width: 65%; }
-    .news-skeleton-line.meta { margin-top: 18px; width: 48%; }
-    .news-widget-error { margin-top: 8px; border: 1px solid #efc7c7; border-radius: 10px; background: #fff6f6; color: #7b2a2a; padding: 10px; font-size: 12px; display: grid; gap: 8px; }
-    .news-widget-retry-btn { width: fit-content; border: 1px solid #d6a1a1; border-radius: 8px; background: #fff; color: #7b2a2a; padding: 6px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
-    .news-widget-retry-btn:hover { background: #fff0f0; }
-    @keyframes newsShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
     .field-input { display: grid; gap: 10px; }
     .field-input input,
     .field-input textarea,
@@ -194,18 +718,6 @@
       .workflow-item { flex-wrap: wrap; }
       .workflow-header { align-items: flex-start; }
       .workflow-header-tools { width: 100%; }
-      .news-widget-list, .news-skeleton-grid { grid-template-columns: 1fr; }
-    }
-
-    .newsx-global-notice {
-      margin-top: 8px;
-      padding: 8px 10px;
-      border: 1px solid #d6e3ee;
-      border-radius: 8px;
-      background: #f8fbff;
-      color: #3d5d7c;
-      font-size: 12px;
-      line-height: 1.4;
     }
   </style>
   <script type="module">
@@ -524,14 +1036,32 @@
         </div>
         <button type="button" class="news-settings-close-btn" data-news-settings-action="close">×</button>
       </div>
+      <div class="news-settings-tabs" role="tablist" aria-label="뉴스 설정 탭">
+        <button type="button" class="news-settings-tab active" data-news-tab="exclude">제외어</button>
+        <button type="button" class="news-settings-tab" data-news-tab="queries">검색 쿼리</button>
+        <button type="button" class="news-settings-tab" data-news-tab="hidden">숨긴 기사</button>
+      </div>
       <div class="news-settings-tab-panels">
         <section class="news-settings-panel active" data-news-panel="exclude">
-          <div class="news-settings-panel-note">제외어를 변경하면 네트워크 재호출 없이 즉시 필터만 다시 적용합니다.</div>
-          <div class="newsx-global-notice">여기 추가한 단어는 모든 목표에 영구 적용됩니다.</div>
+          <div class="news-settings-panel-note">현재 제외어를 관리합니다. 제외어를 바꾸면 RSS를 다시 불러오지 않고 즉시 필터만 다시 적용합니다.</div>
           <div class="news-chip-list" id="newsExcludeWordList"></div>
           <div class="news-settings-input-row">
             <input type="text" id="newsExcludeWordInput" placeholder="쉼표나 엔터로 여러 개 추가" />
             <button type="button" class="news-settings-primary-btn" id="newsExcludeWordAddBtn">추가</button>
+          </div>
+        </section>
+        <section class="news-settings-panel" data-news-panel="queries">
+          <div class="news-settings-panel-note">검색 쿼리는 변경 시에만 RSS를 다시 호출합니다.</div>
+          <div class="news-query-list" id="newsQueryList"></div>
+          <div class="news-settings-footer-actions">
+            <button type="button" class="news-settings-secondary-btn" id="newsQueryAddBtn">+ 쿼리 추가</button>
+          </div>
+        </section>
+        <section class="news-settings-panel" data-news-panel="hidden">
+          <div class="news-settings-panel-note">개별 숨김 처리한 기사 목록입니다. 숨김 해제 시 다시 표시됩니다.</div>
+          <div class="news-hidden-list" id="newsHiddenList"></div>
+          <div class="news-settings-footer-actions">
+            <button type="button" class="news-settings-secondary-btn" id="newsHiddenClearBtn">전체 해제</button>
           </div>
         </section>
       </div>
@@ -588,15 +1118,13 @@
     const newsRefreshBtn = document.getElementById('newsRefreshBtn');
     const newsSettingsBtn = document.getElementById('newsSettingsBtn');
     const newsSettingsModal = document.getElementById('newsSettingsModal');
-    const newsGoalSelect = document.getElementById('newsGoalSelect');
-    const newsCommonQueryInput = document.getElementById('newsCommonQueryInput');
-    const newsCommonQueryList = document.getElementById('newsCommonQueryList');
-    const newsSelectedGoalTitle = document.getElementById('newsSelectedGoalTitle');
     const newsExcludeWordList = document.getElementById('newsExcludeWordList');
     const newsExcludeWordInput = document.getElementById('newsExcludeWordInput');
     const newsExcludeWordAddBtn = document.getElementById('newsExcludeWordAddBtn');
     const newsQueryList = document.getElementById('newsQueryList');
     const newsQueryAddBtn = document.getElementById('newsQueryAddBtn');
+    const newsHiddenList = document.getElementById('newsHiddenList');
+    const newsHiddenClearBtn = document.getElementById('newsHiddenClearBtn');
     const newsSettingsSaveBtn = document.getElementById('newsSettingsSaveBtn');
     const newsSettingsStatus = document.getElementById('newsSettingsStatus');
     const teamOverviewSection = document.getElementById('teamOverviewSection');
@@ -633,67 +1161,29 @@
     let currentGoalKey = '';
     let dashboardSearchTerm = '';
     let newsRequestSerial = 0;
-    const NEWS_COMMON_QUERY = '("SKF" OR "Schaeffler" OR "셰플러" OR "Timken") (베어링 OR 산업 OR 제조)';
-    const NEWS_SEARCH_QUERY = NEWS_COMMON_QUERY;
-    const NEWS_CUTOFF_DATE = '2026-01-01';
-    const NEWS_CUTOFF_TIME_MS = new Date(`${NEWS_CUTOFF_DATE}T00:00:00`).getTime();
+    const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
+    const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
+    const NEWS_MAX_AGE_DAYS = 30;
     const NEWS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-    const NEWS_CACHE_KEY_PREFIX = 'skfMarketingNewsCache';
-    const NEWS_CACHE_KEY = `${NEWS_CACHE_KEY_PREFIX}::legacy`;
-    const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2', 'skfMarketingNewsCacheV3'];
-    const newsPromiseByGoal = Object.create(null);
+    const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
+    const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2'];
+    let sharedNewsPromise = null;
     const NEWS_CONFIG_DOC_KEY = 'catalog';
     const NEWS_CONFIG_STORAGE_KEY = 'skfMarketingNewsConfigV1';
     const NEWS_RAW_CACHE_META_KEY = 'skfMarketingNewsRawMetaV1';
     const NEWS_DEFAULT_EXCLUDE_WORDS = ['골프', 'PGA', 'LPGA', '투어', '우승', '랭킹', '스코티', '마스터스'];
-    const NEWS_DEFAULT_QUERIES = [];
-    const NEWS_GOAL_QUERY_MAP = {
-      'global-sns': [
-        'B2B 마케팅 (유튜브 OR 링크드인 OR 영상 콘텐츠)',
-        '제조업 OR 산업재 SNS 마케팅'
-      ],
-      'naver-platform': [
-        '네이버 (검색 알고리즘 OR SEO OR 노출)',
-        '네이버 (블로그 OR 네이버TV) 기업 마케팅'
-      ],
-      'field-communication': [
-        'B2B (세미나 OR 고객 초청) 제조',
-        '고객 경험 OR VOC 산업재',
-        '대리점 OR 유통망 전략'
-      ],
-      'web-ecosystem': [
-        'B2B 이커머스 OR 산업재 온라인 유통',
-        'MRO 온라인 구매 OR 산업재 플랫폼'
-      ],
-      'ai-culture': [
-        '마케팅 (생성형 AI OR AI 활용) 실무',
-        '기업 AI 도입 생산성'
-      ],
-      'offline-brand': [
-        '산업 전시회 OR 박람회 (베어링 OR 기계 OR 자동화)',
-        'B2B 브랜드 경험 OR 오프라인 마케팅'
-      ],
-      'sales-support': [
-        'B2B (프로모션 OR 세일즈 인에이블먼트)',
-        '산업재 제품 프로모션 OR 채널 마케팅'
-      ],
-      'marketing-skill': [
-        '마케터 역량 OR 마케팅 트렌드 2026',
-        'B2B 마케팅 인사이트 사례'
-      ]
-    };
+    const NEWS_DEFAULT_QUERIES = [
+      { id: 'default-news-query', label: '기본 B2B 뉴스', query: `(${NEWS_CORE_KEYWORDS.join(' OR ')})`, enabled: true }
+    ];
     let newsConfigState = null;
     let newsConfigLoaded = false;
     let newsConfigLoadPromise = null;
     let newsDatasetLoaded = false;
     let newsDatasetLoadPromise = null;
     let newsRawItemsCache = [];
-    let newsRawItemsCacheByGoal = Object.create(null);
     let newsQueryResultCounts = {};
     let newsVisibleItems = [];
-    let newsVisibleItemsByGoal = Object.create(null);
     let newsSelectedGoalKey = '';
-    let newsSettingsGoalKey = '';
     let newsFilterStats = { rawCount: 0, excludeRemoved: 0, industryRemoved: 0, finalCount: 0 };
     let newsCardPopoverState = { key: '', candidateWords: [], selectedWords: [] };
     let newsSettingsActiveTab = 'exclude';
@@ -1879,120 +2369,434 @@
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
       const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
       const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
-      const startedAt = Date.now();
-
-      const defaultResult = {
-        ok: false,
-        count: 0,
-        total: 0,
-        reason: 'unknown',
-        unmatched: [],
-        missingFromResponse: [],
-        appCardCount: 0,
-        aiResponseCount: 0,
-        failedCards: [],
-        durationMs: 0
-      };
+      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
 
       try {
         const parsed = parseAiBenchmarkText(rawText);
         if (!parsed) {
-          return {
-            ...defaultResult,
-            reason: 'parse-failed',
-            appCardCount: getBenchmarkCardCatalog().length,
-            durationMs: Date.now() - startedAt
-          };
+          console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
+          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
+          return response;
         }
 
         const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
-        const allEntries = Object.entries(matched || {});
-        const targetEntries = retryItemKeySet
-          ? allEntries.filter(([itemKey]) => retryItemKeySet.has(itemKey))
-          : allEntries;
 
-        if (retryItemKeySet && !targetEntries.length) {
-          return {
-            ...defaultResult,
+        const bridge = await waitForFirebaseBridge();
+        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || !bridge.firestore || typeof bridge.writeBatch !== 'function') {
+          console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
+            hasBridge: Boolean(bridge),
+            hasWriteBatch: Boolean(bridge && bridge.writeBatch),
+            hasFirestore: Boolean(bridge && bridge.firestore),
+            hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
+          });
+          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
+          return response;
+        }
+
+        const readiness = getBenchmarkApplyReadiness(bridge);
+        if (!readiness.ok) {
+          response = {
+            ok: false,
+            count: 0,
+            total: 0,
+            reason: readiness.reason,
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount,
+            failedCards: []
+          };
+          return response;
+        }
+
+        const plannerState = normalizePlannerState(loadPlannerState());
+        const updates = [];
+        const missingMappings = [];
+        const nowIso = new Date().toISOString();
+        const applyStartedAt = Date.now();
+
+        console.log('[Benchmark Compare] 저장 경로 비교', {
+          benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
+          plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
+          apiBenchmark: 'Firestore writeBatch.set/commit',
+          apiPlanner: 'Realtime Database set'
+        });
+
+        Object.entries(matched).forEach(([itemKey, card]) => {
+          const [goalKey, indexText] = itemKey.split('::');
+          const goalTemplate = goalTemplates[goalKey];
+          const itemIndex = Number(indexText);
+          const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+          const cardName = (card && card.title) || (item && item.title) || itemKey;
+
+          if (!goalTemplate || !item) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] 카드 매핑 실패: DB ID(아이템 키)를 찾지 못했습니다.', {
+              cardName,
+              itemKey,
+              goalKey,
+              itemIndex
+            });
+            return;
+          }
+
+          const benchmarkPayload = {
+            skf: card.benchmarking.skf || '',
+            schaeffler: card.benchmarking.schaeffler || '',
+            koreaNsk: card.benchmarking.koreaNsk || '',
+            timken: card.benchmarking.timken || '',
+            updatedAt: nowIso
+          };
+
+          const pathIssue = validateBenchmarkDocPath(itemKey);
+          if (pathIssue) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] 문서 ID 검증 실패', { cardName, itemKey, pathIssue });
+            return;
+          }
+
+          const undefinedIssues = collectUndefinedFieldPaths(benchmarkPayload, `payload.${itemKey}`);
+          if (undefinedIssues.length) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] undefined 필드 감지', { cardName, itemKey, undefinedIssues });
+            return;
+          }
+
+          updates.push({
+            itemKey,
+            cardName,
+            goalKey,
+            item,
+            payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload))
+          });
+          benchmarkDebugLog('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
+        });
+
+        if (!updates.length) {
+          console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
+          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched, missingFromResponse, appCardCount, aiResponseCount };
+          return response;
+        }
+
+        const filteredUpdates = retryItemKeySet
+          ? updates.filter((update) => retryItemKeySet.has(update.itemKey))
+          : updates;
+
+        if (!filteredUpdates.length) {
+          response = {
+            ok: false,
+            count: 0,
+            total: updates.length,
             reason: 'retry-no-targets',
             unmatched,
             missingFromResponse,
             appCardCount,
             aiResponseCount,
-            durationMs: Date.now() - startedAt
+            failedCards: []
           };
+          return response;
         }
 
-        if (!targetEntries.length) {
-          return {
-            ...defaultResult,
-            reason: 'no-matches',
-            unmatched,
-            missingFromResponse,
-            appCardCount,
-            aiResponseCount,
-            durationMs: Date.now() - startedAt
-          };
+        console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
+
+        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 10개).
+        const BATCH_CHUNK_SIZE = 10;
+        const chunks = [];
+        for (let i = 0; i < filteredUpdates.length; i += BATCH_CHUNK_SIZE) {
+          chunks.push(filteredUpdates.slice(i, i + BATCH_CHUNK_SIZE));
         }
 
-        const bridge = await waitForFirebaseBridge();
-        const readiness = getBenchmarkApplyReadiness(bridge);
-        if (!readiness.ok) {
-          return {
-            ...defaultResult,
-            reason: readiness.reason,
-            total: targetEntries.length,
-            unmatched,
-            missingFromResponse,
-            appCardCount,
-            aiResponseCount,
-            durationMs: Date.now() - startedAt
-          };
-        }
-
-        let successCount = 0;
+        const successfulUpdates = [];
         const failedCards = [];
-        const total = targetEntries.length;
+        let processedCount = 0;
+        let consecutiveCommitTimeouts = 0;
+        let stoppedEarlyForTimeout = false;
 
-        for (let index = 0; index < targetEntries.length; index += 1) {
-          const [itemKey, itemValue] = targetEntries[index];
-          const cardName = itemValue && itemValue.title ? itemValue.title : itemKey;
-          const payload = sanitizeBenchmarkPayload({
-            ...(itemValue && itemValue.benchmarking ? itemValue.benchmarking : {}),
-            updatedAt: new Date().toISOString()
-          });
+        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+          const chunk = chunks[chunkIndex];
           try {
-            await saveBenchmarkingDataForItem(itemKey, payload);
-            successCount += 1;
-          } catch (error) {
-            failedCards.push({
-              itemKey,
-              cardName,
-              errorCode: error && error.code ? error.code : (error && error.message ? error.message : 'write-failed')
+            const batch = bridge.writeBatch(bridge.firestore);
+            chunk.forEach((update) => {
+              const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+              console.log('[Benchmark Apply] 배치 set 경로', {
+                firestorePath: `plans/skf-daily/benchmarks/${update.itemKey}`,
+                itemKey: update.itemKey,
+                cardName: update.cardName
+              });
+              batch.set(docRef, update.payload, { merge: true });
             });
+            await commitBatchWithTimeout(batch, chunk.length);
+            chunk.forEach((update) => successfulUpdates.push(update));
+            consecutiveCommitTimeouts = 0;
+            console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
+          } catch (error) {
+            const errorCode = error && error.code ? error.code : 'unknown';
+            const errorMessage = error && error.message ? error.message : String(error);
+            console.error('[Benchmark Apply] writeBatch 커밋 실패', {
+              batchIndex: chunkIndex + 1,
+              errorCode,
+              errorMessage,
+              affectedCards: chunk.map((update) => update.cardName)
+            });
+            chunk.forEach((update) => {
+              failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
+            });
+
+            if (errorCode === 'commit-timeout') {
+              consecutiveCommitTimeouts += 1;
+              if (consecutiveCommitTimeouts >= 2) {
+                stoppedEarlyForTimeout = true;
+                for (let remainingIndex = chunkIndex + 1; remainingIndex < chunks.length; remainingIndex += 1) {
+                  chunks[remainingIndex].forEach((update) => {
+                    failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode: 'skipped-after-timeout' });
+                  });
+                }
+                console.error('[Benchmark Apply] commit-timeout 2회 연속 발생, 남은 배치를 중단합니다.');
+                break;
+              }
+            } else {
+              consecutiveCommitTimeouts = 0;
+            }
           }
-          onProgress(index + 1, total);
+
+          processedCount += chunk.length;
+          onProgress(processedCount, filteredUpdates.length);
+          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${filteredUpdates.length}`);
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
 
-        return {
-          ok: failedCards.length === 0,
+        successfulUpdates.forEach((update) => {
+          const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
+          const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
+          const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
+          itemState.benchmarking = { ...update.payload };
+          itemState.benchmarkUpdatedAt = update.payload.updatedAt || new Date().toISOString();
+          markItemUpdated(itemState);
+        });
+
+        const successCount = successfulUpdates.length;
+        const totalCount = filteredUpdates.length + missingMappings.length + unmatched.length;
+        const durationMs = Date.now() - applyStartedAt;
+        const durationSec = (durationMs / 1000).toFixed(1);
+
+        console.log(`[Benchmark Apply] 전체 반영 완료 — 성공 ${successCount}개 / 실패 ${failedCards.length + missingMappings.length}개 / 소요 ${durationSec}초`);
+        if (failedCards.length) {
+          console.table(failedCards);
+        }
+
+        if (!successCount) {
+          response = {
+            ok: false,
+            count: 0,
+            total: totalCount,
+            reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : 'firestore-update-failed',
+            failedCards,
+            missingMappings,
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount,
+            durationMs
+          };
+          return response;
+        }
+
+        savePlannerState(plannerState, { reason: 'ai-benchmark-update' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+
+        response = {
+          ok: !stoppedEarlyForTimeout,
           count: successCount,
-          total,
-          reason: failedCards.length ? 'partial-failed' : '',
+          total: totalCount,
+          failedCards,
+          missingMappings,
           unmatched,
           missingFromResponse,
           appCardCount,
           aiResponseCount,
-          failedCards,
-          durationMs: Date.now() - startedAt
+          durationMs,
+          reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : ''
         };
+        return response;
       } catch (error) {
-        return {
-          ...defaultResult,
-          reason: error && error.code ? error.code : 'unknown',
-          durationMs: Date.now() - startedAt
-        };
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const errorMessage = error && error.message ? error.message : String(error);
+        console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
+        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
+        return response;
+      } finally {
+        console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
       }
+    }
+
+    // 자동 매칭에 실패한 카드를 사용자가 후보 중 하나로 직접 연결할 때 사용한다.
+    // 성공 시 별칭(alias)을 localStorage에 저장해 다음번에는 자동으로 매칭되게 한다.
+    async function applyManualBenchmarkCardMapping(entry, chosenItemKey) {
+      try {
+        const [goalKey, indexText] = chosenItemKey.split('::');
+        const goalTemplate = goalTemplates[goalKey];
+        const itemIndex = Number(indexText);
+        const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+        if (!goalTemplate || !item) {
+          console.error('[Benchmark Manual Map] 선택된 카드를 찾을 수 없습니다.', { chosenItemKey });
+          return { ok: false, reason: 'invalid-item-key' };
+        }
+
+        const benchmarkPayload = {
+          skf: (entry.benchmarking && entry.benchmarking.skf) || '',
+          schaeffler: (entry.benchmarking && entry.benchmarking.schaeffler) || '',
+          koreaNsk: (entry.benchmarking && entry.benchmarking.koreaNsk) || '',
+          timken: (entry.benchmarking && entry.benchmarking.timken) || '',
+          sourceText: entry.title,
+          updatedAt: new Date().toISOString()
+        };
+        const safePayload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload));
+
+        const result = await upsertBenchmarkFirestoreDoc(chosenItemKey, safePayload, item.title);
+        if (!result.ok) {
+          console.error('[Benchmark Manual Map] 저장 실패', { chosenItemKey, reason: result.reason });
+          return { ok: false, reason: result.reason || 'write-failed' };
+        }
+
+        const plannerState = normalizePlannerState(loadPlannerState());
+        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, chosenItemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, chosenItemKey, itemPrinciples);
+        const itemState = getItemState(plannerState, chosenItemKey, checklistSteps.length, itemPrinciples);
+        itemState.benchmarking = { ...safePayload };
+        itemState.benchmarkUpdatedAt = safePayload.updatedAt || new Date().toISOString();
+        markItemUpdated(itemState);
+        savePlannerState(plannerState, { reason: 'ai-benchmark-manual-map' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+
+        saveBenchmarkAlias(entry.normalizedTitle || normalizeKey(entry.title), chosenItemKey);
+
+        console.log('[Benchmark Manual Map] 수동 연결 완료', { rawTitle: entry.title, itemKey: chosenItemKey, cardTitle: item.title });
+        return { ok: true, cardTitle: item.title };
+      } catch (error) {
+        console.error('[Benchmark Manual Map] 예외 발생', {
+          errorCode: error && error.code ? error.code : 'unknown',
+          errorMessage: error && error.message ? error.message : String(error)
+        });
+        return { ok: false, reason: error && error.message ? error.message : String(error) };
+      }
+    }
+
+    // 매핑 실패 카드마다 "입력된 카드명 + 같은 목표 내 후보 드롭다운"을 렌더링한다.
+    // 배너는 실패 목록이 실제로 있을 때만 표시하며(length 검사), 렌더링 전에 이전 내용을 항상 비운다.
+    function renderBenchmarkManualMappingSection(unmatchedList) {
+      if (!benchmarkManualMappingSection || !benchmarkManualMappingList) {
+        console.error('[Benchmark Manual Map] 배너 DOM 요소를 찾지 못했습니다. id 셀렉터를 확인하세요.', {
+          hasSection: Boolean(benchmarkManualMappingSection),
+          hasList: Boolean(benchmarkManualMappingList)
+        });
+        return;
+      }
+
+      // 새 렌더링을 시작하기 전에 이전 실패 목록/배너 내용을 먼저 완전히 비운다.
+      benchmarkManualMappingList.innerHTML = '';
+      benchmarkManualMappingSection.hidden = true;
+
+      const list = Array.isArray(unmatchedList) ? unmatchedList : [];
+      console.log('[Benchmark Manual Map] 배너 렌더 요청, 실패 카드 수 =', list.length);
+
+      if (!list.length) {
+        return;
+      }
+
+      const rowsHtml = [];
+      list.forEach((entry, index) => {
+        try {
+          const candidates = Array.isArray(entry && entry.candidates) ? entry.candidates : [];
+          const title = entry && typeof entry.title === 'string' && entry.title ? entry.title : '(제목 없음)';
+
+          const pickerHtml = candidates.length
+            ? [
+                `<select class="benchmark-manual-mapping-select" data-manual-select-index="${index}">`,
+                ['<option value="">후보 선택...</option>']
+                  .concat(candidates.map((candidate) => `<option value="${escapeHtml(candidate.itemKey)}">${escapeHtml(candidate.title)} (${Number(candidate.score || 0).toFixed(2)})</option>`))
+                  .join(''),
+                '</select>',
+                `<button type="button" class="benchmark-manual-mapping-btn" data-manual-connect-index="${index}">연결</button>`
+              ].join('')
+            : [
+                '<span class="benchmark-manual-mapping-empty">이 목표에 해당 카드가 없습니다 — 무시하거나 카드를 새로 만드세요</span>',
+                `<button type="button" class="benchmark-manual-mapping-ignore-btn" data-manual-ignore-index="${index}">무시</button>`
+              ].join('');
+
+          rowsHtml.push(`
+            <div class="benchmark-manual-mapping-row" data-manual-row-index="${index}">
+              <span class="benchmark-manual-mapping-title-text">${escapeHtml(title)}</span>
+              ${pickerHtml}
+            </div>
+          `);
+        } catch (error) {
+          console.error('[Benchmark Manual Map] 항목 렌더링 실패 (해당 항목은 건너뜁니다)', {
+            index,
+            entry,
+            errorMessage: error && error.message ? error.message : String(error)
+          });
+        }
+      });
+
+      if (!rowsHtml.length) {
+        console.warn('[Benchmark Manual Map] 렌더링 가능한 실패 항목이 없어 배너를 숨깁니다.');
+        return;
+      }
+
+      benchmarkManualMappingList.innerHTML = rowsHtml.join('');
+      benchmarkManualMappingSection.hidden = false;
+
+      benchmarkManualMappingList.querySelectorAll('[data-manual-ignore-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const index = Number(btn.getAttribute('data-manual-ignore-index'));
+          const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
+          if (row) row.remove();
+          if (!benchmarkManualMappingList.querySelector('[data-manual-row-index]')) {
+            benchmarkManualMappingSection.hidden = true;
+          }
+        });
+      });
+
+      benchmarkManualMappingList.querySelectorAll('[data-manual-connect-index]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          try {
+            const index = Number(btn.getAttribute('data-manual-connect-index'));
+            const entry = list[index];
+            const select = benchmarkManualMappingList.querySelector(`[data-manual-select-index="${index}"]`);
+            const chosenItemKey = select ? select.value : '';
+            if (!entry || !chosenItemKey) {
+              window.alert('연결할 카드를 먼저 선택해 주세요.');
+              return;
+            }
+
+            btn.disabled = true;
+            const originalLabel = btn.textContent;
+            btn.textContent = '연결 중...';
+
+            const applyResult = await applyManualBenchmarkCardMapping(entry, chosenItemKey);
+            if (applyResult && applyResult.ok) {
+              const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
+              if (row) {
+                row.innerHTML = `<span class="benchmark-manual-mapping-resolved">✅ "${escapeHtml(entry.title)}" → "${escapeHtml(applyResult.cardTitle)}" 연결 완료 (다음부터 자동 매칭됩니다)</span>`;
+              }
+            } else {
+              btn.disabled = false;
+              btn.textContent = originalLabel;
+              window.alert(`연결에 실패했습니다: ${applyResult && applyResult.reason ? applyResult.reason : '알 수 없는 오류'}`);
+            }
+          } catch (error) {
+            console.error('[Benchmark Manual Map] 연결 버튼 처리 중 예외', {
+              errorMessage: error && error.message ? error.message : String(error)
+            });
+          }
+        });
+      });
     }
 
     // AI 응답에서 아예 언급되지 않은 앱 카드 목록을 표시한다(리포트 5번 요구사항).
@@ -6158,34 +6962,6 @@
       };
     }
 
-    function buildNewsGoalSeedQueries(goalId) {
-      const source = Array.isArray(NEWS_GOAL_QUERY_MAP[goalId]) ? NEWS_GOAL_QUERY_MAP[goalId] : [];
-      return source.map((query, index) => normalizeNewsConfigItem({
-        id: `${goalId}-q${index + 1}`,
-        label: `목표 쿼리 ${index + 1}`,
-        query,
-        enabled: true,
-        sortOrder: index
-      }, index));
-    }
-
-    function buildDefaultNewsGoals() {
-      const goals = {};
-      Object.keys(goalTemplates || {}).forEach((goalId) => {
-        goals[goalId] = {
-          queries: buildNewsGoalSeedQueries(goalId),
-          stats: {
-            lastFetchedAt: '',
-            lastRawCount: 0,
-            lastFinalCount: 0,
-            lastVisibleCount: 0
-          },
-          updatedAt: ''
-        };
-      });
-      return goals;
-    }
-
     function buildDefaultNewsConfig() {
       const nowIso = new Date().toISOString();
       return {
@@ -6197,15 +6973,7 @@
           updatedByUid: ''
         },
         excludeWords: NEWS_DEFAULT_EXCLUDE_WORDS.slice(),
-        commonQuery: buildDefaultNewsCommonQuery(),
-        goals: buildDefaultNewsGoals(),
-        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => normalizeNewsConfigItem({
-          ...(typeof item === 'string' ? { query: item } : (item || {})),
-          id: `legacy-${index + 1}`,
-          label: `레거시 쿼리 ${index + 1}`,
-          enabled: true,
-          sortOrder: index
-        }, index)),
+        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => normalizeNewsConfigItem({ ...item, sortOrder: index }, index)),
         hiddenArticles: [],
         stats: {
           lastFetchedAt: '',
@@ -6218,30 +6986,12 @@
     function normalizeNewsConfig(rawConfig) {
       const seed = buildDefaultNewsConfig();
       const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
-      const normalizedGoals = { ...seed.goals };
-      Object.keys(seed.goals || {}).forEach((goalId) => {
-        const goalSource = source.goals && typeof source.goals === 'object' ? source.goals[goalId] : null;
-        const goalQueries = goalSource && Array.isArray(goalSource.queries) && goalSource.queries.length
-          ? goalSource.queries
-          : (goalId === 'global-sns' && Array.isArray(source.searchQueries) && source.searchQueries.length ? source.searchQueries : seed.goals[goalId].queries);
-        normalizedGoals[goalId] = {
-          ...seed.goals[goalId],
-          ...goalSource,
-          queries: goalQueries.map((item, index) => normalizeNewsConfigItem(item, index)).slice(0, 6),
-          stats: {
-            ...seed.goals[goalId].stats,
-            ...(goalSource && goalSource.stats && typeof goalSource.stats === 'object' ? goalSource.stats : {})
-          }
-        };
-      });
       const next = {
         ...seed,
         meta: { ...seed.meta },
         excludeWords: Array.isArray(source.excludeWords) && source.excludeWords.length
           ? Array.from(new Set(source.excludeWords.map(sanitizeNewsWord).filter(Boolean))).slice(0, 100)
           : seed.excludeWords.slice(),
-        commonQuery: normalizeNewsConfigItem(source.commonQuery || seed.commonQuery, -1),
-        goals: normalizedGoals,
         searchQueries: Array.isArray(source.searchQueries) && source.searchQueries.length
           ? source.searchQueries.map((item, index) => normalizeNewsConfigItem(item, index)).slice(0, 10)
           : seed.searchQueries.slice(),
@@ -6267,11 +7017,6 @@
         .map((item, index) => ({ ...item, sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index }))
         .sort((left, right) => left.sortOrder - right.sortOrder)
         .slice(0, 10);
-      Object.keys(next.goals || {}).forEach((goalId) => {
-        next.goals[goalId].queries = (next.goals[goalId].queries || [])
-          .map((item, index) => ({ ...normalizeNewsConfigItem(item, index), sortOrder: index }))
-          .slice(0, 6);
-      });
       next.excludeWords = next.excludeWords.filter(Boolean);
       next.hiddenArticles = next.hiddenArticles.filter((item) => getNewsArticleId(item));
 
@@ -6305,14 +7050,37 @@
       return getActiveNewsQueries(config).map((item) => item.query.trim()).join(' || ');
     }
 
-    function getNewsSearchQueryLabel(goalIdOrConfig = '', maybeConfig = null) {
-      const isConfigOnly = goalIdOrConfig && typeof goalIdOrConfig === 'object' && !Array.isArray(goalIdOrConfig);
-      const goalId = isConfigOnly ? '' : (goalIdOrConfig || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
-      const config = isConfigOnly ? goalIdOrConfig : (maybeConfig || getNewsConfigState());
-      const configuredQueries = getNewsConfiguredQueries(goalId, config);
-      return configuredQueries.length
-        ? configuredQueries.map((item) => sanitizeNewsWord(item.query)).filter(Boolean).join(' · ')
+    function getNewsSearchQueryLabel(config = getNewsConfigState()) {
+      const activeQueries = getActiveNewsQueries(config);
+      return activeQueries.length
+        ? activeQueries.map((item) => item.query).join(' · ')
         : NEWS_SEARCH_QUERY;
+    }
+
+    function extractNewsWordCandidates(title, excludeWords = []) {
+      const stopWords = new Set([
+        '및', '관련', '기사', '뉴스', '시장', '동향', '최신', '오늘', '이번', '대한', '대한', '위한', '통한', '그리고', '에서', '으로', '에게', '부터', '까지', '한다', '했다', '하는', '등의', '등', '전망', '정리', '공개'
+      ]);
+      const excluded = new Set((Array.isArray(excludeWords) ? excludeWords : []).map((word) => sanitizeNewsWord(word).toLowerCase()).filter(Boolean));
+      const tokens = sanitizeNewsWord(title)
+        .split(/[\s\u3000]+|[()\[\]{}<>"'“”‘’`~,.;:!?/\\|·•-]+/g)
+        .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim())
+        .filter(Boolean);
+
+      const candidates = [];
+      tokens.forEach((token) => {
+        if (candidates.length >= 10) return;
+        if (token.length < 2) return;
+        if (/^[\d]+$/.test(token)) return;
+        if (!/[가-힣A-Za-z]/.test(token)) return;
+        if (stopWords.has(token)) return;
+        if (/^[0-9,.-]+$/.test(token)) return;
+        if (excluded.has(token.toLowerCase())) return;
+        if (candidates.includes(token)) return;
+        candidates.push(token);
+      });
+
+      return candidates.slice(0, 10);
     }
 
     function matchNewsArticleQuery(article, queryText) {
@@ -6322,19 +7090,20 @@
       return query.toLowerCase().split(/\s+|\|\||or|,/g).map((part) => part.trim()).filter(Boolean).some((part) => haystack.includes(part.replace(/[()]/g, '').trim().toLowerCase()));
     }
 
-    function normalizeNewsComparableText(value) {
-      return sanitizeNewsWord(value).replace(/\s+/g, '').toLowerCase();
+    function isNewsHiddenArticle(article) {
+      const config = getNewsConfigState();
+      const articleId = getNewsArticleId(article);
+      if (!articleId) return false;
+      return Array.isArray(config.hiddenArticles) && config.hiddenArticles.some((hidden) => getNewsArticleId(hidden) === articleId || (hidden.link && article.link && hidden.link === article.link));
     }
 
-    function getNewsExcludeMatchedWords(article, excludeWords = getNewsConfigState().excludeWords) {
-      const title = normalizeNewsComparableText(article && article.title);
-      const summary = normalizeNewsComparableText(article && (article.summary || article.description || ''));
-      const haystack = `${title}${summary}`;
-      if (!haystack) return [];
-      return (Array.isArray(excludeWords) ? excludeWords : [])
-        .map((word) => sanitizeNewsWord(word))
-        .filter(Boolean)
-        .filter((word) => haystack.includes(normalizeNewsComparableText(word)));
+    function isNewsWordExcluded(article, excludeWords = getNewsConfigState().excludeWords) {
+      const title = sanitizeNewsWord(article && article.title).toLowerCase();
+      if (!title) return false;
+      return Array.isArray(excludeWords) && excludeWords.some((word) => {
+        const token = sanitizeNewsWord(word).toLowerCase();
+        return token && title.includes(token);
+      });
     }
 
     function getNewsItemIndustryMatchCount(article, config = getNewsConfigState()) {
@@ -6402,71 +7171,27 @@
       newsSettingsStatus.dataset.tone = tone || '';
     }
 
-    function logNewsFilterPipeline(goalId, rawCount, cutoffRemoved, excludeRemoved, finalCount, queryCount) {
-      console.log(`목표 ${getNewsGoalCode(goalId)} · 쿼리 ${queryCount}개 · 수집 ${rawCount}건 → 필터 후 ${finalCount}건`);
-      console.log(`[news] 컷오프 제거 ${cutoffRemoved}건 · 제외어 제거 ${excludeRemoved}건`);
+    function logNewsFilterPipeline(rawCount, excludeRemoved, industryRemoved, finalCount) {
+      console.log(`[news] 수집 ${rawCount}건 → 제외어 ${excludeRemoved}건 제거 → 업종어 ${industryRemoved}건 제거 → 최종 ${finalCount}건`);
     }
 
-    function applyNewsFilters(goalId, items, config = getNewsConfigState()) {
+    function applyNewsFilters(items, config = getNewsConfigState()) {
       const rawItems = Array.isArray(items) ? items : [];
       const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
-      const cutoffFiltered = rawItems.filter((item) => {
-        const pubDate = parseNewsPubDate(item && item.pubDate);
-        return pubDate && pubDate.getTime() >= NEWS_CUTOFF_TIME_MS;
-      });
-      const cutoffRemoved = rawItems.length - cutoffFiltered.length;
-      const excludeFiltered = cutoffFiltered.filter((item) => {
-        const matchedWords = getNewsExcludeMatchedWords(item, excludeWords);
-        if (matchedWords.length) {
-          console.log(`[news][exclude] ${matchedWords.join(', ')} | ${sanitizeNewsWord(item && item.title)}`);
-          return false;
-        }
-        return true;
-      });
-      const excludeRemoved = cutoffFiltered.length - excludeFiltered.length;
-      const unique = dedupeNewsArticles(excludeFiltered);
-      const weightedKeywords = getNewsCategoryWeightKeywords(goalId);
-      const scored = unique.map((item) => {
-        const title = sanitizeNewsWord(item && item.title).toLowerCase();
-        const summary = sanitizeNewsWord(item && (item.summary || item.description || '')).toLowerCase();
-        const pubDate = parseNewsPubDate(item && item.pubDate);
-        const time = pubDate ? pubDate.getTime() : 0;
-        const sources = Array.isArray(item && item.__newsSources) ? item.__newsSources : [];
-        const hasGoalHit = sources.some((source) => source && source.kind === 'goal' && source.goalId === goalId);
-        const hasCommonHit = sources.some((source) => source && source.kind === 'common');
-        const keywordScore = weightedKeywords.reduce((acc, keyword) => {
-          const token = String(keyword || '').toLowerCase();
-          return token && (title.includes(token) || summary.includes(token)) ? acc + 1 : acc;
-        }, 0);
-        return {
-          item,
-          time,
-          hasGoalHit,
-          hasCommonHit,
-          isCommonOnly: !hasGoalHit && hasCommonHit,
-          score: (hasGoalHit ? 20 : 0) + (hasCommonHit ? 6 : 0) + keywordScore
-        };
-      }).sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time));
-
-      let commonOnlyCount = 0;
-      const finalItems = [];
-      scored.forEach((entry) => {
-        if (finalItems.length >= 8) return;
-        if (entry.isCommonOnly) {
-          if (commonOnlyCount >= 2) return;
-          commonOnlyCount += 1;
-        }
-        finalItems.push(entry.item);
-      });
-
-      const queryCount = getNewsConfiguredQueries(goalId, config).length;
-      logNewsFilterPipeline(goalId, rawItems.length, cutoffRemoved, excludeRemoved, finalItems.length, queryCount);
+      const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, buildNewsQuerySignature(config)));
+      const excludeFiltered = industryItems.filter((item) => !isNewsWordExcluded(item, excludeWords));
+      const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item));
+      const excludeRemoved = industryItems.length - excludeFiltered.length;
+      const industryRemoved = rawItems.length - industryItems.length;
+      const unique = dedupeNewsArticles(hiddenFiltered);
+      const finalCount = unique.length;
+      logNewsFilterPipeline(rawItems.length, excludeRemoved, industryRemoved, finalCount);
       return {
-        items: finalItems,
+        items: unique,
         rawCount: rawItems.length,
         excludeRemoved,
-        industryRemoved: cutoffRemoved,
-        finalCount: finalItems.length
+        industryRemoved,
+        finalCount
       };
     }
 
@@ -6476,77 +7201,90 @@
         const words = Array.from(newsExcludeWordList.querySelectorAll('[data-news-exclude-word-item]')).map((el) => sanitizeNewsWord(el.dataset.newsExcludeWordItem)).filter(Boolean);
         if (words.length) draft.excludeWords = words;
       }
+      if (newsQueryList) {
+        const queryRows = Array.from(newsQueryList.querySelectorAll('[data-news-query-index]'));
+        const nextQueries = queryRows.map((row) => {
+          const index = Number(row.dataset.newsQueryIndex);
+          const labelInput = row.querySelector('[data-news-query-field="label"]');
+          const queryInput = row.querySelector('[data-news-query-field="query"]');
+          const enabledInput = row.querySelector('[data-news-query-field="enabled"]');
+          return normalizeNewsConfigItem({
+            id: newsConfigState.searchQueries[index] && newsConfigState.searchQueries[index].id ? newsConfigState.searchQueries[index].id : `query-${index + 1}`,
+            label: labelInput ? labelInput.value : '',
+            query: queryInput ? queryInput.value : '',
+            enabled: enabledInput ? enabledInput.checked : true,
+            sortOrder: index
+          }, index);
+        }).filter((item) => sanitizeNewsWord(item.query));
+        if (nextQueries.length) draft.searchQueries = nextQueries;
+      }
       return draft;
     }
 
     function renderNewsWidgetFromCache() {
-      try {
-        const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
-        if (!activeGoalId) return { items: [] };
-        const activeConfig = getNewsConfigState();
-        const rawItems = newsRawItemsCacheByGoal[activeGoalId] || newsRawItemsCache;
-        const filtered = applyNewsFilters(activeGoalId, rawItems, activeConfig);
-        newsFilterStats = filtered;
-        newsVisibleItems = filtered.items;
-        newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-        if (filtered.items.length) {
-          clearNewsWidgetEmptyState();
-          renderNewsItemsIntoWidget(filtered.items, activeGoalId);
-        } else {
-          newsWidgetList.innerHTML = '';
-          newsWidgetLoading.hidden = true;
-          setNewsWidgetEmptyState('이 목표와 관련된 2026년 기사를 찾지 못했습니다.', true);
-        }
-        return filtered;
-      } catch (error) {
-        console.error('[news] 캐시 렌더 실패', error);
-        return { items: [], error: error && error.message ? error.message : String(error) };
+      const activeConfig = getNewsConfigState();
+      const filtered = applyNewsFilters(newsRawItemsCache, activeConfig);
+      newsFilterStats = filtered;
+      newsVisibleItems = filtered.items;
+      if (!newsSelectedGoalKey) return filtered;
+      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey);
+      const sorted = newsVisibleItems
+        .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+        .map((entry) => entry.item);
+      if (sorted.length) {
+        clearNewsWidgetEmptyState();
+        renderNewsItemsIntoWidget(sorted);
+      } else {
+        newsWidgetList.innerHTML = '';
+        newsWidgetLoading.hidden = true;
+        setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
       }
+      return filtered;
     }
 
     async function saveNewsSettingsFromModal() {
-      try {
-        const draft = getNewsSettingsDraft();
-        newsConfigState = draft;
-        setNewsSettingsStatus('저장 중...', 'pending');
-        await saveNewsConfig('settings-modal-save');
-        renderNewsSettingsLists();
-        setNewsSettingsStatus('제외어를 저장하고 즉시 반영했습니다.', 'success');
+      const draft = getNewsSettingsDraft();
+      const previousSignature = buildNewsQuerySignature(newsConfigState || buildDefaultNewsConfig());
+      const nextSignature = buildNewsQuerySignature(draft);
+      const queryChanged = previousSignature !== nextSignature;
+      newsConfigState = draft;
+      setNewsSettingsStatus('저장 중...', 'pending');
+      await saveNewsConfig('settings-modal-save');
+      renderNewsSettingsLists();
+      if (queryChanged) {
+        setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
+        await refreshNewsDataset(true);
+      } else {
+        setNewsSettingsStatus('제외어/숨김 항목을 즉시 다시 적용했습니다.', 'success');
         renderNewsWidgetFromCache();
-      } catch (error) {
-        console.error('[news] 제외어 저장 실패', error);
-        setNewsSettingsStatus(`저장 실패: ${error && error.message ? error.message : String(error)}`, 'error');
       }
+      setTimeout(() => {
+        if (newsSettingsStatus && newsSettingsStatus.dataset.tone === 'success') {
+          setNewsSettingsStatus('');
+        }
+      }, 1800);
     }
 
     async function addNewsExcludeWords(rawText) {
-      try {
-        const words = String(rawText || '').split(/[,\n]/g).map(sanitizeNewsWord).filter(Boolean);
-        if (!words.length) return;
-        const config = getNewsConfigState();
-        config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
-        newsConfigState = config;
-        await saveNewsConfig('add-exclude-word');
-        renderNewsSettingsLists();
-        renderNewsWidgetFromCache();
-      } catch (error) {
-        console.error('[news] 제외어 추가 실패', error);
-        setNewsSettingsStatus(`추가 실패: ${error && error.message ? error.message : String(error)}`, 'error');
-      }
+      const words = String(rawText || '').split(/[,\n]/g).map(sanitizeNewsWord).filter(Boolean);
+      if (!words.length) return;
+      const config = getNewsConfigState();
+      config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
+      newsConfigState = config;
+      await saveNewsConfig('add-exclude-word');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
     }
 
     async function removeNewsExcludeWord(index) {
-      try {
-        const config = getNewsConfigState();
-        config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
-        newsConfigState = config;
-        await saveNewsConfig('remove-exclude-word');
-        renderNewsSettingsLists();
-        renderNewsWidgetFromCache();
-      } catch (error) {
-        console.error('[news] 제외어 삭제 실패', error);
-        setNewsSettingsStatus(`삭제 실패: ${error && error.message ? error.message : String(error)}`, 'error');
-      }
+      const config = getNewsConfigState();
+      config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
+      newsConfigState = config;
+      await saveNewsConfig('remove-exclude-word');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
     }
 
     async function removeNewsQuery(index) {
@@ -6568,28 +7306,99 @@
       renderNewsSettingsLists();
     }
 
+    async function clearHiddenNewsArticles() {
+      const config = getNewsConfigState();
+      config.hiddenArticles = [];
+      newsConfigState = config;
+      await saveNewsConfig('clear-hidden-articles');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function unhideNewsArticle(index) {
+      const config = getNewsConfigState();
+      config.hiddenArticles = (config.hiddenArticles || []).filter((_, itemIndex) => itemIndex !== index);
+      newsConfigState = config;
+      await saveNewsConfig('unhide-article');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function hideNewsArticle(article) {
+      const config = getNewsConfigState();
+      const articleId = getNewsArticleId(article);
+      if (!articleId) return;
+      if ((config.hiddenArticles || []).some((item) => getNewsArticleId(item) === articleId)) return;
+      config.hiddenArticles = [...(config.hiddenArticles || []), {
+        id: articleId,
+        title: sanitizeNewsWord(article && article.title),
+        link: typeof article?.link === 'string' ? article.link : '',
+        pubDate: typeof article?.pubDate === 'string' ? article.pubDate : '',
+        sourceName: article && article.source && typeof article.source.title === 'string' ? article.source.title : '',
+        hiddenAt: new Date().toISOString(),
+        reason: 'manual'
+      }];
+      newsConfigState = config;
+      await saveNewsConfig('hide-article');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
     function attachNewsWidgetInteractionHandlers() {
       if (newsWidgetList && !newsWidgetList.dataset.bound) {
         newsWidgetList.dataset.bound = 'true';
+        newsWidgetList.addEventListener('click', async (event) => {
+          const hideTrigger = event.target.closest('[data-news-hide-trigger]');
+          if (hideTrigger) {
+            event.preventDefault();
+            const card = hideTrigger.closest('[data-news-article]');
+            if (!card) return;
+            const articleId = card.dataset.newsArticle || '';
+            const item = newsVisibleItems.find((entry) => getNewsArticleId(entry) === articleId) || newsRawItemsCache.find((entry) => getNewsArticleId(entry) === articleId);
+            if (item) {
+              const popover = card.querySelector(`[data-news-popover-for="${CSS.escape(articleId)}"]`);
+              if (popover) popover.hidden = !popover.hidden;
+              await hideNewsArticle(item);
+            }
+            return;
+          }
+          const excludeChip = event.target.closest('[data-news-exclude-word]');
+          if (excludeChip) {
+            event.preventDefault();
+            await addNewsExcludeWords(excludeChip.dataset.newsExcludeWord || '');
+            return;
+          }
+        });
       }
 
       if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
         newsSettingsModal.dataset.bound = 'true';
         newsSettingsModal.addEventListener('click', async (event) => {
-          try {
-            const actionTarget = event.target.closest('[data-news-settings-action]');
-            if (actionTarget) {
-              const action = actionTarget.dataset.newsSettingsAction;
-              if (action === 'close') closeNewsSettingsModal();
-              return;
-            }
-            const removeExclude = event.target.closest('[data-news-remove-exclude]');
-            if (removeExclude) {
-              await removeNewsExcludeWord(Number(removeExclude.dataset.newsRemoveExclude));
-              return;
-            }
-          } catch (error) {
-            console.error('[news] 모달 클릭 처리 실패', error);
+          const actionTarget = event.target.closest('[data-news-settings-action]');
+          if (actionTarget) {
+            const action = actionTarget.dataset.newsSettingsAction;
+            if (action === 'close') closeNewsSettingsModal();
+            return;
+          }
+          const tab = event.target.closest('[data-news-tab]');
+          if (tab) {
+            setNewsSettingsTab(tab.dataset.newsTab || 'exclude');
+            return;
+          }
+          const removeExclude = event.target.closest('[data-news-remove-exclude]');
+          if (removeExclude) {
+            await removeNewsExcludeWord(Number(removeExclude.dataset.newsRemoveExclude));
+            return;
+          }
+          const removeQuery = event.target.closest('[data-news-remove-query]');
+          if (removeQuery) {
+            await removeNewsQuery(Number(removeQuery.dataset.newsRemoveQuery));
+            return;
+          }
+          const unhideItem = event.target.closest('[data-news-unhide-index]');
+          if (unhideItem) {
+            await unhideNewsArticle(Number(unhideItem.dataset.newsUnhideIndex));
+            return;
           }
         });
       }
@@ -6608,6 +7417,11 @@
         newsQueryAddBtn.addEventListener('click', addNewsQuery);
       }
 
+      if (newsHiddenClearBtn && !newsHiddenClearBtn.dataset.bound) {
+        newsHiddenClearBtn.dataset.bound = 'true';
+        newsHiddenClearBtn.addEventListener('click', clearHiddenNewsArticles);
+      }
+
       if (newsSettingsSaveBtn && !newsSettingsSaveBtn.dataset.bound) {
         newsSettingsSaveBtn.dataset.bound = 'true';
         newsSettingsSaveBtn.addEventListener('click', saveNewsSettingsFromModal);
@@ -6615,25 +7429,12 @@
 
       if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
         newsRefreshBtn.dataset.bound = 'true';
-        newsRefreshBtn.addEventListener('click', () => {
-          try {
-            void renderNewsWidget(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', null, true);
-          } catch (error) {
-            console.error('[news] 새로고침 실패', error);
-          }
-        });
+        newsRefreshBtn.addEventListener('click', () => refreshNewsDataset(true));
       }
 
       if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
         newsSettingsBtn.dataset.bound = 'true';
-        newsSettingsBtn.addEventListener('click', () => {
-          console.log('[news] 검색어 설정 버튼 클릭');
-          try {
-            openNewsSettingsModal();
-          } catch (error) {
-            console.error('[news] 설정 모달 열기 실패', error);
-          }
-        });
+        newsSettingsBtn.addEventListener('click', () => openNewsSettingsModal());
       }
     }
 
@@ -6692,7 +7493,7 @@
 
           if (fallback && Array.isArray(fallback.items) && fallback.items.length) {
             newsRawItemsCache = fallback.items;
-            newsFilterStats = applyNewsFilters(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', newsRawItemsCache, newsConfigState);
+            newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState);
             newsVisibleItems = newsFilterStats.items;
             newsQueryResultCounts = fallback.meta && typeof fallback.meta.queryCounts === 'object' ? fallback.meta.queryCounts : {};
           }
@@ -6709,332 +7510,179 @@
       return newsConfigLoadPromise;
     }
 
-    function getNewsGoalCode(goalId) {
-      const ids = Object.keys(goalTemplates || {});
-      const index = ids.indexOf(goalId);
-      return index >= 0 ? `G${index + 1}` : 'G0';
-    }
-
-    function getNewsConfiguredQueries(goalId, config = getNewsConfigState()) {
-      const source = config && typeof config === 'object' ? config : {};
-      const common = source.commonQuery && source.commonQuery.enabled !== false && sanitizeNewsWord(source.commonQuery.query)
-        ? [{ ...source.commonQuery, kind: 'common', id: source.commonQuery.id || 'common' }]
-        : [];
-      const goalQueries = source.goals && source.goals[goalId] && Array.isArray(source.goals[goalId].queries)
-        ? source.goals[goalId].queries
-        : (Array.isArray(source.searchQueries) ? source.searchQueries : []);
-      const normalizedGoalQueries = goalQueries
-        .filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query))
-        .map((item, index) => ({ ...item, kind: 'goal', id: item.id || `goal-${index + 1}` }));
-      return [...common, ...normalizedGoalQueries];
-    }
-
-    function buildNewsQuerySignature(goalIdOrConfig, maybeConfig) {
-      const isConfigOnly = goalIdOrConfig && typeof goalIdOrConfig === 'object' && !Array.isArray(goalIdOrConfig);
-      const goalId = isConfigOnly ? '' : (goalIdOrConfig || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
-      const config = isConfigOnly ? goalIdOrConfig : (maybeConfig || getNewsConfigState());
-      return getNewsConfiguredQueries(goalId, config).map((item) => sanitizeNewsWord(item.query)).filter(Boolean).join(' || ');
-    }
-
-    function buildDefaultNewsCommonQuery() {
-      return {
-        id: 'common',
-        label: '공통 경쟁사 동향',
-        query: NEWS_COMMON_QUERY,
-        enabled: true,
-        sortOrder: -1
-      };
-    }
-
-    function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
-      const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-      return fetch(url, { ...options, signal: controller.signal }).finally(() => window.clearTimeout(timer));
-    }
-
-    async function fetchNewsViaRss2Json(query, queryId = '') {
+    function fetchNewsViaRss2Json(query) {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
-      const phase2Start = performance.now();
-      const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, 8000);
-      const phase2Ms = Math.round(performance.now() - phase2Start);
-      const phase3Start = performance.now();
-      const data = await response.json();
-      const phase3Ms = Math.round(performance.now() - phase3Start);
-      const itemCount = data && Array.isArray(data.items) ? data.items.length : 0;
-      console.log(`[news][query:${queryId}] URL=${apiUrl} HTTP=${response.status} rss2json.status=${data && data.status} rss2json.message=${data && data.message ? data.message : ''}`);
-      console.log(`[news][query:${queryId}] ② RSS 호출 ${phase2Ms} ms -> ③ 파싱 ${phase3Ms} ms (items=${itemCount})`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      if (!data || data.status !== 'ok') throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
-      return { items: Array.isArray(data.items) ? data.items : [], rssMs: phase2Ms, parseMs: phase3Ms };
+      console.log('[news] 1차 시도: rss2json 요청', apiUrl);
+      return fetch(apiUrl, { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
+          return response.json();
+        })
+        .then((data) => {
+          const count = data && Array.isArray(data.items) ? data.items.length : 0;
+          console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
+          if (!data || data.status !== 'ok') {
+            throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
+          }
+          return Array.isArray(data.items) ? data.items : [];
+        });
     }
 
-    async function fetchNewsViaAllOrigins(query, queryId = '') {
+    // rss2json이 실패(429, 네트워크 오류 등)할 때 쓰는 대체 경로: CORS 프록시로 원본 RSS XML을 받아 직접 파싱한다.
+    function fetchNewsViaAllOrigins(query) {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
-      const phase2Start = performance.now();
-      const response = await fetchWithTimeout(proxyUrl, { cache: 'no-store' }, 8000);
-      const phase2Ms = Math.round(performance.now() - phase2Start);
-      const phase3Start = performance.now();
-      const xmlText = await response.text();
-      const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-      if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
-      const entries = Array.from(xmlDoc.querySelectorAll('item'));
-      const phase3Ms = Math.round(performance.now() - phase3Start);
-      console.log(`[news][query:${queryId}] URL=${proxyUrl} HTTP=${response.status} rss2json.status=fallback rss2json.message=allorigins`);
-      console.log(`[news][query:${queryId}] ② RSS 호출 ${phase2Ms} ms -> ③ 파싱 ${phase3Ms} ms (items=${entries.length})`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const items = entries.map((entry) => {
-        const getText = (selector) => {
-          const el = entry.querySelector(selector);
-          return el ? el.textContent : '';
-        };
-        return {
-          title: getText('title'),
-          link: getText('link'),
-          pubDate: getText('pubDate'),
-          source: { title: getText('source') || 'Google News' }
-        };
-      });
-      return { items, rssMs: phase2Ms, parseMs: phase3Ms };
+      console.log('[news] 2차 시도(fallback): allorigins 요청', proxyUrl);
+      return fetch(proxyUrl, { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
+          return response.text();
+        })
+        .then((xmlText) => {
+          const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+          if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
+          const entries = Array.from(xmlDoc.querySelectorAll('item'));
+          console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
+          return entries.map((entry) => {
+            const getText = (selector) => {
+              const el = entry.querySelector(selector);
+              return el ? el.textContent : '';
+            };
+            return {
+              title: getText('title'),
+              link: getText('link'),
+              pubDate: getText('pubDate'),
+              source: { title: getText('source') || 'Google News' }
+            };
+          });
+        });
     }
 
     async function fetchNewsForQuery(queryItem) {
       const queryText = sanitizeNewsWord(queryItem && queryItem.query) || '';
-      const queryId = queryItem && queryItem.id ? queryItem.id : 'unknown';
-      if (!queryText) return { items: [], rssMs: 0, parseMs: 0 };
+      if (!queryText) return [];
       try {
-        return await fetchNewsViaRss2Json(queryText, queryId);
+        const fetched = await fetchNewsViaRss2Json(queryText);
+        return Array.isArray(fetched) ? fetched : [];
       } catch (primaryError) {
-        console.warn(`[news][query:${queryId}] rss2json 실패:`, primaryError && primaryError.message);
+        console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
         try {
-          return await fetchNewsViaAllOrigins(queryText, queryId);
+          const fallback = await fetchNewsViaAllOrigins(queryText);
+          return Array.isArray(fallback) ? fallback : [];
         } catch (fallbackError) {
-          console.error(`[news][query:${queryId}] fallback 실패:`, fallbackError && fallbackError.message);
-          return { items: [], rssMs: 0, parseMs: 0, error: fallbackError && fallbackError.message ? fallbackError.message : 'query-failed' };
+          console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
+          return [];
         }
       }
     }
 
-    function loadNewsForGoal(goalId, options = {}) {
-      const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (Object.keys(goalTemplates)[0] || '');
-      if (!activeGoalId) return Promise.resolve({ items: [], totalCount: 0, error: null, goalId: activeGoalId, timings: { cacheMs: 0, rssMs: 0, parseMs: 0 } });
-      if (newsPromiseByGoal[activeGoalId] && !options.forceFetch) return newsPromiseByGoal[activeGoalId];
+    // 목표별로 매번 호출하지 않고, 하나의 OR 쿼리 결과를 모든 목표 페이지가 공유한다 (요청 5: 요청 수 절감).
+    function loadSharedNewsItems(options = {}) {
+      if (newsDatasetLoadPromise && !options.forceFetch) return newsDatasetLoadPromise;
 
-      newsPromiseByGoal[activeGoalId] = (async () => {
+      newsDatasetLoadPromise = (async () => {
         await loadNewsConfigOnce();
         const config = getNewsConfigState();
-        const configuredQueries = getNewsConfiguredQueries(activeGoalId, config);
-        const signature = buildNewsQuerySignature(activeGoalId, config);
-        const cacheStorageKey = `newsCache_${activeGoalId}`;
+        const activeQueries = getActiveNewsQueries(config);
+        const signature = buildNewsQuerySignature(config);
+        const cached = options.forceFetch ? null : readNewsRawCache(config);
 
-        const cacheStart = performance.now();
-        let cachedPayload = null;
-        if (!options.forceFetch) {
-          try {
-            const raw = window.localStorage.getItem(cacheStorageKey);
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (
-                parsed &&
-                parsed.signature === signature &&
-                Array.isArray(parsed.items) &&
-                typeof parsed.fetchedAt === 'number' &&
-                Date.now() - parsed.fetchedAt <= NEWS_CACHE_TTL_MS
-              ) {
-                cachedPayload = parsed;
-              }
-            }
-          } catch (error) {
-            cachedPayload = null;
-          }
-        }
-        const cacheMs = Math.round(performance.now() - cacheStart);
-        console.log(`[news] 캐시 ${cachedPayload ? 'HIT' : 'MISS'} (${cacheMs} ms)`);
-
-        if (cachedPayload && Array.isArray(cachedPayload.items) && cachedPayload.items.length) {
-          newsRawItemsCacheByGoal[activeGoalId] = cachedPayload.items;
-          const filtered = applyNewsFilters(activeGoalId, cachedPayload.items, config);
-          newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-          newsRawItemsCache = cachedPayload.items;
-          newsVisibleItems = filtered.items;
-          updateNewsUpdatedText(activeGoalId);
-          console.log(`[news] ① 캐시 확인 ${cacheMs} ms -> ② RSS 호출 0 ms -> ③ 파싱 0 ms -> ④ 렌더 0 ms`);
-          return { items: filtered.items, totalCount: cachedPayload.items.length, error: null, goalId: activeGoalId, queryCount: configuredQueries.length, timings: { cacheMs, rssMs: 0, parseMs: 0 } };
+        if (cached && cached.meta && cached.meta.signature === signature && Array.isArray(cached.items) && cached.items.length) {
+          console.log('[news] localStorage 캐시 사용 (TTL 6시간 이내), 건수=', cached.items.length);
+          newsRawItemsCache = cached.items;
+          newsQueryResultCounts = cached.meta.queryCounts || {};
+          newsFilterStats = applyNewsFilters(newsRawItemsCache, config);
+          newsVisibleItems = newsFilterStats.items;
+          config.stats = {
+            lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
+            lastRawCount: cached.items.length,
+            lastFinalCount: newsFilterStats.finalCount
+          };
+          updateNewsUpdatedText();
+          return { items: newsVisibleItems, totalCount: newsVisibleItems.length, error: null };
         }
 
-        if (!configuredQueries.length) {
-          newsRawItemsCacheByGoal[activeGoalId] = [];
-          newsVisibleItemsByGoal[activeGoalId] = [];
+        if (!activeQueries.length) {
           newsRawItemsCache = [];
-          newsVisibleItems = [];
-          return { items: [], totalCount: 0, error: null, goalId: activeGoalId, queryCount: 0, timings: { cacheMs, rssMs: 0, parseMs: 0 } };
+          newsQueryResultCounts = {};
+          newsFilterStats = applyNewsFilters([], config);
+          newsVisibleItems = newsFilterStats.items;
+          config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
+          updateNewsUpdatedText();
+          writeNewsRawCache([], { signature, queryCounts: {}, queryItems: {} }, config);
+          return { items: [], totalCount: 0, error: null };
         }
 
-        let mergedItems = [];
-        let completed = 0;
-        let rssMsTotal = 0;
-        let parseMsTotal = 0;
-        const totalCount = configuredQueries.length;
+        console.log('[news] 검색 쿼리 목록:', activeQueries.map((item) => item.query));
+        const queryResults = await Promise.all(activeQueries.map(async (queryItem) => {
+          const items = await fetchNewsForQuery(queryItem);
+          return { id: queryItem.id, query: queryItem.query, items };
+        }));
 
-        const queryPromises = configuredQueries.map(async (queryItem) => {
-          const result = await fetchNewsForQuery(queryItem);
-          completed += 1;
-          rssMsTotal += Number.isFinite(result.rssMs) ? result.rssMs : 0;
-          parseMsTotal += Number.isFinite(result.parseMs) ? result.parseMs : 0;
-
-          const tagged = (Array.isArray(result.items) ? result.items : []).map((item) => ({
-            ...item,
-            __newsSources: [{
-              goalId: activeGoalId,
-              kind: queryItem.kind || 'goal',
-              queryId: queryItem.id,
-              query: queryItem.query,
-              label: queryItem.label
-            }]
-          }));
-
-          if (tagged.length) {
-            mergedItems = dedupeNewsArticles([...mergedItems, ...tagged]);
-            const filteredNow = applyNewsFilters(activeGoalId, mergedItems, config);
-            newsRawItemsCacheByGoal[activeGoalId] = mergedItems;
-            newsVisibleItemsByGoal[activeGoalId] = filteredNow.items;
-            newsRawItemsCache = mergedItems;
-            newsVisibleItems = filteredNow.items;
-            if (typeof options.onProgress === 'function') {
-              options.onProgress({
-                items: filteredNow.items,
-                goalId: activeGoalId,
-                doneCount: completed,
-                totalCount
-              });
-            }
-          }
-          return { queryItem, result };
-        });
-
-        await Promise.allSettled(queryPromises);
-
-        const filtered = applyNewsFilters(activeGoalId, mergedItems, config);
-        newsRawItemsCacheByGoal[activeGoalId] = mergedItems;
-        newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-        newsRawItemsCache = mergedItems;
-        newsVisibleItems = filtered.items;
-
-        if (mergedItems.length) {
-          try {
-            window.localStorage.setItem(cacheStorageKey, JSON.stringify({
-              fetchedAt: Date.now(),
-              signature,
-              goalId: activeGoalId,
-              items: mergedItems
-            }));
-          } catch (error) {
-            console.warn('[news] 캐시 저장 실패', error);
-          }
-        }
-
-        updateNewsUpdatedText(activeGoalId);
-        return {
-          items: filtered.items,
-          totalCount: mergedItems.length,
-          error: null,
-          goalId: activeGoalId,
-          queryCount: configuredQueries.length,
-          timings: { cacheMs, rssMs: rssMsTotal, parseMs: parseMsTotal }
+        const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
+        const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
+        const uniqueItems = dedupeNewsArticles(flattened);
+        newsRawItemsCache = uniqueItems;
+        newsQueryResultCounts = queryCounts;
+        writeNewsRawCache(uniqueItems, { signature, queryCounts }, config);
+        newsFilterStats = applyNewsFilters(uniqueItems, config);
+        newsVisibleItems = newsFilterStats.items;
+        config.stats = {
+          lastFetchedAt: new Date().toISOString(),
+          lastRawCount: uniqueItems.length,
+          lastFinalCount: newsFilterStats.finalCount
         };
-      })().finally(() => {
-        delete newsPromiseByGoal[activeGoalId];
+        await saveNewsConfig('news-dataset-refresh');
+        updateNewsUpdatedText();
+        return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null };
+      })();
+
+      return newsDatasetLoadPromise.finally(() => {
+        newsDatasetLoadPromise = null;
       });
-
-      return newsPromiseByGoal[activeGoalId];
     }
 
-    function loadSharedNewsItems(options = {}) {
-      return loadNewsForGoal(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', options);
-    }
-
-    function splitNewsTitleAndSource(rawTitle, fallbackSource) {
-      const cleanTitle = decodeHtmlEntities(typeof rawTitle === 'string' ? rawTitle.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음').trim();
-      const cleanFallback = decodeHtmlEntities(typeof fallbackSource === 'string' ? fallbackSource : '').trim();
-      const suffixMatch = cleanTitle.match(/^(.*)\s+-\s+([^\-]{2,80})$/);
-      if (suffixMatch) {
-        const articleTitle = sanitizeNewsWord(suffixMatch[1]);
-        const sourceFromTitle = sanitizeNewsWord(suffixMatch[2]);
-        if (articleTitle && sourceFromTitle) {
-          const finalSource = (!cleanFallback || /google\s*news/i.test(cleanFallback)) ? sourceFromTitle : cleanFallback;
-          return { title: articleTitle, source: finalSource };
-        }
-      }
-      const finalSource = cleanFallback && !/google\s*news/i.test(cleanFallback) ? cleanFallback : '출처 미상';
-      return { title: cleanTitle || '제목 없음', source: finalSource };
-    }
-
-    function renderNewsItemsIntoWidget(items, goalId = newsSelectedGoalKey) {
+    function renderNewsItemsIntoWidget(items) {
+      const canEditNews = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      const activeConfig = getNewsConfigState();
       const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
-      const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
       newsVisibleItems = visibleItems.slice();
-      newsVisibleItemsByGoal[activeGoalId] = visibleItems.slice();
       if (!newsWidgetList) return;
       newsWidgetList.innerHTML = visibleItems.map((item, index) => {
-        const fallbackSource = item && item.source && typeof item.source.title === 'string'
+        const rawTitle = typeof item.title === 'string' ? item.title.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음';
+        const title = decodeHtmlEntities(rawTitle);
+        const rawSourceName = item && item.source && typeof item.source.title === 'string'
           ? item.source.title
-          : (typeof item.author === 'string' ? item.author : '');
-        const split = splitNewsTitleAndSource(item && item.title, fallbackSource);
-        const pubDateText = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
-        const pubDate = parseNewsPubDate(item && item.pubDate ? item.pubDate : '');
+          : (typeof item.author === 'string' && item.author ? item.author : 'Google News');
+        const sourceName = decodeHtmlEntities(rawSourceName);
+        const pubDate = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
         const href = item && typeof item.link === 'string' ? item.link : '#';
         const articleKey = getNewsArticleId(item) || `article-${index}`;
-        const isMutedDate = pubDate ? (Date.now() - pubDate.getTime()) >= (90 * 24 * 60 * 60 * 1000) : false;
+        const candidateWords = extractNewsWordCandidates(title, activeConfig.excludeWords || []);
+        const popoverHtml = canEditNews ? `
+          <button type="button" class="news-card-hide-btn" data-news-hide-trigger="${escapeHtml(articleKey)}">🚫</button>
+          <div class="news-card-popover" data-news-popover-for="${escapeHtml(articleKey)}" hidden>
+            <div class="news-card-popover-title">단어로 제외하기</div>
+            <div class="news-card-popover-chips">
+              ${candidateWords.length ? candidateWords.map((word) => `<button type="button" class="news-card-popover-chip" data-news-exclude-word="${escapeHtml(word)}">${escapeHtml(word)}</button>`).join('') : '<span class="news-card-popover-empty">추출된 후보가 없습니다.</span>'}
+            </div>
+          </div>
+        ` : '';
         return `
           <article class="news-card" data-news-article="${escapeHtml(articleKey)}">
+            ${popoverHtml}
             <a class="news-card-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
-              <div class="news-card-title">${escapeHtml(split.title)}</div>
-              <div class="news-card-meta">
-                <span class="news-card-source">${escapeHtml(split.source)}</span>
-                <span class="news-card-date ${isMutedDate ? 'news-card-date-muted' : ''}">${escapeHtml(pubDateText)}</span>
-              </div>
+            <div class="news-card-title">${escapeHtml(title)}</div>
+            <div class="news-card-meta">
+              <span class="news-card-source">${escapeHtml(sourceName)}</span>
+              <span class="news-card-date">${escapeHtml(pubDate)}</span>
+            </div>
             </a>
           </article>
         `;
       }).join('');
       newsWidgetLoading.hidden = true;
-      newsWidgetLoading.innerHTML = '';
-    }
-
-    function renderNewsSkeletonCards() {
-      if (!newsWidgetLoading) return;
-      newsWidgetLoading.hidden = false;
-      newsWidgetLoading.innerHTML = `
-        <div class="news-skeleton-grid" aria-label="뉴스 로딩 스켈레톤">
-          ${Array.from({ length: 4 }).map(() => `
-            <div class="news-skeleton-card">
-              <div class="news-skeleton-line title"></div>
-              <div class="news-skeleton-line title-2"></div>
-              <div class="news-skeleton-line meta"></div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
-    function renderNewsErrorState(message, detail, goalId) {
-      if (!newsWidgetLoading) return;
-      newsWidgetLoading.hidden = false;
-      newsWidgetLoading.innerHTML = `
-        <div class="news-widget-error">
-          <div>${escapeHtml(message || '뉴스를 불러오지 못했습니다')}</div>
-          <div>${escapeHtml(detail || '알 수 없는 오류')}</div>
-          <button type="button" class="news-widget-retry-btn" data-news-retry-btn="${escapeHtml(goalId || '')}">다시 시도</button>
-        </div>
-      `;
-      const retryBtn = newsWidgetLoading.querySelector('[data-news-retry-btn]');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', () => {
-          const retryGoalId = retryBtn.dataset.newsRetryBtn || newsSelectedGoalKey || currentGoalKey;
-          renderNewsWidget(retryGoalId, null, true);
-        });
-      }
     }
 
     function setNewsWidgetEmptyState(message, showSettingsButton = false) {
@@ -7062,25 +7710,38 @@
     }
 
     function renderNewsSettingsLists() {
-      try {
-        const config = getNewsConfigState();
-        if (newsExcludeWordList) {
-          newsExcludeWordList.innerHTML = (config.excludeWords || []).map((word, index) => `
-            <button type="button" class="news-chip" data-news-exclude-word-item="${escapeHtml(word)}">
-              <span>${escapeHtml(word)}</span>
-              <span class="news-chip-remove" data-news-remove-exclude="${index}">×</span>
-            </button>
-          `).join('') || '<div class="news-settings-empty">등록된 제외어가 없습니다.</div>';
-        }
-      } catch (error) {
-        console.error('[news] 설정 목록 렌더 실패', error);
+      const config = getNewsConfigState();
+      if (newsExcludeWordList) {
+        newsExcludeWordList.innerHTML = (config.excludeWords || []).map((word, index) => `
+          <span class="news-chip" data-news-exclude-word-item="${escapeHtml(word)}">
+            <span>${escapeHtml(word)}</span>
+            <button type="button" class="news-chip-remove" data-news-remove-exclude="${index}">×</button>
+          </span>
+        `).join('') || '<div class="news-settings-empty">제외어가 없습니다.</div>';
       }
-
+      if (newsQueryList) {
+        newsQueryList.innerHTML = (config.searchQueries || []).map((item, index) => `
+          <div class="news-query-row" data-news-query-index="${index}">
+            <input type="text" class="news-query-input" data-news-query-field="label" value="${escapeHtml(item.label || '')}" placeholder="표시 이름" />
+            <input type="text" class="news-query-input" data-news-query-field="query" value="${escapeHtml(item.query || '')}" placeholder="검색 쿼리" />
+            <label class="news-query-toggle"><input type="checkbox" data-news-query-field="enabled" ${item.enabled !== false ? 'checked' : ''} /> 활성</label>
+            <button type="button" class="news-chip-remove" data-news-remove-query="${index}">×</button>
+          </div>
+        `).join('') || '<div class="news-settings-empty">검색 쿼리가 없습니다.</div>';
+      }
+      if (newsHiddenList) {
+        newsHiddenList.innerHTML = (config.hiddenArticles || []).map((item, index) => `
+          <div class="news-hidden-row" data-news-hidden-index="${index}">
+            <div class="news-hidden-title">${escapeHtml(item.title || item.link || '숨긴 기사')}</div>
+            <div class="news-hidden-meta">${escapeHtml(item.sourceName || '')}</div>
+            <button type="button" class="news-chip-remove" data-news-unhide-index="${index}">해제</button>
+          </div>
+        `).join('') || '<div class="news-settings-empty">숨긴 기사가 없습니다.</div>';
+      }
     }
 
     function setNewsSettingsTab(tabName) {
-      const safeTab = tabName === 'queries' ? 'queries' : 'exclude';
-      newsSettingsActiveTab = safeTab;
+      newsSettingsActiveTab = tabName || 'exclude';
       if (newsSettingsModal) {
         Array.from(newsSettingsModal.querySelectorAll('.news-settings-tab')).forEach((button) => {
           button.classList.toggle('active', button.dataset.newsTab === newsSettingsActiveTab);
@@ -7093,7 +7754,6 @@
 
     function openNewsSettingsModal() {
       if (!newsSettingsModal || !(EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser))) return;
-      newsSettingsGoalKey = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
       renderNewsSettingsLists();
       setNewsSettingsTab(newsSettingsActiveTab);
       newsSettingsModal.hidden = false;
@@ -7105,93 +7765,71 @@
     }
 
     async function refreshNewsDataset(forceFetch = false) {
-      try {
-        return await loadNewsForGoal(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', { forceFetch });
-      } catch (error) {
-        console.error('[news] refreshNewsDataset 실패', error);
-        return { items: [], totalCount: 0, error: error && error.message ? error.message : String(error) };
+      const result = await loadSharedNewsItems({ forceFetch });
+      const items = Array.isArray(result.items) ? result.items : [];
+      const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
+      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+      const sorted = withinWindow
+        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+        .map((entry) => entry.item);
+      if (!sorted.length) {
+        newsWidgetList.innerHTML = '';
+        newsWidgetLoading.hidden = true;
+        setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
+        return result;
       }
+      clearNewsWidgetEmptyState();
+      renderNewsItemsIntoWidget(sorted);
+      return result;
     }
 
-    async function renderNewsWidget(goalKey, state, forceFetch = false) {
+    function renderNewsWidget(goalKey, state) {
       if (!newsWidget || !newsWidgetTitle || !newsWidgetMeta || !newsWidgetList || !newsWidgetLoading) return;
       const goalTemplate = goalTemplates[goalKey];
       if (!goalTemplate) {
         newsWidget.hidden = true;
         newsWidgetList.innerHTML = '';
         newsWidgetLoading.hidden = true;
-        newsWidgetLoading.innerHTML = '';
         return;
       }
 
       const requestId = ++newsRequestSerial;
-      const activeGoalId = goalKey;
-      newsSelectedGoalKey = activeGoalId;
+      newsSelectedGoalKey = goalKey;
       const activeConfig = getNewsConfigState();
-      const configuredQueries = getNewsConfiguredQueries(activeGoalId, activeConfig);
+      const activeQueries = getActiveNewsQueries(activeConfig);
 
       newsWidget.hidden = false;
       newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `${getNewsSearchQueryLabel(activeGoalId, activeConfig)} · 2026-01-01 이후 · 관련도순`;
+      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
 
       newsWidgetList.innerHTML = '';
-      renderNewsSkeletonCards();
+      newsWidgetLoading.hidden = false;
+      newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
 
-      const renderStart = performance.now();
-      let timingCacheMs = 0;
-      let timingRssMs = 0;
-      let timingParseMs = 0;
-
-      const timeoutPromise = new Promise((_, reject) => {
-        window.setTimeout(() => reject(Object.assign(new Error('15초 타임아웃'), { code: 'news-timeout' })), 15000);
-      });
-
-      try {
-        const loadPromise = loadNewsForGoal(activeGoalId, {
-          forceFetch,
-          onProgress(progress) {
-            if (requestId !== newsRequestSerial) return;
-            clearNewsWidgetEmptyState();
-            renderNewsItemsIntoWidget(progress.items, activeGoalId);
-          }
-        });
-        const result = await Promise.race([loadPromise, timeoutPromise]);
+      refreshNewsDataset(false).then((result) => {
         if (requestId !== newsRequestSerial) return;
+        const items = Array.isArray(result.items) ? result.items : [];
+        const totalCount = result.totalCount || 0;
+        console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
 
-        const items = Array.isArray(result && result.items) ? result.items : [];
-        const totalCount = result && result.totalCount ? result.totalCount : 0;
-        timingCacheMs = result && result.timings ? (result.timings.cacheMs || 0) : 0;
-        timingRssMs = result && result.timings ? (result.timings.rssMs || 0) : 0;
-        timingParseMs = result && result.timings ? (result.timings.parseMs || 0) : 0;
-
-        if (result && result.error) {
-          renderNewsErrorState('뉴스를 불러오지 못했습니다', String(result.error), activeGoalId);
+        if (result.error) {
+          newsWidgetList.innerHTML = '';
+          newsWidgetLoading.hidden = false;
+          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
           return;
         }
 
         if (!items.length) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = true;
-          newsWidgetLoading.innerHTML = '';
-          setNewsWidgetEmptyState('이 목표와 관련된 2026년 기사를 찾지 못했습니다', true);
+          setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
           return;
         }
 
         clearNewsWidgetEmptyState();
-        renderNewsItemsIntoWidget(items, activeGoalId);
-        const renderMs = Math.round(performance.now() - renderStart);
-        console.log(`목표 ${getNewsGoalCode(activeGoalId)} · 쿼리 ${configuredQueries.length}개 · 수집 ${totalCount}건 → 필터 후 ${items.length}건`);
-        console.log(`[news] ① 캐시 확인 ${timingCacheMs} ms -> ② RSS 호출 ${timingRssMs} ms -> ③ 파싱 ${timingParseMs} ms -> ④ 렌더 ${renderMs} ms`);
-      } catch (error) {
-        if (requestId !== newsRequestSerial) return;
-        const message = error && error.code === 'news-timeout' ? '뉴스를 불러오지 못했습니다 (15초 제한 초과)' : '뉴스를 불러오지 못했습니다';
-        renderNewsErrorState(message, error && error.message ? error.message : String(error), activeGoalId);
-      } finally {
-        if (requestId === newsRequestSerial && newsWidgetLoading && !newsWidgetLoading.querySelector('.news-widget-error')) {
-          newsWidgetLoading.hidden = true;
-          newsWidgetLoading.innerHTML = '';
-        }
-      }
+        renderNewsItemsIntoWidget(items);
+      });
     }
 
     function autoSizeWorkflowTextarea(textarea) {
@@ -9029,38 +9667,14 @@
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
-
-      let newsInitError = null;
-      try {
-        await loadNewsConfigOnce();
-        attachNewsWidgetInteractionHandlers();
-      } catch (error) {
-        newsInitError = error;
-        console.error('[news] 초기화 실패', error);
-      }
-
+      await loadNewsConfigOnce();
+      attachNewsWidgetInteractionHandlers();
       void loadKpiCatalogOnce();
       applyEditabilityState();
-
-      if (newsInitError) {
-        const fallbackGoalId = currentGoalKey || Object.keys(goalTemplates)[0] || '';
-        if (newsWidget) newsWidget.hidden = false;
-        if (newsWidgetTitle) {
-          if (fallbackGoalId && goalTemplates[fallbackGoalId]) {
-            newsWidgetTitle.textContent = `📰 실시간 ${goalTemplates[fallbackGoalId].label} 관련 B2B & 시장 동향`;
-          } else {
-            newsWidgetTitle.textContent = '📰 실시간 B2B & 시장 동향';
-          }
-        }
-        if (newsWidgetList) newsWidgetList.innerHTML = '';
-        clearNewsWidgetEmptyState();
-        renderNewsErrorState('뉴스를 불러오지 못했습니다', newsInitError && newsInitError.message ? newsInitError.message : String(newsInitError), fallbackGoalId);
-      }
     }
 
     initializeApp();
   </script>
 </body>
 </html>
-
 
