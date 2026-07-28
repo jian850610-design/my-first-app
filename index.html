@@ -2918,6 +2918,8 @@
           snapshot[goalKey][index] = {
             note: typeof itemState.note === 'string' ? itemState.note : '',
             noteUpdatedAt: typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '',
+            latestCommentSummary: typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '',
+            remark: typeof itemState.remark === 'string' ? itemState.remark : '',
             priority: normalizePriorityValue(itemState.priority),
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
@@ -2974,6 +2976,8 @@
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
           itemState.noteUpdatedAt = typeof remoteItem?.noteUpdatedAt === 'string' ? remoteItem.noteUpdatedAt : itemState.noteUpdatedAt || '';
+          itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
+          itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
           itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
@@ -2983,6 +2987,7 @@
               }))
             : itemState.steps;
           itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
+          syncCommentDerivedFields(itemState);
           itemState.historyList = Array.isArray(remoteItem?.historyList) ? remoteItem.historyList : itemState.historyList;
           itemState.cycleCompletedCount = Number.isFinite(remoteItem?.cycleCompletedCount)
             ? Number(remoteItem.cycleCompletedCount)
@@ -3364,7 +3369,7 @@
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
             : '';
           const progressText = `체크 ${doneCount}/${totalCount} · 최근 코멘트: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
-          const noteText = itemState && typeof itemState.note === 'string' && itemState.note.trim() ? itemState.note.trim() : '-';
+          const noteText = itemState && typeof itemState.remark === 'string' && itemState.remark.trim() ? itemState.remark.trim() : '-';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
           const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
@@ -3751,12 +3756,15 @@
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
+        itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
+        itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
         itemState.priority = normalizePriorityValue(itemState.priority);
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
         itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
         itemState.lastUpdatedByEmail = typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '';
         itemState.lastUpdatedByUid = typeof itemState.lastUpdatedByUid === 'string' ? itemState.lastUpdatedByUid : '';
         if (!Array.isArray(itemState.comments)) itemState.comments = [];
+        syncCommentDerivedFields(itemState);
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
@@ -3837,6 +3845,8 @@
           steps,
           note: '',
           noteUpdatedAt: '',
+          latestCommentSummary: '',
+          remark: '',
           priority: PRIORITY_NORMAL,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
@@ -3959,6 +3969,7 @@
         completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
+      syncCommentDerivedFields(itemState);
       if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
       if (!itemState.historyList.length) {
         itemState.historyList = getDefaultHistoryList(itemKey);
@@ -4095,6 +4106,31 @@
       return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
     }
 
+    function getLatestCommentEntry(comments) {
+      if (!Array.isArray(comments) || !comments.length) return null;
+      return comments
+        .slice()
+        .sort((left, right) => {
+          const leftTs = new Date(left && (left.updatedAt || left.timestamp) || 0).getTime();
+          const rightTs = new Date(right && (right.updatedAt || right.timestamp) || 0).getTime();
+          return rightTs - leftTs;
+        })[0] || null;
+    }
+
+    function computeLatestCommentSummary(comments) {
+      const latest = getLatestCommentEntry(comments);
+      const text = latest && typeof latest.text === 'string' ? latest.text.replace(/\s+/g, ' ').trim() : '';
+      if (!text) return '';
+      return text.length > 110 ? `${text.slice(0, 107)}...` : text;
+    }
+
+    function syncCommentDerivedFields(itemState) {
+      if (!itemState || typeof itemState !== 'object') return;
+      if (!Array.isArray(itemState.comments)) itemState.comments = [];
+      itemState.latestCommentSummary = computeLatestCommentSummary(itemState.comments);
+      if (typeof itemState.remark !== 'string') itemState.remark = '';
+    }
+
     function getCycleCompletedCount(itemState) {
       if (!itemState || typeof itemState !== 'object') return 0;
       const historyCount = Array.isArray(itemState.historyList) ? itemState.historyList.length : 0;
@@ -4125,27 +4161,64 @@
     }
 
     function getLatestCommentPreview(itemState) {
-      const draftNote = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
-      if (draftNote) {
-        const singleLineDraft = draftNote.replace(/\s+/g, ' ').trim();
-        return singleLineDraft.length > 110 ? `${singleLineDraft.slice(0, 107)}...` : singleLineDraft;
-      }
-
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
       if (!comments.length) return '아직 등록된 코멘트가 없습니다.';
-
-      const latest = comments
-        .slice()
-        .sort((left, right) => {
-          const leftTs = new Date(left.updatedAt || left.timestamp || 0).getTime();
-          const rightTs = new Date(right.updatedAt || right.timestamp || 0).getTime();
-          return rightTs - leftTs;
-        })[0];
-
-      const text = latest && typeof latest.text === 'string' ? latest.text.replace(/\s+/g, ' ').trim() : '';
+      const text = computeLatestCommentSummary(comments);
       if (!text) return '아직 등록된 코멘트가 없습니다.';
-      return text.length > 110 ? `${text.slice(0, 107)}...` : text;
+      return text;
     }
+
+    async function cleanupOrphanComments(options = {}) {
+      const dryRun = options && options.dryRun === false ? false : true;
+      const clearNote = options && options.clearNote === true;
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const targets = [];
+
+      Object.entries((plannerState && plannerState.items) || {}).forEach(([itemKey, itemState]) => {
+        if (!itemState || typeof itemState !== 'object') return;
+        const comments = Array.isArray(itemState.comments) ? itemState.comments : [];
+        const latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary.trim() : '';
+        const noteText = typeof itemState.note === 'string' ? itemState.note.trim() : '';
+        const hasOrphanSummary = comments.length === 0 && (latestCommentSummary || (clearNote && noteText));
+        if (!hasOrphanSummary) return;
+
+        const row = {
+          itemKey,
+          latestCommentSummary,
+          note: noteText,
+          action: dryRun ? 'inspect-only' : 'clear-fields'
+        };
+        targets.push(row);
+
+        if (!dryRun) {
+          itemState.latestCommentSummary = '';
+          if (clearNote) {
+            itemState.note = '';
+            itemState.noteUpdatedAt = '';
+          }
+          markItemUpdated(itemState);
+        }
+      });
+
+      if (!targets.length) {
+        console.log('[cleanupOrphanComments] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, dryRun, targets: [] };
+      }
+
+      console.table(targets);
+
+      if (!dryRun) {
+        savePlannerState(plannerState, { reason: 'cleanup-orphan-comments' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+      }
+
+      return { ok: true, count: targets.length, dryRun, targets };
+    }
+
+    window.__cleanupOrphanComments = cleanupOrphanComments;
 
     function markItemUpdated(itemState) {
       if (!itemState || typeof itemState !== 'object') return;
@@ -6643,6 +6716,7 @@
               completedAt: ''
             }));
             itemState.comments = [];
+            syncCommentDerivedFields(itemState);
             itemState.note = '';
             itemState.seriesDraftName = '';
             markItemUpdated(itemState);
@@ -6878,6 +6952,7 @@
               completedAt: ''
             }));
             itemState.comments = [];
+            syncCommentDerivedFields(itemState);
             itemState.seriesDraftName = '';
             itemState.noteUpdatedAt = '';
             markItemUpdated(itemState);
@@ -6948,6 +7023,7 @@
             timestamp: new Date().toISOString(),
             text
           });
+          syncCommentDerivedFields(itemState);
           markItemUpdated(itemState);
 
           savePlannerState(plannerState);
@@ -6970,6 +7046,7 @@
             const isConfirmed = window.confirm('정말 삭제하시겠습니까?');
             if (!isConfirmed) return;
             itemState.comments.splice(targetIndex, 1);
+            syncCommentDerivedFields(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -7010,6 +7087,7 @@
 
             itemState.comments[targetIndex].text = editedText;
             itemState.comments[targetIndex].updatedAt = new Date().toISOString();
+            syncCommentDerivedFields(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -7731,6 +7809,7 @@
             let changed = false;
             if (sourceType === 'comment' && Array.isArray(itemState.comments) && itemState.comments[sourceIndex]) {
               itemState.comments.splice(sourceIndex, 1);
+              syncCommentDerivedFields(itemState);
               changed = true;
             }
             if (sourceType === 'activity' && Array.isArray(itemState.activityLog) && itemState.activityLog[sourceIndex]) {
@@ -7788,6 +7867,7 @@
                 if (!rawTimestamp) return true;
                 return getLocalDateKey(new Date(rawTimestamp)) !== todayKey;
               });
+              syncCommentDerivedFields(itemState);
             }
 
             if (Array.isArray(itemState.activityLog)) {
