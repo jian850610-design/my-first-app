@@ -523,7 +523,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -1196,6 +1196,14 @@
     function parseAiBenchmarkOutput(rawText) {
       if (typeof rawText !== 'string') return null;
       const lines = rawText.split(/\r?\n/);
+      const maxParseLines = 5000;
+      const safeLines = lines.length > maxParseLines ? lines.slice(0, maxParseLines) : lines;
+      if (lines.length > maxParseLines) {
+        console.warn('[Benchmark Parser] 입력 라인이 너무 많아 일부만 파싱합니다.', {
+          totalLines: lines.length,
+          parsedLines: safeLines.length
+        });
+      }
       const parsed = {};
       let currentGoalNumber = null;
       let currentGoalKey = '';
@@ -1210,7 +1218,8 @@
         parsed[goalNumber].push(card);
       };
 
-      lines.forEach((rawLine) => {
+      for (let lineIndex = 0; lineIndex < safeLines.length; lineIndex += 1) {
+        const rawLine = safeLines[lineIndex];
         const line = rawLine.trimEnd();
         const goalNumberFromLine = findBenchmarkGoalNumberFromLine(line);
         const goalMatch = line.match(/^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?\s*(.*)$/i);
@@ -1278,12 +1287,12 @@
         currentCard.rawLines.push(continuationText);
         unmatchedCardCandidates.push({ title: currentCard.title, line: continuationText });
         console.log('[Benchmark Parser] 카드/필드 미매칭 라인 누적', { title: currentCard.title, line: continuationText });
-      });
+      }
 
       if (currentCard) pushCard(currentGoalNumber, currentCard);
       if (!Object.keys(parsed).length) {
         console.log('[Benchmark Parser] 카드 파싱 실패', {
-          rawLineCount: lines.length,
+          rawLineCount: safeLines.length,
           unmatchedLines,
           unmatchedCardCandidates
         });
@@ -1330,19 +1339,52 @@
       return Object.keys(result).length ? result : null;
     }
 
-    async function upsertBenchmarkFirestoreDoc(itemKey, payload) {
+    function sanitizeFirestoreText(value) {
+      if (typeof value === 'undefined' || value === null) return '';
+      return String(value);
+    }
+
+    function sanitizeBenchmarkPayload(payload) {
+      const source = payload && typeof payload === 'object' ? payload : {};
+      return {
+        skf: sanitizeFirestoreText(source.skf),
+        schaeffler: sanitizeFirestoreText(source.schaeffler),
+        koreaNsk: sanitizeFirestoreText(source.koreaNsk),
+        timken: sanitizeFirestoreText(source.timken),
+        sourceText: sanitizeFirestoreText(source.sourceText),
+        updatedAt: sanitizeFirestoreText(source.updatedAt)
+      };
+    }
+
+    async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
       if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
         return { ok: false, reason: 'firestore-unavailable' };
       }
 
+      const safePayload = sanitizeBenchmarkPayload(payload);
       const docRef = bridge.getBenchmarkDocRef(itemKey);
       try {
-        await bridge.updateDoc(docRef, payload);
+        await bridge.updateDoc(docRef, safePayload);
         return { ok: true, mode: 'updateDoc' };
       } catch (error) {
-        console.error('Firestore 벤치마킹 저장 실패', { itemKey, payload, error });
-        return { ok: false, reason: 'write-failed', error };
+        console.error('[Benchmark Apply] updateDoc 실패', {
+          cardName,
+          itemKey,
+          errorMessage: error && error.message ? error.message : String(error)
+        });
+        try {
+          await bridge.setDoc(docRef, safePayload, { merge: true });
+          console.log('[Benchmark Apply] setDoc(merge)로 대체 저장 성공', { cardName, itemKey });
+          return { ok: true, mode: 'setDoc-merge' };
+        } catch (fallbackError) {
+          console.error('[Benchmark Apply] 저장 최종 실패', {
+            cardName,
+            itemKey,
+            errorMessage: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
+          });
+          return { ok: false, reason: 'write-failed', error: fallbackError };
+        }
       }
     }
 
@@ -1355,6 +1397,7 @@
 
       const plannerState = normalizePlannerState(loadPlannerState());
       const updates = [];
+      const missingMappings = [];
       const nowIso = new Date().toISOString();
 
       Object.entries(parsedCards).forEach(([itemKey, card]) => {
@@ -1362,12 +1405,20 @@
         const goalTemplate = goalTemplates[goalKey];
         const itemIndex = Number(indexText);
         const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
-        if (!goalTemplate || !item) return;
+        const cardName = (card && card.title) || (item && item.title) || itemKey;
 
-        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
-        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
-        const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
-        itemState.benchmarking = {
+        if (!goalTemplate || !item) {
+          missingMappings.push(cardName);
+          console.error('[Benchmark Apply] 카드 매핑 실패: DB ID(아이템 키)를 찾지 못했습니다.', {
+            cardName,
+            itemKey,
+            goalKey,
+            itemIndex
+          });
+          return;
+        }
+
+        const benchmarkPayload = {
           skf: card.benchmarking.skf || '',
           schaeffler: card.benchmarking.schaeffler || '',
           koreaNsk: card.benchmarking.koreaNsk || '',
@@ -1375,9 +1426,14 @@
           sourceText: rawText,
           updatedAt: nowIso
         };
-        markItemUpdated(itemState);
-        updates.push({ itemKey, payload: itemState.benchmarking });
-        console.log('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, title: card.title, benchmarking: itemState.benchmarking });
+        updates.push({
+          itemKey,
+          cardName,
+          goalKey,
+          item,
+          payload: sanitizeBenchmarkPayload(benchmarkPayload)
+        });
+        console.log('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
       });
 
       if (!updates.length) {
@@ -1385,18 +1441,65 @@
         return { ok: false, count: 0, reason: 'no-matches' };
       }
 
-      const writeResults = [];
-      for (const update of updates) {
-        // eslint-disable-next-line no-await-in-loop
-        const result = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload);
-        writeResults.push(result);
-        console.log('[Benchmark Apply] Firestore 반영 결과', { itemKey: update.itemKey, result });
+      const successfulUpdates = [];
+      const failedCards = [];
+      const writeResults = await Promise.all(updates.map(async (update) => {
+        try {
+          const result = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
+          if (result && result.ok) {
+            successfulUpdates.push(update);
+          } else {
+            failedCards.push(update.cardName);
+            console.error('[Benchmark Apply] 카드 저장 실패', {
+              cardName: update.cardName,
+              itemKey: update.itemKey,
+              errorMessage: result && result.error && result.error.message ? result.error.message : (result && result.reason ? result.reason : 'unknown')
+            });
+          }
+          console.log('[Benchmark Apply] Firestore 반영 결과', { itemKey: update.itemKey, cardName: update.cardName, result });
+          return {
+            itemKey: update.itemKey,
+            cardName: update.cardName,
+            ...result
+          };
+        } catch (error) {
+          failedCards.push(update.cardName);
+          const errorMessage = error && error.message ? error.message : String(error);
+          console.error('[Benchmark Apply] 카드 저장 중 예외 발생', {
+            cardName: update.cardName,
+            itemKey: update.itemKey,
+            errorMessage
+          });
+          return {
+            itemKey: update.itemKey,
+            cardName: update.cardName,
+            ok: false,
+            reason: 'unexpected-exception',
+            errorMessage
+          };
+        }
+      }));
+
+      const successCount = successfulUpdates.length;
+      const totalCount = updates.length + missingMappings.length;
+      if (!successCount) {
+        return {
+          ok: false,
+          count: 0,
+          total: totalCount,
+          reason: 'firestore-write-failed',
+          failedCards,
+          missingMappings
+        };
       }
 
-      const successCount = writeResults.filter((result) => result && result.ok).length;
-      if (!successCount) {
-        return { ok: false, count: 0, reason: 'firestore-write-failed' };
-      }
+      successfulUpdates.forEach((update) => {
+        const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
+        const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
+        itemState.benchmarking = { ...update.payload };
+        markItemUpdated(itemState);
+      });
 
       savePlannerState(plannerState, { reason: 'ai-benchmark-update' });
       syncOverviewWidgets(plannerState);
@@ -1404,7 +1507,14 @@
         updateGoalCard(currentGoalKey);
       }
 
-      return { ok: true, count: successCount };
+      return {
+        ok: true,
+        count: successCount,
+        total: totalCount,
+        failedCards,
+        missingMappings,
+        writeResults
+      };
     }
 
     function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
@@ -5765,26 +5875,52 @@
           }
 
           benchmarkAutoApplyBtn.disabled = true;
+          const loadingText = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
           if (benchmarkAutoStatus) {
-            benchmarkAutoStatus.textContent = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
+            benchmarkAutoStatus.textContent = loadingText;
             benchmarkAutoStatus.classList.remove('ok', 'warn');
           }
 
           try {
-            const result = await applyAiBenchmarkUpdatesFromText(rawText);
+            const timeoutMs = 5000;
+            const timeoutResult = { ok: false, total: 0, count: 0, reason: 'timeout' };
+            const result = await Promise.race([
+              applyAiBenchmarkUpdatesFromText(rawText),
+              new Promise((resolve) => {
+                setTimeout(() => resolve(timeoutResult), timeoutMs);
+              })
+            ]);
+
+            if (result && result.reason === 'timeout') {
+              const timeoutMessage = '처리 시간이 초과되었습니다. 콘솔 로그를 확인하세요.';
+              if (benchmarkAutoStatus) {
+                benchmarkAutoStatus.textContent = timeoutMessage;
+                benchmarkAutoStatus.classList.remove('ok');
+                benchmarkAutoStatus.classList.add('warn');
+              }
+              window.alert(timeoutMessage);
+              return;
+            }
+
             if (!result || !result.ok) {
               const message = result && result.reason === 'no-matches'
                 ? '매핑 가능한 카드가 없습니다. 카드 제목 또는 회사명(SKF, 셰플러, NSK, 팀켄)을 확인해 주세요.'
-                : 'Firestore 업데이트에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+                : `총 ${result && typeof result.total === 'number' ? result.total : 0}개 카드 중 0개 카드가 성공적으로 반영되었습니다.`;
               if (benchmarkAutoStatus) {
                 benchmarkAutoStatus.textContent = message;
                 benchmarkAutoStatus.classList.remove('ok');
                 benchmarkAutoStatus.classList.add('warn');
               }
+              if (!result || result.reason !== 'no-matches') {
+                window.alert(message);
+              }
+              if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
+                console.error('[Benchmark Apply] 저장 실패 카드 목록', result.failedCards);
+              }
               return;
             }
 
-            const successMessage = `총 ${result.count}개 카드가 성공적으로 반영되었습니다.`;
+            const successMessage = `총 ${result.total}개 카드 중 ${result.count}개 카드가 성공적으로 반영되었습니다.`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
@@ -5792,7 +5928,21 @@
             }
             window.alert(successMessage);
             rerenderCurrentView();
+          } catch (error) {
+            console.error('[Benchmark Apply] 처리 중 치명적 오류', {
+              errorMessage: error && error.message ? error.message : String(error)
+            });
+            const errorMessage = '처리 중 오류가 발생했습니다. 콘솔 로그를 확인하세요.';
+            if (benchmarkAutoStatus) {
+              benchmarkAutoStatus.textContent = errorMessage;
+              benchmarkAutoStatus.classList.remove('ok');
+              benchmarkAutoStatus.classList.add('warn');
+            }
+            window.alert(errorMessage);
           } finally {
+            if (benchmarkAutoStatus && benchmarkAutoStatus.textContent === loadingText) {
+              benchmarkAutoStatus.textContent = '';
+            }
             benchmarkAutoApplyBtn.disabled = false;
           }
         });
