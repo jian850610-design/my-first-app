@@ -7543,69 +7543,103 @@
       return newsConfigLoadPromise;
     }
 
-    function fetchNewsViaRss2Json(query) {
+    function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, { ...options, signal: controller.signal }).finally(() => window.clearTimeout(timer));
+    }
+
+    async function fetchNewsViaRss2Json(query) {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
-      console.log('[news] 1차 시도: rss2json 요청', apiUrl);
-      return fetch(apiUrl, { cache: 'no-store' })
-        .then((response) => {
-          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
-          return response.json();
-        })
-        .then((data) => {
-          const count = data && Array.isArray(data.items) ? data.items.length : 0;
-          console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
-          if (!data || data.status !== 'ok') {
-            throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
-          }
-          return Array.isArray(data.items) ? data.items : [];
-        });
+      const rssStart = performance.now();
+      const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, 8000);
+      const rssMs = Math.round(performance.now() - rssStart);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const parseStart = performance.now();
+      const data = await response.json();
+      const parseMs = Math.round(performance.now() - parseStart);
+      const count = data && Array.isArray(data.items) ? data.items.length : 0;
+      console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
+      if (!data || data.status !== 'ok') {
+        throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
+      }
+      return { items: Array.isArray(data.items) ? data.items : [], rssMs, parseMs };
     }
 
     // rss2json이 실패(429, 네트워크 오류 등)할 때 쓰는 대체 경로: CORS 프록시로 원본 RSS XML을 받아 직접 파싱한다.
-    function fetchNewsViaAllOrigins(query) {
+    async function fetchNewsViaAllOrigins(query) {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
-      console.log('[news] 2차 시도(fallback): allorigins 요청', proxyUrl);
-      return fetch(proxyUrl, { cache: 'no-store' })
-        .then((response) => {
-          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
-          return response.text();
-        })
-        .then((xmlText) => {
-          const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-          if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
-          const entries = Array.from(xmlDoc.querySelectorAll('item'));
-          console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
-          return entries.map((entry) => {
-            const getText = (selector) => {
-              const el = entry.querySelector(selector);
-              return el ? el.textContent : '';
-            };
-            return {
-              title: getText('title'),
-              link: getText('link'),
-              pubDate: getText('pubDate'),
-              source: { title: getText('source') || 'Google News' }
-            };
-          });
-        });
+      const rssStart = performance.now();
+      const response = await fetchWithTimeout(proxyUrl, { cache: 'no-store' }, 8000);
+      const rssMs = Math.round(performance.now() - rssStart);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const parseStart = performance.now();
+      const xmlText = await response.text();
+      const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
+      const entries = Array.from(xmlDoc.querySelectorAll('item'));
+      const parseMs = Math.round(performance.now() - parseStart);
+      console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
+      return {
+        items: entries.map((entry) => {
+          const getText = (selector) => {
+            const el = entry.querySelector(selector);
+            return el ? el.textContent : '';
+          };
+          return {
+            title: getText('title'),
+            link: getText('link'),
+            pubDate: getText('pubDate'),
+            source: { title: getText('source') || 'Google News' }
+          };
+        }),
+        rssMs,
+        parseMs
+      };
     }
 
     async function fetchNewsForQuery(queryItem) {
       const queryText = sanitizeNewsWord(queryItem && queryItem.query) || '';
-      if (!queryText) return [];
+      const queryId = queryItem && queryItem.id ? queryItem.id : 'unknown';
+      if (!queryText) return { items: [], rssMs: 0, parseMs: 0, totalMs: 0, queryId };
+      const startedAt = performance.now();
       try {
         const fetched = await fetchNewsViaRss2Json(queryText);
-        return Array.isArray(fetched) ? fetched : [];
+        const totalMs = Math.round(performance.now() - startedAt);
+        console.log(`[news][query:${queryId}] rss2json 완료 ${totalMs} ms`);
+        return {
+          items: Array.isArray(fetched.items) ? fetched.items : [],
+          rssMs: Number.isFinite(fetched.rssMs) ? fetched.rssMs : 0,
+          parseMs: Number.isFinite(fetched.parseMs) ? fetched.parseMs : 0,
+          totalMs,
+          queryId
+        };
       } catch (primaryError) {
-        console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
+        console.warn(`[news][query:${queryId}] rss2json 실패:`, primaryError && primaryError.message);
         try {
           const fallback = await fetchNewsViaAllOrigins(queryText);
-          return Array.isArray(fallback) ? fallback : [];
+          const totalMs = Math.round(performance.now() - startedAt);
+          console.log(`[news][query:${queryId}] fallback 완료 ${totalMs} ms`);
+          return {
+            items: Array.isArray(fallback.items) ? fallback.items : [],
+            rssMs: Number.isFinite(fallback.rssMs) ? fallback.rssMs : 0,
+            parseMs: Number.isFinite(fallback.parseMs) ? fallback.parseMs : 0,
+            totalMs,
+            queryId
+          };
         } catch (fallbackError) {
-          console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
-          return [];
+          const totalMs = Math.round(performance.now() - startedAt);
+          console.error(`[news][query:${queryId}] fallback(allorigins)도 실패:`, fallbackError && fallbackError.message);
+          return {
+            items: [],
+            rssMs: 0,
+            parseMs: 0,
+            totalMs,
+            queryId,
+            error: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
+          };
         }
       }
     }
@@ -7622,6 +7656,7 @@
           const activeQueries = getNewsQueriesForGoal(activeGoalId, config);
           const signature = buildNewsQuerySignatureForGoal(activeGoalId, config);
           const cacheStorageKey = `newsCache_${activeGoalId}`;
+          const tCacheStart = performance.now();
 
           let cached = null;
           if (!options.forceFetch) {
@@ -7643,6 +7678,7 @@
               cached = null;
             }
           }
+          const cacheMs = Math.round(performance.now() - tCacheStart);
 
           if (cached && Array.isArray(cached.items)) {
             newsRawItemsCache = cached.items;
@@ -7655,6 +7691,8 @@
               lastFinalCount: newsFilterStats.finalCount
             };
             updateNewsUpdatedText();
+            console.log(`[news] 캐시 사용: ${cacheStorageKey} (${cacheMs} ms)`);
+            console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 0 / 파싱 0 / 렌더 0`);
             console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${cached.items.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
             return { items: newsVisibleItems, totalCount: cached.items.length, error: null, goalId: activeGoalId };
           }
@@ -7666,18 +7704,73 @@
             newsVisibleItems = newsFilterStats.items;
             config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
             updateNewsUpdatedText();
+            console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 0 / 파싱 0 / 렌더 0`);
             console.log(`목표 ${activeGoalId} · 쿼리 0개 · 수집 0건 → 필터 후 0건`);
             return { items: [], totalCount: 0, error: null, goalId: activeGoalId };
           }
 
-          const queryResults = await Promise.all(activeQueries.map(async (queryItem) => {
-            const items = await fetchNewsForQuery(queryItem);
-            return { id: queryItem.id, query: queryItem.query, items };
-          }));
+          const queryResults = [];
+          const tRssStart = performance.now();
+          const queryPromises = activeQueries.map((queryItem) => {
+            const queryTimerStart = performance.now();
+            const perQueryTimeout = new Promise((_, reject) => {
+              window.setTimeout(() => reject(new Error('query-timeout-8s')), 8000);
+            });
+            const queryWork = (async () => {
+              const result = await fetchNewsForQuery(queryItem);
+              return {
+                id: queryItem.id,
+                query: queryItem.query,
+                items: Array.isArray(result.items) ? result.items : [],
+                rssMs: Number.isFinite(result.rssMs) ? result.rssMs : 0,
+                parseMs: Number.isFinite(result.parseMs) ? result.parseMs : 0,
+                totalMs: Number.isFinite(result.totalMs) ? result.totalMs : Math.round(performance.now() - queryTimerStart),
+                error: result.error || ''
+              };
+            })();
+
+            return Promise.race([queryWork, perQueryTimeout])
+              .then((entry) => {
+                const elapsedMs = Math.round(performance.now() - queryTimerStart);
+                console.log(`[news][query:${entry.id}] 총 ${elapsedMs} ms (rss ${entry.rssMs} / parse ${entry.parseMs})`);
+                queryResults.push(entry);
+                return entry;
+              })
+              .catch((error) => {
+                const elapsedMs = Math.round(performance.now() - queryTimerStart);
+                const failEntry = {
+                  id: queryItem.id,
+                  query: queryItem.query,
+                  items: [],
+                  rssMs: 0,
+                  parseMs: 0,
+                  totalMs: elapsedMs,
+                  error: error && error.message ? error.message : String(error)
+                };
+                console.warn(`[news][query:${queryItem.id}] 실패 ${elapsedMs} ms`, failEntry.error);
+                queryResults.push(failEntry);
+                throw error;
+              });
+          });
+
+          let overallTimedOut = false;
+          const allSettledPromise = Promise.allSettled(queryPromises);
+          const overallTimeoutPromise = new Promise((resolve) => {
+            window.setTimeout(() => {
+              overallTimedOut = true;
+              resolve();
+            }, 15000);
+          });
+          await Promise.race([allSettledPromise, overallTimeoutPromise]);
+          const rssMsTotal = Math.round(performance.now() - tRssStart);
+          if (overallTimedOut) {
+            console.warn('[news] 전체 뉴스 조회 15초 제한 초과, 완료된 쿼리만 사용합니다.');
+          }
 
           const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
           const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
           const uniqueItems = dedupeNewsArticles(flattened);
+          const parseMsTotal = queryResults.reduce((sum, entry) => sum + (Number.isFinite(entry.parseMs) ? entry.parseMs : 0), 0);
 
           newsRawItemsCache = uniqueItems;
           newsQueryResultCounts = queryCounts;
@@ -7702,7 +7795,14 @@
           };
           await saveNewsConfig('news-dataset-refresh');
           updateNewsUpdatedText();
+          console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 ${rssMsTotal} / 파싱 ${parseMsTotal} / 렌더 0`);
           console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${uniqueItems.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
+          if (!uniqueItems.length) {
+            const firstError = queryResults.find((entry) => entry.error);
+            if (firstError && firstError.error) {
+              return { items: [], totalCount: 0, error: firstError.error, goalId: activeGoalId };
+            }
+          }
           return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null, goalId: activeGoalId };
         } catch (error) {
           console.error('[news] 목표별 조회 실패', { goalId: activeGoalId, error });
@@ -7908,39 +8008,49 @@
         newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
 
         newsWidgetList.innerHTML = '';
+        clearNewsWidgetEmptyState();
         newsWidgetLoading.hidden = false;
         newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
+        const renderStartMs = performance.now();
 
         refreshNewsDataset(false, goalKey).then((result) => {
           if (requestId !== newsRequestSerial) return;
           const items = Array.isArray(result.items) ? result.items : [];
           const totalCount = result.totalCount || 0;
+          const renderMs = Math.round(performance.now() - renderStartMs);
           console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
 
           if (result.error) {
             newsWidgetList.innerHTML = '';
-            newsWidgetLoading.hidden = false;
-            newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
+            setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${result.error}`, false);
             return;
           }
 
           if (!items.length) {
             newsWidgetList.innerHTML = '';
-            newsWidgetLoading.hidden = true;
             setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
             return;
           }
 
           clearNewsWidgetEmptyState();
           renderNewsItemsIntoWidget(items);
+          console.log(`[news] 단계 ms · 캐시확인 0 / RSS호출 0 / 파싱 0 / 렌더 ${renderMs}`);
         }).catch((error) => {
           if (requestId !== newsRequestSerial) return;
           newsWidgetList.innerHTML = '';
-          newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${error && error.message ? error.message : String(error)})`;
+          setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false);
+        }).finally(() => {
+          if (requestId !== newsRequestSerial) return;
+          newsWidgetLoading.hidden = true;
+          newsWidgetLoading.textContent = '';
         });
       } catch (error) {
         console.error('[news] renderNewsWidget 실패', error);
+        if (newsWidgetLoading) {
+          newsWidgetLoading.hidden = true;
+          newsWidgetLoading.textContent = '';
+        }
+        setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false);
       }
     }
 
