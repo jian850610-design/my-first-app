@@ -811,6 +811,7 @@
       db,
       firestore,
       initError: initErrorMessage,
+      doc,
       GoogleAuthProvider,
       getAuth,
       getRedirectResult,
@@ -4067,11 +4068,6 @@
         7: 6
       });
 
-      migrateGoalItemIndexes(items, 'field-communication', {
-        3: 6,
-        2: 5
-      });
-
       splitFieldCommunicationSeriesCard(items);
 
       migrateGoalItemIndexes(items, 'ai-culture', {
@@ -5887,8 +5883,8 @@
 
     function getKpiDocRef() {
       const bridge = window.__plannerFirebase;
-      if (!bridge || !bridge.firestore) return null;
-      return doc(bridge.firestore, 'plans', 'skf-daily', 'kpis', KPI_CATALOG_DOC_KEY);
+      if (!bridge || !bridge.firestore || typeof bridge.doc !== 'function') return null;
+      return bridge.doc(bridge.firestore, 'plans', 'skf-daily', 'kpis', KPI_CATALOG_DOC_KEY);
     }
 
     function cloneKpiCatalog(source) {
@@ -6580,7 +6576,7 @@
 
     function getChecklistStepsForItem(state, goalKey, item, itemKey, principles = []) {
       const itemState = state && state.items ? state.items[itemKey] : null;
-      if (itemState && Array.isArray(itemState.customSteps)) {
+      if (itemState && Array.isArray(itemState.customSteps) && itemState.customSteps.length > 0) {
         return itemState.customSteps.map((step) => (typeof step === 'string' ? step : ''));
       }
       return getChecklistSteps(goalKey, item, itemKey, principles);
@@ -8686,9 +8682,9 @@
             console.log('[PRIORITY] 새값', nextPriority);
             itemState.priority = nextPriority;
             markItemUpdated(itemState);
-            savePlannerState(plannerState, { reason: 'priority-change', skipFirebaseSync: true });
+            const savedState = savePlannerState(plannerState, { reason: 'priority-change', skipFirebaseSync: true });
             await flushFirebaseSnapshot('priority-change');
-            syncOverviewWidgets(plannerState);
+            syncOverviewWidgets(savedState);
             if (currentGoal && goalTemplates[currentGoal]) {
               updateGoalCard(currentGoal);
             }
@@ -9255,11 +9251,11 @@
             itemState.steps[idx].dueDate = nextDueDate;
             markItemUpdated(itemState);
             updateDueDateBadges();
-            savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
+            const savedState = savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
             await flushFirebaseSnapshot('due-date-change');
             renderLatestActivityPanel(latestActivityPanel, itemState);
-            renderGoalSummaryWidget(currentGoal, plannerState);
-            syncOverviewWidgets(plannerState);
+            renderGoalSummaryWidget(currentGoal, savedState);
+            syncOverviewWidgets(savedState);
             if (currentGoal && goalTemplates[currentGoal]) {
               updateGoalCard(currentGoal);
             }
