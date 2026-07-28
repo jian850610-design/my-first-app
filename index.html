@@ -1522,7 +1522,7 @@
       benchmarkDashboardSummary.hidden = false;
       benchmarkDashboardSummaryList.innerHTML = staleList
         .slice(0, 24)
-        .map((entry) => `<button type="button" class="benchmark-dashboard-link" data-benchmark-focus-key="${escapeHtml(entry.itemKey)}">${escapeHtml(entry.title)}</button>`)
+        .map((entry) => `<button type="button" class="benchmark-dashboard-link" data-benchmark-focus-key="${escapeHtml(entry.itemKey)}" data-benchmark-focus-goal="${escapeHtml(entry.goalKey)}">${escapeHtml(entry.title)}</button>`)
         .join('');
     }
 
@@ -1876,6 +1876,185 @@
         return `<div class="benchmark-apply-failure-row"><span>${escapeHtml(cardName)}</span><span class="benchmark-apply-failure-code">${escapeHtml(errorCode)}</span></div>`;
       }).join('');
       benchmarkApplyFailureSection.hidden = false;
+    }
+
+    function setBenchmarkAutoStatus(text, statusClass = '') {
+      if (!benchmarkAutoStatus) return;
+      benchmarkAutoStatus.textContent = text;
+      benchmarkAutoStatus.classList.remove('ok', 'warn', 'loading');
+      if (statusClass) benchmarkAutoStatus.classList.add(statusClass);
+    }
+
+    function findBenchmarkEditorPanel(itemKey) {
+      return Array.from(document.querySelectorAll('[data-benchmark-editor-panel]'))
+        .find((panel) => panel.getAttribute('data-benchmark-editor-panel') === String(itemKey)) || null;
+    }
+
+    function closeAllBenchmarkEditorPanels() {
+      document.querySelectorAll('.benchmark-editor-panel.visible').forEach((panel) => {
+        panel.classList.remove('visible');
+      });
+    }
+
+    function toggleBenchmarkEditorPanel(itemKey) {
+      const panel = findBenchmarkEditorPanel(itemKey);
+      if (!panel) return;
+      const shouldOpen = !panel.classList.contains('visible');
+      closeAllBenchmarkEditorPanels();
+      if (shouldOpen) panel.classList.add('visible');
+    }
+
+    async function saveBenchmarkingDataForItem(itemKey, rawPayload) {
+      const [goalKey, indexText] = String(itemKey).split('::');
+      const itemIndex = Number(indexText);
+      const goalTemplate = goalTemplates[goalKey];
+      const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+      if (!goalTemplate || !item) {
+        throw new Error('invalid-item-key');
+      }
+
+      const payload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+        ...rawPayload,
+        updatedAt: rawPayload && rawPayload.updatedAt ? rawPayload.updatedAt : new Date().toISOString()
+      }));
+
+      const saveResult = await upsertBenchmarkFirestoreDoc(itemKey, payload, item.title);
+      if (!saveResult.ok) {
+        throw new Error(saveResult.reason || 'write-failed');
+      }
+
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+      const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
+      const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+      itemState.benchmarking = { ...payload };
+      markItemUpdated(itemState);
+      savePlannerState(plannerState, { reason: 'benchmark-inline-save' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+      return { ok: true, mode: saveResult.mode || 'setDoc-merge' };
+    }
+
+    async function saveBenchmarkEditorPanel(itemKey) {
+      const panel = findBenchmarkEditorPanel(itemKey);
+      if (!panel) return;
+
+      const readValue = (fieldKey) => {
+        const input = panel.querySelector(`[data-benchmark-input="${fieldKey}"]`);
+        return input ? (input.value || '') : '';
+      };
+
+      const payload = {
+        skf: readValue('skf'),
+        schaeffler: readValue('schaeffler'),
+        koreaNsk: readValue('nsk'),
+        timken: readValue('timken'),
+        updatedAt: new Date().toISOString()
+      };
+
+      const saveButton = Array.from(panel.querySelectorAll('[data-benchmark-editor-save]'))
+        .find((button) => button.getAttribute('data-benchmark-editor-save') === String(itemKey));
+      const beforeText = saveButton ? saveButton.textContent : '';
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = '저장 중...';
+      }
+
+      try {
+        await saveBenchmarkingDataForItem(itemKey, payload);
+        setBenchmarkAutoStatus('카드 실행 내용을 저장했습니다.', 'ok');
+        closeAllBenchmarkEditorPanels();
+      } catch (error) {
+        const reason = error && error.message ? error.message : 'write-failed';
+        setBenchmarkAutoStatus(`카드 저장 실패: ${reason}`, 'warn');
+        console.error('[Benchmark Inline Save] 실패', { itemKey, reason });
+      } finally {
+        if (saveButton) {
+          saveButton.disabled = false;
+          saveButton.textContent = beforeText || '저장';
+        }
+      }
+    }
+
+    async function applyAiBenchmarkUpdatesToLocalState(rawText, options = {}) {
+      const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+      const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
+      const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
+      const parsed = parseAiBenchmarkText(rawText);
+      if (!parsed) {
+        return { ok: false, count: 0, total: 0, reason: 'parse-failed', unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
+      }
+
+      const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const updates = [];
+      const nowIso = new Date().toISOString();
+      const startedAt = Date.now();
+
+      Object.entries(matched).forEach(([itemKey, card]) => {
+        const [goalKey, indexText] = itemKey.split('::');
+        const goalTemplate = goalTemplates[goalKey];
+        const itemIndex = Number(indexText);
+        const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+        if (!goalTemplate || !item) return;
+        updates.push({
+          itemKey,
+          goalKey,
+          item,
+          payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+            skf: card.benchmarking.skf || '',
+            schaeffler: card.benchmarking.schaeffler || '',
+            koreaNsk: card.benchmarking.koreaNsk || '',
+            timken: card.benchmarking.timken || '',
+            updatedAt: nowIso
+          }))
+        });
+      });
+
+      if (!updates.length) {
+        return { ok: false, count: 0, total: unmatched.length, reason: 'no-matches', unmatched, missingFromResponse, appCardCount, aiResponseCount, failedCards: [], durationMs: Date.now() - startedAt };
+      }
+
+      const filteredUpdates = retryItemKeySet ? updates.filter((entry) => retryItemKeySet.has(entry.itemKey)) : updates;
+      if (!filteredUpdates.length) {
+        return { ok: false, count: 0, total: updates.length, reason: 'retry-no-targets', unmatched, missingFromResponse, appCardCount, aiResponseCount, failedCards: [], durationMs: Date.now() - startedAt };
+      }
+
+      filteredUpdates.forEach((update, idx) => {
+        const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
+        const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
+        itemState.benchmarking = { ...update.payload };
+        markItemUpdated(itemState);
+        onProgress(idx + 1, filteredUpdates.length);
+      });
+
+      savePlannerState(plannerState, { reason: 'ai-benchmark-local-apply' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+
+      const durationMs = Date.now() - startedAt;
+      const exportPayload = buildBenchmarkDataJsonPayload(plannerState);
+      if (benchmarkJsonOutput) {
+        benchmarkJsonOutput.value = JSON.stringify(exportPayload, null, 2);
+      }
+
+      return {
+        ok: true,
+        count: filteredUpdates.length,
+        total: filteredUpdates.length + unmatched.length,
+        reason: '',
+        unmatched,
+        missingFromResponse,
+        appCardCount,
+        aiResponseCount,
+        failedCards: [],
+        durationMs
+      };
     }
 
     function sanitizeFirestoreText(value) {
@@ -4390,6 +4569,8 @@
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
       renderMandalartBoard(state);
+      renderBenchmarkDataBasis();
+      renderBenchmarkDashboardSummary(state);
     }
 
     function focusDetailCardByKey(focusKey, focusStepIndex = -1) {
@@ -6209,6 +6390,9 @@
         const cycleCountLabel = card.querySelector('[data-cycle-count-label]');
         const archiveProjectInput = card.querySelector('.archive-project-input');
         const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
+        const benchmarkEditToggleBtn = card.querySelector('[data-benchmark-edit-toggle]');
+        const benchmarkEditorCancelBtn = card.querySelector('[data-benchmark-editor-cancel]');
+        const benchmarkEditorSaveBtn = card.querySelector('[data-benchmark-editor-save]');
         const [currentGoal, currentIndexText] = itemKey.split('::');
         const currentGoalTemplate = goalTemplates[currentGoal] || {};
         const currentItemIndex = Number(currentIndexText);
@@ -6255,6 +6439,22 @@
         };
 
         updateLeaderVisual();
+
+        if (benchmarkEditToggleBtn) {
+          benchmarkEditToggleBtn.addEventListener('click', () => {
+            toggleBenchmarkEditorPanel(itemKey);
+          });
+        }
+        if (benchmarkEditorCancelBtn) {
+          benchmarkEditorCancelBtn.addEventListener('click', () => {
+            closeAllBenchmarkEditorPanels();
+          });
+        }
+        if (benchmarkEditorSaveBtn) {
+          benchmarkEditorSaveBtn.addEventListener('click', () => {
+            saveBenchmarkEditorPanel(itemKey);
+          });
+        }
 
         if (prioritySelect) {
           prioritySelect.value = normalizePriorityValue(itemState.priority);
@@ -7310,7 +7510,7 @@
           }, 60000);
 
           try {
-            const result = await applyAiBenchmarkUpdatesFromText(rawText, {
+            const result = await applyAiBenchmarkUpdatesToLocalState(rawText, {
               retryItemKeys,
               onProgress: (done, total) => {
                 if (benchmarkAutoProgress) {
@@ -7340,9 +7540,6 @@
                 renderBenchmarkApplyActions({ showLogin: true });
               } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
-                renderBenchmarkApplyActions({ showRetry: true });
-              } else if (result && result.reason === 'firestore-timeout-repeated') {
-                message = `commit-timeout이 2회 연속 발생해 남은 배치를 중단했습니다. Firebase 에러 코드를 확인하려면 window.__benchmarkApplyDebug.disableCommitTimeout = true 후 다시 실행하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
@@ -7408,6 +7605,53 @@
             }
             benchmarkAutoApplyBtn.disabled = false;
           }
+        });
+      }
+
+      if (benchmarkRefreshBtn) {
+        benchmarkRefreshBtn.addEventListener('click', async () => {
+          await loadBenchmarkDataSource(true);
+          syncOverviewWidgets(loadPlannerState());
+          setBenchmarkAutoStatus('benchmark-data.json을 새로 불러왔습니다.', 'ok');
+        });
+      }
+
+      if (benchmarkExportBtn) {
+        benchmarkExportBtn.addEventListener('click', () => {
+          const payload = buildBenchmarkDataJsonPayload(loadPlannerState());
+          const jsonText = JSON.stringify(payload, null, 2);
+          if (benchmarkJsonOutput) benchmarkJsonOutput.value = jsonText;
+          downloadTextFile(BENCHMARK_DATA_FILE_NAME, jsonText);
+          setBenchmarkAutoStatus('benchmark-data.json 내보내기를 완료했습니다.', 'ok');
+        });
+      }
+
+      if (benchmarkCopyJsonBtn) {
+        benchmarkCopyJsonBtn.addEventListener('click', async () => {
+          const payload = buildBenchmarkDataJsonPayload(loadPlannerState());
+          const jsonText = JSON.stringify(payload, null, 2);
+          if (benchmarkJsonOutput) benchmarkJsonOutput.value = jsonText;
+          try {
+            await navigator.clipboard.writeText(jsonText);
+            setBenchmarkAutoStatus('JSON 내용을 클립보드로 복사했습니다.', 'ok');
+          } catch (error) {
+            if (benchmarkJsonOutput) {
+              benchmarkJsonOutput.focus();
+              benchmarkJsonOutput.select();
+            }
+            setBenchmarkAutoStatus('클립보드 권한이 없어 JSON 미리보기 선택으로 대체했습니다.', 'warn');
+          }
+        });
+      }
+
+      if (benchmarkDashboardSummaryList) {
+        benchmarkDashboardSummaryList.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-benchmark-focus-key]');
+          if (!button) return;
+          const itemKey = button.getAttribute('data-benchmark-focus-key') || '';
+          const goalKey = button.getAttribute('data-benchmark-focus-goal') || '';
+          if (!goalTemplates[goalKey]) return;
+          openGoalDetail(goalKey, itemKey);
         });
       }
 
@@ -7619,6 +7863,7 @@
         setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
       }
 
+      await loadBenchmarkDataSource(false);
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       applyEditabilityState();
