@@ -911,6 +911,36 @@
     .benchmark-editor-field textarea { width: 100%; min-height: 74px; border: 1px solid #cfdeed; border-radius: 8px; padding: 8px; font-size: 12px; line-height: 1.4; resize: vertical; background: #fff; color: #23425f; }
     .benchmark-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
+    .news-widget { margin-top: 16px; padding: 14px; border: 1px solid #d8e4ef; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); }
+    .news-widget-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .news-widget-title { font-size: 16px; font-weight: 800; color: #173f66; }
+    .news-widget-meta { font-size: 12px; color: #60758d; margin-top: 4px; }
+    .news-widget-header-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .news-widget-updated { font-size: 12px; color: #6a7d91; font-weight: 700; }
+    .news-widget-action-btn { border: 1px solid #b9cfe4; border-radius: 9px; background: #fff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-action-btn:hover { background: #f2f8ff; }
+    .news-widget-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .news-card { border: 1px solid #d6e3ee; border-radius: 11px; background: #ffffff; min-height: 102px; }
+    .news-card-link { display: grid; gap: 7px; height: 100%; padding: 10px 11px; color: inherit; text-decoration: none; }
+    .news-card-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: #1a3651; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-card-link:hover .news-card-title { text-decoration: underline; }
+    .news-card-meta { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #738396; white-space: nowrap; overflow: hidden; }
+    .news-card-source, .news-card-date { overflow: hidden; text-overflow: ellipsis; }
+    .news-card-date::before { content: '·'; margin-right: 6px; color: #9ba9b8; }
+    .news-card-date-muted { color: #9aa8b7; }
+    .news-widget-loading { margin-top: 8px; }
+    .news-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .news-skeleton-card { min-height: 102px; border: 1px solid #d6e3ee; border-radius: 11px; padding: 10px 11px; background: #fff; }
+    .news-skeleton-line { height: 11px; border-radius: 6px; background: linear-gradient(90deg, #ecf2f8 0%, #f7fbff 50%, #ecf2f8 100%); background-size: 220% 100%; animation: newsShimmer 1.2s infinite; }
+    .news-skeleton-line + .news-skeleton-line { margin-top: 7px; }
+    .news-skeleton-line.title { width: 88%; }
+    .news-skeleton-line.title-2 { width: 65%; }
+    .news-skeleton-line.meta { margin-top: 18px; width: 48%; }
+    .news-widget-error { margin-top: 8px; border: 1px solid #efc7c7; border-radius: 10px; background: #fff6f6; color: #7b2a2a; padding: 10px; font-size: 12px; display: grid; gap: 8px; }
+    .news-widget-retry-btn { width: fit-content; border: 1px solid #d6a1a1; border-radius: 8px; background: #fff; color: #7b2a2a; padding: 6px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-retry-btn:hover { background: #fff0f0; }
+    @keyframes newsShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
     .field-input { display: grid; gap: 10px; }
     .field-input input,
     .field-input textarea,
@@ -944,6 +974,7 @@
       .workflow-item { flex-wrap: wrap; }
       .workflow-header { align-items: flex-start; }
       .workflow-header-tools { width: 100%; }
+      .news-widget-list, .news-skeleton-grid { grid-template-columns: 1fr; }
     }
   </style>
   <script type="module">
@@ -1265,7 +1296,6 @@
       <div class="news-settings-tabs" role="tablist" aria-label="뉴스 설정 탭">
         <button type="button" class="news-settings-tab active" data-news-tab="exclude">제외어</button>
         <button type="button" class="news-settings-tab" data-news-tab="queries">검색 쿼리</button>
-        <button type="button" class="news-settings-tab" data-news-tab="hidden">숨긴 기사</button>
       </div>
       <div class="news-settings-tab-panels">
         <section class="news-settings-panel active" data-news-panel="exclude">
@@ -1290,13 +1320,6 @@
           <div class="news-query-list" id="newsQueryList"></div>
           <div class="news-settings-footer-actions">
             <button type="button" class="news-settings-secondary-btn" id="newsQueryAddBtn">+ 쿼리 추가</button>
-          </div>
-        </section>
-        <section class="news-settings-panel" data-news-panel="hidden">
-          <div class="news-settings-panel-note">개별 숨김 처리한 기사 목록입니다. 숨김 해제 시 다시 표시됩니다.</div>
-          <div class="news-hidden-list" id="newsHiddenList"></div>
-          <div class="news-settings-footer-actions">
-            <button type="button" class="news-settings-secondary-btn" id="newsHiddenClearBtn">전체 해제</button>
           </div>
         </section>
       </div>
@@ -1362,8 +1385,6 @@
     const newsExcludeWordAddBtn = document.getElementById('newsExcludeWordAddBtn');
     const newsQueryList = document.getElementById('newsQueryList');
     const newsQueryAddBtn = document.getElementById('newsQueryAddBtn');
-    const newsHiddenList = document.getElementById('newsHiddenList');
-    const newsHiddenClearBtn = document.getElementById('newsHiddenClearBtn');
     const newsSettingsSaveBtn = document.getElementById('newsSettingsSaveBtn');
     const newsSettingsStatus = document.getElementById('newsSettingsStatus');
     const teamOverviewSection = document.getElementById('teamOverviewSection');
@@ -7296,44 +7317,11 @@
         : NEWS_SEARCH_QUERY;
     }
 
-    function extractNewsWordCandidates(title, excludeWords = []) {
-      const stopWords = new Set([
-        '및', '관련', '기사', '뉴스', '시장', '동향', '최신', '오늘', '이번', '대한', '대한', '위한', '통한', '그리고', '에서', '으로', '에게', '부터', '까지', '한다', '했다', '하는', '등의', '등', '전망', '정리', '공개'
-      ]);
-      const excluded = new Set((Array.isArray(excludeWords) ? excludeWords : []).map((word) => sanitizeNewsWord(word).toLowerCase()).filter(Boolean));
-      const tokens = sanitizeNewsWord(title)
-        .split(/[\s\u3000]+|[()\[\]{}<>"'“”‘’`~,.;:!?/\\|·•-]+/g)
-        .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim())
-        .filter(Boolean);
-
-      const candidates = [];
-      tokens.forEach((token) => {
-        if (candidates.length >= 10) return;
-        if (token.length < 2) return;
-        if (/^[\d]+$/.test(token)) return;
-        if (!/[가-힣A-Za-z]/.test(token)) return;
-        if (stopWords.has(token)) return;
-        if (/^[0-9,.-]+$/.test(token)) return;
-        if (excluded.has(token.toLowerCase())) return;
-        if (candidates.includes(token)) return;
-        candidates.push(token);
-      });
-
-      return candidates.slice(0, 10);
-    }
-
     function matchNewsArticleQuery(article, queryText) {
       const query = sanitizeNewsWord(queryText);
       if (!query) return true;
       const haystack = `${article.title || ''} ${article.sourceName || ''} ${article.summary || ''}`.toLowerCase();
       return query.toLowerCase().split(/\s+|\|\||or|,/g).map((part) => part.trim()).filter(Boolean).some((part) => haystack.includes(part.replace(/[()]/g, '').trim().toLowerCase()));
-    }
-
-    function isNewsHiddenArticle(article) {
-      const config = getNewsConfigState();
-      const articleId = getNewsArticleId(article);
-      if (!articleId) return false;
-      return Array.isArray(config.hiddenArticles) && config.hiddenArticles.some((hidden) => getNewsArticleId(hidden) === articleId || (hidden.link && article.link && hidden.link === article.link));
     }
 
     function isNewsWordExcluded(article, excludeWords = getNewsConfigState().excludeWords) {
@@ -7419,10 +7407,9 @@
       const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
       const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, buildNewsQuerySignature(config)));
       const excludeFiltered = industryItems.filter((item) => !isNewsWordExcluded(item, excludeWords));
-      const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item));
       const excludeRemoved = industryItems.length - excludeFiltered.length;
       const industryRemoved = rawItems.length - industryItems.length;
-      const unique = dedupeNewsArticles(hiddenFiltered);
+      const unique = dedupeNewsArticles(excludeFiltered);
       const finalCount = unique.length;
       logNewsFilterPipeline(rawItems.length, excludeRemoved, industryRemoved, finalCount);
       return {
@@ -7545,69 +7532,10 @@
       renderNewsSettingsLists();
     }
 
-    async function clearHiddenNewsArticles() {
-      const config = getNewsConfigState();
-      config.hiddenArticles = [];
-      newsConfigState = config;
-      await saveNewsConfig('clear-hidden-articles');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function unhideNewsArticle(index) {
-      const config = getNewsConfigState();
-      config.hiddenArticles = (config.hiddenArticles || []).filter((_, itemIndex) => itemIndex !== index);
-      newsConfigState = config;
-      await saveNewsConfig('unhide-article');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function hideNewsArticle(article) {
-      const config = getNewsConfigState();
-      const articleId = getNewsArticleId(article);
-      if (!articleId) return;
-      if ((config.hiddenArticles || []).some((item) => getNewsArticleId(item) === articleId)) return;
-      config.hiddenArticles = [...(config.hiddenArticles || []), {
-        id: articleId,
-        title: sanitizeNewsWord(article && article.title),
-        link: typeof article?.link === 'string' ? article.link : '',
-        pubDate: typeof article?.pubDate === 'string' ? article.pubDate : '',
-        sourceName: article && article.source && typeof article.source.title === 'string' ? article.source.title : '',
-        hiddenAt: new Date().toISOString(),
-        reason: 'manual'
-      }];
-      newsConfigState = config;
-      await saveNewsConfig('hide-article');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
     function attachNewsWidgetInteractionHandlers() {
       if (newsWidgetList && !newsWidgetList.dataset.bound) {
         newsWidgetList.dataset.bound = 'true';
-        newsWidgetList.addEventListener('click', async (event) => {
-          const hideTrigger = event.target.closest('[data-news-hide-trigger]');
-          if (hideTrigger) {
-            event.preventDefault();
-            const card = hideTrigger.closest('[data-news-article]');
-            if (!card) return;
-            const articleId = card.dataset.newsArticle || '';
-            const item = newsVisibleItems.find((entry) => getNewsArticleId(entry) === articleId) || newsRawItemsCache.find((entry) => getNewsArticleId(entry) === articleId);
-            if (item) {
-              const popover = card.querySelector(`[data-news-popover-for="${CSS.escape(articleId)}"]`);
-              if (popover) popover.hidden = !popover.hidden;
-              await hideNewsArticle(item);
-            }
-            return;
-          }
-          const excludeChip = event.target.closest('[data-news-exclude-word]');
-          if (excludeChip) {
-            event.preventDefault();
-            await addNewsExcludeWords(excludeChip.dataset.newsExcludeWord || '');
-            return;
-          }
-        });
+        newsWidgetList.addEventListener('click', () => {});
       }
 
       if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
@@ -7634,11 +7562,6 @@
             await removeNewsQuery(Number(removeQuery.dataset.newsRemoveQuery));
             return;
           }
-          const unhideItem = event.target.closest('[data-news-unhide-index]');
-          if (unhideItem) {
-            await unhideNewsArticle(Number(unhideItem.dataset.newsUnhideIndex));
-            return;
-          }
         });
       }
 
@@ -7654,11 +7577,6 @@
       if (newsQueryAddBtn && !newsQueryAddBtn.dataset.bound) {
         newsQueryAddBtn.dataset.bound = 'true';
         newsQueryAddBtn.addEventListener('click', addNewsQuery);
-      }
-
-      if (newsHiddenClearBtn && !newsHiddenClearBtn.dataset.bound) {
-        newsHiddenClearBtn.dataset.bound = 'true';
-        newsHiddenClearBtn.addEventListener('click', clearHiddenNewsArticles);
       }
 
       if (newsSettingsSaveBtn && !newsSettingsSaveBtn.dataset.bound) {
@@ -8040,15 +7958,6 @@
         `).join('') || '<div class="news-settings-empty">검색 쿼리가 없습니다.</div>';
       }
 
-      if (newsHiddenList) {
-        newsHiddenList.innerHTML = (config.hiddenArticles || []).map((item, index) => `
-          <div class="news-hidden-row" data-news-hidden-index="${index}">
-            <div class="news-hidden-title">${escapeHtml(item.title || item.link || '숨긴 기사')}</div>
-            <div class="news-hidden-meta">${escapeHtml(item.sourceName || '')}</div>
-            <button type="button" class="news-chip-remove" data-news-unhide-index="${index}">해제</button>
-          </div>
-        `).join('') || '<div class="news-settings-empty">숨긴 기사가 없습니다.</div>';
-      }
     }
 
     function setNewsSettingsTab(tabName) {
