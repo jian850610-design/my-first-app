@@ -34,6 +34,8 @@
     .header-bar p { margin: 0; color: rgba(255,255,255,0.78); max-width: 860px; line-height: 1.7; }
     .header-meta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
     .header-chip { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 12px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+    .header-chip.kpi-status-chip { cursor: pointer; color: #ffffff; font-weight: 800; }
+    .header-chip.kpi-status-chip:hover { background: rgba(255,255,255,0.18); }
     .header-status { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .quick-nav-wrap { display: inline-flex; align-items: center; gap: 8px; }
     .quick-nav-label { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; letter-spacing: 0.04em; }
@@ -404,26 +406,162 @@
     }
     .news-widget { width: 100%; margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
     .news-widget-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .news-widget-header-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .news-widget-title { font-size: 16px; font-weight: 800; color: #173b5f; line-height: 1.4; }
     .news-widget-meta { font-size: 12px; color: #688099; }
+    .news-widget-updated { font-size: 12px; font-weight: 800; color: #4f6781; background: #eef5ff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 6px 10px; }
+    .news-widget-action-btn { border: 1px solid #8fb3d8; border-radius: 999px; background: #ffffff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-action-btn:hover { background: #f5faff; }
     .news-widget-list { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .news-card-wrap { position: relative; }
     .news-card { display: grid; gap: 10px; width: 100%; border: 1px solid #d8e7f4; border-radius: 18px; background: #ffffff; padding: 14px; color: inherit; text-decoration: none; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; }
     .news-card:hover { transform: translateY(-2px); border-color: #8fb7db; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.14); background: #f7fbff; }
+    .news-card-tools { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 6px; z-index: 2; }
+    .news-hide-btn { border: 1px solid #efc6c6; border-radius: 999px; background: #fff7f7; color: #b54545; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .news-hide-btn:hover { background: #ffecec; }
+    .news-card-popover { position: absolute; top: 40px; right: 0; width: min(340px, calc(100vw - 52px)); border: 1px solid #d8e3ef; border-radius: 16px; background: #ffffff; box-shadow: 0 18px 30px rgba(8, 23, 49, 0.16); padding: 12px; display: grid; gap: 10px; z-index: 3; }
+    .news-card-popover[hidden] { display: none; }
+    .news-card-popover-title { font-size: 12px; font-weight: 900; color: #173b5f; }
+    .news-card-popover-note { font-size: 11px; color: #6b7f95; line-height: 1.5; }
+    .news-candidate-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .news-candidate-btn { border: 1px solid #d4dfee; border-radius: 999px; background: #f7fbff; color: #244f78; padding: 6px 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-candidate-btn.selected { background: #dff2ff; border-color: #8fc0e2; color: #13507a; }
+    .news-card-popover-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .news-popover-btn { border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #244a70; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-popover-btn.primary { background: #0f5f9d; color: #ffffff; border-color: #0f5f9d; }
+    .news-popover-btn.danger { background: #fff5f5; color: #a13b3b; border-color: #efc6c6; }
     .news-card-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.55; display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .news-card-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 11px; color: #6b7f95; }
     .news-card-source { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; background: #eef5ff; color: #24547f; font-weight: 800; }
     .news-card-date { white-space: nowrap; }
     .news-widget-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
     .news-widget-loading { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #5d7187; font-size: 13px; line-height: 1.6; }
+    .news-widget-empty .news-empty-actions { margin-top: 10px; display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .news-widget-empty .news-empty-btn { border: 1px solid #8fb3d8; border-radius: 999px; background: #ffffff; color: #1f507a; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-widget-empty .news-empty-btn:hover { background: #f5faff; }
+
+    .news-settings-modal[hidden] { display: none; }
+    .news-settings-modal { position: fixed; inset: 0; z-index: 2100; display: grid; place-items: center; padding: 20px; }
+    .news-settings-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 22, 46, 0.58); backdrop-filter: blur(4px); }
+    .news-settings-modal-panel { position: relative; width: min(980px, 100%); max-height: min(90vh, 920px); overflow: auto; background: #fffdf6; border-radius: 22px; border: 1px solid #e4cc78; box-shadow: 0 22px 50px rgba(8, 23, 49, 0.26); padding: 18px; display: grid; gap: 14px; }
+    .news-settings-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .news-settings-modal-kicker { font-size: 11px; font-weight: 900; color: #8a6700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .news-settings-modal-title { font-size: 20px; font-weight: 900; color: #2f2200; line-height: 1.3; }
+    .news-settings-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #f3e1a9; color: #624500; font-size: 22px; font-weight: 900; cursor: pointer; }
+    .news-settings-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .news-settings-tab { border: 1px solid #d9c46b; border-radius: 999px; background: #fff8e0; color: #6c5108; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-settings-tab.active { background: #f3b71a; color: #3f2d00; border-color: #dfaa11; }
+    .news-settings-tab-panels { display: grid; gap: 12px; }
+    .news-settings-panel { display: none; gap: 12px; }
+    .news-settings-panel.active { display: grid; }
+    .news-settings-panel-note { font-size: 12px; color: #755600; line-height: 1.6; }
+    .news-settings-input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .news-settings-input-row input { flex: 1 1 260px; min-height: 40px; border: 1px solid #dfc76e; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .news-settings-input-row input:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .news-settings-primary-btn,
+    .news-settings-secondary-btn { border: none; border-radius: 10px; padding: 9px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .news-settings-primary-btn { background: #0f5f9d; color: #ffffff; }
+    .news-settings-primary-btn:hover { background: #0b73bc; }
+    .news-settings-secondary-btn { background: #ffffff; color: #614600; border: 1px solid #d9c46b; }
+    .news-settings-secondary-btn:hover { background: #fff8e0; }
+    .news-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .news-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d6e2ec; background: #ffffff; border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #1f507a; font-weight: 800; }
+    .news-chip .news-chip-count { font-size: 10px; color: #6b7f95; font-weight: 700; }
+    .news-chip button { border: none; background: transparent; color: #af4545; cursor: pointer; font-size: 14px; font-weight: 900; line-height: 1; }
+    .news-query-list,
+    .news-hidden-list { display: grid; gap: 10px; }
+    .news-query-row,
+    .news-hidden-row { border: 1px solid #dbe4ef; border-radius: 14px; background: #ffffff; padding: 12px; display: grid; gap: 8px; }
+    .news-query-row-top,
+    .news-hidden-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .news-query-row-title,
+    .news-hidden-row-title { font-size: 13px; font-weight: 800; color: #173b5f; }
+    .news-query-row-meta,
+    .news-hidden-row-meta { font-size: 11px; color: #6b7f95; line-height: 1.5; }
+    .news-query-row-actions,
+    .news-hidden-row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .news-query-row-actions button,
+    .news-hidden-row-actions button { border: 1px solid #cfdced; border-radius: 10px; background: #ffffff; color: #244a70; padding: 6px 9px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .news-query-row-actions button.active { background: #e7f3ff; border-color: #8fb3d8; }
+    .news-hidden-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 14px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.6; }
+    .news-settings-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #efdca7; padding-top: 12px; }
+    .news-settings-status { font-size: 12px; color: #7b5f14; font-weight: 700; }
 
     .detail-panel { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 22px; }
     .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 24px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); }
     .detail-card h2 { margin: 0 0 10px; font-size: 20px; color: var(--text); }
     .detail-card p { margin: 0; color: var(--muted); line-height: 1.75; }
-    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 7px; }
-    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; }
-    .goal-guideline-badge-list { margin: 0; padding-left: 17px; display: grid; gap: 4px; }
-    .goal-guideline-badge-list li { font-size: 12px; color: #6d520a; line-height: 1.5; }
+    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 10px; }
+    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .goal-guideline-badge-subtitle { font-size: 11px; color: #836113; font-weight: 700; }
+    .goal-guideline-badge-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-action-btn { border: 1px solid #d9b84c; border-radius: 10px; background: #ffffff; color: #805900; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-action-btn:hover { background: #fff8de; }
+    .kpi-action-btn.primary { background: #f3b71a; border-color: #dfaa11; color: #3f2d00; }
+    .kpi-action-btn.primary:hover { background: #ffc936; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .kpi-empty { border: 1px dashed #e0c55d; border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.55); color: #6c5510; font-size: 12px; line-height: 1.6; }
+    .kpi-card { border: 1px solid #e0c55d; border-radius: 14px; background: rgba(255,255,255,0.82); box-shadow: 0 8px 18px rgba(123, 90, 8, 0.08); padding: 12px; display: grid; gap: 10px; }
+    .kpi-card.good { border-color: #8dd5ab; }
+    .kpi-card.warn { border-color: #f2d18b; }
+    .kpi-card.poor { border-color: #f0b27f; }
+    .kpi-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .kpi-card-title { font-size: 13px; font-weight: 800; color: #433100; line-height: 1.45; }
+    .kpi-card-title small { display: block; margin-top: 2px; color: #796014; font-weight: 700; font-size: 11px; }
+    .kpi-card-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-icon-btn { border: 1px solid #dfc76e; border-radius: 999px; background: #ffffff; color: #6f5500; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .kpi-icon-btn:hover { background: #fff4c8; }
+    .kpi-stat { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #3f2f08; font-weight: 800; }
+    .kpi-progress-track { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.95); border: 1px solid rgba(178, 153, 63, 0.18); }
+    .kpi-progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4c23b 0%, #ff9f1c 100%); }
+    .kpi-card.good .kpi-progress-bar { background: linear-gradient(90deg, #32c97a 0%, #14a96d 100%); }
+    .kpi-card.warn .kpi-progress-bar { background: linear-gradient(90deg, #ffdb55 0%, #e6a515 100%); }
+    .kpi-card.poor .kpi-progress-bar { background: linear-gradient(90deg, #ffb36b 0%, #ff8d2a 100%); }
+    .kpi-meta-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 11px; color: #6f5d28; font-weight: 700; }
+    .kpi-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; }
+    .kpi-badge.alert { background: #fff0d8; color: #b96a00; border: 1px solid #f0c581; }
+    .kpi-badge.stale { background: #fff1e7; color: #c15a14; border: 1px solid #efb38d; }
+    .kpi-card-editing { border-color: #d4aa2d; box-shadow: 0 10px 20px rgba(123, 90, 8, 0.12); }
+    .kpi-inline-editor { display: none; gap: 8px; border-top: 1px solid rgba(157, 124, 22, 0.16); padding-top: 10px; }
+    .kpi-card-editing .kpi-inline-editor { display: grid; }
+    .kpi-inline-editor input { width: 100%; border: 1px solid #dfc76e; border-radius: 10px; padding: 9px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-inline-editor input:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-inline-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .kpi-inline-btn { border: none; border-radius: 999px; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-inline-btn.save { background: #0f5f9d; color: #ffffff; }
+    .kpi-inline-btn.cancel { background: #f5e7b0; color: #6c5210; }
+    .kpi-edit-banner { border: 1px dashed #d9b84c; border-radius: 10px; padding: 12px; background: rgba(255,255,255,0.65); color: #755600; font-size: 12px; line-height: 1.6; }
+    .kpi-settings-list,
+    .kpi-batch-list { display: grid; gap: 10px; }
+    .kpi-settings-row,
+    .kpi-batch-row { border: 1px solid #e6d28d; border-radius: 14px; background: #ffffff; padding: 12px; display: grid; gap: 8px; }
+    .kpi-settings-row-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .kpi-settings-row-title { font-size: 13px; font-weight: 800; color: #40300b; }
+    .kpi-settings-row-tools { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-mini-btn { border: 1px solid #d9b84c; border-radius: 8px; background: #fff7db; color: #745300; padding: 5px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-mini-btn:hover { background: #fff0b5; }
+    .kpi-setting-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kpi-setting-grid input,
+    .kpi-setting-grid textarea { width: 100%; border: 1px solid #deca83; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-setting-grid textarea { min-height: 72px; resize: vertical; grid-column: 1 / -1; }
+    .kpi-setting-grid input:focus,
+    .kpi-setting-grid textarea:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-modal[hidden] { display: none; }
+    .kpi-modal { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; }
+    .kpi-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 22, 46, 0.58); backdrop-filter: blur(4px); }
+    .kpi-modal-panel { position: relative; width: min(960px, 100%); max-height: min(88vh, 900px); overflow: auto; background: #fffdf7; border-radius: 22px; border: 1px solid #e4cc78; box-shadow: 0 22px 50px rgba(8, 23, 49, 0.26); padding: 18px; display: grid; gap: 14px; }
+    .kpi-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .kpi-modal-kicker { font-size: 11px; font-weight: 900; color: #8a6700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .kpi-modal-title { font-size: 20px; font-weight: 900; color: #2f2200; line-height: 1.3; }
+    .kpi-modal-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #f3e1a9; color: #624500; font-size: 22px; font-weight: 900; cursor: pointer; }
+    .kpi-modal-body { display: grid; gap: 12px; }
+    .kpi-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .kpi-modal-note { font-size: 12px; color: #7b5f14; }
+    .kpi-modal-footer-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-toast { position: fixed; right: 20px; bottom: 20px; z-index: 3000; min-width: 220px; max-width: min(92vw, 420px); padding: 12px 14px; border-radius: 14px; color: #ffffff; font-size: 13px; font-weight: 800; box-shadow: 0 16px 30px rgba(8, 23, 49, 0.22); opacity: 0; transform: translateY(12px); transition: opacity 0.2s ease, transform 0.2s ease; pointer-events: none; }
+    .kpi-toast.visible { opacity: 1; transform: translateY(0); }
+    .kpi-toast.ok { background: linear-gradient(135deg, #0f8f58 0%, #17b16b 100%); }
+    .kpi-toast.warn { background: linear-gradient(135deg, #c96e00 0%, #ff8f1f 100%); }
 
     .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
@@ -473,6 +611,15 @@
     .benchmark-prompt-status { font-size: 12px; color: #4f6781; }
     .benchmark-prompt-status.ok { color: #0f6c43; }
     .benchmark-prompt-status.warn { color: #9a4d00; }
+    .benchmark-data-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .benchmark-data-btn:hover { background: #e5f1ff; }
+    .benchmark-backup-section { margin-top: 10px; display: grid; gap: 6px; justify-items: start; }
+    .benchmark-backup-section[hidden] { display: none; }
+    .benchmark-backup-btn { border: 1px solid #b7cde4; border-radius: 8px; background: #f8fbff; color: #425f7c; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .benchmark-backup-btn:hover { background: #edf5ff; }
+    .benchmark-backup-note { font-size: 12px; color: #627b95; }
+    .benchmark-dashboard-link { border: 1px solid #e7b7b7; border-radius: 999px; background: #fff; color: #8a2c2c; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .benchmark-dashboard-link:hover { background: #fff1f1; }
     .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
     .benchmark-auto-panel { display: grid; gap: 10px; padding: 14px; border: 1px solid #d7e5f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%); }
     .benchmark-auto-title { font-size: 13px; font-weight: 800; color: #173f66; }
@@ -522,6 +669,21 @@
     .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
     .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
     .benchmark-exec-item p { margin: 0; font-size: 12px; line-height: 1.55; color: #23425f; white-space: pre-wrap; }
+    .benchmark-meta-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .benchmark-updated-label { font-size: 11px; color: #4f6781; font-weight: 700; }
+    .benchmark-stale-badge { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 3px 8px; border: 1px solid #d3dbe6; background: #f5f8fc; color: #5b6f87; }
+    .benchmark-stale-badge.stale-30 { border-color: #f0c188; background: #fff8ef; color: #8a5a00; }
+    .benchmark-stale-badge.stale-60 { border-color: #e7a7a7; background: #fff1f1; color: #8a2c2c; }
+    .benchmark-browser-dirty-badge { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 3px 8px; border: 1px solid #f0c188; background: #fff6e8; color: #8a5a00; }
+    .benchmark-edit-trigger { border: 1px solid #8fb3d8; border-radius: 8px; background: #fff; color: #1f507a; padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .benchmark-edit-trigger:hover { background: #f5faff; }
+    .benchmark-editor-panel { margin-top: 8px; display: none; gap: 8px; padding: 10px; border: 1px dashed #b7d0e6; border-radius: 10px; background: #f8fbff; }
+    .benchmark-editor-panel.visible { display: grid; }
+    .benchmark-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .benchmark-editor-field { display: grid; gap: 4px; }
+    .benchmark-editor-field label { font-size: 11px; color: #4d6d8c; font-weight: 800; }
+    .benchmark-editor-field textarea { width: 100%; min-height: 74px; border: 1px solid #cfdeed; border-radius: 8px; padding: 8px; font-size: 12px; line-height: 1.4; resize: vertical; background: #fff; color: #23425f; }
+    .benchmark-editor-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
     .field-input { display: grid; gap: 10px; }
     .field-input input,
@@ -561,7 +723,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { initializeFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, getDoc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -582,12 +744,7 @@
       app = initializeApp(FIREBASE_CONFIG);
       auth = getAuth(app);
       db = getDatabase(app);
-      // Firestore 쓰기만 장시간 pending 되는 사내 프록시/방화벽 환경을 우회하기 위해
-      // WebChannel 대신 long-polling을 강제한다. 이 초기화는 어떤 Firestore API 호출보다 먼저 실행되어야 한다.
-      firestore = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        useFetchStreams: false
-      });
+      firestore = getFirestore(app);
     } catch (error) {
       firebaseInitError = error;
       console.error('[Firebase Init] 초기화 실패', error);
@@ -614,12 +771,17 @@
       onValue,
       ref,
       set,
+      getDoc,
       updateDoc,
       setDoc,
       writeBatch,
       getBenchmarkDocRef(itemKey) {
         if (!firestore) return null;
         return doc(firestore, 'plans', 'skf-daily', 'benchmarks', itemKey);
+      },
+      getNewsConfigDocRef() {
+        if (!firestore) return null;
+        return doc(firestore, 'plans', 'skf-daily', 'news-config', NEWS_CONFIG_DOC_KEY);
       },
       getDateRef(dateKey) {
         if (!db) return null;
@@ -645,6 +807,7 @@
           <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
         </div>
         <div class="header-tools">
+          <button type="button" class="header-chip kpi-status-chip" id="kpiStatusChip">KPI 갱신 필요 0개 · 페이스 부족 0개</button>
           <div class="quick-nav-wrap">
             <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
             <select class="quick-nav-select" id="quickGoalSelect">
@@ -782,6 +945,10 @@
             <div class="benchmark-missing-cards-list" id="benchmarkMissingCardsList"></div>
           </div>
         </div>
+        <div class="benchmark-backup-section" id="benchmarkBackupSection" hidden>
+          <button type="button" class="benchmark-backup-btn" id="benchmarkBackupExportBtn">📥 데이터 백업 (JSON 다운로드)</button>
+          <div class="benchmark-backup-note">만일을 대비한 백업 파일입니다. 팀원 공유와는 무관합니다.</div>
+        </div>
       </section>
     </section>
 
@@ -813,8 +980,14 @@
             <div class="news-widget-title" id="newsWidgetTitle">📰 실시간 관련 B2B &amp; 시장 동향</div>
             <div class="news-widget-meta" id="newsWidgetMeta">선택된 핵심목표와 관련된 최신 기사 3~4개를 불러옵니다.</div>
           </div>
+          <div class="news-widget-header-actions">
+            <div class="news-widget-updated" id="newsUpdatedText">뉴스 갱신: -</div>
+            <button type="button" class="news-widget-action-btn" id="newsRefreshBtn">🔄 새로고침</button>
+            <button type="button" class="news-widget-action-btn" id="newsSettingsBtn">🔧 검색어 설정</button>
+          </div>
         </div>
         <div class="news-widget-list" id="newsWidgetList"></div>
+        <div class="news-widget-empty" id="newsWidgetEmpty" hidden></div>
         <div class="news-widget-loading" id="newsWidgetLoading">최신 뉴스를 불러오는 중입니다.</div>
       </section>
 
@@ -823,10 +996,7 @@
           <div class="detail-card">
             <h2 id="detailTitle">선택된 목표 상세 내용</h2>
             <p id="detailSubtitle">상단에서 목표를 선택하면 관련 업무 계획과 참고 내용이 자동으로 업데이트됩니다.</p>
-            <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden>
-              <div class="goal-guideline-badge-title" id="goalGuidelineBadgeTitle"></div>
-              <ul class="goal-guideline-badge-list" id="goalGuidelineBadgeList"></ul>
-            </div>
+            <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden></div>
           </div>
         </div>
         <div class="details-grid" id="detailItems"></div>
@@ -839,6 +1009,70 @@
         </div>
       </section>
     </section>
+  </div>
+
+  <div class="kpi-modal" id="kpiModal" hidden>
+    <div class="kpi-modal-backdrop" data-kpi-modal-action="close"></div>
+    <div class="kpi-modal-panel" role="dialog" aria-modal="true" aria-labelledby="kpiModalTitle">
+      <div class="kpi-modal-header">
+        <div>
+          <div class="kpi-modal-kicker" id="kpiModalKicker"></div>
+          <div class="kpi-modal-title" id="kpiModalTitle"></div>
+        </div>
+        <button type="button" class="kpi-modal-close-btn" data-kpi-modal-action="close">×</button>
+      </div>
+      <div class="kpi-modal-body" id="kpiModalBody"></div>
+      <div class="kpi-modal-footer" id="kpiModalFooter"></div>
+    </div>
+  </div>
+
+  <div class="news-settings-modal" id="newsSettingsModal" hidden>
+    <div class="news-settings-modal-backdrop" data-news-settings-action="close"></div>
+    <div class="news-settings-modal-panel" role="dialog" aria-modal="true" aria-labelledby="newsSettingsTitle">
+      <div class="news-settings-modal-header">
+        <div>
+          <div class="news-settings-modal-kicker">뉴스 필터 관리</div>
+          <div class="news-settings-modal-title" id="newsSettingsTitle">🔧 검색어 설정</div>
+        </div>
+        <button type="button" class="news-settings-close-btn" data-news-settings-action="close">×</button>
+      </div>
+      <div class="news-settings-tabs" role="tablist" aria-label="뉴스 설정 탭">
+        <button type="button" class="news-settings-tab active" data-news-tab="exclude">제외어</button>
+        <button type="button" class="news-settings-tab" data-news-tab="queries">검색 쿼리</button>
+        <button type="button" class="news-settings-tab" data-news-tab="hidden">숨긴 기사</button>
+      </div>
+      <div class="news-settings-tab-panels">
+        <section class="news-settings-panel active" data-news-panel="exclude">
+          <div class="news-settings-panel-note">현재 제외어를 관리합니다. 제외어를 바꾸면 RSS를 다시 불러오지 않고 즉시 필터만 다시 적용합니다.</div>
+          <div class="news-chip-list" id="newsExcludeWordList"></div>
+          <div class="news-settings-input-row">
+            <input type="text" id="newsExcludeWordInput" placeholder="쉼표나 엔터로 여러 개 추가" />
+            <button type="button" class="news-settings-primary-btn" id="newsExcludeWordAddBtn">추가</button>
+          </div>
+        </section>
+        <section class="news-settings-panel" data-news-panel="queries">
+          <div class="news-settings-panel-note">검색 쿼리는 변경 시에만 RSS를 다시 호출합니다.</div>
+          <div class="news-query-list" id="newsQueryList"></div>
+          <div class="news-settings-footer-actions">
+            <button type="button" class="news-settings-secondary-btn" id="newsQueryAddBtn">+ 쿼리 추가</button>
+          </div>
+        </section>
+        <section class="news-settings-panel" data-news-panel="hidden">
+          <div class="news-settings-panel-note">개별 숨김 처리한 기사 목록입니다. 숨김 해제 시 다시 표시됩니다.</div>
+          <div class="news-hidden-list" id="newsHiddenList"></div>
+          <div class="news-settings-footer-actions">
+            <button type="button" class="news-settings-secondary-btn" id="newsHiddenClearBtn">전체 해제</button>
+          </div>
+        </section>
+      </div>
+      <div class="news-settings-modal-footer">
+        <div class="news-settings-status" id="newsSettingsStatus"></div>
+        <div class="news-settings-footer-actions">
+          <button type="button" class="news-settings-secondary-btn" data-news-settings-action="close">닫기</button>
+          <button type="button" class="news-settings-primary-btn" id="newsSettingsSaveBtn">저장</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -878,7 +1112,21 @@
     const newsWidgetTitle = document.getElementById('newsWidgetTitle');
     const newsWidgetMeta = document.getElementById('newsWidgetMeta');
     const newsWidgetList = document.getElementById('newsWidgetList');
+    const newsWidgetEmpty = document.getElementById('newsWidgetEmpty');
     const newsWidgetLoading = document.getElementById('newsWidgetLoading');
+    const newsUpdatedText = document.getElementById('newsUpdatedText');
+    const newsRefreshBtn = document.getElementById('newsRefreshBtn');
+    const newsSettingsBtn = document.getElementById('newsSettingsBtn');
+    const newsSettingsModal = document.getElementById('newsSettingsModal');
+    const newsExcludeWordList = document.getElementById('newsExcludeWordList');
+    const newsExcludeWordInput = document.getElementById('newsExcludeWordInput');
+    const newsExcludeWordAddBtn = document.getElementById('newsExcludeWordAddBtn');
+    const newsQueryList = document.getElementById('newsQueryList');
+    const newsQueryAddBtn = document.getElementById('newsQueryAddBtn');
+    const newsHiddenList = document.getElementById('newsHiddenList');
+    const newsHiddenClearBtn = document.getElementById('newsHiddenClearBtn');
+    const newsSettingsSaveBtn = document.getElementById('newsSettingsSaveBtn');
+    const newsSettingsStatus = document.getElementById('newsSettingsStatus');
     const teamOverviewSection = document.getElementById('teamOverviewSection');
     const teamOverviewToggleBtn = document.getElementById('teamOverviewToggleBtn');
     const teamAssigneeFilter = document.getElementById('teamAssigneeFilter');
@@ -894,12 +1142,20 @@
     const benchmarkAutoStatus = document.getElementById('benchmarkAutoStatus');
     const benchmarkAutoProgress = document.getElementById('benchmarkAutoProgress');
     const benchmarkAutoActionArea = document.getElementById('benchmarkAutoActionArea');
+    const benchmarkBackupSection = document.getElementById('benchmarkBackupSection');
+    const benchmarkBackupExportBtn = document.getElementById('benchmarkBackupExportBtn');
     const benchmarkApplyFailureSection = document.getElementById('benchmarkApplyFailureSection');
     const benchmarkApplyFailureList = document.getElementById('benchmarkApplyFailureList');
     const benchmarkManualMappingSection = document.getElementById('benchmarkManualMappingSection');
     const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
     const benchmarkMissingCardsSection = document.getElementById('benchmarkMissingCardsSection');
     const benchmarkMissingCardsList = document.getElementById('benchmarkMissingCardsList');
+    const kpiStatusChip = document.getElementById('kpiStatusChip');
+    const kpiModal = document.getElementById('kpiModal');
+    const kpiModalTitle = document.getElementById('kpiModalTitle');
+    const kpiModalKicker = document.getElementById('kpiModalKicker');
+    const kpiModalBody = document.getElementById('kpiModalBody');
+    const kpiModalFooter = document.getElementById('kpiModalFooter');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -908,10 +1164,29 @@
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
     const NEWS_MAX_AGE_DAYS = 30;
-    const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
+    const NEWS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
     const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
     const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2'];
     let sharedNewsPromise = null;
+    const NEWS_CONFIG_DOC_KEY = 'catalog';
+    const NEWS_CONFIG_STORAGE_KEY = 'skfMarketingNewsConfigV1';
+    const NEWS_RAW_CACHE_META_KEY = 'skfMarketingNewsRawMetaV1';
+    const NEWS_DEFAULT_EXCLUDE_WORDS = ['골프', 'PGA', 'LPGA', '투어', '우승', '랭킹', '스코티', '마스터스'];
+    const NEWS_DEFAULT_QUERIES = [
+      { id: 'default-news-query', label: '기본 B2B 뉴스', query: `(${NEWS_CORE_KEYWORDS.join(' OR ')})`, enabled: true }
+    ];
+    let newsConfigState = null;
+    let newsConfigLoaded = false;
+    let newsConfigLoadPromise = null;
+    let newsDatasetLoaded = false;
+    let newsDatasetLoadPromise = null;
+    let newsRawItemsCache = [];
+    let newsQueryResultCounts = {};
+    let newsVisibleItems = [];
+    let newsSelectedGoalKey = '';
+    let newsFilterStats = { rawCount: 0, excludeRemoved: 0, industryRemoved: 0, finalCount: 0 };
+    let newsCardPopoverState = { key: '', candidateWords: [], selectedWords: [] };
+    let newsSettingsActiveTab = 'exclude';
     migrateNewsCache();
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
@@ -945,8 +1220,18 @@
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
     const BENCHMARK_DEBUG_LOGS = false;
+    const BENCHMARK_APPLY_DEBUG = {
+      disableCommitTimeout: false
+    };
+    const BENCHMARK_DATA_FILE_NAME = 'benchmark-data.json';
     const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
     let benchmarkRetryFailedItemKeys = [];
+    const KPI_DEFAULT_DEADLINE = '2026-12-31';
+    const KPI_CATALOG_DOC_KEY = 'catalog';
+    let kpiCatalogState = null;
+    let kpiCatalogLoaded = false;
+    let kpiCatalogLoadPromise = null;
+    let kpiModalState = null;
 
     function benchmarkDebugLog(...args) {
       if (BENCHMARK_DEBUG_LOGS) {
@@ -1236,6 +1521,107 @@
         });
       });
       return benchmarkCardCatalogCache;
+    }
+
+    function getBenchmarkCatalogEntryByItemKey(itemKey) {
+      if (!itemKey) return null;
+      const [goalKey, indexText] = String(itemKey).split('::');
+      const index = Number(indexText);
+      if (!goalKey || Number.isNaN(index)) return null;
+      return getBenchmarkCardCatalog().find((entry) => entry.goalKey === goalKey && entry.index === index) || null;
+    }
+
+    function getBenchmarkCatalogEntryByCardId(cardId) {
+      if (!cardId) return null;
+      return getBenchmarkCardCatalog().find((entry) => entry.id === String(cardId)) || null;
+    }
+
+    function getBenchmarkFallbackCompetitorValues(goalKey, index) {
+      const execRows = competitorExecByGoal && competitorExecByGoal[goalKey] && competitorExecByGoal[goalKey][index]
+        ? competitorExecByGoal[goalKey][index]
+        : [];
+      const getSummary = (targetCompany) => {
+        const hit = Array.isArray(execRows) ? execRows.find((row) => row && row.company === targetCompany) : null;
+        return hit && typeof hit.summary === 'string' ? hit.summary : '';
+      };
+      return {
+        schaeffler: getSummary('셰플러'),
+        nsk: getSummary('한국NSK'),
+        timken: getSummary('팀켄')
+      };
+    }
+
+    function buildBenchmarkDataJsonPayload(state = loadPlannerState()) {
+      const plannerState = normalizePlannerState(state);
+      const cards = {};
+      const catalog = getBenchmarkCardCatalog();
+
+      catalog.forEach((entry) => {
+        const itemKey = `${entry.goalKey}::${entry.index}`;
+        const itemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : {};
+        const fallbackGoal = goalTemplates[entry.goalKey];
+        const fallbackItem = fallbackGoal && Array.isArray(fallbackGoal.items) ? fallbackGoal.items[entry.index] : null;
+        const fallbackCompetitors = getBenchmarkFallbackCompetitorValues(entry.goalKey, entry.index);
+        const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
+        cards[entry.id] = {
+          name: entry.title,
+          updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : '',
+          skf: typeof benchmark.skf === 'string' && benchmark.skf ? benchmark.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
+          schaeffler: typeof benchmark.schaeffler === 'string' && benchmark.schaeffler ? benchmark.schaeffler : fallbackCompetitors.schaeffler,
+          nsk: typeof benchmark.koreaNsk === 'string' && benchmark.koreaNsk ? benchmark.koreaNsk : fallbackCompetitors.nsk,
+          timken: typeof benchmark.timken === 'string' && benchmark.timken ? benchmark.timken : fallbackCompetitors.timken
+        };
+      });
+
+      return {
+        lastUpdated: getLocalDateKey(new Date()),
+        cards
+      };
+    }
+
+    function resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, fallbackItem) {
+      const benchmarkState = itemState && itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
+      const fallbackCompetitors = getBenchmarkFallbackCompetitorValues(goalKey, index);
+
+      return {
+        values: {
+          skf: typeof benchmarkState.skf === 'string' && benchmarkState.skf ? benchmarkState.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
+          schaeffler: typeof benchmarkState.schaeffler === 'string' && benchmarkState.schaeffler ? benchmarkState.schaeffler : fallbackCompetitors.schaeffler,
+          nsk: typeof benchmarkState.koreaNsk === 'string' && benchmarkState.koreaNsk ? benchmarkState.koreaNsk : fallbackCompetitors.nsk,
+          timken: typeof benchmarkState.timken === 'string' && benchmarkState.timken ? benchmarkState.timken : fallbackCompetitors.timken
+        },
+        updatedAt: typeof benchmarkState.updatedAt === 'string' ? benchmarkState.updatedAt : ''
+      };
+    }
+
+    function parseDateOnly(value) {
+      if (!value || typeof value !== 'string') return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return null;
+      return date;
+    }
+
+    function getBenchmarkAgeMeta(updatedAtText) {
+      const updated = parseDateOnly(updatedAtText);
+      if (!updated) return { days: null, badgeClass: '', needsRefresh: false, text: '날짜 정보 없음' };
+      const now = new Date();
+      const diffMs = now.getTime() - updated.getTime();
+      const days = Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+      if (days >= 60) return { days, badgeClass: 'stale-60', needsRefresh: true, text: `벤치마킹 업데이트: ${updatedAtText} (${days}일 전) · 갱신 필요` };
+      if (days >= 30) return { days, badgeClass: 'stale-30', needsRefresh: false, text: `벤치마킹 업데이트: ${updatedAtText} (${days}일 전)` };
+      return { days, badgeClass: '', needsRefresh: false, text: `벤치마킹 업데이트: ${updatedAtText} (${days}일 전)` };
+    }
+
+    function downloadTextFile(fileName, textContent) {
+      const blob = new Blob([textContent], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     }
 
     function findBenchmarkGoalNumberFromLine(line) {
@@ -1590,6 +1976,107 @@
       benchmarkApplyFailureSection.hidden = false;
     }
 
+    function setBenchmarkAutoStatus(text, statusClass = '') {
+      if (!benchmarkAutoStatus) return;
+      benchmarkAutoStatus.textContent = text;
+      benchmarkAutoStatus.classList.remove('ok', 'warn', 'loading');
+      if (statusClass) benchmarkAutoStatus.classList.add(statusClass);
+    }
+
+    function findBenchmarkEditorPanel(itemKey) {
+      return Array.from(document.querySelectorAll('[data-benchmark-editor-panel]'))
+        .find((panel) => panel.getAttribute('data-benchmark-editor-panel') === String(itemKey)) || null;
+    }
+
+    function closeAllBenchmarkEditorPanels() {
+      document.querySelectorAll('.benchmark-editor-panel.visible').forEach((panel) => {
+        panel.classList.remove('visible');
+      });
+    }
+
+    function toggleBenchmarkEditorPanel(itemKey) {
+      const panel = findBenchmarkEditorPanel(itemKey);
+      if (!panel) return;
+      const shouldOpen = !panel.classList.contains('visible');
+      closeAllBenchmarkEditorPanels();
+      if (shouldOpen) panel.classList.add('visible');
+    }
+
+    async function saveBenchmarkingDataForItem(itemKey, rawPayload) {
+      const [goalKey, indexText] = String(itemKey).split('::');
+      const itemIndex = Number(indexText);
+      const goalTemplate = goalTemplates[goalKey];
+      const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+      if (!goalTemplate || !item) {
+        throw new Error('invalid-item-key');
+      }
+
+      const payload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+        ...rawPayload,
+        updatedAt: rawPayload && rawPayload.updatedAt ? rawPayload.updatedAt : new Date().toISOString()
+      }));
+
+      const saveResult = await upsertBenchmarkFirestoreDoc(itemKey, payload, item.title);
+      if (!saveResult.ok) {
+        throw new Error(saveResult.reason || 'write-failed');
+      }
+
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+      const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
+      const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+      itemState.benchmarking = { ...payload };
+      itemState.benchmarkUpdatedAt = payload.updatedAt || new Date().toISOString();
+      markItemUpdated(itemState);
+      savePlannerState(plannerState, { reason: 'benchmark-inline-save' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+      return { ok: true, mode: saveResult.mode || 'setDoc-merge' };
+    }
+
+    async function saveBenchmarkEditorPanel(itemKey) {
+      const panel = findBenchmarkEditorPanel(itemKey);
+      if (!panel) return;
+
+      const readValue = (fieldKey) => {
+        const input = panel.querySelector(`[data-benchmark-input="${fieldKey}"]`);
+        return input ? (input.value || '') : '';
+      };
+
+      const payload = {
+        skf: readValue('skf'),
+        schaeffler: readValue('schaeffler'),
+        koreaNsk: readValue('nsk'),
+        timken: readValue('timken'),
+        updatedAt: new Date().toISOString()
+      };
+
+      const saveButton = Array.from(panel.querySelectorAll('[data-benchmark-editor-save]'))
+        .find((button) => button.getAttribute('data-benchmark-editor-save') === String(itemKey));
+      const beforeText = saveButton ? saveButton.textContent : '';
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = '저장 중...';
+      }
+
+      try {
+        await saveBenchmarkingDataForItem(itemKey, payload);
+        setBenchmarkAutoStatus('카드 실행 내용을 저장했습니다.', 'ok');
+        closeAllBenchmarkEditorPanels();
+      } catch (error) {
+        const reason = error && error.message ? error.message : 'write-failed';
+        setBenchmarkAutoStatus(`카드 저장 실패: ${reason}`, 'warn');
+        console.error('[Benchmark Inline Save] 실패', { itemKey, reason });
+      } finally {
+        if (saveButton) {
+          saveButton.disabled = false;
+          saveButton.textContent = beforeText || '저장';
+        }
+      }
+    }
+
     function sanitizeFirestoreText(value) {
       if (typeof value === 'undefined' || value === null) return '';
       return String(value);
@@ -1656,9 +2143,22 @@
       const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
       console.log('[Apply] commit 시작', batchCount);
 
+      if (BENCHMARK_APPLY_DEBUG.disableCommitTimeout) {
+        try {
+          await batch.commit();
+          const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+          const elapsed = Math.round(endedAt - startedAt);
+          console.log('[Apply] commit 완료', elapsed, '(debug: timeout 비활성화)');
+          return elapsed;
+        } catch (error) {
+          console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
+          throw error;
+        }
+      }
+
       const timeoutPromise = new Promise((resolve, reject) => {
         timeoutId = window.setTimeout(() => {
-          const timeoutError = new Error('서버 응답 없음 — 네트워크/로그인 상태를 확인하세요');
+          const timeoutError = new Error('commit timeout');
           timeoutError.code = 'commit-timeout';
           reject(timeoutError);
         }, 20000);
@@ -1678,6 +2178,28 @@
           window.clearTimeout(timeoutId);
         }
       }
+    }
+
+    function validateBenchmarkDocPath(itemKey) {
+      if (!itemKey || typeof itemKey !== 'string') return 'invalid-item-key-empty';
+      if (itemKey.includes('/')) return 'invalid-item-key-slash';
+      return '';
+    }
+
+    function collectUndefinedFieldPaths(obj, prefix = '') {
+      const issues = [];
+      if (!obj || typeof obj !== 'object') return issues;
+      Object.entries(obj).forEach(([key, value]) => {
+        const nextPath = prefix ? `${prefix}.${key}` : key;
+        if (typeof value === 'undefined') {
+          issues.push(nextPath);
+          return;
+        }
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          issues.push(...collectUndefinedFieldPaths(value, nextPath));
+        }
+      });
+      return issues;
     }
 
     async function testFirestoreWrite() {
@@ -1736,6 +2258,80 @@
     }
 
     window.__testFirestore = testFirestoreWrite;
+    window.__benchmarkApplyDebug = BENCHMARK_APPLY_DEBUG;
+
+    async function testOneBenchmarkCardWrite() {
+      const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+      if (!rawText) {
+        console.warn('[__testOne] 테스트할 AI 응답 텍스트가 없습니다. 입력창에 붙여넣어 주세요.');
+        return { ok: false, reason: 'empty-input' };
+      }
+
+      const parsed = parseAiBenchmarkText(rawText);
+      if (!parsed || !parsed.matched || !Object.keys(parsed.matched).length) {
+        console.warn('[__testOne] 매칭된 카드가 없습니다.');
+        return { ok: false, reason: 'no-matched-cards' };
+      }
+
+      const firstItemKey = Object.keys(parsed.matched)[0];
+      const firstCard = parsed.matched[firstItemKey];
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const pathIssue = validateBenchmarkDocPath(firstItemKey);
+      if (pathIssue) {
+        console.error('[__testOne] 문서 ID 문제', { firstItemKey, pathIssue });
+        return { ok: false, reason: pathIssue };
+      }
+
+      const payload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+        skf: firstCard && firstCard.benchmarking ? firstCard.benchmarking.skf : '',
+        schaeffler: firstCard && firstCard.benchmarking ? firstCard.benchmarking.schaeffler : '',
+        koreaNsk: firstCard && firstCard.benchmarking ? firstCard.benchmarking.koreaNsk : '',
+        timken: firstCard && firstCard.benchmarking ? firstCard.benchmarking.timken : '',
+        updatedAt: new Date().toISOString()
+      }));
+
+      const undefinedIssues = collectUndefinedFieldPaths(payload, 'payload');
+      if (undefinedIssues.length) {
+        console.error('[__testOne] undefined 필드 감지', { firstItemKey, undefinedIssues });
+        return { ok: false, reason: 'payload-undefined', undefinedIssues };
+      }
+
+      const docRef = bridge.getBenchmarkDocRef(firstItemKey);
+      const startedAt = Date.now();
+      try {
+        await bridge.setDoc(docRef, payload, { merge: true });
+        const elapsed = Date.now() - startedAt;
+        console.log('[__testOne] 성공', {
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          rtdbPathForComments: `plans/skf-daily/${currentPlannerDateKey}`
+        });
+        return { ok: true, elapsedMs: elapsed, itemKey: firstItemKey };
+      } catch (error) {
+        const elapsed = Date.now() - startedAt;
+        console.error('[__testOne] 실패', {
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        });
+        return {
+          ok: false,
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        };
+      }
+    }
+
+    window.__testOne = testOneBenchmarkCardWrite;
 
     async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
@@ -1819,6 +2415,13 @@
         const nowIso = new Date().toISOString();
         const applyStartedAt = Date.now();
 
+        console.log('[Benchmark Compare] 저장 경로 비교', {
+          benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
+          plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
+          apiBenchmark: 'Firestore writeBatch.set/commit',
+          apiPlanner: 'Realtime Database set'
+        });
+
         Object.entries(matched).forEach(([itemKey, card]) => {
           const [goalKey, indexText] = itemKey.split('::');
           const goalTemplate = goalTemplates[goalKey];
@@ -1842,9 +2445,23 @@
             schaeffler: card.benchmarking.schaeffler || '',
             koreaNsk: card.benchmarking.koreaNsk || '',
             timken: card.benchmarking.timken || '',
-            sourceText: rawText,
             updatedAt: nowIso
           };
+
+          const pathIssue = validateBenchmarkDocPath(itemKey);
+          if (pathIssue) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] 문서 ID 검증 실패', { cardName, itemKey, pathIssue });
+            return;
+          }
+
+          const undefinedIssues = collectUndefinedFieldPaths(benchmarkPayload, `payload.${itemKey}`);
+          if (undefinedIssues.length) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] undefined 필드 감지', { cardName, itemKey, undefinedIssues });
+            return;
+          }
+
           updates.push({
             itemKey,
             cardName,
@@ -1901,6 +2518,11 @@
             const batch = bridge.writeBatch(bridge.firestore);
             chunk.forEach((update) => {
               const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+              console.log('[Benchmark Apply] 배치 set 경로', {
+                firestorePath: `plans/skf-daily/benchmarks/${update.itemKey}`,
+                itemKey: update.itemKey,
+                cardName: update.cardName
+              });
               batch.set(docRef, update.payload, { merge: true });
             });
             await commitBatchWithTimeout(batch, chunk.length);
@@ -1948,6 +2570,7 @@
           const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
           const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
           itemState.benchmarking = { ...update.payload };
+          itemState.benchmarkUpdatedAt = update.payload.updatedAt || new Date().toISOString();
           markItemUpdated(itemState);
         });
 
@@ -2043,6 +2666,7 @@
         const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, chosenItemKey, itemPrinciples);
         const itemState = getItemState(plannerState, chosenItemKey, checklistSteps.length, itemPrinciples);
         itemState.benchmarking = { ...safePayload };
+        itemState.benchmarkUpdatedAt = safePayload.updatedAt || new Date().toISOString();
         markItemUpdated(itemState);
         savePlannerState(plannerState, { reason: 'ai-benchmark-manual-map' });
         syncOverviewWidgets(plannerState);
@@ -2316,6 +2940,12 @@
           snapshot[goalKey][index] = {
             note: typeof itemState.note === 'string' ? itemState.note : '',
             noteUpdatedAt: typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '',
+            activityUpdatedAt: typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '',
+            directive: typeof itemState.directive === 'string' ? itemState.directive : '',
+            directiveUpdatedAt: typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '',
+            latestCommentSummary: typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '',
+            remark: typeof itemState.remark === 'string' ? itemState.remark : '',
+            benchmarkUpdatedAt: typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '',
             priority: normalizePriorityValue(itemState.priority),
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
@@ -2372,6 +3002,12 @@
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
           itemState.noteUpdatedAt = typeof remoteItem?.noteUpdatedAt === 'string' ? remoteItem.noteUpdatedAt : itemState.noteUpdatedAt || '';
+          itemState.activityUpdatedAt = typeof remoteItem?.activityUpdatedAt === 'string' ? remoteItem.activityUpdatedAt : (typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '');
+          itemState.directive = typeof remoteItem?.directive === 'string' ? remoteItem.directive : (typeof itemState.directive === 'string' ? itemState.directive : '');
+          itemState.directiveUpdatedAt = typeof remoteItem?.directiveUpdatedAt === 'string' ? remoteItem.directiveUpdatedAt : (typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '');
+          itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
+          itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
+          itemState.benchmarkUpdatedAt = typeof remoteItem?.benchmarkUpdatedAt === 'string' ? remoteItem.benchmarkUpdatedAt : (typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '');
           itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
@@ -2381,6 +3017,7 @@
               }))
             : itemState.steps;
           itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
+          syncCommentDerivedFields(itemState);
           itemState.historyList = Array.isArray(remoteItem?.historyList) ? remoteItem.historyList : itemState.historyList;
           itemState.cycleCompletedCount = Number.isFinite(remoteItem?.cycleCompletedCount)
             ? Number(remoteItem.cycleCompletedCount)
@@ -2523,6 +3160,10 @@
     function applyEditabilityState() {
       const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
 
+      if (benchmarkBackupSection) {
+        benchmarkBackupSection.hidden = !EDIT_MODE_REQUESTED;
+      }
+
       getCards().forEach((card) => {
         const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
         controls.forEach((control) => {
@@ -2545,6 +3186,12 @@
           }
         });
       });
+
+      if (newsRefreshBtn) newsRefreshBtn.hidden = !isEditable;
+      if (newsSettingsBtn) newsSettingsBtn.hidden = !isEditable;
+      if (!isEditable && newsSettingsModal) {
+        newsSettingsModal.hidden = true;
+      }
     }
 
     function persistPlannerStateToLocalStorage(state) {
@@ -2704,35 +3351,101 @@
       return Number.isNaN(time) ? 0 : time;
     }
 
-    function getRecentNoteTimestamp(itemState) {
-      const noteText = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
-      if (!noteText) return 0;
-      const explicitNoteTime = parseIsoTimestamp(itemState && itemState.noteUpdatedAt);
-      if (explicitNoteTime > 0) return explicitNoteTime;
-
-      const fallbackCommentTime = Array.isArray(itemState && itemState.comments)
-        ? itemState.comments
-            .map((comment) => parseIsoTimestamp(comment && (comment.updatedAt || comment.timestamp)))
-            .filter((time) => time > 0)
-            .sort((left, right) => right - left)[0] || 0
-        : 0;
-
-      if (fallbackCommentTime > 0) return fallbackCommentTime;
-      return parseIsoTimestamp(itemState && itemState.lastUpdatedAt);
+    function getLatestCommentActivityTimestamp(itemState) {
+      if (!Array.isArray(itemState && itemState.comments)) return 0;
+      return itemState.comments
+        .map((comment) => parseIsoTimestamp(comment && (comment.updatedAt || comment.timestamp)))
+        .filter((time) => time > 0)
+        .sort((left, right) => right - left)[0] || 0;
     }
 
-    function getLastOverviewUpdateTimestamp(itemState) {
-      const noteUpdateTime = getRecentNoteTimestamp(itemState);
-      const latestChecklistCompletedAt = Array.isArray(itemState && itemState.steps)
-        ? itemState.steps
-            .map((step) => parseIsoTimestamp(step && step.completedAt))
-            .filter((time) => time > 0)
-            .sort((left, right) => right - left)[0] || 0
-        : 0;
+    function getLatestChecklistActivityTimestamp(itemState) {
+      if (!Array.isArray(itemState && itemState.steps)) return 0;
+      return itemState.steps
+        .map((step) => parseIsoTimestamp(step && step.completedAt))
+        .filter((time) => time > 0)
+        .sort((left, right) => right - left)[0] || 0;
+    }
 
-      const allTimes = [noteUpdateTime, latestChecklistCompletedAt].filter((time) => time > 0);
-      if (!allTimes.length) return 0;
-      return Math.max(...allTimes);
+    function hasRecentActivityEvidence(itemState) {
+      const hasComments = Array.isArray(itemState && itemState.comments) && itemState.comments.length > 0;
+      const hasChecklistLogs = Array.isArray(itemState && itemState.steps)
+        && itemState.steps.some((step) => parseIsoTimestamp(step && step.completedAt) > 0);
+      return hasComments || hasChecklistLogs;
+    }
+
+    function recalculateItemActivityTimestamp(itemState) {
+      if (!itemState || typeof itemState !== 'object') return;
+      const commentTs = getLatestCommentActivityTimestamp(itemState);
+      const checklistTs = getLatestChecklistActivityTimestamp(itemState);
+      const latestTs = Math.max(commentTs, checklistTs, 0);
+      itemState.activityUpdatedAt = latestTs > 0 ? new Date(latestTs).toISOString() : '';
+    }
+
+    function getDirectivePreviewText(itemState) {
+      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
+      return directive || '등록된 지시사항이 없습니다';
+    }
+
+    function getDirectiveSummaryText(itemState) {
+      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
+      if (!directive) return '';
+      const singleLine = directive.replace(/\s+/g, ' ').trim();
+      return singleLine.length > 90 ? `${singleLine.slice(0, 87)}...` : singleLine;
+    }
+
+    function syncDirectiveDraft(itemKey, value) {
+      const storageKey = `skfDirectiveDraft:${itemKey}`;
+      try {
+        if (typeof value === 'string' && value.trim()) {
+          window.localStorage.setItem(storageKey, value);
+        } else {
+          window.localStorage.removeItem(storageKey);
+        }
+      } catch (error) {
+        console.warn('[Directive Draft] 저장 실패', { itemKey, error });
+      }
+    }
+
+    function readDirectiveDraft(itemKey) {
+      const storageKey = `skfDirectiveDraft:${itemKey}`;
+      try {
+        return window.localStorage.getItem(storageKey) || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function cleanupDirectiveDrafts() {
+      const targets = [];
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || (
+          !key.startsWith('skfDirectiveDraft:') &&
+          key !== 'skfCommentDraftV1' &&
+          key !== 'skfBenchmarkAutoInputDraftV1'
+        )) continue;
+        targets.push(key);
+      }
+      if (!targets.length) {
+        console.log('[cleanupDrafts] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, targets: [] };
+      }
+      console.table(targets.map((key) => ({ key })));
+      const proceed = window.confirm(`임시저장 잔재 ${targets.length}개를 삭제할까요?`);
+      if (!proceed) return { ok: false, reason: 'cancelled', count: targets.length, targets };
+      targets.forEach((key) => {
+        try { localStorage.removeItem(key); } catch (error) { console.warn('[cleanupDrafts] 삭제 실패', { key, error }); }
+      });
+      return { ok: true, count: targets.length, targets };
+    }
+
+    window.__cleanupDrafts = cleanupDirectiveDrafts;
+
+    function getLastOverviewUpdateTimestamp(itemState) {
+      const explicit = parseIsoTimestamp(itemState && itemState.activityUpdatedAt);
+      if (explicit > 0) return explicit;
+      return Math.max(getLatestCommentActivityTimestamp(itemState), getLatestChecklistActivityTimestamp(itemState), 0);
     }
 
     function buildTeamOverviewRows(state) {
@@ -2747,9 +3460,12 @@
           const priorityMeta = getPriorityMeta(itemState.priority);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
-          const actionPlan = checklistSteps.length
-            ? checklistSteps.slice(0, 2).join(' / ')
-            : '-';
+          const directiveSummary = getDirectiveSummaryText(itemState);
+          const actionPlan = directiveSummary
+            ? directiveSummary
+            : (checklistSteps.length
+                ? checklistSteps.slice(0, 2).join(' / ')
+                : '-');
           const assignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
           const dueDateText = getNearestDueDateText(itemState.steps);
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
@@ -2761,12 +3477,13 @@
                 .filter(Boolean)
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
             : '';
-          const progressText = `체크 ${doneCount}/${totalCount} · 최근 코멘트: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
-          const noteText = itemState && typeof itemState.note === 'string' && itemState.note.trim() ? itemState.note.trim() : '-';
+          const progressText = `체크 ${doneCount}/${totalCount} · 최근 수행 내용: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
+          const noteText = itemState && typeof itemState.remark === 'string' && itemState.remark.trim() ? itemState.remark.trim() : '-';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
           const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
-          const isRecentUpdate = Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
+          const hasActivityEvidence = hasRecentActivityEvidence(itemState);
+          const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
 
           rows.push({
             itemKey,
@@ -3149,12 +3866,19 @@
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
+        itemState.activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
+        itemState.directive = typeof itemState.directive === 'string' ? itemState.directive : '';
+        itemState.directiveUpdatedAt = typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '';
+        itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
+        itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
+        itemState.benchmarkUpdatedAt = typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '';
         itemState.priority = normalizePriorityValue(itemState.priority);
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
         itemState.lastUpdatedByName = typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '';
         itemState.lastUpdatedByEmail = typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '';
         itemState.lastUpdatedByUid = typeof itemState.lastUpdatedByUid === 'string' ? itemState.lastUpdatedByUid : '';
         if (!Array.isArray(itemState.comments)) itemState.comments = [];
+        syncCommentDerivedFields(itemState);
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
@@ -3168,6 +3892,10 @@
           sourceText: typeof benchmark.sourceText === 'string' ? benchmark.sourceText : '',
           updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : ''
         };
+        if (!itemState.benchmarkUpdatedAt && itemState.benchmarking.updatedAt) {
+          itemState.benchmarkUpdatedAt = itemState.benchmarking.updatedAt;
+        }
+        recalculateItemActivityTimestamp(itemState);
         itemState.cycleCompletedCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
         itemState.totalCycles = Number.isFinite(itemState.totalCycles)
           ? Number(itemState.totalCycles)
@@ -3235,6 +3963,12 @@
           steps,
           note: '',
           noteUpdatedAt: '',
+          activityUpdatedAt: '',
+          directive: '',
+          directiveUpdatedAt: '',
+          latestCommentSummary: '',
+          remark: '',
+          benchmarkUpdatedAt: '',
           priority: PRIORITY_NORMAL,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
@@ -3357,6 +4091,7 @@
         completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
+      syncCommentDerivedFields(itemState);
       if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
       if (!itemState.historyList.length) {
         itemState.historyList = getDefaultHistoryList(itemKey);
@@ -3364,6 +4099,11 @@
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (typeof itemState.noteUpdatedAt !== 'string') itemState.noteUpdatedAt = '';
+      if (typeof itemState.activityUpdatedAt !== 'string') itemState.activityUpdatedAt = '';
+      if (typeof itemState.directive !== 'string') itemState.directive = '';
+      if (typeof itemState.directiveUpdatedAt !== 'string') itemState.directiveUpdatedAt = '';
+      if (typeof itemState.benchmarkUpdatedAt !== 'string') itemState.benchmarkUpdatedAt = '';
+      recalculateItemActivityTimestamp(itemState);
       itemState.priority = normalizePriorityValue(itemState.priority);
       if (!Number.isFinite(itemState.cycleCompletedCount)) itemState.cycleCompletedCount = 0;
       if (!Number.isFinite(itemState.totalCycles)) itemState.totalCycles = itemState.cycleCompletedCount;
@@ -3493,6 +4233,31 @@
       return summary.length > 180 ? `${summary.slice(0, 177)}...` : summary;
     }
 
+    function getLatestCommentEntry(comments) {
+      if (!Array.isArray(comments) || !comments.length) return null;
+      return comments
+        .slice()
+        .sort((left, right) => {
+          const leftTs = new Date(left && (left.updatedAt || left.timestamp) || 0).getTime();
+          const rightTs = new Date(right && (right.updatedAt || right.timestamp) || 0).getTime();
+          return rightTs - leftTs;
+        })[0] || null;
+    }
+
+    function computeLatestCommentSummary(comments) {
+      const latest = getLatestCommentEntry(comments);
+      const text = latest && typeof latest.text === 'string' ? latest.text.replace(/\s+/g, ' ').trim() : '';
+      if (!text) return '';
+      return text.length > 110 ? `${text.slice(0, 107)}...` : text;
+    }
+
+    function syncCommentDerivedFields(itemState) {
+      if (!itemState || typeof itemState !== 'object') return;
+      if (!Array.isArray(itemState.comments)) itemState.comments = [];
+      itemState.latestCommentSummary = computeLatestCommentSummary(itemState.comments);
+      if (typeof itemState.remark !== 'string') itemState.remark = '';
+    }
+
     function getCycleCompletedCount(itemState) {
       if (!itemState || typeof itemState !== 'object') return 0;
       const historyCount = Array.isArray(itemState.historyList) ? itemState.historyList.length : 0;
@@ -3523,27 +4288,116 @@
     }
 
     function getLatestCommentPreview(itemState) {
-      const draftNote = itemState && typeof itemState.note === 'string' ? itemState.note.trim() : '';
-      if (draftNote) {
-        const singleLineDraft = draftNote.replace(/\s+/g, ' ').trim();
-        return singleLineDraft.length > 110 ? `${singleLineDraft.slice(0, 107)}...` : singleLineDraft;
-      }
-
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
       if (!comments.length) return '아직 등록된 코멘트가 없습니다.';
-
-      const latest = comments
-        .slice()
-        .sort((left, right) => {
-          const leftTs = new Date(left.updatedAt || left.timestamp || 0).getTime();
-          const rightTs = new Date(right.updatedAt || right.timestamp || 0).getTime();
-          return rightTs - leftTs;
-        })[0];
-
-      const text = latest && typeof latest.text === 'string' ? latest.text.replace(/\s+/g, ' ').trim() : '';
+      const text = computeLatestCommentSummary(comments);
       if (!text) return '아직 등록된 코멘트가 없습니다.';
-      return text.length > 110 ? `${text.slice(0, 107)}...` : text;
+      return text;
     }
+
+    async function cleanupOrphanComments(options = {}) {
+      const dryRun = options && options.dryRun === false ? false : true;
+      const clearNote = options && options.clearNote === true;
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const targets = [];
+
+      Object.entries((plannerState && plannerState.items) || {}).forEach(([itemKey, itemState]) => {
+        if (!itemState || typeof itemState !== 'object') return;
+        const comments = Array.isArray(itemState.comments) ? itemState.comments : [];
+        const latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary.trim() : '';
+        const noteText = typeof itemState.note === 'string' ? itemState.note.trim() : '';
+        const hasOrphanSummary = comments.length === 0 && (latestCommentSummary || (clearNote && noteText));
+        if (!hasOrphanSummary) return;
+
+        const row = {
+          itemKey,
+          latestCommentSummary,
+          note: noteText,
+          action: dryRun ? 'inspect-only' : 'clear-fields'
+        };
+        targets.push(row);
+
+        if (!dryRun) {
+          itemState.latestCommentSummary = '';
+          if (clearNote) {
+            itemState.note = '';
+            itemState.noteUpdatedAt = '';
+          }
+          markItemUpdated(itemState);
+        }
+      });
+
+      if (!targets.length) {
+        console.log('[cleanupOrphanComments] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, dryRun, targets: [] };
+      }
+
+      console.table(targets);
+
+      if (!dryRun) {
+        savePlannerState(plannerState, { reason: 'cleanup-orphan-comments' });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+          updateGoalCard(currentGoalKey);
+        }
+      }
+
+      return { ok: true, count: targets.length, dryRun, targets };
+    }
+
+    window.__cleanupOrphanComments = cleanupOrphanComments;
+
+    async function cleanupStaleActivity() {
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const targets = [];
+
+      Object.entries((plannerState && plannerState.items) || {}).forEach(([itemKey, itemState]) => {
+        if (!itemState || typeof itemState !== 'object') return;
+        const hasActivityEvidence = hasRecentActivityEvidence(itemState);
+        const activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
+        const activityTs = parseIsoTimestamp(activityUpdatedAt);
+        if (hasActivityEvidence) return;
+        if (activityTs <= 0) return;
+
+        targets.push({
+          itemKey,
+          activityUpdatedAt,
+          commentsCount: Array.isArray(itemState.comments) ? itemState.comments.length : 0,
+          completedChecklistCount: Array.isArray(itemState.steps)
+            ? itemState.steps.filter((step) => parseIsoTimestamp(step && step.completedAt) > 0).length
+            : 0
+        });
+      });
+
+      if (!targets.length) {
+        console.log('[cleanupStaleActivity] 정리 대상이 없습니다.');
+        return { ok: true, count: 0, targets: [] };
+      }
+
+      console.table(targets);
+      const proceed = window.confirm(`활동 근거(코멘트/체크 완료)가 없는데 activityUpdatedAt만 남아있는 카드 ${targets.length}개를 정리할까요?`);
+      if (!proceed) {
+        return { ok: false, reason: 'cancelled', count: targets.length, targets };
+      }
+
+      targets.forEach((target) => {
+        const itemState = plannerState.items[target.itemKey];
+        if (!itemState || typeof itemState !== 'object') return;
+        itemState.activityUpdatedAt = '';
+        markItemUpdated(itemState);
+      });
+
+      savePlannerState(plannerState, { reason: 'cleanup-stale-activity' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+
+      console.log('[cleanupStaleActivity] 정리 완료', { count: targets.length });
+      return { ok: true, count: targets.length, targets };
+    }
+
+    window.__cleanupStaleActivity = cleanupStaleActivity;
 
     function markItemUpdated(itemState) {
       if (!itemState || typeof itemState !== 'object') return;
@@ -3557,6 +4411,7 @@
       if (!panelElement) return;
       const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
       const latestComment = getLatestCommentPreview(itemState || {});
+      const directiveSummary = getDirectivePreviewText(itemState || {});
       const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
       const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
       const completedSteps = steps.filter((step) => step && step.checked).length;
@@ -3573,7 +4428,11 @@
             <div class="latest-activity-value">최근 작업: ${escapeHtml(recentTimestamp)}</div>
           </div>
           <div class="latest-activity-item latest-comment-box">
-            <div class="latest-activity-label">💬 최신 코멘트 요약</div>
+            <div class="latest-activity-label">📌 현재 지시사항</div>
+            <div class="latest-activity-value latest-comment-value">${escapeHtml(directiveSummary)}</div>
+          </div>
+          <div class="latest-activity-item latest-comment-box">
+            <div class="latest-activity-label">✅ 최근 수행 내용</div>
             <div class="latest-activity-value latest-comment-value">${escapeHtml(latestComment)}</div>
           </div>
           <div class="latest-activity-item">
@@ -3967,6 +4826,7 @@
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
       renderMandalartBoard(state);
+      renderKpiSummaryChip();
     }
 
     function focusDetailCardByKey(focusKey, focusStepIndex = -1) {
@@ -4670,6 +5530,249 @@
       }
     };
 
+    const KPI_SEED_BLUEPRINTS = {
+      'global-sns': [
+        { name: '영상 콘텐츠 누적 발행', unit: '편', targetValue: 12 },
+        { name: '페이스북 페이지 포스팅', unit: '건', targetValue: 16 },
+        { name: '영상 라이브러리 등록 콘텐츠', unit: '건', targetValue: 30 }
+      ],
+      'naver-platform': [
+        { name: '블로그 포스팅 발행', unit: '건', targetValue: 20 },
+        { name: '검색 1페이지 진입 키워드', unit: '개', targetValue: 5 },
+        { name: '네이버TV 영상 업로드', unit: '편', targetValue: 10 }
+      ],
+      'field-communication': [
+        { name: '고객 세미나·간담회 개최', unit: '회', targetValue: 4 },
+        { name: '대리점·고객사 현장 방문', unit: '개사', targetValue: 20 },
+        { name: '수집 VOC', unit: '건', targetValue: 30 }
+      ],
+      'web-ecosystem': [
+        { name: '웹사이트 개선 과제 완료', unit: '건', targetValue: 8 },
+        { name: '제품 정보 업데이트 완료율', unit: '%', targetValue: 100 }
+      ],
+      'ai-culture': [
+        { name: '사내 AI 트렌드 공유', unit: '건', targetValue: 20 },
+        { name: 'AI Talk 세션 참여·전파', unit: '회', targetValue: 10 }
+      ],
+      'offline-brand': [
+        { name: '참가 박람회·행사', unit: '건', targetValue: 3 },
+        { name: '대리점 간판·POP 리뉴얼', unit: '개소', targetValue: 10 },
+        { name: '브랜드 굿즈·판촉물 제작', unit: '종', targetValue: 3 }
+      ],
+      'sales-support': [
+        { name: '프로모션 기획·실행', unit: '건', targetValue: 4 },
+        { name: '영업팀 지원 자료 제작', unit: '건', targetValue: 12 }
+      ],
+      'marketing-skill': [
+        { name: '교육·세미나 수료', unit: '회', targetValue: 4 },
+        { name: '신규 시도 업무 회고 작성', unit: '건', targetValue: 5 }
+      ]
+    };
+
+    function buildDefaultKpiCatalog() {
+      const nowIso = new Date().toISOString();
+      const goals = {};
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        const items = KPI_SEED_BLUEPRINTS[goalKey] || [];
+        goals[goalKey] = {
+          goalKey,
+          goalLabel: goalTemplate.label,
+          items: items.map((item, index) => ({
+            id: `${goalKey}-kpi-${index + 1}`,
+            goalKey,
+            name: item.name,
+            unit: item.unit,
+            targetValue: Number(item.targetValue) || 0,
+            currentValue: 0,
+            dueDate: KPI_DEFAULT_DEADLINE,
+            description: item.description || '',
+            kpiUpdatedAt: nowIso,
+            definitionUpdatedAt: nowIso,
+            updatedAt: nowIso
+          }))
+        };
+      });
+
+      return {
+        meta: {
+          schemaVersion: 1,
+          updatedAt: '',
+          updatedByName: '',
+          updatedByEmail: '',
+          updatedByUid: ''
+        },
+        goals
+      };
+    }
+
+    function getKpiDocRef() {
+      const bridge = window.__plannerFirebase;
+      if (!bridge || !bridge.firestore) return null;
+      return doc(bridge.firestore, 'plans', 'skf-daily', 'kpis', KPI_CATALOG_DOC_KEY);
+    }
+
+    function cloneKpiCatalog(source) {
+      return JSON.parse(JSON.stringify(source || buildDefaultKpiCatalog()));
+    }
+
+    function normalizeKpiItem(rawItem, goalKey, index, fallbackGoalLabel) {
+      const fallbackSeed = (KPI_SEED_BLUEPRINTS[goalKey] && KPI_SEED_BLUEPRINTS[goalKey][index]) || {};
+      const currentValue = Number(rawItem && rawItem.currentValue);
+      const targetValue = Number(rawItem && rawItem.targetValue);
+      return {
+        id: typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `${goalKey}-kpi-${index + 1}`,
+        goalKey,
+        name: typeof rawItem?.name === 'string' && rawItem.name.trim() ? rawItem.name.trim() : fallbackSeed.name || `KPI ${index + 1}`,
+        unit: typeof rawItem?.unit === 'string' ? rawItem.unit : fallbackSeed.unit || '',
+        targetValue: Number.isFinite(targetValue) ? targetValue : Number(fallbackSeed.targetValue) || 0,
+        currentValue: Number.isFinite(currentValue) ? currentValue : 0,
+        dueDate: typeof rawItem?.dueDate === 'string' && rawItem.dueDate ? rawItem.dueDate : KPI_DEFAULT_DEADLINE,
+        description: typeof rawItem?.description === 'string' ? rawItem.description : '',
+        kpiUpdatedAt: typeof rawItem?.kpiUpdatedAt === 'string' ? rawItem.kpiUpdatedAt : '',
+        definitionUpdatedAt: typeof rawItem?.definitionUpdatedAt === 'string' ? rawItem.definitionUpdatedAt : '',
+        updatedAt: typeof rawItem?.updatedAt === 'string' ? rawItem.updatedAt : '',
+        sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
+        goalLabel: fallbackGoalLabel
+      };
+    }
+
+    function normalizeKpiCatalog(rawCatalog) {
+      const seed = buildDefaultKpiCatalog();
+      const source = rawCatalog && typeof rawCatalog === 'object' ? rawCatalog : {};
+      const sourceGoals = source.goals && typeof source.goals === 'object' ? source.goals : source;
+      const normalized = cloneKpiCatalog(seed);
+      Object.entries(normalized.goals).forEach(([goalKey, goalState]) => {
+        const incomingGoal = sourceGoals && typeof sourceGoals[goalKey] === 'object' ? sourceGoals[goalKey] : null;
+        const hasIncomingItems = Boolean(incomingGoal && Array.isArray(incomingGoal.items));
+        const incomingItems = hasIncomingItems ? incomingGoal.items : null;
+        const mergedItems = hasIncomingItems
+          ? incomingItems.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel))
+          : goalState.items.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel));
+        normalized.goals[goalKey] = {
+          goalKey,
+          goalLabel: goalState.goalLabel,
+          items: mergedItems.slice(0, 5)
+        };
+      });
+
+      if (source.meta && typeof source.meta === 'object') {
+        normalized.meta = {
+          ...normalized.meta,
+          ...source.meta
+        };
+      }
+
+      return normalized;
+    }
+
+    function getKpiGoalState(goalKey) {
+      const catalog = kpiCatalogState || buildDefaultKpiCatalog();
+      const goalState = catalog.goals && catalog.goals[goalKey] ? catalog.goals[goalKey] : null;
+      return goalState || { goalKey, goalLabel: goalTemplates[goalKey] ? goalTemplates[goalKey].label : goalKey, items: [] };
+    }
+
+    function getKpiItemsForGoal(goalKey) {
+      const goalState = getKpiGoalState(goalKey);
+      return Array.isArray(goalState.items) ? goalState.items : [];
+    }
+
+    function formatKpiNumber(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '0';
+      return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, '');
+    }
+
+    function getKpiProgressPercent(kpiItem) {
+      const currentValue = Number(kpiItem && kpiItem.currentValue);
+      const targetValue = Number(kpiItem && kpiItem.targetValue);
+      if (!Number.isFinite(currentValue) || !Number.isFinite(targetValue) || targetValue <= 0) return 0;
+      return Math.max(0, Math.min(100, (currentValue / targetValue) * 100));
+    }
+
+    function getKpiPacePercent(kpiItem, referenceDate = new Date()) {
+      const dueDate = kpiItem && kpiItem.dueDate ? new Date(`${kpiItem.dueDate}T23:59:59`) : null;
+      if (!dueDate || Number.isNaN(dueDate.getTime())) return 0;
+      const yearStart = new Date(dueDate.getFullYear(), 0, 1);
+      const totalMs = Math.max(1, dueDate.getTime() - yearStart.getTime());
+      const elapsedMs = Math.min(totalMs, Math.max(0, referenceDate.getTime() - yearStart.getTime()));
+      return Math.max(0, Math.min(100, (elapsedMs / totalMs) * 100));
+    }
+
+    function getKpiUpdatedMeta(kpiItem) {
+      const updatedAt = kpiItem && (kpiItem.kpiUpdatedAt || kpiItem.definitionUpdatedAt || kpiItem.updatedAt) ? new Date(kpiItem.kpiUpdatedAt || kpiItem.definitionUpdatedAt || kpiItem.updatedAt) : null;
+      if (!updatedAt || Number.isNaN(updatedAt.getTime())) {
+        return {
+          text: '갱신: -',
+          daysAgo: null,
+          isStale: true,
+          badgeText: '갱신 필요'
+        };
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const updatedDay = new Date(updatedAt);
+      updatedDay.setHours(0, 0, 0, 0);
+      const daysAgo = Math.max(0, Math.floor((today.getTime() - updatedDay.getTime()) / 86400000));
+      const mm = String(updatedAt.getMonth() + 1).padStart(2, '0');
+      const dd = String(updatedAt.getDate()).padStart(2, '0');
+      return {
+        text: `갱신: ${mm}-${dd} (${daysAgo}일 전)`,
+        daysAgo,
+        isStale: daysAgo > 30,
+        badgeText: daysAgo > 30 ? '갱신 필요' : ''
+      };
+    }
+
+    function getKpiCardClass(kpiItem) {
+      const progress = getKpiProgressPercent(kpiItem);
+      if (progress >= 70) return 'good';
+      if (progress >= 40) return 'warn';
+      return 'poor';
+    }
+
+    function getKpiPaceBadge(kpiItem) {
+      const progress = getKpiProgressPercent(kpiItem);
+      const pace = getKpiPacePercent(kpiItem);
+      if (pace - progress >= 20) return { text: '⚠️ 페이스 부족', cls: 'alert' };
+      return null;
+    }
+
+    function getKpiGoalStatus(goalKey) {
+      const items = getKpiItemsForGoal(goalKey);
+      return items.reduce((result, item) => {
+        const updatedMeta = getKpiUpdatedMeta(item);
+        const paceBadge = getKpiPaceBadge(item);
+        if (updatedMeta.isStale) result.staleCount += 1;
+        if (paceBadge) result.paceCount += 1;
+        return result;
+      }, { staleCount: 0, paceCount: 0 });
+    }
+
+    function getAllKpiIssueItems() {
+      const issueItems = [];
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        const goalState = getKpiGoalState(goalKey);
+        const status = getKpiGoalStatus(goalKey);
+        if (!goalState || !Array.isArray(goalState.items) || !goalState.items.length) return;
+        goalState.items.forEach((item) => {
+          const paceBadge = getKpiPaceBadge(item);
+          const updatedMeta = getKpiUpdatedMeta(item);
+          if (paceBadge || updatedMeta.isStale) {
+            issueItems.push({ goalKey, item });
+          }
+        });
+      });
+      return issueItems;
+    }
+
+    function getKpiSummaryText() {
+      const items = getAllKpiIssueItems();
+      const staleCount = items.filter(({ item }) => getKpiUpdatedMeta(item).isStale).length;
+      const paceCount = items.filter(({ item }) => Boolean(getKpiPaceBadge(item))).length;
+      return { staleCount, paceCount, text: `KPI 갱신 필요 ${staleCount}개 · 페이스 부족 ${paceCount}개` };
+    }
+
     const hqReferences = [
       {
         company: 'SKF 글로벌 본사',
@@ -5287,6 +6390,429 @@
       return { text: `${percent}%`, cls: 'unset' };
     }
 
+    function sanitizeKpiCatalogForFirestore(catalog) {
+      const normalized = normalizeKpiCatalog(catalog);
+      return {
+        meta: {
+          schemaVersion: Number(normalized.meta && normalized.meta.schemaVersion) || 1,
+          updatedAt: normalized.meta && normalized.meta.updatedAt ? normalized.meta.updatedAt : '',
+          updatedByName: normalized.meta && normalized.meta.updatedByName ? normalized.meta.updatedByName : '',
+          updatedByEmail: normalized.meta && normalized.meta.updatedByEmail ? normalized.meta.updatedByEmail : '',
+          updatedByUid: normalized.meta && normalized.meta.updatedByUid ? normalized.meta.updatedByUid : ''
+        },
+        goals: Object.fromEntries(Object.entries(normalized.goals || {}).map(([goalKey, goalState]) => [goalKey, {
+          goalKey,
+          goalLabel: goalState.goalLabel,
+          items: Array.isArray(goalState.items) ? goalState.items.slice(0, 5).map((item, index) => ({
+            id: item.id || `${goalKey}-kpi-${index + 1}`,
+            goalKey,
+            name: item.name || '',
+            unit: item.unit || '',
+            targetValue: Number(item.targetValue) || 0,
+            currentValue: Number(item.currentValue) || 0,
+            dueDate: item.dueDate || KPI_DEFAULT_DEADLINE,
+            description: item.description || '',
+            kpiUpdatedAt: item.kpiUpdatedAt || '',
+            definitionUpdatedAt: item.definitionUpdatedAt || '',
+            sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index
+          })) : []
+        }]))
+      };
+    }
+
+    async function loadKpiCatalogOnce() {
+      if (kpiCatalogLoadPromise) return kpiCatalogLoadPromise;
+
+      kpiCatalogLoadPromise = (async () => {
+        const bridge = await waitForFirebaseBridge();
+        const seed = buildDefaultKpiCatalog();
+        kpiCatalogState = normalizeKpiCatalog(seed);
+        renderKpiSummaryChip();
+        renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+
+        if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
+          kpiCatalogLoaded = true;
+          return kpiCatalogState;
+        }
+
+        try {
+          const docRef = getKpiDocRef();
+          if (!docRef) {
+            kpiCatalogLoaded = true;
+            return kpiCatalogState;
+          }
+
+          const snapshot = await bridge.getDoc(docRef);
+          if (!snapshot || !snapshot.exists()) {
+            kpiCatalogState = normalizeKpiCatalog(seed);
+            await bridge.setDoc(docRef, sanitizeKpiCatalogForFirestore(kpiCatalogState), { merge: true });
+            kpiCatalogLoaded = true;
+            renderKpiSummaryChip();
+            renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+            return kpiCatalogState;
+          }
+
+          const remoteData = snapshot.data ? snapshot.data() : {};
+          kpiCatalogState = normalizeKpiCatalog(remoteData);
+          kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
+          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+          return kpiCatalogState;
+        } catch (error) {
+          console.error('[KPI] 초기 로드 실패', error);
+          kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
+          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+          return kpiCatalogState;
+        }
+      })();
+
+      return kpiCatalogLoadPromise;
+    }
+
+    async function saveKpiCatalog(reason = '') {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || !bridge.firestore || typeof bridge.setDoc !== 'function') {
+        throw Object.assign(new Error('Firestore 사용 불가'), { code: 'firestore-unavailable' });
+      }
+      const docRef = getKpiDocRef();
+      if (!docRef) {
+        throw Object.assign(new Error('KPI 문서 참조를 만들 수 없습니다.'), { code: 'kpi-doc-unavailable' });
+      }
+
+      const nextCatalog = sanitizeKpiCatalogForFirestore(kpiCatalogState || buildDefaultKpiCatalog());
+      nextCatalog.meta = {
+        ...nextCatalog.meta,
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
+      };
+
+      await bridge.setDoc(docRef, nextCatalog, { merge: true });
+      kpiCatalogState = normalizeKpiCatalog(nextCatalog);
+      renderKpiSummaryChip();
+      renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+      if (reason) {
+        console.log('[KPI] 저장 완료', { reason });
+      }
+      return kpiCatalogState;
+    }
+
+    function renderKpiSummaryChip() {
+      if (!kpiStatusChip) return;
+      const summary = getKpiSummaryText();
+      kpiStatusChip.textContent = summary.text;
+      kpiStatusChip.hidden = false;
+      kpiStatusChip.disabled = false;
+      kpiStatusChip.onclick = () => {
+        const issues = getAllKpiIssueItems();
+        if (!issues.length) {
+          if (currentGoalKey && goalTemplates[currentGoalKey]) {
+            openGoalDetail(currentGoalKey);
+          }
+          return;
+        }
+        openGoalDetail(issues[0].goalKey);
+      };
+    }
+
+    function buildKpiCardHtml(goalKey, item, index) {
+      const progress = getKpiProgressPercent(item);
+      const progressClass = getKpiCardClass(item);
+      const paceBadge = getKpiPaceBadge(item);
+      const updatedMeta = getKpiUpdatedMeta(item);
+      const currentValueText = `${formatKpiNumber(item.currentValue)}${item.unit || ''}`;
+      const targetValueText = `${formatKpiNumber(item.targetValue)}${item.unit || ''}`;
+      const progressText = `${Math.round(item.targetValue > 0 ? (Number(item.currentValue) / Number(item.targetValue)) * 100 : 0)}%`;
+      const editButtons = EDIT_MODE_REQUESTED
+        ? `<div class="kpi-card-actions"><button type="button" class="kpi-icon-btn" data-kpi-action="edit-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}" aria-label="현재값 수정">✏️</button></div>`
+        : '';
+      const inlineEditor = EDIT_MODE_REQUESTED
+        ? `
+          <div class="kpi-inline-editor" data-kpi-inline-editor="${item.id}">
+            <input type="number" step="any" min="0" value="${escapeHtml(String(item.currentValue ?? 0))}" data-kpi-inline-input="${item.id}" aria-label="현재값 입력" />
+            <div class="kpi-inline-actions">
+              <button type="button" class="kpi-inline-btn save" data-kpi-action="save-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}">저장</button>
+              <button type="button" class="kpi-inline-btn cancel" data-kpi-action="cancel-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}">취소</button>
+            </div>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="kpi-card ${progressClass}" data-kpi-card="${item.id}" data-kpi-goal="${goalKey}">
+          <div class="kpi-card-header">
+            <div class="kpi-card-title">${escapeHtml(item.name || `KPI ${index + 1}`)}<small>${escapeHtml(currentValueText)} / ${escapeHtml(targetValueText)}</small></div>
+            ${editButtons}
+          </div>
+          <div class="kpi-stat"><span>진행률</span><span>${escapeHtml(progressText)}</span></div>
+          <div class="kpi-progress-track"><div class="kpi-progress-bar" style="width:${Math.max(0, Math.min(100, progress)).toFixed(1)}%"></div></div>
+          <div class="kpi-meta-row">
+            <span>기한: ${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}</span>
+            <span>${escapeHtml(updatedMeta.text)}</span>
+          </div>
+          ${paceBadge ? `<span class="kpi-badge alert">${escapeHtml(paceBadge.text)}</span>` : ''}
+          ${updatedMeta.badgeText ? `<span class="kpi-badge stale">${escapeHtml(updatedMeta.badgeText)}</span>` : ''}
+          ${inlineEditor}
+        </div>
+      `;
+    }
+
+    function renderKpiSection(goalKey) {
+      if (!goalGuidelineBadgeBox) return;
+      const goalTemplate = goalTemplates[goalKey];
+      const goalState = getKpiGoalState(goalKey);
+      const items = Array.isArray(goalState.items) ? goalState.items : [];
+
+      if (!items.length && !EDIT_MODE_REQUESTED) {
+        goalGuidelineBadgeBox.hidden = true;
+        return;
+      }
+
+      goalGuidelineBadgeBox.hidden = false;
+      const summary = getKpiGoalStatus(goalKey);
+      const actionButtons = EDIT_MODE_REQUESTED
+        ? `
+          <div class="goal-guideline-badge-actions">
+            <button type="button" class="kpi-action-btn primary" data-kpi-action="batch-edit" data-goal-key="${goalKey}">📝 이 목표 KPI 일괄 수정</button>
+            <button type="button" class="kpi-action-btn" data-kpi-action="settings" data-goal-key="${goalKey}">⚙️ KPI 설정</button>
+            ${!items.length ? '<button type="button" class="kpi-action-btn primary" data-kpi-action="settings" data-goal-key="' + goalKey + '">+ KPI 추가</button>' : ''}
+          </div>
+        `
+        : '';
+
+      const subtitleText = items.length
+        ? `${goalTemplate ? goalTemplate.label : goalState.goalLabel} KPI ${items.length}개 · 갱신 필요 ${summary.staleCount}개 · 페이스 부족 ${summary.paceCount}개`
+        : '등록된 KPI가 없습니다.';
+
+      const cardsHtml = items.length
+        ? `<div class="kpi-grid">${items.map((item, index) => buildKpiCardHtml(goalKey, item, index)).join('')}</div>`
+        : `<div class="kpi-empty">${EDIT_MODE_REQUESTED ? 'KPI를 추가해 주세요' : '등록된 KPI가 없습니다.'}${EDIT_MODE_REQUESTED ? ' [ + KPI 추가 ]' : ''}</div>`;
+
+      goalGuidelineBadgeBox.innerHTML = `
+        <div class="goal-guideline-badge-title">
+          <span>📌 목표 KPI</span>
+          ${actionButtons}
+        </div>
+        <div class="goal-guideline-badge-subtitle">${escapeHtml(subtitleText)}</div>
+        ${cardsHtml}
+      `;
+    }
+
+    function extractKpiDraftFromState(goalKey) {
+      const goalState = getKpiGoalState(goalKey);
+      return {
+        goalKey,
+        goalLabel: goalState.goalLabel,
+        items: goalState.items.map((item) => ({ ...item }))
+      };
+    }
+
+    function openKpiModal(goalKey, mode) {
+      if (!EDIT_MODE_REQUESTED) return;
+      kpiModalState = {
+        goalKey,
+        mode,
+        draft: extractKpiDraftFromState(goalKey)
+      };
+      renderKpiModal();
+      if (kpiModal) {
+        kpiModal.hidden = false;
+      }
+    }
+
+    function closeKpiModal() {
+      kpiModalState = null;
+      if (kpiModal) {
+        kpiModal.hidden = true;
+      }
+    }
+
+    function renderKpiModal() {
+      if (!kpiModalState || !kpiModalBody || !kpiModalTitle || !kpiModalKicker || !kpiModalFooter) return;
+      const goalState = getKpiGoalState(kpiModalState.goalKey);
+      const draftItems = Array.isArray(kpiModalState.draft.items) ? kpiModalState.draft.items : [];
+      kpiModalTitle.textContent = `${goalState.goalLabel} KPI ${kpiModalState.mode === 'batch' ? '일괄 수정' : '설정'}`;
+      kpiModalKicker.textContent = kpiModalState.mode === 'batch' ? '현재값 빠른 수정' : 'KPI 정의 수정';
+
+      if (kpiModalState.mode === 'batch') {
+        kpiModalBody.innerHTML = `
+          <div class="kpi-edit-banner">현재값만 한 화면에서 빠르게 수정합니다. 저장 시 각 KPI의 <strong>kpiUpdatedAt</strong>이 오늘 날짜로 기록됩니다.</div>
+          <div class="kpi-batch-list">
+            ${draftItems.map((item, index) => `
+              <div class="kpi-batch-row">
+                <div class="kpi-settings-row-title">${escapeHtml(item.name || `KPI ${index + 1}`)}</div>
+                <div class="kpi-setting-grid">
+                  <input type="number" step="any" min="0" data-kpi-draft-field="currentValue" data-kpi-index="${index}" value="${escapeHtml(String(item.currentValue ?? 0))}" aria-label="현재값" />
+                  <input type="text" value="${escapeHtml(item.unit || '')}" disabled aria-label="단위" />
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        kpiModalFooter.innerHTML = `
+          <div class="kpi-modal-note">현재값만 저장합니다. 정의는 변경하지 않습니다.</div>
+          <div class="kpi-modal-footer-actions">
+            <button type="button" class="kpi-action-btn" data-kpi-modal-action="close">취소</button>
+            <button type="button" class="kpi-action-btn primary" data-kpi-modal-action="save-batch">저장</button>
+          </div>
+        `;
+        return;
+      }
+
+      kpiModalBody.innerHTML = `
+        <div class="kpi-edit-banner">KPI 이름, 단위, 목표값, 기한, 설명을 수정할 수 있습니다. 최대 5개까지 등록됩니다.</div>
+        <div class="kpi-settings-list">
+          ${draftItems.map((item, index) => `
+            <div class="kpi-settings-row" data-kpi-setting-row="${index}">
+              <div class="kpi-settings-row-header">
+                <div class="kpi-settings-row-title">KPI ${index + 1}</div>
+                <div class="kpi-settings-row-tools">
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="move-up" data-kpi-index="${index}">↑</button>
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="move-down" data-kpi-index="${index}">↓</button>
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="delete" data-kpi-index="${index}">삭제</button>
+                </div>
+              </div>
+              <div class="kpi-setting-grid">
+                <input type="text" data-kpi-draft-field="name" data-kpi-index="${index}" value="${escapeHtml(item.name || '')}" placeholder="KPI 이름" />
+                <input type="text" data-kpi-draft-field="unit" data-kpi-index="${index}" value="${escapeHtml(item.unit || '')}" placeholder="단위" />
+                <input type="number" step="any" min="0" data-kpi-draft-field="targetValue" data-kpi-index="${index}" value="${escapeHtml(String(item.targetValue ?? 0))}" placeholder="목표값" />
+                <input type="date" data-kpi-draft-field="dueDate" data-kpi-index="${index}" value="${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}" placeholder="기한" />
+                <textarea data-kpi-draft-field="description" data-kpi-index="${index}" placeholder="설명">${escapeHtml(item.description || '')}</textarea>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      kpiModalFooter.innerHTML = `
+        <div class="kpi-modal-note">목표당 최대 5개 KPI까지 추가할 수 있습니다.</div>
+        <div class="kpi-modal-footer-actions">
+          <button type="button" class="kpi-action-btn" data-kpi-modal-action="add">+ KPI 추가</button>
+          <button type="button" class="kpi-action-btn" data-kpi-modal-action="close">취소</button>
+          <button type="button" class="kpi-action-btn primary" data-kpi-modal-action="save-settings">저장</button>
+        </div>
+      `;
+    }
+
+    function syncKpiModalInputState(index, field, value) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      const item = kpiModalState.draft.items[index];
+      if (!item) return;
+      if (field === 'name' || field === 'unit' || field === 'description' || field === 'dueDate') {
+        item[field] = value;
+        return;
+      }
+      if (field === 'currentValue' || field === 'targetValue') {
+        item[field] = Number(value);
+      }
+    }
+
+    function reorderKpiDraft(index, direction) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= kpiModalState.draft.items.length) return;
+      const items = kpiModalState.draft.items;
+      const [moved] = items.splice(index, 1);
+      items.splice(nextIndex, 0, moved);
+      renderKpiModal();
+    }
+
+    function addKpiDraftItem() {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      if (kpiModalState.draft.items.length >= 5) return;
+      const nextIndex = kpiModalState.draft.items.length + 1;
+      kpiModalState.draft.items.push({
+        id: `${kpiModalState.goalKey}-kpi-${Date.now()}-${nextIndex}`,
+        goalKey: kpiModalState.goalKey,
+        name: '',
+        unit: '',
+        targetValue: 0,
+        currentValue: 0,
+        dueDate: KPI_DEFAULT_DEADLINE,
+        description: '',
+        kpiUpdatedAt: '',
+        definitionUpdatedAt: '',
+        sortOrder: nextIndex
+      });
+      renderKpiModal();
+    }
+
+    function deleteKpiDraftItem(index) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      if (!window.confirm('해당 KPI를 삭제하시겠습니까?')) return;
+      kpiModalState.draft.items.splice(index, 1);
+      renderKpiModal();
+    }
+
+    async function saveKpiBatch(goalKey) {
+      if (!kpiModalState || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextItems = kpiModalState.draft.items.map((item, index) => ({
+        ...item,
+        goalKey,
+        currentValue: Number(item.currentValue) || 0,
+        kpiUpdatedAt: new Date().toISOString(),
+        sortOrder: index
+      }));
+      kpiCatalogState = kpiCatalogState || buildDefaultKpiCatalog();
+      kpiCatalogState.goals[goalKey] = {
+        goalKey,
+        goalLabel: getKpiGoalState(goalKey).goalLabel,
+        items: nextItems
+      };
+      await saveKpiCatalog('batch-current-save');
+      closeKpiModal();
+    }
+
+    async function saveKpiSettings(goalKey) {
+      if (!kpiModalState || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextItems = kpiModalState.draft.items
+        .map((item, index) => ({
+          ...item,
+          goalKey,
+          targetValue: Number(item.targetValue) || 0,
+          currentValue: Number(item.currentValue) || 0,
+          dueDate: item.dueDate || KPI_DEFAULT_DEADLINE,
+          description: item.description || '',
+          definitionUpdatedAt: new Date().toISOString(),
+          sortOrder: index
+        }))
+        .filter((item) => item.name && String(item.name).trim());
+
+      kpiCatalogState = kpiCatalogState || buildDefaultKpiCatalog();
+      kpiCatalogState.goals[goalKey] = {
+        goalKey,
+        goalLabel: getKpiGoalState(goalKey).goalLabel,
+        items: nextItems.slice(0, 5)
+      };
+      await saveKpiCatalog('definition-save');
+      closeKpiModal();
+    }
+
+    function updateKpiQuickEditCard(card, shouldEdit) {
+      if (!card) return;
+      card.classList.toggle('kpi-card-editing', shouldEdit);
+    }
+
+    function setToastMessage(message, tone = 'ok') {
+      if (!message) return;
+      let toast = document.getElementById('kpiToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'kpiToast';
+        toast.className = 'kpi-toast';
+        document.body.appendChild(toast);
+      }
+      toast.className = `kpi-toast ${tone || 'ok'}`;
+      toast.textContent = message;
+      toast.classList.add('visible');
+      window.clearTimeout(setToastMessage._timer);
+      setToastMessage._timer = window.setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 2400);
+    }
+
     function renderGoalSummaryWidget(goalKey, state) {
       if (!goalCardSummaryWidget || !goalCardSummaryTitle || !goalCardSummaryCount || !goalCardSummaryList) return;
       const goalTemplate = goalTemplates[goalKey];
@@ -5412,6 +6938,578 @@
       }
     }
 
+    function getNewsArticleId(article) {
+      const link = typeof article?.link === 'string' ? article.link.trim() : '';
+      const title = typeof article?.title === 'string' ? article.title.trim() : '';
+      const pubDate = typeof article?.pubDate === 'string' ? article.pubDate.trim() : '';
+      return link || `${title}::${pubDate}` || '';
+    }
+
+    function sanitizeNewsWord(value) {
+      if (typeof value !== 'string') return '';
+      return value.replace(/[\s\u3000]+/g, ' ').trim();
+    }
+
+    function normalizeNewsConfigItem(rawItem, index) {
+      const id = typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `query-${index + 1}`;
+      return {
+        id,
+        label: sanitizeNewsWord(rawItem && rawItem.label) || `쿼리 ${index + 1}`,
+        query: sanitizeNewsWord(rawItem && rawItem.query),
+        enabled: rawItem && rawItem.enabled !== false,
+        sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
+        resultCount: Number.isFinite(rawItem?.resultCount) ? Number(rawItem.resultCount) : 0
+      };
+    }
+
+    function buildDefaultNewsConfig() {
+      const nowIso = new Date().toISOString();
+      return {
+        meta: {
+          schemaVersion: 1,
+          updatedAt: nowIso,
+          updatedByName: EDITOR_NAME_LABEL,
+          updatedByEmail: '',
+          updatedByUid: ''
+        },
+        excludeWords: NEWS_DEFAULT_EXCLUDE_WORDS.slice(),
+        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => normalizeNewsConfigItem({ ...item, sortOrder: index }, index)),
+        hiddenArticles: [],
+        stats: {
+          lastFetchedAt: '',
+          lastRawCount: 0,
+          lastFinalCount: 0
+        }
+      };
+    }
+
+    function normalizeNewsConfig(rawConfig) {
+      const seed = buildDefaultNewsConfig();
+      const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+      const next = {
+        ...seed,
+        meta: { ...seed.meta },
+        excludeWords: Array.isArray(source.excludeWords) && source.excludeWords.length
+          ? Array.from(new Set(source.excludeWords.map(sanitizeNewsWord).filter(Boolean))).slice(0, 100)
+          : seed.excludeWords.slice(),
+        searchQueries: Array.isArray(source.searchQueries) && source.searchQueries.length
+          ? source.searchQueries.map((item, index) => normalizeNewsConfigItem(item, index)).slice(0, 10)
+          : seed.searchQueries.slice(),
+        hiddenArticles: Array.isArray(source.hiddenArticles)
+          ? source.hiddenArticles.map((item, index) => ({
+              id: typeof item?.id === 'string' && item.id ? item.id : `hidden-${index + 1}`,
+              title: sanitizeNewsWord(item && item.title),
+              link: typeof item?.link === 'string' ? item.link : '',
+              pubDate: typeof item?.pubDate === 'string' ? item.pubDate : '',
+              sourceName: typeof item?.sourceName === 'string' ? item.sourceName : '',
+              hiddenAt: typeof item?.hiddenAt === 'string' ? item.hiddenAt : new Date().toISOString(),
+              reason: typeof item?.reason === 'string' ? item.reason : 'manual'
+            }))
+          : [],
+        stats: {
+          lastFetchedAt: typeof source?.stats?.lastFetchedAt === 'string' ? source.stats.lastFetchedAt : '',
+          lastRawCount: Number.isFinite(source?.stats?.lastRawCount) ? Number(source.stats.lastRawCount) : 0,
+          lastFinalCount: Number.isFinite(source?.stats?.lastFinalCount) ? Number(source.stats.lastFinalCount) : 0
+        }
+      };
+
+      next.searchQueries = next.searchQueries
+        .map((item, index) => ({ ...item, sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index }))
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .slice(0, 10);
+      next.excludeWords = next.excludeWords.filter(Boolean);
+      next.hiddenArticles = next.hiddenArticles.filter((item) => getNewsArticleId(item));
+
+      if (source.meta && typeof source.meta === 'object') {
+        next.meta = { ...next.meta, ...source.meta };
+      }
+
+      return next;
+    }
+
+    function getNewsConfigDocRef() {
+      const bridge = window.__plannerFirebase;
+      if (!bridge || !bridge.firestore || typeof bridge.getNewsConfigDocRef !== 'function') return null;
+      return bridge.getNewsConfigDocRef();
+    }
+
+    function getNewsConfigState() {
+      if (!newsConfigState) {
+        newsConfigState = buildDefaultNewsConfig();
+      }
+      return newsConfigState;
+    }
+
+    function getActiveNewsQueries(config = getNewsConfigState()) {
+      return Array.isArray(config.searchQueries)
+        ? config.searchQueries.filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query))
+        : [];
+    }
+
+    function buildNewsQuerySignature(config = getNewsConfigState()) {
+      return getActiveNewsQueries(config).map((item) => item.query.trim()).join(' || ');
+    }
+
+    function getNewsSearchQueryLabel(config = getNewsConfigState()) {
+      const activeQueries = getActiveNewsQueries(config);
+      return activeQueries.length
+        ? activeQueries.map((item) => item.query).join(' · ')
+        : NEWS_SEARCH_QUERY;
+    }
+
+    function extractNewsWordCandidates(title, excludeWords = []) {
+      const stopWords = new Set([
+        '및', '관련', '기사', '뉴스', '시장', '동향', '최신', '오늘', '이번', '대한', '대한', '위한', '통한', '그리고', '에서', '으로', '에게', '부터', '까지', '한다', '했다', '하는', '등의', '등', '전망', '정리', '공개'
+      ]);
+      const excluded = new Set((Array.isArray(excludeWords) ? excludeWords : []).map((word) => sanitizeNewsWord(word).toLowerCase()).filter(Boolean));
+      const tokens = sanitizeNewsWord(title)
+        .split(/[\s\u3000]+|[()\[\]{}<>"'“”‘’`~,.;:!?/\\|·•-]+/g)
+        .map((token) => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').trim())
+        .filter(Boolean);
+
+      const candidates = [];
+      tokens.forEach((token) => {
+        if (candidates.length >= 10) return;
+        if (token.length < 2) return;
+        if (/^[\d]+$/.test(token)) return;
+        if (!/[가-힣A-Za-z]/.test(token)) return;
+        if (stopWords.has(token)) return;
+        if (/^[0-9,.-]+$/.test(token)) return;
+        if (excluded.has(token.toLowerCase())) return;
+        if (candidates.includes(token)) return;
+        candidates.push(token);
+      });
+
+      return candidates.slice(0, 10);
+    }
+
+    function matchNewsArticleQuery(article, queryText) {
+      const query = sanitizeNewsWord(queryText);
+      if (!query) return true;
+      const haystack = `${article.title || ''} ${article.sourceName || ''} ${article.summary || ''}`.toLowerCase();
+      return query.toLowerCase().split(/\s+|\|\||or|,/g).map((part) => part.trim()).filter(Boolean).some((part) => haystack.includes(part.replace(/[()]/g, '').trim().toLowerCase()));
+    }
+
+    function isNewsHiddenArticle(article) {
+      const config = getNewsConfigState();
+      const articleId = getNewsArticleId(article);
+      if (!articleId) return false;
+      return Array.isArray(config.hiddenArticles) && config.hiddenArticles.some((hidden) => getNewsArticleId(hidden) === articleId || (hidden.link && article.link && hidden.link === article.link));
+    }
+
+    function isNewsWordExcluded(article, excludeWords = getNewsConfigState().excludeWords) {
+      const title = sanitizeNewsWord(article && article.title).toLowerCase();
+      if (!title) return false;
+      return Array.isArray(excludeWords) && excludeWords.some((word) => {
+        const token = sanitizeNewsWord(word).toLowerCase();
+        return token && title.includes(token);
+      });
+    }
+
+    function getNewsItemIndustryMatchCount(article, config = getNewsConfigState()) {
+      const activeQueries = getActiveNewsQueries(config);
+      return activeQueries.reduce((count, query) => count + (matchNewsArticleQuery(article, query.query) ? 1 : 0), 0);
+    }
+
+    function dedupeNewsArticles(items) {
+      const seen = new Set();
+      const unique = [];
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const id = getNewsArticleId(item);
+        const key = id || `${sanitizeNewsWord(item && item.title)}::${sanitizeNewsWord(item && item.pubDate)}`;
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        unique.push(item);
+      });
+      return unique;
+    }
+
+    function getNewsRawCacheKey(config = getNewsConfigState()) {
+      const signature = buildNewsQuerySignature(config).replace(/[^a-z0-9]+/gi, '_').slice(0, 120) || 'default';
+      return `${NEWS_CACHE_KEY}::${signature}`;
+    }
+
+    function readNewsRawCache(config = getNewsConfigState()) {
+      try {
+        const raw = window.localStorage.getItem(getNewsRawCacheKey(config));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.items)) return null;
+        if (typeof parsed.fetchedAt !== 'number' || Date.now() - parsed.fetchedAt > NEWS_CACHE_TTL_MS) return null;
+        return parsed;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function writeNewsRawCache(items, meta = {}, config = getNewsConfigState()) {
+      if (!Array.isArray(items)) return;
+      try {
+        window.localStorage.setItem(getNewsRawCacheKey(config), JSON.stringify({ fetchedAt: Date.now(), items, meta }));
+      } catch (error) {
+        console.warn('[news] raw cache 저장 실패', error);
+      }
+    }
+
+    function updateNewsUpdatedText() {
+      if (!newsUpdatedText) return;
+      const fetchedAt = newsConfigState && newsConfigState.stats && newsConfigState.stats.lastFetchedAt ? new Date(newsConfigState.stats.lastFetchedAt) : null;
+      if (!fetchedAt || Number.isNaN(fetchedAt.getTime())) {
+        newsUpdatedText.textContent = '뉴스 갱신: -';
+        return;
+      }
+      const mm = String(fetchedAt.getMonth() + 1).padStart(2, '0');
+      const dd = String(fetchedAt.getDate()).padStart(2, '0');
+      const hh = String(fetchedAt.getHours()).padStart(2, '0');
+      const min = String(fetchedAt.getMinutes()).padStart(2, '0');
+      newsUpdatedText.textContent = `뉴스 갱신: ${mm}-${dd} ${hh}:${min}`;
+    }
+
+    function setNewsSettingsStatus(message, tone = '') {
+      if (!newsSettingsStatus) return;
+      newsSettingsStatus.textContent = message || '';
+      newsSettingsStatus.dataset.tone = tone || '';
+    }
+
+    function logNewsFilterPipeline(rawCount, excludeRemoved, industryRemoved, finalCount) {
+      console.log(`[news] 수집 ${rawCount}건 → 제외어 ${excludeRemoved}건 제거 → 업종어 ${industryRemoved}건 제거 → 최종 ${finalCount}건`);
+    }
+
+    function applyNewsFilters(items, config = getNewsConfigState()) {
+      const rawItems = Array.isArray(items) ? items : [];
+      const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
+      const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, buildNewsQuerySignature(config)));
+      const excludeFiltered = industryItems.filter((item) => !isNewsWordExcluded(item, excludeWords));
+      const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item));
+      const excludeRemoved = industryItems.length - excludeFiltered.length;
+      const industryRemoved = rawItems.length - industryItems.length;
+      const unique = dedupeNewsArticles(hiddenFiltered);
+      const finalCount = unique.length;
+      logNewsFilterPipeline(rawItems.length, excludeRemoved, industryRemoved, finalCount);
+      return {
+        items: unique,
+        rawCount: rawItems.length,
+        excludeRemoved,
+        industryRemoved,
+        finalCount
+      };
+    }
+
+    function getNewsSettingsDraft() {
+      const draft = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
+      if (newsExcludeWordList) {
+        const words = Array.from(newsExcludeWordList.querySelectorAll('[data-news-exclude-word-item]')).map((el) => sanitizeNewsWord(el.dataset.newsExcludeWordItem)).filter(Boolean);
+        if (words.length) draft.excludeWords = words;
+      }
+      if (newsQueryList) {
+        const queryRows = Array.from(newsQueryList.querySelectorAll('[data-news-query-index]'));
+        const nextQueries = queryRows.map((row) => {
+          const index = Number(row.dataset.newsQueryIndex);
+          const labelInput = row.querySelector('[data-news-query-field="label"]');
+          const queryInput = row.querySelector('[data-news-query-field="query"]');
+          const enabledInput = row.querySelector('[data-news-query-field="enabled"]');
+          return normalizeNewsConfigItem({
+            id: newsConfigState.searchQueries[index] && newsConfigState.searchQueries[index].id ? newsConfigState.searchQueries[index].id : `query-${index + 1}`,
+            label: labelInput ? labelInput.value : '',
+            query: queryInput ? queryInput.value : '',
+            enabled: enabledInput ? enabledInput.checked : true,
+            sortOrder: index
+          }, index);
+        }).filter((item) => sanitizeNewsWord(item.query));
+        if (nextQueries.length) draft.searchQueries = nextQueries;
+      }
+      return draft;
+    }
+
+    function renderNewsWidgetFromCache() {
+      const activeConfig = getNewsConfigState();
+      const filtered = applyNewsFilters(newsRawItemsCache, activeConfig);
+      newsFilterStats = filtered;
+      newsVisibleItems = filtered.items;
+      if (!newsSelectedGoalKey) return filtered;
+      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey);
+      const sorted = newsVisibleItems
+        .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+        .map((entry) => entry.item);
+      if (sorted.length) {
+        clearNewsWidgetEmptyState();
+        renderNewsItemsIntoWidget(sorted);
+      } else {
+        newsWidgetList.innerHTML = '';
+        newsWidgetLoading.hidden = true;
+        setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
+      }
+      return filtered;
+    }
+
+    async function saveNewsSettingsFromModal() {
+      const draft = getNewsSettingsDraft();
+      const previousSignature = buildNewsQuerySignature(newsConfigState || buildDefaultNewsConfig());
+      const nextSignature = buildNewsQuerySignature(draft);
+      const queryChanged = previousSignature !== nextSignature;
+      newsConfigState = draft;
+      setNewsSettingsStatus('저장 중...', 'pending');
+      await saveNewsConfig('settings-modal-save');
+      renderNewsSettingsLists();
+      if (queryChanged) {
+        setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
+        await refreshNewsDataset(true);
+      } else {
+        setNewsSettingsStatus('제외어/숨김 항목을 즉시 다시 적용했습니다.', 'success');
+        renderNewsWidgetFromCache();
+      }
+      setTimeout(() => {
+        if (newsSettingsStatus && newsSettingsStatus.dataset.tone === 'success') {
+          setNewsSettingsStatus('');
+        }
+      }, 1800);
+    }
+
+    async function addNewsExcludeWords(rawText) {
+      const words = String(rawText || '').split(/[,\n]/g).map(sanitizeNewsWord).filter(Boolean);
+      if (!words.length) return;
+      const config = getNewsConfigState();
+      config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
+      newsConfigState = config;
+      await saveNewsConfig('add-exclude-word');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function removeNewsExcludeWord(index) {
+      const config = getNewsConfigState();
+      config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
+      newsConfigState = config;
+      await saveNewsConfig('remove-exclude-word');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function removeNewsQuery(index) {
+      const config = getNewsConfigState();
+      config.searchQueries = (config.searchQueries || []).filter((_, itemIndex) => itemIndex !== index);
+      if (!config.searchQueries.length) config.searchQueries = buildDefaultNewsConfig().searchQueries;
+      newsConfigState = config;
+      await saveNewsConfig('remove-query');
+      renderNewsSettingsLists();
+      await refreshNewsDataset(true);
+    }
+
+    async function addNewsQuery() {
+      const config = getNewsConfigState();
+      const nextIndex = (config.searchQueries || []).length + 1;
+      config.searchQueries = [...(config.searchQueries || []), normalizeNewsConfigItem({ id: `query-${Date.now()}`, label: `쿼리 ${nextIndex}`, query: NEWS_SEARCH_QUERY, enabled: true, sortOrder: nextIndex - 1 }, nextIndex - 1)];
+      newsConfigState = config;
+      await saveNewsConfig('add-query');
+      renderNewsSettingsLists();
+    }
+
+    async function clearHiddenNewsArticles() {
+      const config = getNewsConfigState();
+      config.hiddenArticles = [];
+      newsConfigState = config;
+      await saveNewsConfig('clear-hidden-articles');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function unhideNewsArticle(index) {
+      const config = getNewsConfigState();
+      config.hiddenArticles = (config.hiddenArticles || []).filter((_, itemIndex) => itemIndex !== index);
+      newsConfigState = config;
+      await saveNewsConfig('unhide-article');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    async function hideNewsArticle(article) {
+      const config = getNewsConfigState();
+      const articleId = getNewsArticleId(article);
+      if (!articleId) return;
+      if ((config.hiddenArticles || []).some((item) => getNewsArticleId(item) === articleId)) return;
+      config.hiddenArticles = [...(config.hiddenArticles || []), {
+        id: articleId,
+        title: sanitizeNewsWord(article && article.title),
+        link: typeof article?.link === 'string' ? article.link : '',
+        pubDate: typeof article?.pubDate === 'string' ? article.pubDate : '',
+        sourceName: article && article.source && typeof article.source.title === 'string' ? article.source.title : '',
+        hiddenAt: new Date().toISOString(),
+        reason: 'manual'
+      }];
+      newsConfigState = config;
+      await saveNewsConfig('hide-article');
+      renderNewsSettingsLists();
+      renderNewsWidgetFromCache();
+    }
+
+    function attachNewsWidgetInteractionHandlers() {
+      if (newsWidgetList && !newsWidgetList.dataset.bound) {
+        newsWidgetList.dataset.bound = 'true';
+        newsWidgetList.addEventListener('click', async (event) => {
+          const hideTrigger = event.target.closest('[data-news-hide-trigger]');
+          if (hideTrigger) {
+            event.preventDefault();
+            const card = hideTrigger.closest('[data-news-article]');
+            if (!card) return;
+            const articleId = card.dataset.newsArticle || '';
+            const item = newsVisibleItems.find((entry) => getNewsArticleId(entry) === articleId) || newsRawItemsCache.find((entry) => getNewsArticleId(entry) === articleId);
+            if (item) {
+              const popover = card.querySelector(`[data-news-popover-for="${CSS.escape(articleId)}"]`);
+              if (popover) popover.hidden = !popover.hidden;
+              await hideNewsArticle(item);
+            }
+            return;
+          }
+          const excludeChip = event.target.closest('[data-news-exclude-word]');
+          if (excludeChip) {
+            event.preventDefault();
+            await addNewsExcludeWords(excludeChip.dataset.newsExcludeWord || '');
+            return;
+          }
+        });
+      }
+
+      if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
+        newsSettingsModal.dataset.bound = 'true';
+        newsSettingsModal.addEventListener('click', async (event) => {
+          const actionTarget = event.target.closest('[data-news-settings-action]');
+          if (actionTarget) {
+            const action = actionTarget.dataset.newsSettingsAction;
+            if (action === 'close') closeNewsSettingsModal();
+            return;
+          }
+          const tab = event.target.closest('[data-news-tab]');
+          if (tab) {
+            setNewsSettingsTab(tab.dataset.newsTab || 'exclude');
+            return;
+          }
+          const removeExclude = event.target.closest('[data-news-remove-exclude]');
+          if (removeExclude) {
+            await removeNewsExcludeWord(Number(removeExclude.dataset.newsRemoveExclude));
+            return;
+          }
+          const removeQuery = event.target.closest('[data-news-remove-query]');
+          if (removeQuery) {
+            await removeNewsQuery(Number(removeQuery.dataset.newsRemoveQuery));
+            return;
+          }
+          const unhideItem = event.target.closest('[data-news-unhide-index]');
+          if (unhideItem) {
+            await unhideNewsArticle(Number(unhideItem.dataset.newsUnhideIndex));
+            return;
+          }
+        });
+      }
+
+      if (newsExcludeWordAddBtn && !newsExcludeWordAddBtn.dataset.bound) {
+        newsExcludeWordAddBtn.dataset.bound = 'true';
+        newsExcludeWordAddBtn.addEventListener('click', async () => {
+          if (!newsExcludeWordInput) return;
+          await addNewsExcludeWords(newsExcludeWordInput.value);
+          newsExcludeWordInput.value = '';
+        });
+      }
+
+      if (newsQueryAddBtn && !newsQueryAddBtn.dataset.bound) {
+        newsQueryAddBtn.dataset.bound = 'true';
+        newsQueryAddBtn.addEventListener('click', addNewsQuery);
+      }
+
+      if (newsHiddenClearBtn && !newsHiddenClearBtn.dataset.bound) {
+        newsHiddenClearBtn.dataset.bound = 'true';
+        newsHiddenClearBtn.addEventListener('click', clearHiddenNewsArticles);
+      }
+
+      if (newsSettingsSaveBtn && !newsSettingsSaveBtn.dataset.bound) {
+        newsSettingsSaveBtn.dataset.bound = 'true';
+        newsSettingsSaveBtn.addEventListener('click', saveNewsSettingsFromModal);
+      }
+
+      if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
+        newsRefreshBtn.dataset.bound = 'true';
+        newsRefreshBtn.addEventListener('click', () => refreshNewsDataset(true));
+      }
+
+      if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
+        newsSettingsBtn.dataset.bound = 'true';
+        newsSettingsBtn.addEventListener('click', () => openNewsSettingsModal());
+      }
+    }
+
+    async function saveNewsConfig(reason = '') {
+      const bridge = await waitForFirebaseBridge();
+      const docRef = getNewsConfigDocRef();
+      if (!bridge || !docRef || typeof bridge.setDoc !== 'function') {
+        throw Object.assign(new Error('Firestore 사용 불가'), { code: 'firestore-unavailable' });
+      }
+
+      const payload = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
+      payload.meta = {
+        ...payload.meta,
+        updatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
+      };
+
+      await bridge.setDoc(docRef, payload, { merge: true });
+      newsConfigState = normalizeNewsConfig(payload);
+      newsConfigLoaded = true;
+      updateNewsUpdatedText();
+      if (reason) console.log('[news] 설정 저장 완료', { reason });
+      return newsConfigState;
+    }
+
+    async function loadNewsConfigOnce() {
+      if (newsConfigLoadPromise) return newsConfigLoadPromise;
+      newsConfigLoadPromise = (async () => {
+        const bridge = await waitForFirebaseBridge();
+        const seed = buildDefaultNewsConfig();
+        const fallback = readNewsCache();
+
+        try {
+          if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
+            newsConfigState = normalizeNewsConfig(seed);
+            newsConfigLoaded = true;
+            return newsConfigState;
+          }
+
+          const docRef = getNewsConfigDocRef();
+          if (!docRef) {
+            newsConfigState = normalizeNewsConfig(seed);
+            newsConfigLoaded = true;
+            return newsConfigState;
+          }
+
+          const snapshot = await bridge.getDoc(docRef);
+          if (!snapshot || !snapshot.exists()) {
+            newsConfigState = normalizeNewsConfig(seed);
+            await bridge.setDoc(docRef, newsConfigState, { merge: true });
+          } else {
+            newsConfigState = normalizeNewsConfig(snapshot.data ? snapshot.data() : {});
+          }
+
+          if (fallback && Array.isArray(fallback.items) && fallback.items.length) {
+            newsRawItemsCache = fallback.items;
+            newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState);
+            newsVisibleItems = newsFilterStats.items;
+            newsQueryResultCounts = fallback.meta && typeof fallback.meta.queryCounts === 'object' ? fallback.meta.queryCounts : {};
+          }
+          newsConfigLoaded = true;
+          updateNewsUpdatedText();
+          return newsConfigState;
+        } catch (error) {
+          console.error('[news] 설정 초기 로드 실패', error);
+          newsConfigState = normalizeNewsConfig(seed);
+          newsConfigLoaded = true;
+          return newsConfigState;
+        }
+      })();
+      return newsConfigLoadPromise;
+    }
+
     function fetchNewsViaRss2Json(query) {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
@@ -5461,42 +7559,97 @@
         });
     }
 
-    // 목표별로 매번 호출하지 않고, 하나의 OR 쿼리 결과를 모든 목표 페이지가 공유한다 (요청 5: 요청 수 절감).
-    function loadSharedNewsItems() {
-      if (sharedNewsPromise) return sharedNewsPromise;
-
-      const cached = readNewsCache();
-      if (cached) {
-        console.log('[news] localStorage 캐시 사용 (TTL 30분 이내), 건수=', cached.items.length);
-        sharedNewsPromise = Promise.resolve({ items: cached.items, totalCount: cached.items.length, error: null });
-        return sharedNewsPromise;
+    async function fetchNewsForQuery(queryItem) {
+      const queryText = sanitizeNewsWord(queryItem && queryItem.query) || '';
+      if (!queryText) return [];
+      try {
+        const fetched = await fetchNewsViaRss2Json(queryText);
+        return Array.isArray(fetched) ? fetched : [];
+      } catch (primaryError) {
+        console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
+        try {
+          const fallback = await fetchNewsViaAllOrigins(queryText);
+          return Array.isArray(fallback) ? fallback : [];
+        } catch (fallbackError) {
+          console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
+          return [];
+        }
       }
+    }
 
-      console.log('[news] 검색 쿼리(회사/업계 키워드 OR 결합):', NEWS_SEARCH_QUERY);
-      sharedNewsPromise = fetchNewsViaRss2Json(NEWS_SEARCH_QUERY)
-        .catch((primaryError) => {
-          console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
-          return fetchNewsViaAllOrigins(NEWS_SEARCH_QUERY).catch((fallbackError) => {
-            console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
-            throw new Error(`${(primaryError && primaryError.message) || 'rss2json 오류'} / fallback 실패: ${(fallbackError && fallbackError.message) || '알 수 없음'}`);
-          });
-        })
-        .then((items) => {
-          console.log('[news] 원본 수신 건수:', items.length);
-          writeNewsCache(items);
-          return { items, totalCount: items.length, error: null };
-        })
-        .catch((error) => {
-          console.error('[news] 뉴스 수집 최종 실패:', error && error.message);
-          sharedNewsPromise = null; // 다음 목표 전환 시 재시도할 수 있도록 초기화
-          return { items: [], totalCount: 0, error: (error && error.message) || '알 수 없는 오류' };
-        });
+    // 목표별로 매번 호출하지 않고, 하나의 OR 쿼리 결과를 모든 목표 페이지가 공유한다 (요청 5: 요청 수 절감).
+    function loadSharedNewsItems(options = {}) {
+      if (newsDatasetLoadPromise && !options.forceFetch) return newsDatasetLoadPromise;
 
-      return sharedNewsPromise;
+      newsDatasetLoadPromise = (async () => {
+        await loadNewsConfigOnce();
+        const config = getNewsConfigState();
+        const activeQueries = getActiveNewsQueries(config);
+        const signature = buildNewsQuerySignature(config);
+        const cached = options.forceFetch ? null : readNewsRawCache(config);
+
+        if (cached && cached.meta && cached.meta.signature === signature && Array.isArray(cached.items) && cached.items.length) {
+          console.log('[news] localStorage 캐시 사용 (TTL 6시간 이내), 건수=', cached.items.length);
+          newsRawItemsCache = cached.items;
+          newsQueryResultCounts = cached.meta.queryCounts || {};
+          newsFilterStats = applyNewsFilters(newsRawItemsCache, config);
+          newsVisibleItems = newsFilterStats.items;
+          config.stats = {
+            lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
+            lastRawCount: cached.items.length,
+            lastFinalCount: newsFilterStats.finalCount
+          };
+          updateNewsUpdatedText();
+          return { items: newsVisibleItems, totalCount: newsVisibleItems.length, error: null };
+        }
+
+        if (!activeQueries.length) {
+          newsRawItemsCache = [];
+          newsQueryResultCounts = {};
+          newsFilterStats = applyNewsFilters([], config);
+          newsVisibleItems = newsFilterStats.items;
+          config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
+          updateNewsUpdatedText();
+          writeNewsRawCache([], { signature, queryCounts: {}, queryItems: {} }, config);
+          return { items: [], totalCount: 0, error: null };
+        }
+
+        console.log('[news] 검색 쿼리 목록:', activeQueries.map((item) => item.query));
+        const queryResults = await Promise.all(activeQueries.map(async (queryItem) => {
+          const items = await fetchNewsForQuery(queryItem);
+          return { id: queryItem.id, query: queryItem.query, items };
+        }));
+
+        const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
+        const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
+        const uniqueItems = dedupeNewsArticles(flattened);
+        newsRawItemsCache = uniqueItems;
+        newsQueryResultCounts = queryCounts;
+        writeNewsRawCache(uniqueItems, { signature, queryCounts }, config);
+        newsFilterStats = applyNewsFilters(uniqueItems, config);
+        newsVisibleItems = newsFilterStats.items;
+        config.stats = {
+          lastFetchedAt: new Date().toISOString(),
+          lastRawCount: uniqueItems.length,
+          lastFinalCount: newsFilterStats.finalCount
+        };
+        await saveNewsConfig('news-dataset-refresh');
+        updateNewsUpdatedText();
+        return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null };
+      })();
+
+      return newsDatasetLoadPromise.finally(() => {
+        newsDatasetLoadPromise = null;
+      });
     }
 
     function renderNewsItemsIntoWidget(items) {
-      newsWidgetList.innerHTML = items.slice(0, 4).map((item) => {
+      const canEditNews = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      const activeConfig = getNewsConfigState();
+      const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
+      newsVisibleItems = visibleItems.slice();
+      if (!newsWidgetList) return;
+      newsWidgetList.innerHTML = visibleItems.map((item, index) => {
         const rawTitle = typeof item.title === 'string' ? item.title.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음';
         const title = decodeHtmlEntities(rawTitle);
         const rawSourceName = item && item.source && typeof item.source.title === 'string'
@@ -5505,17 +7658,130 @@
         const sourceName = decodeHtmlEntities(rawSourceName);
         const pubDate = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
         const href = item && typeof item.link === 'string' ? item.link : '#';
+        const articleKey = getNewsArticleId(item) || `article-${index}`;
+        const candidateWords = extractNewsWordCandidates(title, activeConfig.excludeWords || []);
+        const popoverHtml = canEditNews ? `
+          <button type="button" class="news-card-hide-btn" data-news-hide-trigger="${escapeHtml(articleKey)}">🚫</button>
+          <div class="news-card-popover" data-news-popover-for="${escapeHtml(articleKey)}" hidden>
+            <div class="news-card-popover-title">단어로 제외하기</div>
+            <div class="news-card-popover-chips">
+              ${candidateWords.length ? candidateWords.map((word) => `<button type="button" class="news-card-popover-chip" data-news-exclude-word="${escapeHtml(word)}">${escapeHtml(word)}</button>`).join('') : '<span class="news-card-popover-empty">추출된 후보가 없습니다.</span>'}
+            </div>
+          </div>
+        ` : '';
         return `
-          <a class="news-card" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+          <article class="news-card" data-news-article="${escapeHtml(articleKey)}">
+            ${popoverHtml}
+            <a class="news-card-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
             <div class="news-card-title">${escapeHtml(title)}</div>
             <div class="news-card-meta">
               <span class="news-card-source">${escapeHtml(sourceName)}</span>
               <span class="news-card-date">${escapeHtml(pubDate)}</span>
             </div>
-          </a>
+            </a>
+          </article>
         `;
       }).join('');
       newsWidgetLoading.hidden = true;
+    }
+
+    function setNewsWidgetEmptyState(message, showSettingsButton = false) {
+      if (!newsWidgetEmpty) return;
+      newsWidgetEmpty.hidden = false;
+      newsWidgetEmpty.innerHTML = '';
+      const text = document.createElement('div');
+      text.className = 'news-widget-empty-text';
+      text.textContent = message;
+      newsWidgetEmpty.appendChild(text);
+      if (showSettingsButton && EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'news-widget-empty-btn';
+        button.textContent = '설정 열기';
+        button.addEventListener('click', () => openNewsSettingsModal());
+        newsWidgetEmpty.appendChild(button);
+      }
+    }
+
+    function clearNewsWidgetEmptyState() {
+      if (!newsWidgetEmpty) return;
+      newsWidgetEmpty.hidden = true;
+      newsWidgetEmpty.innerHTML = '';
+    }
+
+    function renderNewsSettingsLists() {
+      const config = getNewsConfigState();
+      if (newsExcludeWordList) {
+        newsExcludeWordList.innerHTML = (config.excludeWords || []).map((word, index) => `
+          <span class="news-chip" data-news-exclude-word-item="${escapeHtml(word)}">
+            <span>${escapeHtml(word)}</span>
+            <button type="button" class="news-chip-remove" data-news-remove-exclude="${index}">×</button>
+          </span>
+        `).join('') || '<div class="news-settings-empty">제외어가 없습니다.</div>';
+      }
+      if (newsQueryList) {
+        newsQueryList.innerHTML = (config.searchQueries || []).map((item, index) => `
+          <div class="news-query-row" data-news-query-index="${index}">
+            <input type="text" class="news-query-input" data-news-query-field="label" value="${escapeHtml(item.label || '')}" placeholder="표시 이름" />
+            <input type="text" class="news-query-input" data-news-query-field="query" value="${escapeHtml(item.query || '')}" placeholder="검색 쿼리" />
+            <label class="news-query-toggle"><input type="checkbox" data-news-query-field="enabled" ${item.enabled !== false ? 'checked' : ''} /> 활성</label>
+            <button type="button" class="news-chip-remove" data-news-remove-query="${index}">×</button>
+          </div>
+        `).join('') || '<div class="news-settings-empty">검색 쿼리가 없습니다.</div>';
+      }
+      if (newsHiddenList) {
+        newsHiddenList.innerHTML = (config.hiddenArticles || []).map((item, index) => `
+          <div class="news-hidden-row" data-news-hidden-index="${index}">
+            <div class="news-hidden-title">${escapeHtml(item.title || item.link || '숨긴 기사')}</div>
+            <div class="news-hidden-meta">${escapeHtml(item.sourceName || '')}</div>
+            <button type="button" class="news-chip-remove" data-news-unhide-index="${index}">해제</button>
+          </div>
+        `).join('') || '<div class="news-settings-empty">숨긴 기사가 없습니다.</div>';
+      }
+    }
+
+    function setNewsSettingsTab(tabName) {
+      newsSettingsActiveTab = tabName || 'exclude';
+      if (newsSettingsModal) {
+        Array.from(newsSettingsModal.querySelectorAll('.news-settings-tab')).forEach((button) => {
+          button.classList.toggle('active', button.dataset.newsTab === newsSettingsActiveTab);
+        });
+        Array.from(newsSettingsModal.querySelectorAll('.news-settings-panel')).forEach((panel) => {
+          panel.classList.toggle('active', panel.dataset.newsPanel === newsSettingsActiveTab);
+        });
+      }
+    }
+
+    function openNewsSettingsModal() {
+      if (!newsSettingsModal || !(EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser))) return;
+      renderNewsSettingsLists();
+      setNewsSettingsTab(newsSettingsActiveTab);
+      newsSettingsModal.hidden = false;
+    }
+
+    function closeNewsSettingsModal() {
+      if (!newsSettingsModal) return;
+      newsSettingsModal.hidden = true;
+    }
+
+    async function refreshNewsDataset(forceFetch = false) {
+      const result = await loadSharedNewsItems({ forceFetch });
+      const items = Array.isArray(result.items) ? result.items : [];
+      const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
+      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+      const sorted = withinWindow
+        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+        .map((entry) => entry.item);
+      if (!sorted.length) {
+        newsWidgetList.innerHTML = '';
+        newsWidgetLoading.hidden = true;
+        setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
+        return result;
+      }
+      clearNewsWidgetEmptyState();
+      renderNewsItemsIntoWidget(sorted);
+      return result;
     }
 
     function renderNewsWidget(goalKey, state) {
@@ -5529,17 +7795,19 @@
       }
 
       const requestId = ++newsRequestSerial;
-      const weightKeywords = getNewsCategoryWeightKeywords(goalKey);
+      newsSelectedGoalKey = goalKey;
+      const activeConfig = getNewsConfigState();
+      const activeQueries = getActiveNewsQueries(activeConfig);
 
       newsWidget.hidden = false;
       newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${NEWS_CORE_KEYWORDS.join(', ')} · 수집 범위: 최근 ${NEWS_MAX_AGE_DAYS}일 이내 B2B/경쟁사 뉴스`;
+      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
 
       newsWidgetList.innerHTML = '';
       newsWidgetLoading.hidden = false;
       newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
 
-      loadSharedNewsItems().then((result) => {
+      refreshNewsDataset(false).then((result) => {
         if (requestId !== newsRequestSerial) return;
         const items = Array.isArray(result.items) ? result.items : [];
         const totalCount = result.totalCount || 0;
@@ -5552,26 +7820,15 @@
           return;
         }
 
-        const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
-        console.log(`[news][${goalKey}] 최근 ${NEWS_MAX_AGE_DAYS}일 필터 후 ${withinWindow.length}건 (전체 ${totalCount}건)`);
-
-        if (!withinWindow.length) {
+        if (!items.length) {
           newsWidgetList.innerHTML = '';
-          newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = `최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`;
+          newsWidgetLoading.hidden = true;
+          setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
           return;
         }
 
-        const sorted = withinWindow
-          .map((item) => ({
-            item,
-            score: scoreNewsItemForGoal(item, weightKeywords),
-            time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime()
-          }))
-          .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
-          .map((entry) => entry.item);
-
-        renderNewsItemsIntoWidget(sorted);
+        clearNewsWidgetEmptyState();
+        renderNewsItemsIntoWidget(items);
       });
     }
 
@@ -5616,21 +7873,56 @@
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
-        const benchmarkState = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
+        const benchmarkDisplay = resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, item);
+        const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt);
+        const benchmarkUpdatedText = benchmarkAge.text;
         const benchmarkItems = [
-          { label: 'SKF 본사 실행 내용', value: benchmarkState.skf || item.hq || '' },
-          { label: '셰플러', value: benchmarkState.schaeffler || (goalCompetitorExec[index] && goalCompetitorExec[index][0] ? `${goalCompetitorExec[index][0].company} ${goalCompetitorExec[index][0].summary}` : '') },
-          { label: '한국NSK', value: benchmarkState.koreaNsk || (goalCompetitorExec[index] && goalCompetitorExec[index][1] ? `${goalCompetitorExec[index][1].company} ${goalCompetitorExec[index][1].summary}` : '') },
-          { label: '팀켄', value: benchmarkState.timken || (goalCompetitorExec[index] && goalCompetitorExec[index][2] ? `${goalCompetitorExec[index][2].company} ${goalCompetitorExec[index][2].summary}` : '') }
+          { label: 'SKF 본사 실행 내용', value: benchmarkDisplay.values.skf || '' },
+          { label: '셰플러', value: benchmarkDisplay.values.schaeffler || '' },
+          { label: '한국NSK', value: benchmarkDisplay.values.nsk || '' },
+          { label: '팀켄', value: benchmarkDisplay.values.timken || '' }
         ];
+        const staleBadgeHtml = `<span class="benchmark-stale-badge ${benchmarkAge.badgeClass}">${benchmarkAge.days === null ? '기준일 없음' : `${benchmarkAge.days}일 경과`}</span>`;
+        const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
+          ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
+          : '';
         const benchmarkHtml = `
+          <div class="benchmark-meta-row">
+            <span class="benchmark-updated-label">${escapeHtml(benchmarkUpdatedText)}</span>
+            ${staleBadgeHtml}
+            ${benchmarkEditButtonHtml}
+          </div>
           <div class="benchmark-exec-grid">
             ${benchmarkItems.map((entry) => `
               <div class="benchmark-exec-item">
                 <strong>${escapeHtml(entry.label)}</strong>
-                <p>${escapeHtml(entry.value || '입력된 데이터가 없습니다.')}</p>
+                <p>${escapeHtml(entry.value || '데이터 없음')}</p>
               </div>
             `).join('')}
+          </div>
+          <div class="benchmark-editor-panel" data-benchmark-editor-panel="${escapeHtml(itemKey)}">
+            <div class="benchmark-editor-grid">
+              <div class="benchmark-editor-field">
+                <label>SKF 본사</label>
+                <textarea data-benchmark-input="skf">${escapeHtml(benchmarkDisplay.values.skf || '')}</textarea>
+              </div>
+              <div class="benchmark-editor-field">
+                <label>셰플러</label>
+                <textarea data-benchmark-input="schaeffler">${escapeHtml(benchmarkDisplay.values.schaeffler || '')}</textarea>
+              </div>
+              <div class="benchmark-editor-field">
+                <label>한국NSK</label>
+                <textarea data-benchmark-input="nsk">${escapeHtml(benchmarkDisplay.values.nsk || '')}</textarea>
+              </div>
+              <div class="benchmark-editor-field">
+                <label>팀켄</label>
+                <textarea data-benchmark-input="timken">${escapeHtml(benchmarkDisplay.values.timken || '')}</textarea>
+              </div>
+            </div>
+            <div class="benchmark-editor-actions">
+              <button type="button" class="benchmark-data-btn" data-benchmark-editor-cancel="${escapeHtml(itemKey)}">취소</button>
+              <button type="button" class="benchmark-data-btn" data-benchmark-editor-save="${escapeHtml(itemKey)}">저장</button>
+            </div>
           </div>
         `;
         const workflowHtml = createWorkflowChecklistHtml(
@@ -5682,9 +7974,19 @@
             ${principleBoxHtml}
             ${workflowHtml}
             ${historyArchiveHtml}
+            <div class="directive-section">
+              <div class="journal-top">
+                <strong>📌 지시사항 · 해야 할 내용</strong>
+                <span class="journal-saved">저장됨</span>
+              </div>
+              <textarea class="directive-input journal-input" rows="3" placeholder="현재 지시사항, 우선순위, 반드시 지킬 기준을 적어주세요."></textarea>
+              <div class="journal-controls">
+                <button type="button" class="directive-save-btn journal-save-btn">저장</button>
+              </div>
+            </div>
             <div class="journal-section">
               <div class="journal-top">
-                <strong>오늘의 업무 코멘트</strong>
+                <strong>✅ 오늘 수행한 내용</strong>
                 <span class="journal-saved">저장됨</span>
               </div>
               <textarea class="journal-input" rows="3" placeholder="오늘 진행한 내용, 이슈, 다음 액션을 기록하세요."></textarea>
@@ -5734,6 +8036,8 @@
         const titleInput = card.querySelector('.card-title-input');
         const summaryInput = card.querySelector('.card-summary-input');
         const guidelinesInput = card.querySelector('.card-guidelines-input');
+        const directiveInput = card.querySelector('.directive-input');
+        const directiveSaveButton = card.querySelector('.directive-save-btn');
         const journalInput = card.querySelector('.journal-input');
         const journalSaveButton = card.querySelector('.journal-save-btn');
         const journalTimeline = card.querySelector('.journal-timeline');
@@ -5747,6 +8051,9 @@
         const cycleCountLabel = card.querySelector('[data-cycle-count-label]');
         const archiveProjectInput = card.querySelector('.archive-project-input');
         const archiveCompleteButton = card.querySelector('.archive-complete-reset-btn');
+        const benchmarkEditToggleBtn = card.querySelector('[data-benchmark-edit-toggle]');
+        const benchmarkEditorCancelBtn = card.querySelector('[data-benchmark-editor-cancel]');
+        const benchmarkEditorSaveBtn = card.querySelector('[data-benchmark-editor-save]');
         const [currentGoal, currentIndexText] = itemKey.split('::');
         const currentGoalTemplate = goalTemplates[currentGoal] || {};
         const currentItemIndex = Number(currentIndexText);
@@ -5793,6 +8100,22 @@
         };
 
         updateLeaderVisual();
+
+        if (benchmarkEditToggleBtn) {
+          benchmarkEditToggleBtn.addEventListener('click', () => {
+            toggleBenchmarkEditorPanel(itemKey);
+          });
+        }
+        if (benchmarkEditorCancelBtn) {
+          benchmarkEditorCancelBtn.addEventListener('click', () => {
+            closeAllBenchmarkEditorPanels();
+          });
+        }
+        if (benchmarkEditorSaveBtn) {
+          benchmarkEditorSaveBtn.addEventListener('click', () => {
+            saveBenchmarkEditorPanel(itemKey);
+          });
+        }
 
         if (prioritySelect) {
           prioritySelect.value = normalizePriorityValue(itemState.priority);
@@ -5884,6 +8207,9 @@
         });
         if (archiveProjectInput) {
           archiveProjectInput.value = itemState.seriesDraftName || '';
+        }
+        if (directiveInput) {
+          directiveInput.value = itemState.directive || readDirectiveDraft(itemKey) || '';
         }
         if (journalInput) {
           journalInput.value = itemState.note || '';
@@ -5981,7 +8307,11 @@
               completedAt: ''
             }));
             itemState.comments = [];
+            syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             itemState.note = '';
+            itemState.directive = '';
+            itemState.directiveUpdatedAt = '';
             itemState.seriesDraftName = '';
             markItemUpdated(itemState);
 
@@ -5993,6 +8323,10 @@
             });
             if (journalInput) {
               journalInput.value = '';
+            }
+            if (directiveInput) {
+              directiveInput.value = '';
+              syncDirectiveDraft(itemKey, '');
             }
             if (archiveProjectInput) {
               archiveProjectInput.value = '';
@@ -6146,6 +8480,7 @@
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
             completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
           }));
+          recalculateItemActivityTimestamp(itemState);
           updateStepExecutionBadges();
           renderLatestActivityPanel(latestActivityPanel, itemState);
           const isDone = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
@@ -6167,6 +8502,25 @@
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderLatestActivityPanel(latestActivityPanel, itemState);
+          });
+        }
+
+        if (directiveInput) {
+          directiveInput.addEventListener('input', () => {
+            syncDirectiveDraft(itemKey, directiveInput.value || '');
+          });
+        }
+
+        if (directiveSaveButton) {
+          directiveSaveButton.addEventListener('click', () => {
+            itemState.directive = directiveInput ? directiveInput.value.trim() : '';
+            itemState.directiveUpdatedAt = itemState.directive ? new Date().toISOString() : '';
+            markItemUpdated(itemState);
+            recalculateItemActivityTimestamp(itemState);
+            syncDirectiveDraft(itemKey, '');
+            savePlannerState(plannerState, { reason: 'directive-save' });
+            renderLatestActivityPanel(latestActivityPanel, itemState);
+            syncOverviewWidgets(plannerState);
           });
         }
 
@@ -6216,8 +8570,12 @@
               completedAt: ''
             }));
             itemState.comments = [];
+            syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             itemState.seriesDraftName = '';
             itemState.noteUpdatedAt = '';
+            itemState.directive = '';
+            itemState.directiveUpdatedAt = '';
             markItemUpdated(itemState);
 
             checkboxes.forEach((checkbox) => {
@@ -6228,6 +8586,10 @@
             });
             if (archiveProjectInput) {
               archiveProjectInput.value = '';
+            }
+            if (directiveInput) {
+              directiveInput.value = '';
+              syncDirectiveDraft(itemKey, '');
             }
             renderTimeline(journalTimeline, itemState.comments);
             historyEditIndex = -1;
@@ -6286,6 +8648,8 @@
             timestamp: new Date().toISOString(),
             text
           });
+          syncCommentDerivedFields(itemState);
+          recalculateItemActivityTimestamp(itemState);
           markItemUpdated(itemState);
 
           savePlannerState(plannerState);
@@ -6308,6 +8672,8 @@
             const isConfirmed = window.confirm('정말 삭제하시겠습니까?');
             if (!isConfirmed) return;
             itemState.comments.splice(targetIndex, 1);
+            syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -6348,6 +8714,8 @@
 
             itemState.comments[targetIndex].text = editedText;
             itemState.comments[targetIndex].updatedAt = new Date().toISOString();
+            syncCommentDerivedFields(itemState);
+            recalculateItemActivityTimestamp(itemState);
             markItemUpdated(itemState);
             savePlannerState(plannerState);
             renderTimeline(journalTimeline, itemState.comments);
@@ -6370,21 +8738,12 @@
       if (!template) return;
       const latestState = loadPlannerState();
       currentGoalKey = key;
+      newsSelectedGoalKey = key;
       metricSelected.textContent = template.metric;
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
-      if (goalGuidelineBadgeBox) {
-        const guidelineBadge = goalGuidelineBadgeByKey[key];
-        if (!guidelineBadge || !Array.isArray(guidelineBadge.items) || !guidelineBadge.items.length) {
-          goalGuidelineBadgeBox.hidden = true;
-        } else {
-          goalGuidelineBadgeBox.hidden = false;
-          if (goalGuidelineBadgeTitle) goalGuidelineBadgeTitle.textContent = guidelineBadge.title;
-          if (goalGuidelineBadgeList) {
-            goalGuidelineBadgeList.innerHTML = guidelineBadge.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
-          }
-        }
-      }
+      renderKpiSection(key);
+      renderKpiSummaryChip();
       renderDetailItems(template.items, key);
       renderGoalSummaryWidget(key, latestState);
       renderNewsWidget(key, latestState);
@@ -6880,7 +9239,7 @@
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'firestore-timeout-repeated') {
-                message = `Firestore 서버 응답 없음. 사내 방화벽이 원인일 수 있습니다. 휴대폰 핫스팟으로 접속해 다시 시도해 보세요.\n${reportLine}`;
+                message = `commit-timeout이 2회 연속 발생해 남은 배치를 중단했습니다.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
@@ -6949,6 +9308,15 @@
         });
       }
 
+      if (benchmarkBackupExportBtn) {
+        benchmarkBackupExportBtn.addEventListener('click', () => {
+          const payload = buildBenchmarkDataJsonPayload(loadPlannerState());
+          const jsonText = JSON.stringify(payload, null, 2);
+          downloadTextFile(BENCHMARK_DATA_FILE_NAME, jsonText);
+          setBenchmarkAutoStatus('데이터 백업(JSON 다운로드)을 완료했습니다.', 'ok');
+        });
+      }
+
       if (quickGoalSelect) {
         quickGoalSelect.addEventListener('change', () => {
           const selectedGoal = quickGoalSelect.value;
@@ -7003,6 +9371,142 @@
         });
       }
 
+      if (goalGuidelineBadgeBox) {
+        goalGuidelineBadgeBox.addEventListener('click', async (event) => {
+          const actionButton = event.target.closest('[data-kpi-action]');
+          if (!actionButton) return;
+
+          const action = actionButton.dataset.kpiAction || '';
+          const goalKey = actionButton.dataset.goalKey || currentGoalKey || goalSelect.value || '';
+          const kpiId = actionButton.dataset.kpiId || '';
+          const card = actionButton.closest('.kpi-card');
+          const goalState = getKpiGoalState(goalKey);
+
+          if (action === 'edit-current' && card) {
+            updateKpiQuickEditCard(card, true);
+            const input = card.querySelector(`[data-kpi-inline-input="${kpiId}"]`);
+            if (input) input.focus();
+            return;
+          }
+
+          if (action === 'cancel-current' && card) {
+            updateKpiQuickEditCard(card, false);
+            return;
+          }
+
+          if (action === 'save-current' && card) {
+            const input = card.querySelector(`[data-kpi-inline-input="${kpiId}"]`);
+            const nextValue = Number(input ? input.value : 0);
+            const targetItem = goalState.items.find((item) => item.id === kpiId);
+            if (!targetItem) return;
+            targetItem.currentValue = Number.isFinite(nextValue) ? nextValue : 0;
+            targetItem.kpiUpdatedAt = new Date().toISOString();
+            kpiCatalogState.goals[goalKey].items = goalState.items;
+            try {
+              await saveKpiCatalog('inline-current-save');
+              updateKpiQuickEditCard(card, false);
+              setToastMessage('KPI 현재값을 저장했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            }
+            return;
+          }
+
+          if (action === 'batch-edit') {
+            openKpiModal(goalKey, 'batch');
+            return;
+          }
+
+          if (action === 'settings') {
+            openKpiModal(goalKey, 'settings');
+          }
+        });
+      }
+
+      if (kpiModal) {
+        kpiModal.addEventListener('click', async (event) => {
+          const actionButton = event.target.closest('[data-kpi-modal-action]');
+          const fieldInput = event.target.closest('[data-kpi-draft-field]');
+
+          if (fieldInput) {
+            const index = Number(fieldInput.dataset.kpiIndex);
+            const field = fieldInput.dataset.kpiDraftField || '';
+            syncKpiModalInputState(index, field, fieldInput.value);
+            return;
+          }
+
+          if (!actionButton) return;
+          const action = actionButton.dataset.kpiModalAction || '';
+          const goalKey = kpiModalState ? kpiModalState.goalKey : '';
+
+          if (action === 'close') {
+            closeKpiModal();
+            return;
+          }
+
+          if (action === 'add') {
+            addKpiDraftItem();
+            return;
+          }
+
+          if (action === 'delete') {
+            deleteKpiDraftItem(Number(actionButton.dataset.kpiIndex));
+            return;
+          }
+
+          if (action === 'move-up') {
+            reorderKpiDraft(Number(actionButton.dataset.kpiIndex), -1);
+            return;
+          }
+
+          if (action === 'move-down') {
+            reorderKpiDraft(Number(actionButton.dataset.kpiIndex), 1);
+            return;
+          }
+
+          if (action === 'save-batch') {
+            if (!goalKey) return;
+            const beforeText = actionButton.textContent;
+            actionButton.disabled = true;
+            actionButton.textContent = '저장 중...';
+            try {
+              await saveKpiBatch(goalKey);
+              setToastMessage('현재값 일괄 저장을 완료했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            } finally {
+              actionButton.disabled = false;
+              actionButton.textContent = beforeText || '저장';
+            }
+            return;
+          }
+
+          if (action === 'save-settings') {
+            if (!goalKey) return;
+            const beforeText = actionButton.textContent;
+            actionButton.disabled = true;
+            actionButton.textContent = '저장 중...';
+            try {
+              await saveKpiSettings(goalKey);
+              setToastMessage('KPI 설정 저장을 완료했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            } finally {
+              actionButton.disabled = false;
+              actionButton.textContent = beforeText || '저장';
+            }
+          }
+        });
+
+        kpiModal.addEventListener('input', (event) => {
+          const fieldInput = event.target.closest('[data-kpi-draft-field]');
+          if (!fieldInput) return;
+          const index = Number(fieldInput.dataset.kpiIndex);
+          const field = fieldInput.dataset.kpiDraftField || '';
+          syncKpiModalInputState(index, field, fieldInput.value);
+        });
+      }
+
       if (todayActivityList) {
         todayActivityList.addEventListener('click', (event) => {
           const deleteButton = event.target.closest('[data-timeline-action="delete"]');
@@ -7025,6 +9529,8 @@
             let changed = false;
             if (sourceType === 'comment' && Array.isArray(itemState.comments) && itemState.comments[sourceIndex]) {
               itemState.comments.splice(sourceIndex, 1);
+              syncCommentDerivedFields(itemState);
+              recalculateItemActivityTimestamp(itemState);
               changed = true;
             }
             if (sourceType === 'activity' && Array.isArray(itemState.activityLog) && itemState.activityLog[sourceIndex]) {
@@ -7082,6 +9588,8 @@
                 if (!rawTimestamp) return true;
                 return getLocalDateKey(new Date(rawTimestamp)) !== todayKey;
               });
+              syncCommentDerivedFields(itemState);
+              recalculateItemActivityTimestamp(itemState);
             }
 
             if (Array.isArray(itemState.activityLog)) {
@@ -7159,6 +9667,9 @@
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
+      await loadNewsConfigOnce();
+      attachNewsWidgetInteractionHandlers();
+      void loadKpiCatalogOnce();
       applyEditabilityState();
     }
 
