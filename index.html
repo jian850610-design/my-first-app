@@ -179,6 +179,10 @@
     .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
     .team-overview-cell-title { font-weight: 800; color: #1d456d; }
     .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
+    .team-overview-row-clickable { cursor: pointer; }
+    .team-overview-row-clickable:hover td { background: #f2f8ff; }
+    .team-overview-card-link { appearance: none; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
+    .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
     .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
@@ -186,9 +190,21 @@
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
-    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; }
+    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; scroll-margin-top: 88px; }
     .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
     .detail-item-card h3 { margin: 0; font-size: 17px; color: var(--text); }
+    .detail-item-card.row-jump-highlight {
+      animation: detailCardJumpHighlight 2.6s ease-out;
+      border-color: #18a0dc;
+      box-shadow: 0 0 0 4px rgba(24, 160, 220, 0.16), 0 18px 30px rgba(14, 27, 45, 0.16);
+    }
+    @keyframes detailCardJumpHighlight {
+      0% { background: #f8fdff; transform: translateY(0) scale(1); }
+      18% { background: #e8f8ff; transform: translateY(-2px) scale(1.01); }
+      38% { background: #fff7d7; }
+      60% { background: #e8f8ff; }
+      100% { background: inherit; transform: translateY(0) scale(1); }
+    }
     .detail-item-description { color: var(--muted); line-height: 1.4; font-size: 13px; white-space: pre-line; margin: 0; }
     .detail-item-meta { display: grid; gap: 8px; }
     .detail-item-meta strong { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
@@ -1613,13 +1629,13 @@
 
       teamOverviewEmpty.hidden = true;
       teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
-        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''}">
+        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
           <td>${escapeHtml(row.dueDateText)}</td>
           <td>${escapeHtml(row.category)}</td>
           <td>
             <div class="team-overview-cell-title-wrap">
               ${row.priorityPinned ? `<span class="team-overview-priority-badge ${row.priorityBadgeClass}">${escapeHtml(row.priorityLabel)}</span>` : ''}
-              <div class="team-overview-cell-title">${escapeHtml(row.agenda)}</div>
+              <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}</button>
             </div>
           </td>
           <td>${escapeHtml(row.actionPlan)}</td>
@@ -2719,6 +2735,29 @@
       renderMandalartBoard(state);
     }
 
+    function focusDetailCardByKey(focusKey, focusStepIndex = -1) {
+      if (!focusKey) return false;
+      const target = document.querySelector(`.detail-item-card[data-key="${focusKey}"]`);
+      if (!target) return false;
+
+      target.classList.remove('row-jump-highlight');
+      void target.offsetWidth;
+      target.classList.add('row-jump-highlight');
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => target.classList.remove('row-jump-highlight'), 2600);
+
+      if (typeof focusStepIndex === 'number' && focusStepIndex >= 0) {
+        const workflowTarget = target.querySelector(`.workflow-item[data-step-index="${focusStepIndex}"]`);
+        if (workflowTarget) {
+          workflowTarget.classList.add('urgent-focus');
+          workflowTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => workflowTarget.classList.remove('urgent-focus'), 1800);
+        }
+      }
+
+      return true;
+    }
+
     function openGoalDetail(goalKey, focusKey = '', focusStepIndex = -1) {
       if (!goalTemplates[goalKey]) return;
       showView('detail');
@@ -2732,21 +2771,7 @@
 
       if (focusKey) {
         setTimeout(() => {
-          const target = document.querySelector(`.detail-item-card[data-key="${focusKey}"]`);
-          if (target) {
-            target.classList.add('deadline-focus');
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => target.classList.remove('deadline-focus'), 1800);
-
-            if (typeof focusStepIndex === 'number' && focusStepIndex >= 0) {
-              const workflowTarget = target.querySelector(`.workflow-item[data-step-index="${focusStepIndex}"]`);
-              if (workflowTarget) {
-                workflowTarget.classList.add('urgent-focus');
-                workflowTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(() => workflowTarget.classList.remove('urgent-focus'), 1800);
-              }
-            }
-          }
+          focusDetailCardByKey(focusKey, focusStepIndex);
         }, 80);
       }
     }
@@ -5203,6 +5228,31 @@
       if (teamAssigneeFilter) {
         teamAssigneeFilter.addEventListener('change', () => {
           renderTeamOverviewTable(loadPlannerState());
+        });
+      }
+
+      if (teamOverviewTableBody) {
+        teamOverviewTableBody.addEventListener('click', (event) => {
+          const clickableRow = event.target.closest('tr[data-item-key]');
+          if (!clickableRow) return;
+
+          const itemKey = clickableRow.dataset.itemKey || '';
+          const [goalKey] = itemKey.split('::');
+          if (!goalTemplates[goalKey]) return;
+          openGoalDetail(goalKey, itemKey);
+        });
+
+        teamOverviewTableBody.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          if (event.target.closest('button.team-overview-card-link')) return;
+          const clickableRow = event.target.closest('tr[data-item-key]');
+          if (!clickableRow) return;
+
+          event.preventDefault();
+          const itemKey = clickableRow.dataset.itemKey || '';
+          const [goalKey] = itemKey.split('::');
+          if (!goalTemplates[goalKey]) return;
+          openGoalDetail(goalKey, itemKey);
         });
       }
 
