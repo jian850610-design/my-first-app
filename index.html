@@ -1310,35 +1310,106 @@
       return parsed;
     }
 
-    function parseAiBenchmarkText(rawText) {
-      const structured = parseAiBenchmarkOutput(rawText);
-      if (!structured) return null;
+    function parseBracketCardsFromText(rawText) {
+      if (typeof rawText !== 'string' || !rawText.trim()) return [];
 
-      const result = {};
-      Object.entries(structured).forEach(([goalNumberText, cards]) => {
-        const goalKey = getGoalKeyFromPromptNumber(goalNumberText);
-        if (!goalKey || !Array.isArray(cards)) return;
-        const goalTemplate = goalTemplates[goalKey];
-        if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
+      const bracketRegex = /\[(.*?)\]/g;
+      const matches = Array.from(rawText.matchAll(bracketRegex));
+      if (!matches.length) return [];
 
-        cards.forEach((card) => {
-          const normalizedTitle = normalizeBenchmarkCardTitle(card.title);
-          const matchedIndex = goalTemplate.items.findIndex((item) => {
-            const itemTitle = normalizeBenchmarkCardTitle(item.title);
-            return itemTitle === normalizedTitle || itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle);
-          });
-          if (matchedIndex < 0) return;
-          const itemKey = `${goalKey}::${matchedIndex}`;
-          result[itemKey] = {
-            title: card.title,
-            benchmarking: {
-              skf: card.benchmarking?.skf || '',
-              schaeffler: card.benchmarking?.schaeffler || '',
-              koreaNsk: card.benchmarking?.koreaNsk || '',
-              timken: card.benchmarking?.timken || ''
+      const parsedCards = matches.map((match, index) => {
+        const rawTitle = normalizeBenchmarkFieldText(match[1] || '')
+          .replace(/^[\-*:•\s]+/, '')
+          .replace(/[\-*:•\s]+$/, '');
+
+        const sectionStart = (match.index || 0) + match[0].length;
+        const sectionEnd = index < matches.length - 1 ? (matches[index + 1].index || rawText.length) : rawText.length;
+        const sectionText = rawText.slice(sectionStart, sectionEnd);
+
+        const benchmarking = { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
+        const companySegmentRegex = /(?:^|\n)\s*(?:[-*•]\s*)?(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*([\s\S]*?)(?=(?:\n\s*(?:[-*•]\s*)?(?:SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：])|$)/gi;
+
+        let companyMatch = companySegmentRegex.exec(sectionText);
+        while (companyMatch) {
+          const fieldKey = getBenchmarkFieldKey(companyMatch[1] || '');
+          const content = normalizeBenchmarkFieldText(companyMatch[2] || '');
+          if (fieldKey) {
+            benchmarking[fieldKey] = benchmarking[fieldKey]
+              ? `${benchmarking[fieldKey]}\n${content}`
+              : content;
+          }
+          companyMatch = companySegmentRegex.exec(sectionText);
+        }
+
+        // Fallback: line-by-line parse when the block does not match the segment regex.
+        if (!benchmarking.skf && !benchmarking.schaeffler && !benchmarking.koreaNsk && !benchmarking.timken) {
+          const lines = sectionText.split(/\r?\n/);
+          let activeFieldKey = '';
+          lines.forEach((line) => {
+            const entry = extractBenchmarkFieldEntry(line);
+            if (entry && entry.fieldKey) {
+              benchmarking[entry.fieldKey] = entry.content || '';
+              activeFieldKey = entry.fieldKey;
+              return;
             }
-          };
+            const text = normalizeBenchmarkFieldText(line);
+            if (!text || !activeFieldKey) return;
+            benchmarking[activeFieldKey] = benchmarking[activeFieldKey]
+              ? `${benchmarking[activeFieldKey]}\n${text}`
+              : text;
+          });
+        }
+
+        return {
+          title: rawTitle,
+          benchmarking
+        };
+      }).filter((card) => card && card.title);
+
+      return parsedCards;
+    }
+
+    function parseAiBenchmarkText(rawText) {
+      const parsedCards = parseBracketCardsFromText(rawText);
+      console.log('파싱된 카드들:', parsedCards);
+      if (!parsedCards.length) return null;
+
+      const catalog = getBenchmarkCardCatalog();
+      const result = {};
+
+      parsedCards.forEach((card) => {
+        const normalizedTitle = normalizeBenchmarkCardTitle(card.title);
+        if (!normalizedTitle) return;
+
+        let bestMatch = null;
+        catalog.forEach((candidate) => {
+          const candidateTitle = normalizeBenchmarkCardTitle(candidate.title || candidate.name || '');
+          if (!candidateTitle) return;
+          if (!candidateTitle.includes(normalizedTitle) && !normalizedTitle.includes(candidateTitle)) return;
+          if (!bestMatch || candidateTitle.length > normalizeBenchmarkCardTitle(bestMatch.title || '').length) {
+            bestMatch = candidate;
+          }
         });
+
+        if (!bestMatch) {
+          console.log('[Benchmark Parser] 카드 매핑 실패', { cardTitle: card.title });
+          return;
+        }
+
+        const itemKey = `${bestMatch.goalKey}::${bestMatch.index}`;
+        const existing = result[itemKey] && result[itemKey].benchmarking
+          ? result[itemKey].benchmarking
+          : { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
+
+        result[itemKey] = {
+          title: card.title,
+          benchmarking: {
+            skf: card.benchmarking?.skf || existing.skf || '',
+            schaeffler: card.benchmarking?.schaeffler || existing.schaeffler || '',
+            koreaNsk: card.benchmarking?.koreaNsk || existing.koreaNsk || '',
+            timken: card.benchmarking?.timken || existing.timken || ''
+          }
+        };
       });
 
       return Object.keys(result).length ? result : null;
