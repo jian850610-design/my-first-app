@@ -382,15 +382,15 @@
     .goal-card-summary-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     .goal-card-summary-title { font-size: 14px; font-weight: 800; color: #174064; line-height: 1.4; }
     .goal-card-summary-count { font-size: 12px; font-weight: 800; color: #5c748c; background: #ffffff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 5px 9px; }
-    .goal-card-summary-list { width: 100%; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .goal-card-chip { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; border: 1px solid #cfe0ef; border-radius: 999px; background: #ffffff; color: #204465; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease; white-space: nowrap; }
-    .goal-card-chip:hover { transform: translateY(-1px); border-color: #8fb7db; box-shadow: 0 8px 18px rgba(19, 73, 122, 0.12); background: #f7fbff; }
-    .goal-card-chip-title { max-width: min(100%, 320px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .goal-card-chip-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; background: #edf5ff; color: #24547f; border: 1px solid #d2e2f2; }
+    .goal-card-summary-list { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+    .goal-card-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 52px; border: 1px solid #d7e5f2; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); color: #204465; padding: 11px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; box-shadow: 0 8px 18px rgba(19, 73, 122, 0.04); text-align: left; }
+    .goal-card-chip:hover { transform: translateY(-2px); border-color: #9cc3e5; box-shadow: 0 14px 28px rgba(19, 73, 122, 0.14); background: #ffffff; }
+    .goal-card-chip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
+    .goal-card-chip-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; background: #edf5ff; color: #24547f; border: 1px solid #d2e2f2; white-space: nowrap; flex-shrink: 0; }
     .goal-card-chip-badge.done { background: #e9f7ef; color: #0d7a4b; border-color: #c8e8d6; }
-    .goal-card-chip-badge.overdue { background: #ffecec; color: #b23a3a; border-color: #f3c3c3; }
-    .goal-card-chip-badge.today { background: #fff3d9; color: #a15a00; border-color: #f0d4a3; }
-    .goal-card-chip-badge.soon { background: #eef5ff; color: #24547f; border-color: #d2e2f2; }
+    .goal-card-chip-badge.overdue { background: #ffe7e7; color: #b23a3a; border-color: #f1c1c1; }
+    .goal-card-chip-badge.today { background: #fff2d7; color: #a15a00; border-color: #f0d4a3; }
+    .goal-card-chip-badge.soon { background: #eef4ff; color: #24547f; border-color: #d2e2f2; }
     .goal-card-chip-badge.unset { background: #eff3f8; color: #6b7f95; border-color: #d5e0ea; }
     .goal-card-chip.flash { animation: chipFlash 1.8s ease; }
     @keyframes chipFlash {
@@ -490,7 +490,7 @@
 
     .hint { color: var(--muted); font-size: 13px; }
 
-    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } .goal-card-summary-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
     @media (max-width: 620px) {
       .header-bar { padding: 22px 20px; }
@@ -500,6 +500,7 @@
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-status-strip { align-items: stretch; }
       .firebase-auth-group { width: 100%; }
+      .goal-card-summary-list { grid-template-columns: 1fr; }
       .workflow-item { flex-wrap: wrap; }
       .workflow-header { align-items: flex-start; }
       .workflow-header-tools { width: 100%; }
@@ -2766,6 +2767,11 @@
       });
     }
 
+    function isChecklistTextInputFocused() {
+      const activeElement = document.activeElement;
+      return Boolean(activeElement && activeElement.classList && activeElement.classList.contains('workflow-step-text-input'));
+    }
+
     function openGoalDetail(goalKey, focusKey = '', focusStepIndex = -1) {
       if (!goalTemplates[goalKey]) return;
       showView('detail');
@@ -4456,10 +4462,7 @@
           input.addEventListener('input', () => {
             ensureCustomSteps();
             itemState.customSteps[idx] = input.value || '';
-            savePlannerState(plannerState);
-            if (cardTitleElement) cardTitleElement.textContent = getCardTitleText(itemState, currentItem || { title: '' });
-            if (cardDescriptionElement) cardDescriptionElement.textContent = getCardSummaryText(itemState, currentItem || { summary: '' });
-            syncOverviewWidgets(plannerState);
+            savePlannerState(plannerState, { debounceMs: 450, reason: 'step-text-input' });
           });
         });
 
@@ -4481,9 +4484,11 @@
             ensureCustomSteps();
             itemState.customSteps.push('새 단계 입력');
             itemState.steps.push({ checked: false, dueDate: '', completedAt: '' });
-            savePlannerState(plannerState);
-            syncOverviewWidgets(plannerState);
-            updateGoalCard(currentGoal);
+            preserveWindowScroll(() => {
+              savePlannerState(plannerState);
+              syncOverviewWidgets(plannerState);
+              updateGoalCard(currentGoal);
+            });
           });
         }
 
@@ -5050,12 +5055,16 @@
           latestEntry = getLatestPlannerSnapshotFromStorage();
         }
 
+        if (isChecklistTextInputFocused()) {
+          return;
+        }
+
         firebaseSyncSuppressed = true;
         try {
           currentPlannerDateKey = latestEntry.dateKey;
           setCurrentPlannerState(latestEntry.state, { skipFirebaseSync: true });
           updateFirebaseLastUpdatedText(latestEntry.state.meta || firebaseLastUpdatedMeta);
-          rerenderCurrentView();
+          preserveWindowScroll(() => rerenderCurrentView());
         } finally {
           firebaseSyncSuppressed = false;
         }
@@ -5073,6 +5082,9 @@
         firebaseDateUnsubscribe = null;
       }
       firebaseDateUnsubscribe = bridge.onValue(bridge.getDateRef(dateKey), (snapshot) => {
+        if (isChecklistTextInputFocused()) {
+          return;
+        }
         const remoteSnapshot = snapshot.val();
         if (remoteSnapshot && typeof remoteSnapshot === 'object') {
           firebaseSyncSuppressed = true;
@@ -5080,7 +5092,7 @@
             const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), remoteSnapshot);
             setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
             updateFirebaseLastUpdatedText(mergedState.meta || remoteSnapshot.meta || firebaseLastUpdatedMeta);
-            rerenderCurrentView();
+            preserveWindowScroll(() => rerenderCurrentView());
           } finally {
             firebaseSyncSuppressed = false;
           }
@@ -5090,7 +5102,7 @@
         const localState = loadStateFromStorageForDate(dateKey);
         setCurrentPlannerState(localState, { skipFirebaseSync: true });
         updateFirebaseLastUpdatedText(localState.meta || firebaseLastUpdatedMeta);
-        rerenderCurrentView();
+        preserveWindowScroll(() => rerenderCurrentView());
       }, () => {
         firebaseConnectionOnline = false;
         updateFirebaseConnectionChip();
