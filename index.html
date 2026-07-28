@@ -59,6 +59,7 @@
     .firebase-logout-btn { border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 12px; background: rgba(255,255,255,0.76); color: #523900; padding: 10px 12px; font-size: 12px; font-weight: 900; cursor: pointer; }
     .firebase-auth-btn:hover,
     .firebase-logout-btn:hover { background: rgba(255,255,255,0.95); }
+    .firebase-auth-btn:disabled { opacity: 0.65; cursor: not-allowed; background: rgba(255,255,255,0.65); }
     .yellow-banner { display: grid; gap: 12px; margin-top: 14px; padding: 16px 18px; border-radius: 18px; border: 1px solid #f0d56a; background: linear-gradient(180deg, #fff8cf 0%, #ffe98f 100%); box-shadow: 0 10px 22px rgba(145, 112, 0, 0.16); }
     .yellow-banner[hidden] { display: none; }
     .yellow-banner-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
@@ -524,7 +525,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -545,8 +546,10 @@
       db,
       firestore,
       GoogleAuthProvider,
+      getAuth,
       getRedirectResult,
       onAuthStateChanged,
+      signInWithPopup,
       signInWithRedirect,
       signOut,
       onValue,
@@ -841,6 +844,8 @@
     let firebaseSyncSuppressed = false;
     let firebaseLastUpdatedMeta = { lastUpdatedAt: '', updatedByName: '', updatedByEmail: '', updatedByUid: '' };
     let firebaseBridgeReady = false;
+    let firebaseAuthInitializing = true;
+    let firebaseAuthReady = false;
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
@@ -1575,6 +1580,21 @@
       });
     }
 
+    async function ensureFirebaseAuthBridge() {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge) return null;
+
+      if (!bridge.auth && typeof bridge.getAuth === 'function' && bridge.app) {
+        try {
+          bridge.auth = bridge.getAuth(bridge.app);
+        } catch (error) {
+          console.error('Firebase auth 객체 재초기화 실패', error);
+        }
+      }
+
+      return bridge;
+    }
+
     function formatFirebaseHeaderDateTime(value) {
       if (!value) return '-';
       const parsed = new Date(value);
@@ -1757,14 +1777,19 @@
           logoutButton.addEventListener('click', handleFirebaseLogout);
         }
       } else {
+        const loginDisabled = firebaseAuthInitializing || !firebaseAuthReady;
+        const loginLabel = firebaseAuthInitializing ? 'Firebase 초기화 중...' : 'Google 로그인';
+        const loginGuideText = firebaseAuthInitializing
+          ? 'Firebase 인증 모듈을 준비하고 있습니다. 잠시만 기다려 주세요.'
+          : '편집을 하려면 Google 로그인이 필요합니다.';
         yellowBanner.innerHTML = `
           <div class="yellow-banner-row">
             <div class="yellow-banner-message">
               <div class="yellow-banner-label">편집 인증 상태</div>
-              <div class="yellow-banner-text">편집을 하려면 Google 로그인이 필요합니다.</div>
+              <div class="yellow-banner-text">${loginGuideText}</div>
             </div>
             <div class="yellow-banner-actions">
-              <button type="button" class="firebase-auth-btn" id="loginBtn">Google 로그인</button>
+              <button type="button" class="firebase-auth-btn" id="loginBtn" ${loginDisabled ? 'disabled' : ''}>${loginLabel}</button>
             </div>
           </div>
         `;
@@ -5666,18 +5691,38 @@
         window.alert('Google 로그인 팝업은 file:// 환경에서 열리지 않습니다. Live Server 또는 https 주소로 이 파일을 열어 주세요.');
         return;
       }
-      const bridge = getFirebaseBridge();
-      if (!bridge || !bridge.auth || !bridge.GoogleAuthProvider || !bridge.signInWithRedirect) {
-        window.alert('Firebase 인증 모듈이 아직 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+      if (firebaseAuthInitializing) {
+        updateFirebaseAuthControls();
         return;
       }
+
+      const bridge = await ensureFirebaseAuthBridge();
+      const authInstance = bridge && bridge.auth ? bridge.auth : null;
+      if (!bridge || !authInstance || !bridge.GoogleAuthProvider || !bridge.signInWithPopup) {
+        firebaseAuthReady = false;
+        updateFirebaseAuthControls();
+        return;
+      }
+
       const provider = new bridge.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       try {
-        await bridge.signInWithRedirect(bridge.auth, provider);
+        await bridge.signInWithPopup(authInstance, provider);
       } catch (error) {
         console.error('Google 로그인 실패', error);
         const errorCode = error && typeof error.code === 'string' ? error.code : 'unknown';
+
+        if (errorCode === 'auth/popup-blocked' || errorCode === 'auth/cancelled-popup-request') {
+          if (bridge.signInWithRedirect) {
+            try {
+              await bridge.signInWithRedirect(authInstance, provider);
+              return;
+            } catch (redirectError) {
+              console.error('Google 리디렉션 로그인 실패', redirectError);
+            }
+          }
+        }
+
         if (errorCode === 'auth/unauthorized-domain') {
           window.alert('Firebase Authentication의 Authorized domains에 현재 접속 도메인을 추가해야 합니다.');
           return;
@@ -5703,7 +5748,7 @@
     }
 
     async function attachFirebaseAuthListener() {
-      const bridge = getFirebaseBridge();
+      const bridge = await ensureFirebaseAuthBridge();
       if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) return;
       if (bridge.getRedirectResult) {
         try {
@@ -5725,10 +5770,18 @@
     }
 
     async function initializeFirebaseIntegration() {
-      const bridge = await waitForFirebaseBridge();
+      firebaseAuthInitializing = true;
+      updateFirebaseAuthControls();
+
+      const bridge = await ensureFirebaseAuthBridge();
       firebaseBridgeReady = Boolean(bridge);
+      firebaseAuthReady = Boolean(bridge && bridge.auth && bridge.GoogleAuthProvider && (bridge.signInWithPopup || bridge.signInWithRedirect));
+
       await attachFirebaseAuthListener();
+
       if (!bridge) {
+        firebaseAuthInitializing = false;
+        firebaseAuthReady = false;
         updateFirebaseConnectionChip();
         updateFirebaseModeChip();
         updateFirebaseAuthControls();
@@ -5743,6 +5796,7 @@
         attachFirebaseOverviewListener();
       }
 
+      firebaseAuthInitializing = false;
       updateFirebaseModeChip();
       updateFirebaseAuthControls();
       applyEditabilityState();
