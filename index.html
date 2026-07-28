@@ -561,7 +561,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { initializeFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -582,7 +582,12 @@
       app = initializeApp(FIREBASE_CONFIG);
       auth = getAuth(app);
       db = getDatabase(app);
-      firestore = getFirestore(app);
+      // Firestore 쓰기만 장시간 pending 되는 사내 프록시/방화벽 환경을 우회하기 위해
+      // WebChannel 대신 long-polling을 강제한다. 이 초기화는 어떤 Firestore API 호출보다 먼저 실행되어야 한다.
+      firestore = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        useFetchStreams: false
+      });
     } catch (error) {
       firebaseInitError = error;
       console.error('[Firebase Init] 초기화 실패', error);
@@ -940,6 +945,8 @@
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
     const BENCHMARK_DEBUG_LOGS = false;
+    const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
+    let benchmarkRetryFailedItemKeys = [];
 
     function benchmarkDebugLog(...args) {
       if (BENCHMARK_DEBUG_LOGS) {
@@ -1557,7 +1564,11 @@
             await handleFirebaseLogin();
             return;
           }
-          if (action === 'retry' && benchmarkAutoApplyBtn && !benchmarkAutoApplyBtn.disabled) {
+          if (action === 'retry' && benchmarkAutoInput && !benchmarkAutoApplyBtn.disabled) {
+            const draftText = readBenchmarkAutoInputDraft();
+            if (!benchmarkAutoInput.value.trim() && draftText) {
+              benchmarkAutoInput.value = draftText;
+            }
             benchmarkAutoApplyBtn.click();
           }
         });
@@ -1599,6 +1610,26 @@
     function sanitizeFirestoreUpdateData(updateData) {
       const source = updateData && typeof updateData === 'object' ? updateData : {};
       return JSON.parse(JSON.stringify(source, (key, value) => (typeof value === 'undefined' ? '' : value)));
+    }
+
+    function readBenchmarkAutoInputDraft() {
+      try {
+        return window.localStorage.getItem(BENCHMARK_AUTO_INPUT_DRAFT_KEY) || '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function writeBenchmarkAutoInputDraft(text) {
+      try {
+        if (typeof text === 'string' && text.trim()) {
+          window.localStorage.setItem(BENCHMARK_AUTO_INPUT_DRAFT_KEY, text);
+        } else {
+          window.localStorage.removeItem(BENCHMARK_AUTO_INPUT_DRAFT_KEY);
+        }
+      } catch (error) {
+        console.warn('[Benchmark Draft] localStorage 저장 실패', error);
+      }
     }
 
     function getBenchmarkApplyReadiness(bridge) {
@@ -1649,6 +1680,63 @@
       }
     }
 
+    async function testFirestoreWrite() {
+      const startedAt = Date.now();
+      let timeoutId = null;
+      try {
+        const bridge = await waitForFirebaseBridge();
+        const readiness = getBenchmarkApplyReadiness(bridge);
+        if (!bridge || !bridge.firestore) {
+          throw Object.assign(new Error('Firestore 인스턴스를 찾지 못했습니다.'), { code: 'firestore-unavailable' });
+        }
+        if (!readiness.ok) {
+          throw Object.assign(new Error(`사전 검사 실패: ${readiness.reason}`), { code: readiness.reason });
+        }
+
+        const testDocRef = doc(bridge.firestore, 'plans', 'skf-daily', 'diagnostics', 'firestore-smoke-test');
+        const timeoutPromise = new Promise((resolve, reject) => {
+          timeoutId = window.setTimeout(() => {
+            const error = new Error('단일 문서 테스트 10초 타임아웃');
+            error.code = 'test-timeout';
+            reject(error);
+          }, 10000);
+        });
+
+        await Promise.race([
+          setDoc(testDocRef, {
+            source: 'window.__testFirestore',
+            updatedAt: new Date().toISOString(),
+            userEmail: readiness.authUser && readiness.authUser.email ? readiness.authUser.email : '',
+            navigatorOnLine: typeof navigator === 'undefined' ? true : navigator.onLine !== false
+          }, { merge: true }),
+          timeoutPromise
+        ]);
+
+        const elapsed = Date.now() - startedAt;
+        console.log('[__testFirestore] 성공', { elapsedMs: elapsed, projectId: FIREBASE_CONFIG.projectId });
+        return { ok: true, elapsedMs: elapsed };
+      } catch (error) {
+        const elapsed = Date.now() - startedAt;
+        console.error('[__testFirestore] 실패', {
+          elapsedMs: elapsed,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        });
+        return {
+          ok: false,
+          elapsedMs: elapsed,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        };
+      } finally {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+        }
+      }
+    }
+
+    window.__testFirestore = testFirestoreWrite;
+
     async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
       if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
@@ -1683,6 +1771,8 @@
 
     async function applyAiBenchmarkUpdatesFromText(rawText, options = {}) {
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
+      const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
+      const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
       let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
 
       try {
@@ -1771,18 +1861,39 @@
           return response;
         }
 
-        console.table(updates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
+        const filteredUpdates = retryItemKeySet
+          ? updates.filter((update) => retryItemKeySet.has(update.itemKey))
+          : updates;
+
+        if (!filteredUpdates.length) {
+          response = {
+            ok: false,
+            count: 0,
+            total: updates.length,
+            reason: 'retry-no-targets',
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount,
+            failedCards: []
+          };
+          return response;
+        }
+
+        console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
 
         // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 10개).
         const BATCH_CHUNK_SIZE = 10;
         const chunks = [];
-        for (let i = 0; i < updates.length; i += BATCH_CHUNK_SIZE) {
-          chunks.push(updates.slice(i, i + BATCH_CHUNK_SIZE));
+        for (let i = 0; i < filteredUpdates.length; i += BATCH_CHUNK_SIZE) {
+          chunks.push(filteredUpdates.slice(i, i + BATCH_CHUNK_SIZE));
         }
 
         const successfulUpdates = [];
         const failedCards = [];
         let processedCount = 0;
+        let consecutiveCommitTimeouts = 0;
+        let stoppedEarlyForTimeout = false;
 
         for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
           const chunk = chunks[chunkIndex];
@@ -1794,6 +1905,7 @@
             });
             await commitBatchWithTimeout(batch, chunk.length);
             chunk.forEach((update) => successfulUpdates.push(update));
+            consecutiveCommitTimeouts = 0;
             console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
@@ -1805,13 +1917,29 @@
               affectedCards: chunk.map((update) => update.cardName)
             });
             chunk.forEach((update) => {
-              failedCards.push({ cardName: update.cardName, errorCode });
+              failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
             });
+
+            if (errorCode === 'commit-timeout') {
+              consecutiveCommitTimeouts += 1;
+              if (consecutiveCommitTimeouts >= 2) {
+                stoppedEarlyForTimeout = true;
+                for (let remainingIndex = chunkIndex + 1; remainingIndex < chunks.length; remainingIndex += 1) {
+                  chunks[remainingIndex].forEach((update) => {
+                    failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode: 'skipped-after-timeout' });
+                  });
+                }
+                console.error('[Benchmark Apply] commit-timeout 2회 연속 발생, 남은 배치를 중단합니다.');
+                break;
+              }
+            } else {
+              consecutiveCommitTimeouts = 0;
+            }
           }
 
           processedCount += chunk.length;
-          onProgress(processedCount, updates.length);
-          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${updates.length}`);
+          onProgress(processedCount, filteredUpdates.length);
+          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${filteredUpdates.length}`);
           await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
 
@@ -1824,7 +1952,7 @@
         });
 
         const successCount = successfulUpdates.length;
-        const totalCount = updates.length + missingMappings.length + unmatched.length;
+        const totalCount = filteredUpdates.length + missingMappings.length + unmatched.length;
         const durationMs = Date.now() - applyStartedAt;
         const durationSec = (durationMs / 1000).toFixed(1);
 
@@ -1838,7 +1966,7 @@
             ok: false,
             count: 0,
             total: totalCount,
-            reason: 'firestore-update-failed',
+            reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : 'firestore-update-failed',
             failedCards,
             missingMappings,
             unmatched,
@@ -1857,7 +1985,7 @@
         }
 
         response = {
-          ok: true,
+          ok: !stoppedEarlyForTimeout,
           count: successCount,
           total: totalCount,
           failedCards,
@@ -1866,7 +1994,8 @@
           missingFromResponse,
           appCardCount,
           aiResponseCount,
-          durationMs
+          durationMs,
+          reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : ''
         };
         return response;
       } catch (error) {
@@ -6626,6 +6755,16 @@
         benchmarkPromptPreview.value = buildBenchmarkPromptText();
       }
 
+      if (benchmarkAutoInput) {
+        const draftText = readBenchmarkAutoInputDraft();
+        if (!benchmarkAutoInput.value && draftText) {
+          benchmarkAutoInput.value = draftText;
+        }
+        benchmarkAutoInput.addEventListener('input', () => {
+          writeBenchmarkAutoInputDraft(benchmarkAutoInput.value || '');
+        });
+      }
+
       // 최초 로드 시에는 파싱을 실행한 적이 없으므로 실패/누락 목록이 존재할 수 없다 — 배너를 항상 숨긴 채로 초기화한다.
       renderBenchmarkApplyActions();
       renderBenchmarkApplyFailureList([]);
@@ -6661,7 +6800,10 @@
 
       if (benchmarkAutoApplyBtn) {
         benchmarkAutoApplyBtn.addEventListener('click', async () => {
-          const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+          const retryItemKeys = Array.isArray(benchmarkRetryFailedItemKeys) ? [...benchmarkRetryFailedItemKeys] : [];
+          benchmarkRetryFailedItemKeys = [];
+          const fallbackDraftText = readBenchmarkAutoInputDraft();
+          const rawText = benchmarkAutoInput ? (benchmarkAutoInput.value.trim() || fallbackDraftText.trim()) : fallbackDraftText.trim();
           if (!benchmarkAutoStatus) {
             console.warn('[Benchmark Apply] 상태 문구 요소를 찾지 못했습니다. selector: #benchmarkAutoStatus');
           }
@@ -6672,6 +6814,11 @@
               benchmarkAutoStatus.classList.add('warn');
             }
             return;
+          }
+
+          writeBenchmarkAutoInputDraft(rawText);
+          if (benchmarkAutoInput && !benchmarkAutoInput.value.trim()) {
+            benchmarkAutoInput.value = rawText;
           }
 
           benchmarkAutoApplyBtn.disabled = true;
@@ -6702,6 +6849,7 @@
 
           try {
             const result = await applyAiBenchmarkUpdatesFromText(rawText, {
+              retryItemKeys,
               onProgress: (done, total) => {
                 if (benchmarkAutoProgress) {
                   benchmarkAutoProgress.textContent = `반영 중... ${done}/${total}`;
@@ -6717,6 +6865,9 @@
             renderBenchmarkManualMappingSection(result && Array.isArray(result.unmatched) ? result.unmatched : []);
             renderBenchmarkMissingCardsSection(result && Array.isArray(result.missingFromResponse) ? result.missingFromResponse : []);
             renderBenchmarkApplyFailureList(result && Array.isArray(result.failedCards) ? result.failedCards : []);
+            benchmarkRetryFailedItemKeys = result && Array.isArray(result.failedCards)
+              ? result.failedCards.map((entry) => entry && entry.itemKey ? entry.itemKey : '').filter(Boolean)
+              : [];
             console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
 
             if (!result || !result.ok) {
@@ -6728,8 +6879,13 @@
               } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
+              } else if (result && result.reason === 'firestore-timeout-repeated') {
+                message = `Firestore 서버 응답 없음. 사내 방화벽이 원인일 수 있습니다. 휴대폰 핫스팟으로 접속해 다시 시도해 보세요.\n${reportLine}`;
+                renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
+              } else if (result && result.reason === 'retry-no-targets') {
+                message = `재시도할 실패 카드가 없습니다.\n${reportLine}`;
               } else if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
                 message = `[Benchmark Apply] 전체 반영 완료 — 성공 ${result.count || 0}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
@@ -6751,6 +6907,9 @@
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
+            }
+            if (!result.failedCards.length) {
+              writeBenchmarkAutoInputDraft('');
             }
             showView('dashboard');
             rerenderCurrentView();
