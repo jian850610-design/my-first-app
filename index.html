@@ -1,4 +1,4 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1175,6 +1175,13 @@
     const NEWS_DEFAULT_QUERIES = [
       { id: 'default-news-query', label: '기본 B2B 뉴스', query: `(${NEWS_CORE_KEYWORDS.join(' OR ')})`, enabled: true }
     ];
+    const NEWS_QUERIES_BY_GOAL = {
+      "1": [
+        "B2B 마케팅 (유튜브 OR 링크드인 OR 영상 콘텐츠)",
+        "제조업 OR 산업재 SNS 마케팅"
+      ]
+    };
+    const newsPromiseByGoal = Object.create(null);
     let newsConfigState = null;
     let newsConfigLoaded = false;
     let newsConfigLoadPromise = null;
@@ -7046,8 +7053,29 @@
         : [];
     }
 
+    function getNewsQueriesForGoal(goalId, config = getNewsConfigState()) {
+      const goalNumber = String(getGoalNumberFromGoalKey(goalId) || '');
+      const overrideQueries = Array.isArray(NEWS_QUERIES_BY_GOAL[goalNumber]) ? NEWS_QUERIES_BY_GOAL[goalNumber] : null;
+      if (overrideQueries && overrideQueries.length) {
+        return overrideQueries
+          .map((queryText, index) => normalizeNewsConfigItem({
+            id: `goal-${goalNumber}-query-${index + 1}`,
+            label: `목표 ${goalNumber} 쿼리 ${index + 1}`,
+            query: queryText,
+            enabled: true,
+            sortOrder: index
+          }, index))
+          .filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query));
+      }
+      return getActiveNewsQueries(config);
+    }
+
     function buildNewsQuerySignature(config = getNewsConfigState()) {
       return getActiveNewsQueries(config).map((item) => item.query.trim()).join(' || ');
+    }
+
+    function buildNewsQuerySignatureForGoal(goalId, config = getNewsConfigState()) {
+      return getNewsQueriesForGoal(goalId, config).map((item) => item.query.trim()).join(' || ');
     }
 
     function getNewsSearchQueryLabel(config = getNewsConfigState()) {
@@ -7171,21 +7199,25 @@
       newsSettingsStatus.dataset.tone = tone || '';
     }
 
-    function logNewsFilterPipeline(rawCount, excludeRemoved, industryRemoved, finalCount) {
-      console.log(`[news] 수집 ${rawCount}건 → 제외어 ${excludeRemoved}건 제거 → 업종어 ${industryRemoved}건 제거 → 최종 ${finalCount}건`);
+    function logNewsFilterPipeline(goalId, queryCount, rawCount, excludeRemoved, industryRemoved, finalCount) {
+      console.log(`목표 ${goalId || 'unknown'} · 쿼리 ${queryCount}개 · 수집 ${rawCount}건 → 필터 후 ${finalCount}건`);
+      console.log(`[news] 제외어 ${excludeRemoved}건 제거 · 업종어 ${industryRemoved}건 제거`);
     }
 
-    function applyNewsFilters(items, config = getNewsConfigState()) {
+    function applyNewsFilters(items, config = getNewsConfigState(), goalId = '') {
       const rawItems = Array.isArray(items) ? items : [];
       const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
-      const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, buildNewsQuerySignature(config)));
+      const activeGoalId = goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const goalQueries = getNewsQueriesForGoal(activeGoalId, config);
+      const goalQuerySignature = buildNewsQuerySignatureForGoal(activeGoalId, config);
+      const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, goalQuerySignature));
       const excludeFiltered = industryItems.filter((item) => !isNewsWordExcluded(item, excludeWords));
       const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item));
       const excludeRemoved = industryItems.length - excludeFiltered.length;
       const industryRemoved = rawItems.length - industryItems.length;
       const unique = dedupeNewsArticles(hiddenFiltered);
       const finalCount = unique.length;
-      logNewsFilterPipeline(rawItems.length, excludeRemoved, industryRemoved, finalCount);
+      logNewsFilterPipeline(activeGoalId, goalQueries.length, rawItems.length, excludeRemoved, industryRemoved, finalCount);
       return {
         items: unique,
         rawCount: rawItems.length,
@@ -7223,7 +7255,8 @@
 
     function renderNewsWidgetFromCache() {
       const activeConfig = getNewsConfigState();
-      const filtered = applyNewsFilters(newsRawItemsCache, activeConfig);
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const filtered = applyNewsFilters(newsRawItemsCache, activeConfig, activeGoalId);
       newsFilterStats = filtered;
       newsVisibleItems = filtered.items;
       if (!newsSelectedGoalKey) return filtered;
@@ -7493,7 +7526,7 @@
 
           if (fallback && Array.isArray(fallback.items) && fallback.items.length) {
             newsRawItemsCache = fallback.items;
-            newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState);
+            newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState, newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
             newsVisibleItems = newsFilterStats.items;
             newsQueryResultCounts = fallback.meta && typeof fallback.meta.queryCounts === 'object' ? fallback.meta.queryCounts : {};
           }
@@ -7577,70 +7610,129 @@
       }
     }
 
-    // 목표별로 매번 호출하지 않고, 하나의 OR 쿼리 결과를 모든 목표 페이지가 공유한다 (요청 5: 요청 수 절감).
-    function loadSharedNewsItems(options = {}) {
-      if (newsDatasetLoadPromise && !options.forceFetch) return newsDatasetLoadPromise;
+    function loadNewsForGoal(goalId, options = {}) {
+      const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (Object.keys(goalTemplates)[0] || '');
+      if (!activeGoalId) return Promise.resolve({ items: [], totalCount: 0, error: null, goalId: activeGoalId });
+      if (newsPromiseByGoal[activeGoalId] && !options.forceFetch) return newsPromiseByGoal[activeGoalId];
 
-      newsDatasetLoadPromise = (async () => {
-        await loadNewsConfigOnce();
-        const config = getNewsConfigState();
-        const activeQueries = getActiveNewsQueries(config);
-        const signature = buildNewsQuerySignature(config);
-        const cached = options.forceFetch ? null : readNewsRawCache(config);
+      newsPromiseByGoal[activeGoalId] = (async () => {
+        try {
+          await loadNewsConfigOnce();
+          const config = getNewsConfigState();
+          const activeQueries = getNewsQueriesForGoal(activeGoalId, config);
+          const signature = buildNewsQuerySignatureForGoal(activeGoalId, config);
+          const cacheStorageKey = `newsCache_${activeGoalId}`;
 
-        if (cached && cached.meta && cached.meta.signature === signature && Array.isArray(cached.items) && cached.items.length) {
-          console.log('[news] localStorage 캐시 사용 (TTL 6시간 이내), 건수=', cached.items.length);
-          newsRawItemsCache = cached.items;
-          newsQueryResultCounts = cached.meta.queryCounts || {};
-          newsFilterStats = applyNewsFilters(newsRawItemsCache, config);
+          let cached = null;
+          if (!options.forceFetch) {
+            try {
+              const raw = window.localStorage.getItem(cacheStorageKey);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (
+                  parsed
+                  && parsed.signature === signature
+                  && Array.isArray(parsed.items)
+                  && typeof parsed.fetchedAt === 'number'
+                  && Date.now() - parsed.fetchedAt <= NEWS_CACHE_TTL_MS
+                ) {
+                  cached = parsed;
+                }
+              }
+            } catch (cacheError) {
+              cached = null;
+            }
+          }
+
+          if (cached && Array.isArray(cached.items)) {
+            newsRawItemsCache = cached.items;
+            newsQueryResultCounts = cached.queryCounts || {};
+            newsFilterStats = applyNewsFilters(newsRawItemsCache, config, activeGoalId);
+            newsVisibleItems = newsFilterStats.items;
+            config.stats = {
+              lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
+              lastRawCount: cached.items.length,
+              lastFinalCount: newsFilterStats.finalCount
+            };
+            updateNewsUpdatedText();
+            console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${cached.items.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
+            return { items: newsVisibleItems, totalCount: cached.items.length, error: null, goalId: activeGoalId };
+          }
+
+          if (!activeQueries.length) {
+            newsRawItemsCache = [];
+            newsQueryResultCounts = {};
+            newsFilterStats = applyNewsFilters([], config, activeGoalId);
+            newsVisibleItems = newsFilterStats.items;
+            config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
+            updateNewsUpdatedText();
+            console.log(`목표 ${activeGoalId} · 쿼리 0개 · 수집 0건 → 필터 후 0건`);
+            return { items: [], totalCount: 0, error: null, goalId: activeGoalId };
+          }
+
+          const queryResults = await Promise.all(activeQueries.map(async (queryItem) => {
+            const items = await fetchNewsForQuery(queryItem);
+            return { id: queryItem.id, query: queryItem.query, items };
+          }));
+
+          const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
+          const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
+          const uniqueItems = dedupeNewsArticles(flattened);
+
+          newsRawItemsCache = uniqueItems;
+          newsQueryResultCounts = queryCounts;
+          newsFilterStats = applyNewsFilters(uniqueItems, config, activeGoalId);
           newsVisibleItems = newsFilterStats.items;
+
+          try {
+            window.localStorage.setItem(cacheStorageKey, JSON.stringify({
+              fetchedAt: Date.now(),
+              signature,
+              queryCounts,
+              items: uniqueItems
+            }));
+          } catch (cacheWriteError) {
+            console.warn('[news] 목표별 캐시 저장 실패', cacheWriteError);
+          }
+
           config.stats = {
-            lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
-            lastRawCount: cached.items.length,
+            lastFetchedAt: new Date().toISOString(),
+            lastRawCount: uniqueItems.length,
             lastFinalCount: newsFilterStats.finalCount
           };
+          await saveNewsConfig('news-dataset-refresh');
           updateNewsUpdatedText();
-          return { items: newsVisibleItems, totalCount: newsVisibleItems.length, error: null };
+          console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${uniqueItems.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
+          return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null, goalId: activeGoalId };
+        } catch (error) {
+          console.error('[news] 목표별 조회 실패', { goalId: activeGoalId, error });
+          return {
+            items: [],
+            totalCount: 0,
+            error: error && error.message ? error.message : String(error),
+            goalId: activeGoalId
+          };
         }
-
-        if (!activeQueries.length) {
-          newsRawItemsCache = [];
-          newsQueryResultCounts = {};
-          newsFilterStats = applyNewsFilters([], config);
-          newsVisibleItems = newsFilterStats.items;
-          config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
-          updateNewsUpdatedText();
-          writeNewsRawCache([], { signature, queryCounts: {}, queryItems: {} }, config);
-          return { items: [], totalCount: 0, error: null };
-        }
-
-        console.log('[news] 검색 쿼리 목록:', activeQueries.map((item) => item.query));
-        const queryResults = await Promise.all(activeQueries.map(async (queryItem) => {
-          const items = await fetchNewsForQuery(queryItem);
-          return { id: queryItem.id, query: queryItem.query, items };
-        }));
-
-        const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
-        const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
-        const uniqueItems = dedupeNewsArticles(flattened);
-        newsRawItemsCache = uniqueItems;
-        newsQueryResultCounts = queryCounts;
-        writeNewsRawCache(uniqueItems, { signature, queryCounts }, config);
-        newsFilterStats = applyNewsFilters(uniqueItems, config);
-        newsVisibleItems = newsFilterStats.items;
-        config.stats = {
-          lastFetchedAt: new Date().toISOString(),
-          lastRawCount: uniqueItems.length,
-          lastFinalCount: newsFilterStats.finalCount
-        };
-        await saveNewsConfig('news-dataset-refresh');
-        updateNewsUpdatedText();
-        return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null };
-      })();
-
-      return newsDatasetLoadPromise.finally(() => {
-        newsDatasetLoadPromise = null;
+      })().finally(() => {
+        delete newsPromiseByGoal[activeGoalId];
       });
+
+      return newsPromiseByGoal[activeGoalId];
+    }
+
+    function loadSharedNewsItems(options = {}) {
+      try {
+        const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+        return loadNewsForGoal(activeGoalId, options);
+      } catch (error) {
+        console.error('[news] 공유 로더 실패', error);
+        return Promise.resolve({
+          items: [],
+          totalCount: 0,
+          error: error && error.message ? error.message : String(error),
+          goalId: newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || ''
+        });
+      }
     }
 
     function renderNewsItemsIntoWidget(items) {
@@ -7764,72 +7856,92 @@
       newsSettingsModal.hidden = true;
     }
 
-    async function refreshNewsDataset(forceFetch = false) {
-      const result = await loadSharedNewsItems({ forceFetch });
-      const items = Array.isArray(result.items) ? result.items : [];
-      const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
-      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
-      const sorted = withinWindow
-        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
-        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
-        .map((entry) => entry.item);
-      if (!sorted.length) {
-        newsWidgetList.innerHTML = '';
-        newsWidgetLoading.hidden = true;
-        setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
-        return result;
+    async function refreshNewsDataset(forceFetch = false, goalId = '') {
+      try {
+        const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+        const result = await loadNewsForGoal(activeGoalId, { forceFetch });
+        const items = Array.isArray(result.items) ? result.items : [];
+        const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
+        const goalWeightKeywords = getNewsCategoryWeightKeywords(activeGoalId);
+        const sorted = withinWindow
+          .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+          .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
+          .map((entry) => entry.item);
+        if (!sorted.length) {
+          newsWidgetList.innerHTML = '';
+          newsWidgetLoading.hidden = true;
+          setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
+          return result;
+        }
+        clearNewsWidgetEmptyState();
+        renderNewsItemsIntoWidget(sorted);
+        return { ...result, items: sorted };
+      } catch (error) {
+        console.error('[news] refreshNewsDataset 실패', error);
+        return {
+          items: [],
+          totalCount: 0,
+          error: error && error.message ? error.message : String(error),
+          goalId: goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || ''
+        };
       }
-      clearNewsWidgetEmptyState();
-      renderNewsItemsIntoWidget(sorted);
-      return result;
     }
 
     function renderNewsWidget(goalKey, state) {
-      if (!newsWidget || !newsWidgetTitle || !newsWidgetMeta || !newsWidgetList || !newsWidgetLoading) return;
-      const goalTemplate = goalTemplates[goalKey];
-      if (!goalTemplate) {
-        newsWidget.hidden = true;
-        newsWidgetList.innerHTML = '';
-        newsWidgetLoading.hidden = true;
-        return;
-      }
-
-      const requestId = ++newsRequestSerial;
-      newsSelectedGoalKey = goalKey;
-      const activeConfig = getNewsConfigState();
-      const activeQueries = getActiveNewsQueries(activeConfig);
-
-      newsWidget.hidden = false;
-      newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-      newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
-
-      newsWidgetList.innerHTML = '';
-      newsWidgetLoading.hidden = false;
-      newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
-
-      refreshNewsDataset(false).then((result) => {
-        if (requestId !== newsRequestSerial) return;
-        const items = Array.isArray(result.items) ? result.items : [];
-        const totalCount = result.totalCount || 0;
-        console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
-
-        if (result.error) {
-          newsWidgetList.innerHTML = '';
-          newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
-          return;
-        }
-
-        if (!items.length) {
+      try {
+        if (!newsWidget || !newsWidgetTitle || !newsWidgetMeta || !newsWidgetList || !newsWidgetLoading) return;
+        const goalTemplate = goalTemplates[goalKey];
+        if (!goalTemplate) {
+          newsWidget.hidden = true;
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = true;
-          setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
           return;
         }
 
-        clearNewsWidgetEmptyState();
-        renderNewsItemsIntoWidget(items);
-      });
+        const requestId = ++newsRequestSerial;
+        newsSelectedGoalKey = goalKey;
+        const activeConfig = getNewsConfigState();
+        const activeQueries = getNewsQueriesForGoal(goalKey, activeConfig);
+
+        newsWidget.hidden = false;
+        newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
+        newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
+
+        newsWidgetList.innerHTML = '';
+        newsWidgetLoading.hidden = false;
+        newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
+
+        refreshNewsDataset(false, goalKey).then((result) => {
+          if (requestId !== newsRequestSerial) return;
+          const items = Array.isArray(result.items) ? result.items : [];
+          const totalCount = result.totalCount || 0;
+          console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
+
+          if (result.error) {
+            newsWidgetList.innerHTML = '';
+            newsWidgetLoading.hidden = false;
+            newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
+            return;
+          }
+
+          if (!items.length) {
+            newsWidgetList.innerHTML = '';
+            newsWidgetLoading.hidden = true;
+            setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
+            return;
+          }
+
+          clearNewsWidgetEmptyState();
+          renderNewsItemsIntoWidget(items);
+        }).catch((error) => {
+          if (requestId !== newsRequestSerial) return;
+          newsWidgetList.innerHTML = '';
+          newsWidgetLoading.hidden = false;
+          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${error && error.message ? error.message : String(error)})`;
+        });
+      } catch (error) {
+        console.error('[news] renderNewsWidget 실패', error);
+      }
     }
 
     function autoSizeWorkflowTextarea(textarea) {
