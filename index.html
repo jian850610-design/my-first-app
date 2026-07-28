@@ -56,786 +56,6 @@
     .firebase-date-label { font-size: 12px; color: #6e5500; font-weight: 800; letter-spacing: 0.04em; }
     .firebase-date-picker { border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 12px; background: rgba(255,255,255,0.85); color: #2f2300; padding: 10px 12px; font-size: 13px; font-weight: 800; outline: none; }
     .firebase-date-picker:focus { border-color: rgba(125, 95, 0, 0.5); box-shadow: 0 0 0 3px rgba(125, 95, 0, 0.14); }
-    function getNewsArticleId(article) {
-      const link = typeof article?.link === 'string' ? article.link.trim() : '';
-      const title = typeof article?.title === 'string' ? article.title.trim() : '';
-      const pubDate = typeof article?.pubDate === 'string' ? article.pubDate.trim() : '';
-      return link || `${title}::${pubDate}` || '';
-    }
-
-    function sanitizeNewsWord(value) {
-      if (typeof value !== 'string') return '';
-      return value.replace(/[\s\u3000]+/g, ' ').trim();
-    }
-
-    function normalizeNewsQueryItem(rawItem, index) {
-      const id = typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `query-${index + 1}`;
-      return {
-        id,
-        label: sanitizeNewsWord(rawItem && rawItem.label) || `쿼리 ${index + 1}`,
-        query: sanitizeNewsWord(rawItem && rawItem.query),
-        enabled: rawItem && rawItem.enabled !== false,
-        sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
-        resultCount: Number.isFinite(rawItem?.resultCount) ? Number(rawItem.resultCount) : 0
-      };
-    }
-
-    function getNewsGoalOrder(goalId) {
-      const goalIds = Object.keys(goalTemplates);
-      const index = goalIds.indexOf(goalId);
-      return index >= 0 ? index + 1 : goalIds.length + 1;
-    }
-
-    function getNewsGoalCode(goalId) {
-      function getNewsSettingsDraft() {
-        const draft = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
-        const selectedGoalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-        if (newsExcludeWordList) {
-          const words = Array.from(newsExcludeWordList.querySelectorAll('[data-news-exclude-word-item]')).map((el) => sanitizeNewsWord(el.dataset.newsExcludeWordItem)).filter(Boolean);
-          if (words.length) draft.excludeWords = words;
-        }
-        if (newsCommonQueryInput) {
-          draft.commonQuery = normalizeNewsQueryItem({
-            ...draft.commonQuery,
-            query: newsCommonQueryInput.value,
-            enabled: true
-          }, 0);
-        }
-        if (newsQueryList && selectedGoalId) {
-          const queryRows = Array.from(newsQueryList.querySelectorAll('[data-news-query-index]'));
-          const nextQueries = queryRows.map((row) => {
-            const index = Number(row.dataset.newsQueryIndex);
-            const labelInput = row.querySelector('[data-news-query-field="label"]');
-            const queryInput = row.querySelector('[data-news-query-field="query"]');
-            const enabledInput = row.querySelector('[data-news-query-field="enabled"]');
-            return normalizeNewsQueryItem({
-              id: draft.goals[selectedGoalId].queries[index] && draft.goals[selectedGoalId].queries[index].id ? draft.goals[selectedGoalId].queries[index].id : `${selectedGoalId}-q${index + 1}`,
-              label: labelInput ? labelInput.value : '',
-              query: queryInput ? queryInput.value : '',
-              enabled: enabledInput ? enabledInput.checked : true,
-              sortOrder: index
-            }, index);
-          }).filter((item) => sanitizeNewsWord(item.query));
-          if (nextQueries.length) draft.goals[selectedGoalId].queries = nextQueries;
-        }
-        return draft;
-      }
-
-      function renderNewsWidgetFromCache(goalId = newsSelectedGoalKey) {
-        return loadNewsForGoal(goalId || currentGoalKey || Object.keys(goalTemplates)[0] || '', { forceFetch: false }).then((result) => {
-          if (!result || !Array.isArray(result.items)) return result;
-          if (!result.items.length) {
-            newsWidgetList.innerHTML = '';
-            newsWidgetLoading.hidden = true;
-            setNewsWidgetEmptyState('이 목표와 관련된 2026년 기사를 찾지 못했습니다', true);
-            return result;
-          }
-          clearNewsWidgetEmptyState();
-          renderNewsItemsIntoWidget(result.items, result.goalId || goalId);
-          return result;
-        });
-      }
-
-      async function saveNewsSettingsFromModal() {
-        const draft = getNewsSettingsDraft();
-        const currentGoalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-        const previousSignature = buildNewsQuerySignature(currentGoalId, newsConfigState || buildDefaultNewsConfig());
-        const nextSignature = buildNewsQuerySignature(currentGoalId, draft);
-        const queryChanged = previousSignature !== nextSignature;
-        newsConfigState = draft;
-        setNewsSettingsStatus('저장 중...', 'pending');
-        await saveNewsConfig('settings-modal-save');
-        renderNewsSettingsLists();
-        if (queryChanged) {
-          setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
-          await loadNewsForGoal(currentGoalId, { forceFetch: true });
-          await renderNewsWidgetFromCache(currentGoalId);
-        } else {
-          setNewsSettingsStatus('제외어/숨김 항목을 즉시 다시 적용했습니다.', 'success');
-          await renderNewsWidgetFromCache(currentGoalId);
-        }
-        setTimeout(() => {
-          if (newsSettingsStatus && newsSettingsStatus.dataset.tone === 'success') {
-            setNewsSettingsStatus('');
-          }
-        }, 1800);
-      }
-
-      async function addNewsExcludeWords(rawText) {
-        const words = String(rawText || '').split(/[\,\n]/g).map(sanitizeNewsWord).filter(Boolean);
-        if (!words.length) return;
-        const config = getNewsConfigState();
-        config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
-        newsConfigState = config;
-        await saveNewsConfig('add-exclude-word');
-        renderNewsSettingsLists();
-        await renderNewsWidgetFromCache();
-      }
-
-      async function removeNewsExcludeWord(index) {
-        const config = getNewsConfigState();
-        config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
-        newsConfigState = config;
-        await saveNewsConfig('remove-exclude-word');
-        renderNewsSettingsLists();
-        await renderNewsWidgetFromCache();
-      }
-
-      async function addNewsQuery() {
-        const config = getNewsConfigState();
-        const goalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-        const nextIndex = (config.goals[goalId].queries || []).length + 1;
-        config.goals[goalId].queries = [...(config.goals[goalId].queries || []), normalizeNewsQueryItem({ id: `${goalId}-q${Date.now()}`, label: `쿼리 ${nextIndex}`, query: '', enabled: true, sortOrder: nextIndex - 1 }, nextIndex - 1)];
-        newsConfigState = config;
-        await saveNewsConfig('add-query');
-        renderNewsSettingsLists();
-      }
-
-      async function removeNewsQuery(index) {
-        const config = getNewsConfigState();
-        const goalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-        config.goals[goalId].queries = (config.goals[goalId].queries || []).filter((_, itemIndex) => itemIndex !== index);
-        if (!config.goals[goalId].queries.length) config.goals[goalId].queries = buildNewsGoalSeedQueries(goalId);
-        newsConfigState = config;
-        await saveNewsConfig('remove-query');
-        renderNewsSettingsLists();
-        await loadNewsForGoal(goalId, { forceFetch: true });
-        await renderNewsWidgetFromCache(goalId);
-      }
-
-      async function clearHiddenNewsArticles() {
-        const config = getNewsConfigState();
-        config.hiddenArticles = [];
-        newsConfigState = config;
-        await saveNewsConfig('clear-hidden-articles');
-        renderNewsSettingsLists();
-        await renderNewsWidgetFromCache();
-      }
-
-      async function unhideNewsArticle(index) {
-        const config = getNewsConfigState();
-        config.hiddenArticles = (config.hiddenArticles || []).filter((_, itemIndex) => itemIndex !== index);
-        newsConfigState = config;
-        await saveNewsConfig('unhide-article');
-        renderNewsSettingsLists();
-        await renderNewsWidgetFromCache();
-      }
-
-      async function hideNewsArticle(article) {
-        const config = getNewsConfigState();
-        const articleId = getNewsArticleId(article);
-        if (!articleId) return;
-        if ((config.hiddenArticles || []).some((item) => getNewsArticleId(item) === articleId)) return;
-        config.hiddenArticles = [...(config.hiddenArticles || []), {
-          id: articleId,
-          title: sanitizeNewsWord(article && article.title),
-          link: typeof article?.link === 'string' ? article.link : '',
-          pubDate: typeof article?.pubDate === 'string' ? article.pubDate : '',
-          sourceName: article && article.source && typeof article.source.title === 'string' ? article.source.title : '',
-          hiddenAt: new Date().toISOString(),
-          reason: 'manual'
-        }];
-        newsConfigState = config;
-        await saveNewsConfig('hide-article');
-        renderNewsSettingsLists();
-        await renderNewsWidgetFromCache();
-      }
-
-      function attachNewsWidgetInteractionHandlers() {
-        if (newsWidgetList && !newsWidgetList.dataset.bound) {
-          newsWidgetList.dataset.bound = 'true';
-          newsWidgetList.addEventListener('click', async (event) => {
-            const hideTrigger = event.target.closest('[data-news-hide-trigger]');
-            if (hideTrigger) {
-              event.preventDefault();
-              const card = hideTrigger.closest('[data-news-article]');
-              if (!card) return;
-              const popover = card.querySelector('.news-card-popover');
-              if (popover) popover.hidden = !popover.hidden;
-              return;
-            }
-            const hideArticle = event.target.closest('[data-news-hide-article]');
-            if (hideArticle) {
-              event.preventDefault();
-              const card = hideArticle.closest('[data-news-article]');
-              if (!card) return;
-              const articleId = card.dataset.newsArticle || '';
-              const item = newsVisibleItems.find((entry) => getNewsArticleId(entry) === articleId) || newsRawItemsCache.find((entry) => getNewsArticleId(entry) === articleId);
-              if (item) await hideNewsArticle(item);
-              return;
-            }
-            const excludeChip = event.target.closest('[data-news-exclude-word]');
-            if (excludeChip) {
-              event.preventDefault();
-              await addNewsExcludeWords(excludeChip.dataset.newsExcludeWord || '');
-              return;
-            }
-          });
-        }
-
-        if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
-          newsSettingsModal.dataset.bound = 'true';
-          newsSettingsModal.addEventListener('click', async (event) => {
-            const actionTarget = event.target.closest('[data-news-settings-action]');
-            if (actionTarget) {
-              const action = actionTarget.dataset.newsSettingsAction;
-              if (action === 'close') closeNewsSettingsModal();
-              return;
-            }
-            const tab = event.target.closest('[data-news-tab]');
-            if (tab) {
-              setNewsSettingsTab(tab.dataset.newsTab || 'exclude');
-              return;
-            }
-            const removeExclude = event.target.closest('[data-news-remove-exclude]');
-            if (removeExclude) {
-              await removeNewsExcludeWord(Number(removeExclude.dataset.newsRemoveExclude));
-              return;
-            }
-            const removeQuery = event.target.closest('[data-news-remove-query]');
-            if (removeQuery) {
-              await removeNewsQuery(Number(removeQuery.dataset.newsRemoveQuery));
-              return;
-            }
-            const unhideItem = event.target.closest('[data-news-unhide-index]');
-            if (unhideItem) {
-              await unhideNewsArticle(Number(unhideItem.dataset.newsUnhideIndex));
-              return;
-            }
-          });
-        }
-
-        if (newsGoalSelect && !newsGoalSelect.dataset.bound) {
-          newsGoalSelect.dataset.bound = 'true';
-          newsGoalSelect.addEventListener('change', () => {
-            newsSettingsGoalKey = newsGoalSelect.value;
-            renderNewsSettingsLists();
-          });
-        }
-
-        if (newsExcludeWordAddBtn && !newsExcludeWordAddBtn.dataset.bound) {
-          newsExcludeWordAddBtn.dataset.bound = 'true';
-          newsExcludeWordAddBtn.addEventListener('click', async () => {
-            if (!newsExcludeWordInput) return;
-            await addNewsExcludeWords(newsExcludeWordInput.value);
-            newsExcludeWordInput.value = '';
-          });
-        }
-
-        if (newsQueryAddBtn && !newsQueryAddBtn.dataset.bound) {
-          newsQueryAddBtn.dataset.bound = 'true';
-          newsQueryAddBtn.addEventListener('click', addNewsQuery);
-        }
-
-        if (newsHiddenClearBtn && !newsHiddenClearBtn.dataset.bound) {
-          newsHiddenClearBtn.dataset.bound = 'true';
-          newsHiddenClearBtn.addEventListener('click', clearHiddenNewsArticles);
-        }
-
-        if (newsSettingsSaveBtn && !newsSettingsSaveBtn.dataset.bound) {
-          newsSettingsSaveBtn.dataset.bound = 'true';
-          newsSettingsSaveBtn.addEventListener('click', saveNewsSettingsFromModal);
-        }
-
-        if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
-          newsRefreshBtn.dataset.bound = 'true';
-          newsRefreshBtn.addEventListener('click', () => loadNewsForGoal(newsSelectedGoalKey || currentGoalKey, { forceFetch: true }));
-        }
-
-        if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
-          newsSettingsBtn.dataset.bound = 'true';
-          newsSettingsBtn.addEventListener('click', () => openNewsSettingsModal());
-        }
-      }
-
-      async function saveNewsConfig(reason = '') {
-        const bridge = await waitForFirebaseBridge();
-        const docRef = getNewsConfigDocRef();
-        if (!bridge || !docRef || typeof bridge.setDoc !== 'function') {
-          throw Object.assign(new Error('Firestore 사용 불가'), { code: 'firestore-unavailable' });
-        }
-
-        const payload = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
-        payload.meta = {
-          ...payload.meta,
-          schemaVersion: 2,
-          updatedAt: new Date().toISOString(),
-          updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
-          updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
-          updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
-        };
-
-        await bridge.setDoc(docRef, payload, { merge: true });
-        newsConfigState = normalizeNewsConfig(payload);
-        newsConfigLoaded = true;
-        writeNewsConfigCache(newsConfigState);
-        updateNewsUpdatedText();
-        if (reason) console.log('[news] 설정 저장 완료', { reason });
-        return newsConfigState;
-      }
-
-      async function loadNewsConfigOnce() {
-        if (newsConfigLoadPromise) return newsConfigLoadPromise;
-        newsConfigLoadPromise = (async () => {
-          const bridge = await waitForFirebaseBridge();
-          const seed = buildDefaultNewsConfig();
-          const fallback = readNewsConfigCache();
-
-          try {
-            if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
-              newsConfigState = normalizeNewsConfig(fallback || seed);
-              newsConfigLoaded = true;
-              return newsConfigState;
-            }
-
-            const docRef = getNewsConfigDocRef();
-            if (!docRef) {
-              newsConfigState = normalizeNewsConfig(fallback || seed);
-              newsConfigLoaded = true;
-              return newsConfigState;
-            }
-
-            const snapshot = await bridge.getDoc(docRef);
-            if (!snapshot || !snapshot.exists()) {
-              newsConfigState = normalizeNewsConfig(fallback || seed);
-              await bridge.setDoc(docRef, newsConfigState, { merge: true });
-            } else {
-              newsConfigState = normalizeNewsConfig(snapshot.data ? snapshot.data() : {});
-            }
-
-            writeNewsConfigCache(newsConfigState);
-            newsConfigLoaded = true;
-            updateNewsUpdatedText();
-            return newsConfigState;
-          } catch (error) {
-            console.error('[news] 설정 초기 로드 실패', error);
-            newsConfigState = normalizeNewsConfig(fallback || seed);
-            newsConfigLoaded = true;
-            return newsConfigState;
-          }
-        })();
-        return newsConfigLoadPromise;
-      }
-
-      function fetchNewsViaRss2Json(query) {
-    }
-
-    function updateNewsUpdatedText(goalId = newsSelectedGoalKey) {
-      if (!newsUpdatedText) return;
-      const goalState = goalId ? getNewsGoalState(goalId) : null;
-      const fetchedAt = goalState && goalState.stats && goalState.stats.lastFetchedAt ? new Date(goalState.stats.lastFetchedAt) : null;
-      if (!fetchedAt || Number.isNaN(fetchedAt.getTime())) {
-        newsUpdatedText.textContent = '뉴스 갱신: -';
-        return;
-      }
-      const mm = String(fetchedAt.getMonth() + 1).padStart(2, '0');
-      const dd = String(fetchedAt.getDate()).padStart(2, '0');
-      const hh = String(fetchedAt.getHours()).padStart(2, '0');
-      const min = String(fetchedAt.getMinutes()).padStart(2, '0');
-      newsUpdatedText.textContent = `뉴스 갱신: ${mm}-${dd} ${hh}:${min}`;
-    }
-
-    function setNewsSettingsStatus(message, tone = '') {
-      if (!newsSettingsStatus) return;
-      newsSettingsStatus.textContent = message || '';
-      newsSettingsStatus.dataset.tone = tone || '';
-    }
-
-    function logNewsFilterPipeline(goalId, rawCount, finalCount, queryCount) {
-      console.log(`목표 ${getNewsGoalCode(goalId)} · 쿼리 ${queryCount}개 · 수집 ${rawCount}건 → 필터 후 ${finalCount}건`);
-    }
-
-    function scoreNewsItemForGoal(goalId, item) {
-      const title = sanitizeNewsWord(item && item.title).toLowerCase();
-      const pubDate = parseNewsPubDate(item && item.pubDate);
-      const sources = Array.isArray(item.__newsSources) ? item.__newsSources : [];
-      const hasGoalHit = sources.some((source) => source.kind === 'goal' && source.goalId === goalId);
-      const hasCommonHit = sources.some((source) => source.kind === 'common');
-      const coreKeywords = getNewsGoalCoreKeywords(goalId);
-      let score = 0;
-      if (hasGoalHit) score += 3;
-      if (coreKeywords.some((keyword) => title.includes(sanitizeNewsWord(keyword).toLowerCase()))) score += 2;
-      if (hasCommonHit) score += 2;
-      if (pubDate && pubDate.getTime() >= new Date('2026-06-01T00:00:00+09:00').getTime()) score += 1;
-      return score;
-    }
-
-    function applyNewsFilters(goalId, items, config = getNewsConfigState()) {
-      const rawItems = Array.isArray(items) ? items : [];
-      const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
-      const cutoffDate = new Date('2026-01-01T00:00:00+09:00');
-      const dateFiltered = rawItems.filter((item) => {
-        const pubDate = parseNewsPubDate(item && item.pubDate);
-        return pubDate && pubDate >= cutoffDate;
-      });
-      const excludeFiltered = dateFiltered.filter((item) => !isNewsWordExcluded(item, excludeWords));
-      const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item, config));
-      const unique = dedupeNewsArticles(hiddenFiltered);
-      const scored = unique.map((item) => ({
-        item,
-        score: scoreNewsItemForGoal(goalId, item),
-        time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime(),
-        isCommonOnly: !(Array.isArray(item.__newsSources) && item.__newsSources.some((source) => source.kind === 'goal' && source.goalId === goalId)) && Array.isArray(item.__newsSources) && item.__newsSources.some((source) => source.kind === 'common')
-      }))
-        .sort((left, right) => (right.score !== left.score ? right.score - left.score : right.time - left.time));
-
-      const finalItems = [];
-      let commonCount = 0;
-      scored.forEach((entry) => {
-        if (finalItems.length >= 8) return;
-        if (entry.isCommonOnly) {
-          if (commonCount >= 2) return;
-          commonCount += 1;
-        }
-        finalItems.push(entry.item);
-      });
-
-      logNewsFilterPipeline(goalId, rawItems.length, finalItems.length, getNewsConfiguredQueries(goalId, config).length);
-      return {
-        items: finalItems,
-        rawCount: rawItems.length,
-        excludedCount: rawItems.length - dateFiltered.length + (dateFiltered.length - excludeFiltered.length),
-        finalCount: finalItems.length
-      };
-    }
-
-    function getNewsSettingsDraft() {
-      const draft = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
-      const selectedGoalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-      if (newsExcludeWordList) {
-        const words = Array.from(newsExcludeWordList.querySelectorAll('[data-news-exclude-word-item]')).map((el) => sanitizeNewsWord(el.dataset.newsExcludeWordItem)).filter(Boolean);
-        if (words.length) draft.excludeWords = words;
-      }
-      if (newsCommonQueryInput) {
-        draft.commonQuery = normalizeNewsQueryItem({
-          ...draft.commonQuery,
-          query: newsCommonQueryInput.value,
-          enabled: true
-        }, 0);
-      }
-      if (newsQueryList && selectedGoalId) {
-        const queryRows = Array.from(newsQueryList.querySelectorAll('[data-news-query-index]'));
-        const nextQueries = queryRows.map((row) => {
-          const index = Number(row.dataset.newsQueryIndex);
-          const labelInput = row.querySelector('[data-news-query-field="label"]');
-          const queryInput = row.querySelector('[data-news-query-field="query"]');
-          const enabledInput = row.querySelector('[data-news-query-field="enabled"]');
-          return normalizeNewsQueryItem({
-            id: draft.goals[selectedGoalId].queries[index] && draft.goals[selectedGoalId].queries[index].id ? draft.goals[selectedGoalId].queries[index].id : `${selectedGoalId}-q${index + 1}`,
-            label: labelInput ? labelInput.value : '',
-            query: queryInput ? queryInput.value : '',
-            enabled: enabledInput ? enabledInput.checked : true,
-            sortOrder: index
-          }, index);
-        }).filter((item) => sanitizeNewsWord(item.query));
-        if (nextQueries.length) draft.goals[selectedGoalId].queries = nextQueries;
-      }
-      return draft;
-    }
-
-    function renderNewsWidgetFromCache(goalId = newsSelectedGoalKey) {
-      const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (Object.keys(goalTemplates)[0] || '');
-      const activeConfig = getNewsConfigState();
-      const rawItems = newsRawItemsCacheByGoal[activeGoalId] || [];
-      const filtered = applyNewsFilters(activeGoalId, rawItems, activeConfig);
-      newsFilterStats = filtered;
-      newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-      newsVisibleItems = filtered.items;
-      const goalTemplate = goalTemplates[activeGoalId];
-      if (!goalTemplate) return filtered;
-      const sorted = filtered.items.slice();
-      if (sorted.length) {
-        clearNewsWidgetEmptyState();
-        renderNewsItemsIntoWidget(sorted, activeGoalId);
-      } else {
-        newsWidgetList.innerHTML = '';
-        newsWidgetLoading.hidden = true;
-        setNewsWidgetEmptyState('이 목표와 관련된 2026년 기사를 찾지 못했습니다', true);
-      }
-      updateNewsUpdatedText(activeGoalId);
-      return filtered;
-    }
-
-    async function saveNewsSettingsFromModal() {
-      const draft = getNewsSettingsDraft();
-      const currentGoalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-      const previousSignature = buildNewsQuerySignature(currentGoalId, newsConfigState || buildDefaultNewsConfig());
-      const nextSignature = buildNewsQuerySignature(currentGoalId, draft);
-      const queryChanged = previousSignature !== nextSignature;
-      newsConfigState = draft;
-      setNewsSettingsStatus('저장 중...', 'pending');
-      await saveNewsConfig('settings-modal-save');
-      renderNewsSettingsLists();
-      if (queryChanged) {
-        setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
-        await loadNewsForGoal(currentGoalId, { forceFetch: true });
-        renderNewsWidget(currentGoalId);
-      } else {
-        setNewsSettingsStatus('제외어/숨김 항목을 즉시 다시 적용했습니다.', 'success');
-        renderNewsWidgetFromCache(currentGoalId);
-      }
-      setTimeout(() => {
-        if (newsSettingsStatus && newsSettingsStatus.dataset.tone === 'success') {
-          setNewsSettingsStatus('');
-        }
-      }, 1800);
-    }
-
-    async function addNewsExcludeWords(rawText) {
-      const words = String(rawText || '').split(/[\,\n]/g).map(sanitizeNewsWord).filter(Boolean);
-      if (!words.length) return;
-      const config = getNewsConfigState();
-      config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
-      newsConfigState = config;
-      await saveNewsConfig('add-exclude-word');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function removeNewsExcludeWord(index) {
-      const config = getNewsConfigState();
-      config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
-      newsConfigState = config;
-      await saveNewsConfig('remove-exclude-word');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function addNewsQuery() {
-      const config = getNewsConfigState();
-      const goalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-      const nextIndex = (config.goals[goalId].queries || []).length + 1;
-      config.goals[goalId].queries = [...(config.goals[goalId].queries || []), normalizeNewsQueryItem({ id: `${goalId}-q${Date.now()}`, label: `쿼리 ${nextIndex}`, query: '', enabled: true, sortOrder: nextIndex - 1 }, nextIndex - 1)];
-      newsConfigState = config;
-      await saveNewsConfig('add-query');
-      renderNewsSettingsLists();
-    }
-
-    async function removeNewsQuery(index) {
-      const config = getNewsConfigState();
-      const goalId = newsSettingsGoalKey && goalTemplates[newsSettingsGoalKey] ? newsSettingsGoalKey : (Object.keys(goalTemplates)[0] || '');
-      config.goals[goalId].queries = (config.goals[goalId].queries || []).filter((_, itemIndex) => itemIndex !== index);
-      if (!config.goals[goalId].queries.length) config.goals[goalId].queries = buildNewsGoalSeedQueries(goalId);
-      newsConfigState = config;
-      await saveNewsConfig('remove-query');
-      renderNewsSettingsLists();
-      await loadNewsForGoal(goalId, { forceFetch: true });
-      renderNewsWidget(goalId);
-    }
-
-    async function clearHiddenNewsArticles() {
-      const config = getNewsConfigState();
-      config.hiddenArticles = [];
-      newsConfigState = config;
-      await saveNewsConfig('clear-hidden-articles');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function unhideNewsArticle(index) {
-      const config = getNewsConfigState();
-      config.hiddenArticles = (config.hiddenArticles || []).filter((_, itemIndex) => itemIndex !== index);
-      newsConfigState = config;
-      await saveNewsConfig('unhide-article');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    async function hideNewsArticle(article) {
-      const config = getNewsConfigState();
-      const articleId = getNewsArticleId(article);
-      if (!articleId) return;
-      if ((config.hiddenArticles || []).some((item) => getNewsArticleId(item) === articleId)) return;
-      config.hiddenArticles = [...(config.hiddenArticles || []), {
-        id: articleId,
-        title: sanitizeNewsWord(article && article.title),
-        link: typeof article?.link === 'string' ? article.link : '',
-        pubDate: typeof article?.pubDate === 'string' ? article.pubDate : '',
-        sourceName: article && article.source && typeof article.source.title === 'string' ? article.source.title : '',
-        hiddenAt: new Date().toISOString(),
-        reason: 'manual'
-      }];
-      newsConfigState = config;
-      await saveNewsConfig('hide-article');
-      renderNewsSettingsLists();
-      renderNewsWidgetFromCache();
-    }
-
-    function attachNewsWidgetInteractionHandlers() {
-      if (newsWidgetList && !newsWidgetList.dataset.bound) {
-        newsWidgetList.dataset.bound = 'true';
-        newsWidgetList.addEventListener('click', async (event) => {
-          const hideTrigger = event.target.closest('[data-news-hide-trigger]');
-          if (hideTrigger) {
-            event.preventDefault();
-            const card = hideTrigger.closest('[data-news-article]');
-            if (!card) return;
-            const popover = card.querySelector('.news-card-popover');
-            if (popover) popover.hidden = !popover.hidden;
-            return;
-          }
-          const hideArticle = event.target.closest('[data-news-hide-article]');
-          if (hideArticle) {
-            event.preventDefault();
-            const card = hideArticle.closest('[data-news-article]');
-            if (!card) return;
-            const articleId = card.dataset.newsArticle || '';
-            const item = newsVisibleItems.find((entry) => getNewsArticleId(entry) === articleId) || newsRawItemsCache.find((entry) => getNewsArticleId(entry) === articleId);
-            if (item) await hideNewsArticle(item);
-            return;
-          }
-          const excludeChip = event.target.closest('[data-news-exclude-word]');
-          if (excludeChip) {
-            event.preventDefault();
-            await addNewsExcludeWords(excludeChip.dataset.newsExcludeWord || '');
-            return;
-          }
-        });
-      }
-
-      if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
-        newsSettingsModal.dataset.bound = 'true';
-        newsSettingsModal.addEventListener('click', async (event) => {
-          const actionTarget = event.target.closest('[data-news-settings-action]');
-          if (actionTarget) {
-            const action = actionTarget.dataset.newsSettingsAction;
-            if (action === 'close') closeNewsSettingsModal();
-            return;
-          }
-          const tab = event.target.closest('[data-news-tab]');
-          if (tab) {
-            setNewsSettingsTab(tab.dataset.newsTab || 'exclude');
-            return;
-          }
-          const removeExclude = event.target.closest('[data-news-remove-exclude]');
-          if (removeExclude) {
-            await removeNewsExcludeWord(Number(removeExclude.dataset.newsRemoveExclude));
-            return;
-          }
-          const removeQuery = event.target.closest('[data-news-remove-query]');
-          if (removeQuery) {
-            await removeNewsQuery(Number(removeQuery.dataset.newsRemoveQuery));
-            return;
-          }
-          const unhideItem = event.target.closest('[data-news-unhide-index]');
-          if (unhideItem) {
-            await unhideNewsArticle(Number(unhideItem.dataset.newsUnhideIndex));
-            return;
-          }
-        });
-      }
-
-      if (newsGoalSelect && !newsGoalSelect.dataset.bound) {
-        newsGoalSelect.dataset.bound = 'true';
-        newsGoalSelect.addEventListener('change', () => {
-          newsSettingsGoalKey = newsGoalSelect.value;
-          renderNewsSettingsLists();
-        });
-      }
-
-      if (newsExcludeWordAddBtn && !newsExcludeWordAddBtn.dataset.bound) {
-        newsExcludeWordAddBtn.dataset.bound = 'true';
-        newsExcludeWordAddBtn.addEventListener('click', async () => {
-          if (!newsExcludeWordInput) return;
-          await addNewsExcludeWords(newsExcludeWordInput.value);
-          newsExcludeWordInput.value = '';
-        });
-      }
-
-      if (newsQueryAddBtn && !newsQueryAddBtn.dataset.bound) {
-        newsQueryAddBtn.dataset.bound = 'true';
-        newsQueryAddBtn.addEventListener('click', addNewsQuery);
-      }
-
-      if (newsHiddenClearBtn && !newsHiddenClearBtn.dataset.bound) {
-        newsHiddenClearBtn.dataset.bound = 'true';
-        newsHiddenClearBtn.addEventListener('click', clearHiddenNewsArticles);
-      }
-
-      if (newsSettingsSaveBtn && !newsSettingsSaveBtn.dataset.bound) {
-        newsSettingsSaveBtn.dataset.bound = 'true';
-        newsSettingsSaveBtn.addEventListener('click', saveNewsSettingsFromModal);
-      }
-
-      if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
-        newsRefreshBtn.dataset.bound = 'true';
-        newsRefreshBtn.addEventListener('click', () => loadNewsForGoal(newsSelectedGoalKey || currentGoalKey, { forceFetch: true }));
-      }
-
-      if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
-        newsSettingsBtn.dataset.bound = 'true';
-        newsSettingsBtn.addEventListener('click', () => openNewsSettingsModal());
-      }
-    }
-
-    async function saveNewsConfig(reason = '') {
-      const bridge = await waitForFirebaseBridge();
-      const docRef = getNewsConfigDocRef();
-      if (!bridge || !docRef || typeof bridge.setDoc !== 'function') {
-        throw Object.assign(new Error('Firestore 사용 불가'), { code: 'firestore-unavailable' });
-      }
-
-      const payload = normalizeNewsConfig(newsConfigState || buildDefaultNewsConfig());
-      payload.meta = {
-        ...payload.meta,
-        schemaVersion: 2,
-        updatedAt: new Date().toISOString(),
-        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
-        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
-        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
-      };
-
-      await bridge.setDoc(docRef, payload, { merge: true });
-      newsConfigState = normalizeNewsConfig(payload);
-      newsConfigLoaded = true;
-      writeNewsConfigCache(newsConfigState);
-      updateNewsUpdatedText();
-      if (reason) console.log('[news] 설정 저장 완료', { reason });
-      return newsConfigState;
-    }
-
-    async function loadNewsConfigOnce() {
-      if (newsConfigLoadPromise) return newsConfigLoadPromise;
-      newsConfigLoadPromise = (async () => {
-        const bridge = await waitForFirebaseBridge();
-        const seed = buildDefaultNewsConfig();
-        const fallback = readNewsConfigCache();
-
-        try {
-          if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
-            newsConfigState = normalizeNewsConfig(fallback || seed);
-            newsConfigLoaded = true;
-            return newsConfigState;
-          }
-
-          const docRef = getNewsConfigDocRef();
-          if (!docRef) {
-            newsConfigState = normalizeNewsConfig(fallback || seed);
-            newsConfigLoaded = true;
-            return newsConfigState;
-          }
-
-          const snapshot = await bridge.getDoc(docRef);
-          if (!snapshot || !snapshot.exists()) {
-            newsConfigState = normalizeNewsConfig(fallback || seed);
-            await bridge.setDoc(docRef, newsConfigState, { merge: true });
-          } else {
-            newsConfigState = normalizeNewsConfig(snapshot.data ? snapshot.data() : {});
-          }
-
-          writeNewsConfigCache(newsConfigState);
-          newsConfigLoaded = true;
-          updateNewsUpdatedText();
-          return newsConfigState;
-        } catch (error) {
-          console.error('[news] 설정 초기 로드 실패', error);
-          newsConfigState = normalizeNewsConfig(fallback || seed);
-          newsConfigLoaded = true;
-          return newsConfigState;
-        }
-      })();
-      return newsConfigLoadPromise;
-    }
     .benchmark-prompt-status.warn { color: #9a4d00; }
     .benchmark-data-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .benchmark-data-btn:hover { background: #e5f1ff; }
@@ -922,7 +142,7 @@
     .news-widget-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .news-card { border: 1px solid #d6e3ee; border-radius: 11px; background: #ffffff; min-height: 102px; }
     .news-card-link { display: grid; gap: 7px; height: 100%; padding: 10px 11px; color: inherit; text-decoration: none; }
-    .news-card-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: #1a3651; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-card-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: #1a3651; text-decoration: none; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .news-card-link:hover .news-card-title { text-decoration: underline; }
     .news-card-meta { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #738396; white-space: nowrap; overflow: hidden; }
     .news-card-source, .news-card-date { overflow: hidden; text-overflow: ellipsis; }
@@ -2629,434 +1849,120 @@
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
       const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
       const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
-      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
+      const startedAt = Date.now();
+
+      const defaultResult = {
+        ok: false,
+        count: 0,
+        total: 0,
+        reason: 'unknown',
+        unmatched: [],
+        missingFromResponse: [],
+        appCardCount: 0,
+        aiResponseCount: 0,
+        failedCards: [],
+        durationMs: 0
+      };
 
       try {
         const parsed = parseAiBenchmarkText(rawText);
         if (!parsed) {
-          console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
-          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
-          return response;
+          return {
+            ...defaultResult,
+            reason: 'parse-failed',
+            appCardCount: getBenchmarkCardCatalog().length,
+            durationMs: Date.now() - startedAt
+          };
         }
 
         const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
+        const allEntries = Object.entries(matched || {});
+        const targetEntries = retryItemKeySet
+          ? allEntries.filter(([itemKey]) => retryItemKeySet.has(itemKey))
+          : allEntries;
 
-        const bridge = await waitForFirebaseBridge();
-        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || !bridge.firestore || typeof bridge.writeBatch !== 'function') {
-          console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
-            hasBridge: Boolean(bridge),
-            hasWriteBatch: Boolean(bridge && bridge.writeBatch),
-            hasFirestore: Boolean(bridge && bridge.firestore),
-            hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
-          });
-          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
-          return response;
-        }
-
-        const readiness = getBenchmarkApplyReadiness(bridge);
-        if (!readiness.ok) {
-          response = {
-            ok: false,
-            count: 0,
-            total: 0,
-            reason: readiness.reason,
-            unmatched,
-            missingFromResponse,
-            appCardCount,
-            aiResponseCount,
-            failedCards: []
-          };
-          return response;
-        }
-
-        const plannerState = normalizePlannerState(loadPlannerState());
-        const updates = [];
-        const missingMappings = [];
-        const nowIso = new Date().toISOString();
-        const applyStartedAt = Date.now();
-
-        console.log('[Benchmark Compare] 저장 경로 비교', {
-          benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
-          plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
-          apiBenchmark: 'Firestore writeBatch.set/commit',
-          apiPlanner: 'Realtime Database set'
-        });
-
-        Object.entries(matched).forEach(([itemKey, card]) => {
-          const [goalKey, indexText] = itemKey.split('::');
-          const goalTemplate = goalTemplates[goalKey];
-          const itemIndex = Number(indexText);
-          const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
-          const cardName = (card && card.title) || (item && item.title) || itemKey;
-
-          if (!goalTemplate || !item) {
-            missingMappings.push(cardName);
-            console.error('[Benchmark Apply] 카드 매핑 실패: DB ID(아이템 키)를 찾지 못했습니다.', {
-              cardName,
-              itemKey,
-              goalKey,
-              itemIndex
-            });
-            return;
-          }
-
-          const benchmarkPayload = {
-            skf: card.benchmarking.skf || '',
-            schaeffler: card.benchmarking.schaeffler || '',
-            koreaNsk: card.benchmarking.koreaNsk || '',
-            timken: card.benchmarking.timken || '',
-            updatedAt: nowIso
-          };
-
-          const pathIssue = validateBenchmarkDocPath(itemKey);
-          if (pathIssue) {
-            missingMappings.push(cardName);
-            console.error('[Benchmark Apply] 문서 ID 검증 실패', { cardName, itemKey, pathIssue });
-            return;
-          }
-
-          const undefinedIssues = collectUndefinedFieldPaths(benchmarkPayload, `payload.${itemKey}`);
-          if (undefinedIssues.length) {
-            missingMappings.push(cardName);
-            console.error('[Benchmark Apply] undefined 필드 감지', { cardName, itemKey, undefinedIssues });
-            return;
-          }
-
-          updates.push({
-            itemKey,
-            cardName,
-            goalKey,
-            item,
-            payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload))
-          });
-          benchmarkDebugLog('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
-        });
-
-        if (!updates.length) {
-          console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
-          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched, missingFromResponse, appCardCount, aiResponseCount };
-          return response;
-        }
-
-        const filteredUpdates = retryItemKeySet
-          ? updates.filter((update) => retryItemKeySet.has(update.itemKey))
-          : updates;
-
-        if (!filteredUpdates.length) {
-          response = {
-            ok: false,
-            count: 0,
-            total: updates.length,
+        if (retryItemKeySet && !targetEntries.length) {
+          return {
+            ...defaultResult,
             reason: 'retry-no-targets',
             unmatched,
             missingFromResponse,
             appCardCount,
             aiResponseCount,
-            failedCards: []
+            durationMs: Date.now() - startedAt
           };
-          return response;
         }
 
-        console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
-
-        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 10개).
-        const BATCH_CHUNK_SIZE = 10;
-        const chunks = [];
-        for (let i = 0; i < filteredUpdates.length; i += BATCH_CHUNK_SIZE) {
-          chunks.push(filteredUpdates.slice(i, i + BATCH_CHUNK_SIZE));
-        }
-
-        const successfulUpdates = [];
-        const failedCards = [];
-        let processedCount = 0;
-        let consecutiveCommitTimeouts = 0;
-        let stoppedEarlyForTimeout = false;
-
-        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
-          const chunk = chunks[chunkIndex];
-          try {
-            const batch = bridge.writeBatch(bridge.firestore);
-            chunk.forEach((update) => {
-              const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-              console.log('[Benchmark Apply] 배치 set 경로', {
-                firestorePath: `plans/skf-daily/benchmarks/${update.itemKey}`,
-                itemKey: update.itemKey,
-                cardName: update.cardName
-              });
-              batch.set(docRef, update.payload, { merge: true });
-            });
-            await commitBatchWithTimeout(batch, chunk.length);
-            chunk.forEach((update) => successfulUpdates.push(update));
-            consecutiveCommitTimeouts = 0;
-            console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
-          } catch (error) {
-            const errorCode = error && error.code ? error.code : 'unknown';
-            const errorMessage = error && error.message ? error.message : String(error);
-            console.error('[Benchmark Apply] writeBatch 커밋 실패', {
-              batchIndex: chunkIndex + 1,
-              errorCode,
-              errorMessage,
-              affectedCards: chunk.map((update) => update.cardName)
-            });
-            chunk.forEach((update) => {
-              failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
-            });
-
-            if (errorCode === 'commit-timeout') {
-              consecutiveCommitTimeouts += 1;
-              if (consecutiveCommitTimeouts >= 2) {
-                stoppedEarlyForTimeout = true;
-                for (let remainingIndex = chunkIndex + 1; remainingIndex < chunks.length; remainingIndex += 1) {
-                  chunks[remainingIndex].forEach((update) => {
-                    failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode: 'skipped-after-timeout' });
-                  });
-                }
-                console.error('[Benchmark Apply] commit-timeout 2회 연속 발생, 남은 배치를 중단합니다.');
-                break;
-              }
-            } else {
-              consecutiveCommitTimeouts = 0;
-            }
-          }
-
-          processedCount += chunk.length;
-          onProgress(processedCount, filteredUpdates.length);
-          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${filteredUpdates.length}`);
-          await new Promise((resolve) => window.setTimeout(resolve, 0));
-        }
-
-        successfulUpdates.forEach((update) => {
-          const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
-          const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
-          const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
-          itemState.benchmarking = { ...update.payload };
-          itemState.benchmarkUpdatedAt = update.payload.updatedAt || new Date().toISOString();
-          markItemUpdated(itemState);
-        });
-
-        const successCount = successfulUpdates.length;
-        const totalCount = filteredUpdates.length + missingMappings.length + unmatched.length;
-        const durationMs = Date.now() - applyStartedAt;
-        const durationSec = (durationMs / 1000).toFixed(1);
-
-        console.log(`[Benchmark Apply] 전체 반영 완료 — 성공 ${successCount}개 / 실패 ${failedCards.length + missingMappings.length}개 / 소요 ${durationSec}초`);
-        if (failedCards.length) {
-          console.table(failedCards);
-        }
-
-        if (!successCount) {
-          response = {
-            ok: false,
-            count: 0,
-            total: totalCount,
-            reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : 'firestore-update-failed',
-            failedCards,
-            missingMappings,
+        if (!targetEntries.length) {
+          return {
+            ...defaultResult,
+            reason: 'no-matches',
             unmatched,
             missingFromResponse,
             appCardCount,
             aiResponseCount,
-            durationMs
+            durationMs: Date.now() - startedAt
           };
-          return response;
         }
 
-        savePlannerState(plannerState, { reason: 'ai-benchmark-update' });
-        syncOverviewWidgets(plannerState);
-        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
-          updateGoalCard(currentGoalKey);
+        const bridge = await waitForFirebaseBridge();
+        const readiness = getBenchmarkApplyReadiness(bridge);
+        if (!readiness.ok) {
+          return {
+            ...defaultResult,
+            reason: readiness.reason,
+            total: targetEntries.length,
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount,
+            durationMs: Date.now() - startedAt
+          };
         }
 
-        response = {
-          ok: !stoppedEarlyForTimeout,
+        let successCount = 0;
+        const failedCards = [];
+        const total = targetEntries.length;
+
+        for (let index = 0; index < targetEntries.length; index += 1) {
+          const [itemKey, itemValue] = targetEntries[index];
+          const cardName = itemValue && itemValue.title ? itemValue.title : itemKey;
+          const payload = sanitizeBenchmarkPayload({
+            ...(itemValue && itemValue.benchmarking ? itemValue.benchmarking : {}),
+            updatedAt: new Date().toISOString()
+          });
+          try {
+            await saveBenchmarkingDataForItem(itemKey, payload);
+            successCount += 1;
+          } catch (error) {
+            failedCards.push({
+              itemKey,
+              cardName,
+              errorCode: error && error.code ? error.code : (error && error.message ? error.message : 'write-failed')
+            });
+          }
+          onProgress(index + 1, total);
+        }
+
+        return {
+          ok: failedCards.length === 0,
           count: successCount,
-          total: totalCount,
-          failedCards,
-          missingMappings,
+          total,
+          reason: failedCards.length ? 'partial-failed' : '',
           unmatched,
           missingFromResponse,
           appCardCount,
           aiResponseCount,
-          durationMs,
-          reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : ''
+          failedCards,
+          durationMs: Date.now() - startedAt
         };
-        return response;
       } catch (error) {
-        const errorCode = error && error.code ? error.code : 'unknown';
-        const errorMessage = error && error.message ? error.message : String(error);
-        console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
-        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
-        return response;
-      } finally {
-        console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
-      }
-    }
-
-    // 자동 매칭에 실패한 카드를 사용자가 후보 중 하나로 직접 연결할 때 사용한다.
-    // 성공 시 별칭(alias)을 localStorage에 저장해 다음번에는 자동으로 매칭되게 한다.
-    async function applyManualBenchmarkCardMapping(entry, chosenItemKey) {
-      try {
-        const [goalKey, indexText] = chosenItemKey.split('::');
-        const goalTemplate = goalTemplates[goalKey];
-        const itemIndex = Number(indexText);
-        const item = goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
-        if (!goalTemplate || !item) {
-          console.error('[Benchmark Manual Map] 선택된 카드를 찾을 수 없습니다.', { chosenItemKey });
-          return { ok: false, reason: 'invalid-item-key' };
-        }
-
-        const benchmarkPayload = {
-          skf: (entry.benchmarking && entry.benchmarking.skf) || '',
-          schaeffler: (entry.benchmarking && entry.benchmarking.schaeffler) || '',
-          koreaNsk: (entry.benchmarking && entry.benchmarking.koreaNsk) || '',
-          timken: (entry.benchmarking && entry.benchmarking.timken) || '',
-          sourceText: entry.title,
-          updatedAt: new Date().toISOString()
+        return {
+          ...defaultResult,
+          reason: error && error.code ? error.code : 'unknown',
+          durationMs: Date.now() - startedAt
         };
-        const safePayload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload));
-
-        const result = await upsertBenchmarkFirestoreDoc(chosenItemKey, safePayload, item.title);
-        if (!result.ok) {
-          console.error('[Benchmark Manual Map] 저장 실패', { chosenItemKey, reason: result.reason });
-          return { ok: false, reason: result.reason || 'write-failed' };
-        }
-
-        const plannerState = normalizePlannerState(loadPlannerState());
-        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, chosenItemKey);
-        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, chosenItemKey, itemPrinciples);
-        const itemState = getItemState(plannerState, chosenItemKey, checklistSteps.length, itemPrinciples);
-        itemState.benchmarking = { ...safePayload };
-        itemState.benchmarkUpdatedAt = safePayload.updatedAt || new Date().toISOString();
-        markItemUpdated(itemState);
-        savePlannerState(plannerState, { reason: 'ai-benchmark-manual-map' });
-        syncOverviewWidgets(plannerState);
-        if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
-          updateGoalCard(currentGoalKey);
-        }
-
-        saveBenchmarkAlias(entry.normalizedTitle || normalizeKey(entry.title), chosenItemKey);
-
-        console.log('[Benchmark Manual Map] 수동 연결 완료', { rawTitle: entry.title, itemKey: chosenItemKey, cardTitle: item.title });
-        return { ok: true, cardTitle: item.title };
-      } catch (error) {
-        console.error('[Benchmark Manual Map] 예외 발생', {
-          errorCode: error && error.code ? error.code : 'unknown',
-          errorMessage: error && error.message ? error.message : String(error)
-        });
-        return { ok: false, reason: error && error.message ? error.message : String(error) };
       }
-    }
-
-    // 매핑 실패 카드마다 "입력된 카드명 + 같은 목표 내 후보 드롭다운"을 렌더링한다.
-    // 배너는 실패 목록이 실제로 있을 때만 표시하며(length 검사), 렌더링 전에 이전 내용을 항상 비운다.
-    function renderBenchmarkManualMappingSection(unmatchedList) {
-      if (!benchmarkManualMappingSection || !benchmarkManualMappingList) {
-        console.error('[Benchmark Manual Map] 배너 DOM 요소를 찾지 못했습니다. id 셀렉터를 확인하세요.', {
-          hasSection: Boolean(benchmarkManualMappingSection),
-          hasList: Boolean(benchmarkManualMappingList)
-        });
-        return;
-      }
-
-      // 새 렌더링을 시작하기 전에 이전 실패 목록/배너 내용을 먼저 완전히 비운다.
-      benchmarkManualMappingList.innerHTML = '';
-      benchmarkManualMappingSection.hidden = true;
-
-      const list = Array.isArray(unmatchedList) ? unmatchedList : [];
-      console.log('[Benchmark Manual Map] 배너 렌더 요청, 실패 카드 수 =', list.length);
-
-      if (!list.length) {
-        return;
-      }
-
-      const rowsHtml = [];
-      list.forEach((entry, index) => {
-        try {
-          const candidates = Array.isArray(entry && entry.candidates) ? entry.candidates : [];
-          const title = entry && typeof entry.title === 'string' && entry.title ? entry.title : '(제목 없음)';
-
-          const pickerHtml = candidates.length
-            ? [
-                `<select class="benchmark-manual-mapping-select" data-manual-select-index="${index}">`,
-                ['<option value="">후보 선택...</option>']
-                  .concat(candidates.map((candidate) => `<option value="${escapeHtml(candidate.itemKey)}">${escapeHtml(candidate.title)} (${Number(candidate.score || 0).toFixed(2)})</option>`))
-                  .join(''),
-                '</select>',
-                `<button type="button" class="benchmark-manual-mapping-btn" data-manual-connect-index="${index}">연결</button>`
-              ].join('')
-            : [
-                '<span class="benchmark-manual-mapping-empty">이 목표에 해당 카드가 없습니다 — 무시하거나 카드를 새로 만드세요</span>',
-                `<button type="button" class="benchmark-manual-mapping-ignore-btn" data-manual-ignore-index="${index}">무시</button>`
-              ].join('');
-
-          rowsHtml.push(`
-            <div class="benchmark-manual-mapping-row" data-manual-row-index="${index}">
-              <span class="benchmark-manual-mapping-title-text">${escapeHtml(title)}</span>
-              ${pickerHtml}
-            </div>
-          `);
-        } catch (error) {
-          console.error('[Benchmark Manual Map] 항목 렌더링 실패 (해당 항목은 건너뜁니다)', {
-            index,
-            entry,
-            errorMessage: error && error.message ? error.message : String(error)
-          });
-        }
-      });
-
-      if (!rowsHtml.length) {
-        console.warn('[Benchmark Manual Map] 렌더링 가능한 실패 항목이 없어 배너를 숨깁니다.');
-        return;
-      }
-
-      benchmarkManualMappingList.innerHTML = rowsHtml.join('');
-      benchmarkManualMappingSection.hidden = false;
-
-      benchmarkManualMappingList.querySelectorAll('[data-manual-ignore-index]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const index = Number(btn.getAttribute('data-manual-ignore-index'));
-          const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
-          if (row) row.remove();
-          if (!benchmarkManualMappingList.querySelector('[data-manual-row-index]')) {
-            benchmarkManualMappingSection.hidden = true;
-          }
-        });
-      });
-
-      benchmarkManualMappingList.querySelectorAll('[data-manual-connect-index]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            const index = Number(btn.getAttribute('data-manual-connect-index'));
-            const entry = list[index];
-            const select = benchmarkManualMappingList.querySelector(`[data-manual-select-index="${index}"]`);
-            const chosenItemKey = select ? select.value : '';
-            if (!entry || !chosenItemKey) {
-              window.alert('연결할 카드를 먼저 선택해 주세요.');
-              return;
-            }
-
-            btn.disabled = true;
-            const originalLabel = btn.textContent;
-            btn.textContent = '연결 중...';
-
-            const applyResult = await applyManualBenchmarkCardMapping(entry, chosenItemKey);
-            if (applyResult && applyResult.ok) {
-              const row = benchmarkManualMappingList.querySelector(`[data-manual-row-index="${index}"]`);
-              if (row) {
-                row.innerHTML = `<span class="benchmark-manual-mapping-resolved">✅ "${escapeHtml(entry.title)}" → "${escapeHtml(applyResult.cardTitle)}" 연결 완료 (다음부터 자동 매칭됩니다)</span>`;
-              }
-            } else {
-              btn.disabled = false;
-              btn.textContent = originalLabel;
-              window.alert(`연결에 실패했습니다: ${applyResult && applyResult.reason ? applyResult.reason : '알 수 없는 오류'}`);
-            }
-          } catch (error) {
-            console.error('[Benchmark Manual Map] 연결 버튼 처리 중 예외', {
-              errorMessage: error && error.message ? error.message : String(error)
-            });
-          }
-        });
-      });
     }
 
     // AI 응답에서 아예 언급되지 않은 앱 카드 목록을 표시한다(리포트 5번 요구사항).
@@ -7535,7 +6441,6 @@
     function attachNewsWidgetInteractionHandlers() {
       if (newsWidgetList && !newsWidgetList.dataset.bound) {
         newsWidgetList.dataset.bound = 'true';
-        newsWidgetList.addEventListener('click', () => {});
       }
 
       if (newsSettingsModal && !newsSettingsModal.dataset.bound) {
@@ -7586,7 +6491,7 @@
 
       if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
         newsRefreshBtn.dataset.bound = 'true';
-        newsRefreshBtn.addEventListener('click', () => refreshNewsDataset(true));
+        newsRefreshBtn.addEventListener('click', () => renderNewsWidget(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', null, true));
       }
 
       if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
@@ -7667,105 +6572,152 @@
       return newsConfigLoadPromise;
     }
 
-    function fetchNewsViaRss2Json(query) {
-      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
-      console.log('[news] 1차 시도: rss2json 요청', apiUrl);
-      return fetch(apiUrl, { cache: 'no-store' })
-        .then((response) => {
-          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
-          return response.json();
-        })
-        .then((data) => {
-          const count = data && Array.isArray(data.items) ? data.items.length : 0;
-          console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
-          if (!data || data.status !== 'ok') {
-            throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
-          }
-          return Array.isArray(data.items) ? data.items : [];
-        });
+    function getNewsGoalCode(goalId) {
+      const ids = Object.keys(goalTemplates || {});
+      const index = ids.indexOf(goalId);
+      return index >= 0 ? String(index + 1).padStart(2, '0') : '00';
     }
 
-    // rss2json이 실패(429, 네트워크 오류 등)할 때 쓰는 대체 경로: CORS 프록시로 원본 RSS XML을 받아 직접 파싱한다.
-    function fetchNewsViaAllOrigins(query) {
+    function getNewsConfiguredQueries(goalId, config = getNewsConfigState()) {
+      const source = config && typeof config === 'object' ? config : {};
+      const common = source.commonQuery && source.commonQuery.enabled !== false && sanitizeNewsWord(source.commonQuery.query)
+        ? [{ ...source.commonQuery, kind: 'common', id: source.commonQuery.id || 'common' }]
+        : [];
+      const goalQueries = source.goals && source.goals[goalId] && Array.isArray(source.goals[goalId].queries)
+        ? source.goals[goalId].queries
+        : (Array.isArray(source.searchQueries) ? source.searchQueries : []);
+      const normalizedGoalQueries = goalQueries
+        .filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query))
+        .map((item, index) => ({ ...item, kind: 'goal', id: item.id || `goal-${index + 1}` }));
+      return [...common, ...normalizedGoalQueries];
+    }
+
+    function buildNewsQuerySignature(goalIdOrConfig, maybeConfig) {
+      const isConfigOnly = goalIdOrConfig && typeof goalIdOrConfig === 'object' && !Array.isArray(goalIdOrConfig);
+      const goalId = isConfigOnly ? '' : (goalIdOrConfig || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+      const config = isConfigOnly ? goalIdOrConfig : (maybeConfig || getNewsConfigState());
+      return getNewsConfiguredQueries(goalId, config).map((item) => sanitizeNewsWord(item.query)).filter(Boolean).join(' || ');
+    }
+
+    function buildDefaultNewsCommonQuery() {
+      return {
+        id: 'common',
+        label: '공통 경쟁사 동향',
+        query: NEWS_COMMON_QUERY,
+        enabled: true,
+        sortOrder: -1
+      };
+    }
+
+    function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, { ...options, signal: controller.signal }).finally(() => window.clearTimeout(timer));
+    }
+
+    async function fetchNewsViaRss2Json(query, queryId = '') {
+      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+      const phase2Start = performance.now();
+      const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, 8000);
+      const phase2Ms = Math.round(performance.now() - phase2Start);
+      const phase3Start = performance.now();
+      const data = await response.json();
+      const phase3Ms = Math.round(performance.now() - phase3Start);
+      const itemCount = data && Array.isArray(data.items) ? data.items.length : 0;
+      console.log(`[news][query:${queryId}] URL=${apiUrl} HTTP=${response.status} rss2json.status=${data && data.status} rss2json.message=${data && data.message ? data.message : ''}`);
+      console.log(`[news][query:${queryId}] ② RSS 호출 ${phase2Ms} ms -> ③ 파싱 ${phase3Ms} ms (items=${itemCount})`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!data || data.status !== 'ok') throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
+      return { items: Array.isArray(data.items) ? data.items : [], rssMs: phase2Ms, parseMs: phase3Ms };
+    }
+
+    async function fetchNewsViaAllOrigins(query, queryId = '') {
       const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
-      console.log('[news] 2차 시도(fallback): allorigins 요청', proxyUrl);
-      return fetch(proxyUrl, { cache: 'no-store' })
-        .then((response) => {
-          if (!response.ok) return Promise.reject(new Error(`HTTP ${response.status}`));
-          return response.text();
-        })
-        .then((xmlText) => {
-          const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-          if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
-          const entries = Array.from(xmlDoc.querySelectorAll('item'));
-          console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
-          return entries.map((entry) => {
-            const getText = (selector) => {
-              const el = entry.querySelector(selector);
-              return el ? el.textContent : '';
-            };
-            return {
-              title: getText('title'),
-              link: getText('link'),
-              pubDate: getText('pubDate'),
-              source: { title: getText('source') || 'Google News' }
-            };
-          });
-        });
+      const phase2Start = performance.now();
+      const response = await fetchWithTimeout(proxyUrl, { cache: 'no-store' }, 8000);
+      const phase2Ms = Math.round(performance.now() - phase2Start);
+      const phase3Start = performance.now();
+      const xmlText = await response.text();
+      const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
+      const entries = Array.from(xmlDoc.querySelectorAll('item'));
+      const phase3Ms = Math.round(performance.now() - phase3Start);
+      console.log(`[news][query:${queryId}] URL=${proxyUrl} HTTP=${response.status} rss2json.status=fallback rss2json.message=allorigins`);
+      console.log(`[news][query:${queryId}] ② RSS 호출 ${phase2Ms} ms -> ③ 파싱 ${phase3Ms} ms (items=${entries.length})`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const items = entries.map((entry) => {
+        const getText = (selector) => {
+          const el = entry.querySelector(selector);
+          return el ? el.textContent : '';
+        };
+        return {
+          title: getText('title'),
+          link: getText('link'),
+          pubDate: getText('pubDate'),
+          source: { title: getText('source') || 'Google News' }
+        };
+      });
+      return { items, rssMs: phase2Ms, parseMs: phase3Ms };
     }
 
     async function fetchNewsForQuery(queryItem) {
       const queryText = sanitizeNewsWord(queryItem && queryItem.query) || '';
-      if (!queryText) return [];
+      const queryId = queryItem && queryItem.id ? queryItem.id : 'unknown';
+      if (!queryText) return { items: [], rssMs: 0, parseMs: 0 };
       try {
-        const fetched = await fetchNewsViaRss2Json(queryText);
-        return Array.isArray(fetched) ? fetched : [];
+        return await fetchNewsViaRss2Json(queryText, queryId);
       } catch (primaryError) {
-        console.warn('[news] rss2json 실패:', primaryError && primaryError.message);
+        console.warn(`[news][query:${queryId}] rss2json 실패:`, primaryError && primaryError.message);
         try {
-          const fallback = await fetchNewsViaAllOrigins(queryText);
-          return Array.isArray(fallback) ? fallback : [];
+          return await fetchNewsViaAllOrigins(queryText, queryId);
         } catch (fallbackError) {
-          console.error('[news] fallback(allorigins)도 실패:', fallbackError && fallbackError.message);
-          return [];
+          console.error(`[news][query:${queryId}] fallback 실패:`, fallbackError && fallbackError.message);
+          return { items: [], rssMs: 0, parseMs: 0, error: fallbackError && fallbackError.message ? fallbackError.message : 'query-failed' };
         }
       }
     }
 
     function loadNewsForGoal(goalId, options = {}) {
       const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (Object.keys(goalTemplates)[0] || '');
-      if (!activeGoalId) return Promise.resolve({ items: [], totalCount: 0, error: null, goalId: activeGoalId });
+      if (!activeGoalId) return Promise.resolve({ items: [], totalCount: 0, error: null, goalId: activeGoalId, timings: { cacheMs: 0, rssMs: 0, parseMs: 0 } });
       if (newsPromiseByGoal[activeGoalId] && !options.forceFetch) return newsPromiseByGoal[activeGoalId];
 
       newsPromiseByGoal[activeGoalId] = (async () => {
         await loadNewsConfigOnce();
         const config = getNewsConfigState();
         const configuredQueries = getNewsConfiguredQueries(activeGoalId, config);
-        const queryCount = configuredQueries.length;
         const signature = buildNewsQuerySignature(activeGoalId, config);
-        const cacheKey = getNewsCacheKey(activeGoalId);
-        const cached = options.forceFetch ? null : readNewsRawCache(activeGoalId);
+        const cacheStorageKey = `${NEWS_CACHE_KEY_PREFIX}::${activeGoalId}::${btoa(unescape(encodeURIComponent(signature))).slice(0, 80)}`;
 
-        if (cached && cached.meta && cached.meta.signature === signature && Array.isArray(cached.items) && cached.items.length) {
-          newsRawItemsCacheByGoal[activeGoalId] = cached.items;
-          const filtered = applyNewsFilters(activeGoalId, cached.items, config);
+        const cacheStart = performance.now();
+        let cachedPayload = null;
+        if (!options.forceFetch) {
+          try {
+            const raw = window.localStorage.getItem(cacheStorageKey);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && Array.isArray(parsed.items) && typeof parsed.fetchedAt === 'number' && Date.now() - parsed.fetchedAt <= NEWS_CACHE_TTL_MS) {
+                cachedPayload = parsed;
+              }
+            }
+          } catch (error) {
+            cachedPayload = null;
+          }
+        }
+        const cacheMs = Math.round(performance.now() - cacheStart);
+        console.log(`[news] 캐시 ${cachedPayload ? 'HIT' : 'MISS'} (${cacheMs} ms)`);
+
+        if (cachedPayload && Array.isArray(cachedPayload.items) && cachedPayload.items.length) {
+          newsRawItemsCacheByGoal[activeGoalId] = cachedPayload.items;
+          const filtered = applyNewsFilters(cachedPayload.items, config);
           newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-          newsRawItemsCache = cached.items;
+          newsRawItemsCache = cachedPayload.items;
           newsVisibleItems = filtered.items;
-          const goalState = config.goals[activeGoalId] || buildDefaultNewsGoalState(activeGoalId);
-          goalState.stats = {
-            ...goalState.stats,
-            lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
-            lastRawCount: cached.items.length,
-            lastFinalCount: filtered.finalCount,
-            lastVisibleCount: filtered.finalCount
-          };
-          config.goals[activeGoalId] = goalState;
-          writeNewsConfigCache(config);
           updateNewsUpdatedText(activeGoalId);
-          return { items: filtered.items, totalCount: cached.items.length, error: null, goalId: activeGoalId, queryCount };
+          console.log(`[news] ① 캐시 확인 ${cacheMs} ms -> ② RSS 호출 0 ms -> ③ 파싱 0 ms -> ④ 렌더 0 ms`);
+          return { items: filtered.items, totalCount: cachedPayload.items.length, error: null, goalId: activeGoalId, queryCount: configuredQueries.length, timings: { cacheMs, rssMs: 0, parseMs: 0 } };
         }
 
         if (!configuredQueries.length) {
@@ -7773,58 +6725,76 @@
           newsVisibleItemsByGoal[activeGoalId] = [];
           newsRawItemsCache = [];
           newsVisibleItems = [];
-          writeNewsRawCache(activeGoalId, [], { signature, queryCount, queryCounts: {}, items: [] });
-          updateNewsUpdatedText(activeGoalId);
-          return { items: [], totalCount: 0, error: null, goalId: activeGoalId, queryCount };
+          return { items: [], totalCount: 0, error: null, goalId: activeGoalId, queryCount: 0, timings: { cacheMs, rssMs: 0, parseMs: 0 } };
         }
 
-        const queryResults = await Promise.all(configuredQueries.map(async (queryItem) => {
-          const items = await fetchNewsForQuery(queryItem);
-          return { ...queryItem, items };
-        }));
+        let mergedItems = [];
+        let completed = 0;
+        let rssMsTotal = 0;
+        let parseMsTotal = 0;
+        const totalCount = configuredQueries.length;
 
-        const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
-        const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({
-          ...item,
-          __newsSources: [{
-            goalId: activeGoalId,
-            kind: entry.kind,
-            queryId: entry.id,
-            query: entry.query,
-            label: entry.label
-          }]
-        })) : []));
-        const uniqueItems = dedupeNewsArticles(flattened);
-        const filtered = applyNewsFilters(activeGoalId, uniqueItems, config);
+        const queryPromises = configuredQueries.map(async (queryItem) => {
+          const result = await fetchNewsForQuery(queryItem);
+          completed += 1;
+          rssMsTotal += Number.isFinite(result.rssMs) ? result.rssMs : 0;
+          parseMsTotal += Number.isFinite(result.parseMs) ? result.parseMs : 0;
 
-        newsRawItemsCacheByGoal[activeGoalId] = uniqueItems;
+          const tagged = (Array.isArray(result.items) ? result.items : []).map((item) => ({
+            ...item,
+            __newsSources: [{
+              goalId: activeGoalId,
+              kind: queryItem.kind || 'goal',
+              queryId: queryItem.id,
+              query: queryItem.query,
+              label: queryItem.label
+            }]
+          }));
+
+          if (tagged.length) {
+            mergedItems = dedupeNewsArticles([...mergedItems, ...tagged]);
+            const filteredNow = applyNewsFilters(mergedItems, config);
+            newsRawItemsCacheByGoal[activeGoalId] = mergedItems;
+            newsVisibleItemsByGoal[activeGoalId] = filteredNow.items;
+            newsRawItemsCache = mergedItems;
+            newsVisibleItems = filteredNow.items;
+            if (typeof options.onProgress === 'function') {
+              options.onProgress({
+                items: filteredNow.items,
+                goalId: activeGoalId,
+                doneCount: completed,
+                totalCount
+              });
+            }
+          }
+          return { queryItem, result };
+        });
+
+        await Promise.allSettled(queryPromises);
+
+        const filtered = applyNewsFilters(mergedItems, config);
+        newsRawItemsCacheByGoal[activeGoalId] = mergedItems;
         newsVisibleItemsByGoal[activeGoalId] = filtered.items;
-        newsRawItemsCache = uniqueItems;
+        newsRawItemsCache = mergedItems;
         newsVisibleItems = filtered.items;
-        writeNewsRawCache(activeGoalId, uniqueItems, { signature, queryCount, queryCounts });
 
-        const goalState = config.goals[activeGoalId] || buildDefaultNewsGoalState(activeGoalId);
-        goalState.stats = {
-          ...goalState.stats,
-          lastFetchedAt: new Date().toISOString(),
-          lastRawCount: uniqueItems.length,
-          lastFinalCount: filtered.finalCount,
-          lastVisibleCount: filtered.finalCount
-        };
-        goalState.updatedAt = new Date().toISOString();
-        config.goals[activeGoalId] = goalState;
-        config.meta = {
-          ...(config.meta || {}),
-          updatedAt: new Date().toISOString(),
-          updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
-          updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
-          updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
-        };
-        newsConfigState = config;
-        writeNewsConfigCache(config);
-        await saveNewsConfig(`news-dataset-refresh:${activeGoalId}`);
+        if (mergedItems.length) {
+          try {
+            window.localStorage.setItem(cacheStorageKey, JSON.stringify({ fetchedAt: Date.now(), items: mergedItems }));
+          } catch (error) {
+            console.warn('[news] 캐시 저장 실패', error);
+          }
+        }
+
         updateNewsUpdatedText(activeGoalId);
-        return { items: filtered.items, totalCount: uniqueItems.length, error: null, goalId: activeGoalId, queryCount };
+        return {
+          items: filtered.items,
+          totalCount: mergedItems.length,
+          error: null,
+          goalId: activeGoalId,
+          queryCount: configuredQueries.length,
+          timings: { cacheMs, rssMs: rssMsTotal, parseMs: parseMsTotal }
+        };
       })().finally(() => {
         delete newsPromiseByGoal[activeGoalId];
       });
@@ -7836,44 +6806,44 @@
       return loadNewsForGoal(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', options);
     }
 
+    function splitNewsTitleAndSource(rawTitle, fallbackSource) {
+      const cleanTitle = decodeHtmlEntities(typeof rawTitle === 'string' ? rawTitle.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음').trim();
+      const cleanFallback = decodeHtmlEntities(typeof fallbackSource === 'string' ? fallbackSource : '').trim();
+      const suffixMatch = cleanTitle.match(/^(.*)\s+-\s+([^\-]{2,80})$/);
+      if (suffixMatch) {
+        const articleTitle = sanitizeNewsWord(suffixMatch[1]);
+        const sourceFromTitle = sanitizeNewsWord(suffixMatch[2]);
+        if (articleTitle && sourceFromTitle) {
+          const finalSource = (!cleanFallback || /google\s*news/i.test(cleanFallback)) ? sourceFromTitle : cleanFallback;
+          return { title: articleTitle, source: finalSource };
+        }
+      }
+      const finalSource = cleanFallback && !/google\s*news/i.test(cleanFallback) ? cleanFallback : '출처 미상';
+      return { title: cleanTitle || '제목 없음', source: finalSource };
+    }
+
     function renderNewsItemsIntoWidget(items, goalId = newsSelectedGoalKey) {
-      const canEditNews = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
-      const activeConfig = getNewsConfigState();
-      const visibleItems = Array.isArray(items) ? items.slice(0, 8) : [];
+      const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
       const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
       newsVisibleItems = visibleItems.slice();
       newsVisibleItemsByGoal[activeGoalId] = visibleItems.slice();
       if (!newsWidgetList) return;
       newsWidgetList.innerHTML = visibleItems.map((item, index) => {
-        const rawTitle = typeof item.title === 'string' ? item.title.replace(/\s*-\s*Google News\s*$/i, '') : '제목 없음';
-        const title = decodeHtmlEntities(rawTitle);
-        const rawSourceName = item && item.source && typeof item.source.title === 'string'
+        const fallbackSource = item && item.source && typeof item.source.title === 'string'
           ? item.source.title
-          : (typeof item.author === 'string' && item.author ? item.author : 'Google News');
-        const sourceName = decodeHtmlEntities(rawSourceName);
+          : (typeof item.author === 'string' ? item.author : '');
+        const split = splitNewsTitleAndSource(item && item.title, fallbackSource);
         const pubDateText = formatNewsPubDate(item && item.pubDate ? item.pubDate : '');
         const pubDate = parseNewsPubDate(item && item.pubDate ? item.pubDate : '');
         const href = item && typeof item.link === 'string' ? item.link : '#';
         const articleKey = getNewsArticleId(item) || `article-${index}`;
-        const candidateWords = extractNewsWordCandidates(title, activeConfig.excludeWords || []);
         const isMutedDate = pubDate ? (Date.now() - pubDate.getTime()) >= (90 * 24 * 60 * 60 * 1000) : false;
-        const popoverHtml = canEditNews ? `
-          <button type="button" class="news-card-hide-btn" data-news-hide-trigger="${escapeHtml(articleKey)}">🚫</button>
-          <div class="news-card-popover" data-news-popover-for="${escapeHtml(articleKey)}" hidden>
-            <div class="news-card-popover-title">단어로 제외하기</div>
-            <div class="news-card-popover-chips">
-              ${candidateWords.length ? candidateWords.map((word) => `<button type="button" class="news-card-popover-chip" data-news-exclude-word="${escapeHtml(word)}">${escapeHtml(word)}</button>`).join('') : '<span class="news-card-popover-empty">추출된 후보가 없습니다.</span>'}
-            </div>
-            <button type="button" class="news-popover-btn danger" data-news-hide-article="${escapeHtml(articleKey)}">이 기사 숨기기</button>
-          </div>
-        ` : '';
         return `
           <article class="news-card" data-news-article="${escapeHtml(articleKey)}">
-            ${popoverHtml}
             <a class="news-card-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
-              <div class="news-card-title">${escapeHtml(title)}</div>
+              <div class="news-card-title">${escapeHtml(split.title)}</div>
               <div class="news-card-meta">
-                <span class="news-card-source">${escapeHtml(sourceName)}</span>
+                <span class="news-card-source">${escapeHtml(split.source)}</span>
                 <span class="news-card-date ${isMutedDate ? 'news-card-date-muted' : ''}">${escapeHtml(pubDateText)}</span>
               </div>
             </a>
@@ -7881,6 +6851,42 @@
         `;
       }).join('');
       newsWidgetLoading.hidden = true;
+      newsWidgetLoading.innerHTML = '';
+    }
+
+    function renderNewsSkeletonCards() {
+      if (!newsWidgetLoading) return;
+      newsWidgetLoading.hidden = false;
+      newsWidgetLoading.innerHTML = `
+        <div class="news-skeleton-grid" aria-label="뉴스 로딩 스켈레톤">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="news-skeleton-card">
+              <div class="news-skeleton-line title"></div>
+              <div class="news-skeleton-line title-2"></div>
+              <div class="news-skeleton-line meta"></div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderNewsErrorState(message, detail, goalId) {
+      if (!newsWidgetLoading) return;
+      newsWidgetLoading.hidden = false;
+      newsWidgetLoading.innerHTML = `
+        <div class="news-widget-error">
+          <div>${escapeHtml(message || '뉴스를 불러오지 못했습니다')}</div>
+          <div>${escapeHtml(detail || '알 수 없는 오류')}</div>
+          <button type="button" class="news-widget-retry-btn" data-news-retry-btn="${escapeHtml(goalId || '')}">다시 시도</button>
+        </div>
+      `;
+      const retryBtn = newsWidgetLoading.querySelector('[data-news-retry-btn]');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          const retryGoalId = retryBtn.dataset.newsRetryBtn || newsSelectedGoalKey || currentGoalKey;
+          renderNewsWidget(retryGoalId, null, true);
+        });
+      }
     }
 
     function setNewsWidgetEmptyState(message, showSettingsButton = false) {
@@ -7961,7 +6967,8 @@
     }
 
     function setNewsSettingsTab(tabName) {
-      newsSettingsActiveTab = tabName || 'exclude';
+      const safeTab = tabName === 'queries' ? 'queries' : 'exclude';
+      newsSettingsActiveTab = safeTab;
       if (newsSettingsModal) {
         Array.from(newsSettingsModal.querySelectorAll('.news-settings-tab')).forEach((button) => {
           button.classList.toggle('active', button.dataset.newsTab === newsSettingsActiveTab);
@@ -7989,13 +6996,14 @@
       return loadNewsForGoal(newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '', { forceFetch });
     }
 
-    function renderNewsWidget(goalKey, state) {
+    async function renderNewsWidget(goalKey, state, forceFetch = false) {
       if (!newsWidget || !newsWidgetTitle || !newsWidgetMeta || !newsWidgetList || !newsWidgetLoading) return;
       const goalTemplate = goalTemplates[goalKey];
       if (!goalTemplate) {
         newsWidget.hidden = true;
         newsWidgetList.innerHTML = '';
         newsWidgetLoading.hidden = true;
+        newsWidgetLoading.innerHTML = '';
         return;
       }
 
@@ -8010,32 +7018,63 @@
       newsWidgetMeta.textContent = `${getNewsSearchQueryLabel(activeGoalId, activeConfig)} · 2026년 기사 · 관련도순`;
 
       newsWidgetList.innerHTML = '';
-      newsWidgetLoading.hidden = false;
-      newsWidgetLoading.textContent = '최신 뉴스를 불러오는 중입니다.';
+      renderNewsSkeletonCards();
 
-      loadNewsForGoal(activeGoalId, { forceFetch: false }).then((result) => {
+      const renderStart = performance.now();
+      let timingCacheMs = 0;
+      let timingRssMs = 0;
+      let timingParseMs = 0;
+
+      const timeoutPromise = new Promise((_, reject) => {
+        window.setTimeout(() => reject(Object.assign(new Error('15초 타임아웃'), { code: 'news-timeout' })), 15000);
+      });
+
+      try {
+        const loadPromise = loadNewsForGoal(activeGoalId, {
+          forceFetch,
+          onProgress(progress) {
+            if (requestId !== newsRequestSerial) return;
+            clearNewsWidgetEmptyState();
+            renderNewsItemsIntoWidget(progress.items, activeGoalId);
+          }
+        });
+        const result = await Promise.race([loadPromise, timeoutPromise]);
         if (requestId !== newsRequestSerial) return;
-        const items = Array.isArray(result.items) ? result.items : [];
-        const totalCount = result.totalCount || 0;
-        console.log(`목표 ${getNewsGoalCode(activeGoalId)} · 쿼리 ${configuredQueries.length}개 · 수집 ${totalCount}건 → 필터 후 ${items.length}건`);
 
-        if (result.error) {
-          newsWidgetList.innerHTML = '';
-          newsWidgetLoading.hidden = false;
-          newsWidgetLoading.textContent = `뉴스 서버 응답 오류 (${result.error})`;
+        const items = Array.isArray(result && result.items) ? result.items : [];
+        const totalCount = result && result.totalCount ? result.totalCount : 0;
+        timingCacheMs = result && result.timings ? (result.timings.cacheMs || 0) : 0;
+        timingRssMs = result && result.timings ? (result.timings.rssMs || 0) : 0;
+        timingParseMs = result && result.timings ? (result.timings.parseMs || 0) : 0;
+
+        if (result && result.error) {
+          renderNewsErrorState('뉴스를 불러오지 못했습니다', String(result.error), activeGoalId);
           return;
         }
 
         if (!items.length) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = true;
+          newsWidgetLoading.innerHTML = '';
           setNewsWidgetEmptyState('이 목표와 관련된 2026년 기사를 찾지 못했습니다', true);
           return;
         }
 
         clearNewsWidgetEmptyState();
         renderNewsItemsIntoWidget(items, activeGoalId);
-      });
+        const renderMs = Math.round(performance.now() - renderStart);
+        console.log(`목표 ${getNewsGoalCode(activeGoalId)} · 쿼리 ${configuredQueries.length}개 · 수집 ${totalCount}건 → 필터 후 ${items.length}건`);
+        console.log(`[news] ① 캐시 확인 ${timingCacheMs} ms -> ② RSS 호출 ${timingRssMs} ms -> ③ 파싱 ${timingParseMs} ms -> ④ 렌더 ${renderMs} ms`);
+      } catch (error) {
+        if (requestId !== newsRequestSerial) return;
+        const message = error && error.code === 'news-timeout' ? '뉴스를 불러오지 못했습니다 (15초 제한 초과)' : '뉴스를 불러오지 못했습니다';
+        renderNewsErrorState(message, error && error.message ? error.message : String(error), activeGoalId);
+      } finally {
+        if (requestId === newsRequestSerial && newsWidgetLoading && !newsWidgetLoading.querySelector('.news-widget-error')) {
+          newsWidgetLoading.hidden = true;
+          newsWidgetLoading.innerHTML = '';
+        }
+      }
     }
 
     function autoSizeWorkflowTextarea(textarea) {
@@ -9883,4 +8922,5 @@
   </script>
 </body>
 </html>
+
 
