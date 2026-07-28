@@ -8277,12 +8277,14 @@
         const titleInput = card.querySelector('.card-title-input');
         const summaryInput = card.querySelector('.card-summary-input');
         const guidelinesInput = card.querySelector('.card-guidelines-input');
-        const directiveInput = card.querySelector('.directive-input');
-        const directiveSaveButton = card.querySelector('.directive-save-btn');
-        const journalInput = card.querySelector('.journal-input');
-        const journalSaveButton = card.querySelector('.journal-save-btn');
-        const journalTimeline = card.querySelector('.journal-timeline');
-        const journalSaved = card.querySelector('.journal-saved');
+        const directiveSection = card.querySelector('.directive-section');
+        const journalSection = card.querySelector('.journal-section');
+        const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
+        const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
+        const journalInput = journalSection ? journalSection.querySelector('.journal-input') : null;
+        const journalSaveButton = journalSection ? journalSection.querySelector('.journal-save-btn') : null;
+        const journalTimeline = journalSection ? journalSection.querySelector('.journal-timeline') : null;
+        const journalSaved = journalSection ? journalSection.querySelector('.journal-saved') : null;
         const historyCountLabel = card.querySelector('.history-archive-count');
         const historyListElement = card.querySelector('.history-archive-list');
         const manualHistoryInput = card.querySelector('.history-manual-input');
@@ -8883,22 +8885,45 @@
           const text = journalInput.value.trim();
           if (!text) return;
 
+          console.log('[COMMENT] 저장 시작', { itemKey, goalKey: currentGoal, dateKey: currentPlannerDateKey || '' });
+
           itemState.note = text;
           itemState.noteUpdatedAt = new Date().toISOString();
           itemState.comments.push({
             timestamp: new Date().toISOString(),
             text
           });
+
+          if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+          itemState.historyList.push({
+            projectName: '오늘 수행 내용 저장',
+            completedAt: new Date().toISOString(),
+            commentSummary: text
+          });
+          itemState.cycleCompletedCount = getCycleCompletedCount(itemState);
+          itemState.totalCycles = getCycleCompletedCount(itemState);
+          console.log('[COMMENT] 히스토리 저장 성공', { historyCount: itemState.historyList.length });
+
           syncCommentDerivedFields(itemState);
           recalculateItemActivityTimestamp(itemState);
           markItemUpdated(itemState);
 
-          savePlannerState(plannerState);
+          savePlannerState(plannerState, { reason: 'comment-save' });
+          console.log('[COMMENT] Firestore 저장 성공', {
+            note: '코멘트는 플래너 스냅샷 저장 경로를 사용합니다.',
+            rtdbPath: `plans/skf-daily/${currentPlannerDateKey || ''}`
+          });
           renderTimeline(journalTimeline, itemState.comments);
+          rerenderHistoryArchive();
           renderLatestActivityPanel(latestActivityPanel, itemState);
+          console.log('[COMMENT] 최근 수행 내용 갱신', {
+            latestComment: itemState.latestCommentSummary || '',
+            historyCount: Array.isArray(itemState.historyList) ? itemState.historyList.length : 0
+          });
           syncOverviewWidgets(plannerState);
           journalSaved.classList.add('visible');
           setTimeout(() => journalSaved.classList.remove('visible'), 1200);
+          console.log('[COMMENT] 저장 완료', { itemKey });
         });
 
         journalTimeline.addEventListener('click', (event) => {
