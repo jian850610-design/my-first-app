@@ -652,6 +652,9 @@
     const NEWS_CONFIG_STORAGE_KEY = 'skfMarketingNewsConfigV1';
     const NEWS_RAW_CACHE_META_KEY = 'skfMarketingNewsRawMetaV1';
     const NEWS_DEFAULT_EXCLUDE_WORDS = ['골프', 'PGA', 'LPGA', '투어', '우승', '랭킹', '스코티', '마스터스'];
+    const NEWS_DEFAULT_QUERIES = [
+      { id: 'default-1', label: '기본 검색', query: NEWS_SEARCH_QUERY, enabled: true, sortOrder: 0 }
+    ];
     let newsConfigState = null;
     let newsConfigLoaded = false;
     let newsConfigLoadPromise = null;
