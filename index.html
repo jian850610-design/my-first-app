@@ -524,7 +524,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -557,6 +557,7 @@
       set,
       updateDoc,
       setDoc,
+      writeBatch,
       getBenchmarkDocRef(itemKey) {
         return doc(firestore, 'plans', 'skf-daily', 'benchmarks', itemKey);
       },
@@ -1471,6 +1472,17 @@
         return { ok: false, count: 0, reason: 'parse-failed' };
       }
 
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || typeof bridge.writeBatch !== 'function' || !bridge.firestore || typeof bridge.getBenchmarkDocRef !== 'function') {
+        console.error('[Benchmark Apply] Firestore writeBatch 사용 불가', {
+          hasBridge: Boolean(bridge),
+          hasWriteBatch: Boolean(bridge && bridge.writeBatch),
+          hasFirestore: Boolean(bridge && bridge.firestore),
+          hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
+        });
+        return { ok: false, count: 0, total: 0, reason: 'firestore-batch-unavailable' };
+      }
+
       const plannerState = normalizePlannerState(loadPlannerState());
       const updates = [];
       const missingMappings = [];
@@ -1517,59 +1529,32 @@
         return { ok: false, count: 0, reason: 'no-matches' };
       }
 
-      const successfulUpdates = [];
-      const failedCards = [];
-      const writeResults = await Promise.all(updates.map(async (update) => {
-        try {
-          const result = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
-          if (result && result.ok) {
-            successfulUpdates.push(update);
-          } else {
-            failedCards.push(update.cardName);
-            console.error('[Benchmark Apply] 카드 저장 실패', {
-              cardName: update.cardName,
-              itemKey: update.itemKey,
-              errorMessage: result && result.error && result.error.message ? result.error.message : (result && result.reason ? result.reason : 'unknown')
-            });
-          }
-          console.log('[Benchmark Apply] Firestore 반영 결과', { itemKey: update.itemKey, cardName: update.cardName, result });
-          return {
-            itemKey: update.itemKey,
-            cardName: update.cardName,
-            ...result
-          };
-        } catch (error) {
-          failedCards.push(update.cardName);
-          const errorMessage = error && error.message ? error.message : String(error);
-          console.error('[Benchmark Apply] 카드 저장 중 예외 발생', {
-            cardName: update.cardName,
-            itemKey: update.itemKey,
-            errorMessage
-          });
-          return {
-            itemKey: update.itemKey,
-            cardName: update.cardName,
-            ok: false,
-            reason: 'unexpected-exception',
-            errorMessage
-          };
-        }
-      }));
+      const batch = bridge.writeBatch(bridge.firestore);
+      updates.forEach((update) => {
+        const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+        batch.update(docRef, update.payload);
+      });
 
-      const successCount = successfulUpdates.length;
-      const totalCount = updates.length + missingMappings.length;
-      if (!successCount) {
+      try {
+        await batch.commit();
+      } catch (error) {
+        const errorMessage = error && error.message ? error.message : String(error);
+        console.error('[Benchmark Apply] writeBatch commit 실패', {
+          totalUpdates: updates.length,
+          missingMappings,
+          errorMessage
+        });
         return {
           ok: false,
           count: 0,
-          total: totalCount,
-          reason: 'firestore-write-failed',
-          failedCards,
+          total: updates.length,
+          reason: 'firestore-batch-failed',
+          failedCards: updates.map((update) => update.cardName),
           missingMappings
         };
       }
 
-      successfulUpdates.forEach((update) => {
+      updates.forEach((update) => {
         const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
         const checklistSteps = getChecklistStepsForItem(plannerState, update.goalKey, update.item, update.itemKey, itemPrinciples);
         const itemState = getItemState(plannerState, update.itemKey, checklistSteps.length, itemPrinciples);
@@ -1585,11 +1570,11 @@
 
       return {
         ok: true,
-        count: successCount,
-        total: totalCount,
-        failedCards,
+        count: updates.length,
+        total: updates.length,
+        failedCards: [],
         missingMappings,
-        writeResults
+        writeResults: [{ mode: 'writeBatch', ok: true, count: updates.length }]
       };
     }
 
@@ -6007,7 +5992,7 @@
           }
 
           try {
-            const timeoutMs = 5000;
+            const timeoutMs = 15000;
             const timeoutResult = { ok: false, total: 0, count: 0, reason: 'timeout' };
             const result = await Promise.race([
               applyAiBenchmarkUpdatesFromText(rawText),
@@ -6045,13 +6030,14 @@
               return;
             }
 
-            const successMessage = `총 ${result.total}개 카드 중 ${result.count}개 카드가 성공적으로 반영되었습니다.`;
+            const successMessage = `총 ${result.total}개 카드의 AI 벤치마킹 동향이 성공적으로 업데이트되었습니다!`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
             window.alert(successMessage);
+            showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
             console.error('[Benchmark Apply] 처리 중 치명적 오류', {
