@@ -739,7 +739,7 @@
         <div class="benchmark-prompt-header">
           <div>
             <div class="benchmark-prompt-title">🤖 매일 아침 AI 벤치마킹 프롬프트 복사</div>
-            <div class="benchmark-prompt-subtitle">아래 통합 프롬프트 전문은 [📋 프롬프트 복사하기] 버튼 1회 클릭으로 클립보드에 복사됩니다. 상단 검색창에 붙여넣으면 @목표 / - [카드명]: 태그를 인식해 카드명 자동 매핑을 시도합니다.</div>
+            <div class="benchmark-prompt-subtitle">아래 통합 프롬프트 전문은 [📋 프롬프트 복사하기] 버튼 1회 클릭으로 클립보드에 복사됩니다(클릭 시점의 실제 카드 데이터로 매번 새로 생성됨). AI 응답을 아래 입력란에 붙여넣으면 [ID] 카드명 기준으로 자동 매핑을 시도합니다.</div>
           </div>
           <button type="button" class="benchmark-prompt-copy-btn" id="copyBenchmarkPromptBtn">📋 프롬프트 복사하기</button>
         </div>
@@ -747,7 +747,7 @@
         <textarea class="benchmark-prompt-preview" id="benchmarkPromptPreview" readonly></textarea>
         <div class="benchmark-auto-panel">
           <div class="benchmark-auto-title">AI 결과 입력 및 자동 반영</div>
-          <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [카드명], SKF 본사 / 셰플러 / 한국NSK / 팀켄 항목을 파싱합니다."></textarea>
+          <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [ID] 카드명, SKF 본사 / 셰플러 / 한국NSK / 팀켄 항목을 파싱합니다."></textarea>
           <div class="benchmark-auto-actions">
             <button type="button" class="benchmark-auto-btn" id="benchmarkAutoApplyBtn">카드로 자동 반영하기</button>
             <span class="benchmark-auto-progress" id="benchmarkAutoProgress"></span>
@@ -756,6 +756,10 @@
           <div class="benchmark-manual-mapping" id="benchmarkManualMappingSection" hidden>
             <div class="benchmark-manual-mapping-title">⚠️ 자동 매칭 실패 카드 — 후보 중에서 직접 연결해 주세요</div>
             <div class="benchmark-manual-mapping-list" id="benchmarkManualMappingList"></div>
+          </div>
+          <div class="benchmark-missing-cards" id="benchmarkMissingCardsSection" hidden>
+            <div class="benchmark-missing-cards-title">📋 AI 응답에서 누락된 카드 — 이 카드들을 다시 물어보세요</div>
+            <div class="benchmark-missing-cards-list" id="benchmarkMissingCardsList"></div>
           </div>
         </div>
       </section>
@@ -917,57 +921,45 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
-    // 프롬프트는 하드코딩된 문자열이 아니라 goalTemplates(실제 카드 데이터)를 순회해 런타임에 생성한다.
-    // 카드명이 나중에 수정되어도 프롬프트가 항상 실제 카드명과 100% 일치하도록 보장한다.
+    // 프롬프트는 하드코딩된 문자열이 아니라 goalTemplates(실제 카드 데이터)를 "복사하기" 클릭 시점에 순회해 생성한다.
+    // 하드코딩된 제외 목록(REMOVED_PROMPT_CARD_TITLES) 없이, 카탈로그(getBenchmarkCardCatalog)에 있는 카드만 그대로 사용한다.
+    // 카드 제목을 수정하거나 카드를 추가/삭제해도 이 함수를 고칠 필요가 없다 — 항상 실제 데이터와 100% 일치한다.
     function buildBenchmarkPromptText() {
+      const catalog = getBenchmarkCardCatalog();
       const goalNumbers = Object.keys(PROMPT_GOAL_NUMBER_TO_KEY).map(Number).sort((left, right) => left - right);
-
-      const getVisibleItems = (goalTemplate) => (goalTemplate && Array.isArray(goalTemplate.items) ? goalTemplate.items : [])
-        .filter((item) => item && typeof item.title === 'string' && item.title.trim() && !REMOVED_PROMPT_CARD_TITLES.has(item.title.trim()));
-
-      const exampleGoalNumber = goalNumbers[0];
-      const exampleGoalKey = PROMPT_GOAL_NUMBER_TO_KEY[exampleGoalNumber];
-      const exampleGoalTemplate = goalTemplates[exampleGoalKey];
-      const exampleItems = getVisibleItems(exampleGoalTemplate).slice(0, 2);
-
-      const exampleBlock = [
-        `@목표: ${exampleGoalNumber}. ${exampleGoalTemplate ? exampleGoalTemplate.label : ''}`,
-        ...exampleItems.map((item) => [
-          `- [${item.title.trim()}]:`,
-          '  * SKF 본사: (SKF 본사 및 한국 법인의 관련 실행 내용)',
-          '  * 셰플러: (셰플러의 관련 실행 내용)',
-          '  * 한국NSK: (한국NSK의 관련 실행 내용)',
-          '  * 팀켄: (팀켄의 관련 실행 내용)'
-        ].join('\n'))
-      ].join('\n');
+      const totalCardCount = catalog.length;
 
       const bodyBlocks = goalNumbers.map((goalNumber) => {
         const goalKey = PROMPT_GOAL_NUMBER_TO_KEY[goalNumber];
         const goalTemplate = goalTemplates[goalKey];
-        const cardLines = getVisibleItems(goalTemplate).map((item) => `- [${item.title.trim()}]:`);
+        if (!goalTemplate) return '';
+        const cardLines = catalog
+          .filter((entry) => entry.goalNumber === goalNumber)
+          .map((entry) => [
+            `- [${entry.id}] ${entry.title}:`,
+            '  * SKF 본사:',
+            '  * 셰플러:',
+            '  * 한국NSK:',
+            '  * 팀켄:'
+          ].join('\n'));
         if (!cardLines.length) return '';
         return [`@목표: ${goalNumber}. ${goalTemplate.label}`, ...cardLines].join('\n');
       }).filter(Boolean);
 
       return [
-        '오늘 날짜 기준, 베어링 및 산업재 B2B 분야의 [SKF 본사] 및 주요 경쟁사[셰플러, 한국NSK, 팀켄]의 최신 마케팅 실행 동향을 각 세부 카드별로 조사해 주세요.',
+        '오늘 날짜 기준, SKF 본사 및 주요 경쟁사(셰플러, 한국NSK, 팀켄)의 최신 마케팅 실행 동향을 아래 카드별로 조사해 주세요.',
+        '※ 중요: 아래 목록에 있는 카드만 출력하세요. 목록에 없는 항목을 추가하지 마세요.',
+        '※ [ID]와 그 뒤에 이어지는 카드명은 한 글자도 바꾸지 말고 그대로 복사하세요. 요약하거나 다듬지 마세요.',
+        '※ 각 회사별 1~2문장으로 작성하세요.',
+        `※ 아래 목록은 총 ${totalCardCount}개입니다. 정확히 ${totalCardCount}개를 출력하세요.`,
         '',
-        '반드시 아래 [양식] 태그 구성과 하위 항목(SKF 본사, 셰플러, 한국NSK, 팀켄) 구분을 엄격히 유지해서 출력해 주세요. 각 회사별로 1~2문장의 명확한 실행 동향만 작성해 주세요.',
-        '',
-        '아래 대괄호 [] 안의 카드명은 한 글자도 변경하지 말고 그대로 복사해서 출력하세요. 카드명을 요약하거나 다듬지 마세요.',
-        '',
-        '[출력 양식 예시]',
-        '※ 아래는 형식 예시이며 실제 카드 목록은 그 다음에 나옵니다.',
-        exampleBlock,
-        '',
-        '--------------------------------------------------',
         bodyBlocks.join('\n\n')
       ].join('\n');
     }
 
-    // 상태 메시지에 표시할 실제 카드 개수(프롬프트에 포함된 카드 수, REMOVED_PROMPT_CARD_TITLES 제외)
+    // 상태 메시지에 표시할 실제 카드 개수 (프롬프트/카탈로그의 카드 수는 항상 동일해야 함)
     function countBenchmarkPromptCards() {
-      return getBenchmarkCardCatalog().filter((entry) => entry.title && !REMOVED_PROMPT_CARD_TITLES.has(entry.title)).length;
+      return getBenchmarkCardCatalog().length;
     }
 
     const PROMPT_GOAL_NUMBER_TO_KEY = {
@@ -980,13 +972,6 @@
       7: 'sales-support',
       8: 'marketing-skill'
     };
-
-    const REMOVED_PROMPT_CARD_TITLES = new Set([
-      '네이버 공식 블로그/포스트 메인 비주얼 & 레이아웃 리뉴얼',
-      '주간 회의(Weekly Action Plan) 데드라인 엄수',
-      "아이디어 회의의 '파트너'이자 '초안 작성 보조 작가'로 AI 활용",
-      '영업/기술 부서와 밀착 소통/촬영 협조'
-    ]);
 
     function getLocalDateKey(date = new Date()) {
       const year = date.getFullYear();
@@ -1193,6 +1178,9 @@
 
     let benchmarkCardCatalogCache = null;
 
+    // 카드마다 안정적인 ID를 부여한다. 카드 데이터에 별도 id 필드가 없으므로
+    // "목표번호-해당 목표 내 순번"(예: G3-02) 규칙으로 생성한다. 카드 순서가 바뀌지 않는 한
+    // 다른 카드가 추가/삭제되어도 기존 카드의 ID는 유지된다.
     function getBenchmarkCardCatalog() {
       if (Array.isArray(benchmarkCardCatalogCache)) return benchmarkCardCatalogCache;
 
@@ -1208,11 +1196,12 @@
             goalNumber,
             index,
             title,
-            normalizedTitle: normalizeBenchmarkCardTitle(title)
+            id: `G${goalNumber}-${String(index + 1).padStart(2, '0')}`,
+            normalizedTitle: normalizeBenchmarkCardTitle(title),
+            normalizedKey: normalizeKey(title)
           });
         });
       });
-      benchmarkCardCatalogCache.sort((left, right) => right.normalizedTitle.length - left.normalizedTitle.length);
       return benchmarkCardCatalogCache;
     }
 
@@ -1231,166 +1220,23 @@
       return null;
     }
 
-    function findBenchmarkCardMatchFromLine(line, goalKey = '') {
-      const normalizedLine = normalizeBenchmarkCardTitle(line);
-      if (!normalizedLine) return null;
-
-      const candidates = goalKey
-        ? getBenchmarkCardCatalog().filter((candidate) => candidate.goalKey === goalKey)
-        : getBenchmarkCardCatalog();
-
-      let bestMatch = null;
-      candidates.forEach((candidate) => {
-        if (!candidate.normalizedTitle) return;
-        if (!normalizedLine.includes(candidate.normalizedTitle) && !candidate.normalizedTitle.includes(normalizedLine)) return;
-        if (!bestMatch || candidate.normalizedTitle.length > bestMatch.normalizedTitle.length) {
-          bestMatch = candidate;
-        }
-      });
-
-      return bestMatch;
-    }
-
-    function extractBenchmarkFieldEntry(line) {
-      const fieldPatterns = [
-        { key: 'skf', regex: /^\s*(?:[-*•]\s*)?(?:SKF(?:\s*본사)?|본사|HQ|Headquarters?)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
-        { key: 'schaeffler', regex: /^\s*(?:[-*•]\s*)?(?:셰플러|Schaeffler)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
-        { key: 'koreaNsk', regex: /^\s*(?:[-*•]\s*)?(?:한국\s*N\s*S\s*K|한국NSK|NSK)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i },
-        { key: 'timken', regex: /^\s*(?:[-*•]\s*)?(?:팀켄|Timken)(?:\s*(?:실행\s*내용|벤치마킹|현황))?\s*(?:[:：\-–—]|\b)\s*(.*)$/i }
-      ];
-
-      for (const entry of fieldPatterns) {
-        const match = line.match(entry.regex);
-        if (match) {
-          return {
-            fieldKey: entry.key,
-            content: normalizeBenchmarkFieldText(match[1] || '')
-          };
-        }
-      }
-
-      return null;
-    }
-
-    function parseAiBenchmarkOutput(rawText) {
-      if (typeof rawText !== 'string') return null;
-      const lines = rawText.split(/\r?\n/);
-      const maxParseLines = 5000;
-      const safeLines = lines.length > maxParseLines ? lines.slice(0, maxParseLines) : lines;
-      if (lines.length > maxParseLines) {
-        console.warn('[Benchmark Parser] 입력 라인이 너무 많아 일부만 파싱합니다.', {
-          totalLines: lines.length,
-          parsedLines: safeLines.length
-        });
-      }
-      const parsed = {};
-      let currentGoalNumber = null;
-      let currentGoalKey = '';
-      let currentCard = null;
-      let activeFieldKey = '';
-      const unmatchedLines = [];
-      const unmatchedCardCandidates = [];
-
-      const pushCard = (goalNumber, card) => {
-        if (!goalNumber || !card || !card.title) return;
-        if (!parsed[goalNumber]) parsed[goalNumber] = [];
-        parsed[goalNumber].push(card);
-      };
-
-      for (let lineIndex = 0; lineIndex < safeLines.length; lineIndex += 1) {
-        const rawLine = safeLines[lineIndex];
-        const line = rawLine.trimEnd();
-        const goalNumberFromLine = findBenchmarkGoalNumberFromLine(line);
-        const goalMatch = line.match(/^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?\s*(.*)$/i);
-        if (goalMatch) {
-          if (currentCard) pushCard(currentGoalNumber, currentCard);
-          currentGoalNumber = Number(goalMatch[1]);
-          currentGoalKey = getGoalKeyFromPromptNumber(currentGoalNumber);
-          currentCard = null;
-          activeFieldKey = '';
-          console.log('[Benchmark Parser] 목표 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey });
-          return;
-        }
-
-        if (goalNumberFromLine && currentGoalNumber !== goalNumberFromLine) {
-          if (currentCard) pushCard(currentGoalNumber, currentCard);
-          currentGoalNumber = goalNumberFromLine;
-          currentGoalKey = getGoalKeyFromPromptNumber(currentGoalNumber);
-          currentCard = null;
-          activeFieldKey = '';
-          console.log('[Benchmark Parser] 느슨한 목표 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey });
-        }
-
-        const cardMatch = findBenchmarkCardMatchFromLine(line, currentGoalKey);
-        if (cardMatch) {
-          if (currentCard) pushCard(currentGoalNumber, currentCard);
-          currentCard = {
-            title: cardMatch.title,
-            matchedGoalKey: cardMatch.goalKey,
-            matchedItemIndex: cardMatch.index,
-            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
-          };
-          currentGoalNumber = cardMatch.goalNumber || currentGoalNumber;
-          currentGoalKey = cardMatch.goalKey || currentGoalKey;
-          const cleanedLine = normalizeBenchmarkFieldText(line).replace(/^[-*•\d.\s\[\]]+/g, '');
-          if (cleanedLine && cleanedLine !== normalizeBenchmarkCardTitle(cardMatch.title)) {
-            currentCard.rawLines = [cleanedLine];
-          }
-          activeFieldKey = '';
-          console.log('[Benchmark Parser] 카드 제목 감지', { line, goalNumber: currentGoalNumber, goalKey: currentGoalKey, title: currentCard.title, itemIndex: currentCard.matchedItemIndex });
-          return;
-        }
-
-        if (!currentCard) {
-          if (line.trim()) unmatchedLines.push(line);
-          return;
-        }
-
-        const fieldEntry = extractBenchmarkFieldEntry(line);
-        if (fieldEntry && fieldEntry.fieldKey) {
-          currentCard.benchmarking[fieldEntry.fieldKey] = fieldEntry.content;
-          activeFieldKey = fieldEntry.fieldKey;
-          console.log('[Benchmark Parser] 필드 감지', { line, title: currentCard.title, fieldKey: fieldEntry.fieldKey, content: fieldEntry.content });
-          return;
-        }
-
-        const continuationText = normalizeBenchmarkFieldText(line);
-        if (!continuationText) return;
-        if (activeFieldKey) {
-          const existing = currentCard.benchmarking[activeFieldKey];
-          currentCard.benchmarking[activeFieldKey] = existing ? `${existing}\n${continuationText}` : continuationText;
-          console.log('[Benchmark Parser] 필드 이어붙임', { title: currentCard.title, fieldKey: activeFieldKey, text: continuationText });
-          return;
-        }
-        if (!Array.isArray(currentCard.rawLines)) currentCard.rawLines = [];
-        currentCard.rawLines.push(continuationText);
-        unmatchedCardCandidates.push({ title: currentCard.title, line: continuationText });
-        console.log('[Benchmark Parser] 카드/필드 미매칭 라인 누적', { title: currentCard.title, line: continuationText });
-      }
-
-      if (currentCard) pushCard(currentGoalNumber, currentCard);
-      if (!Object.keys(parsed).length) {
-        console.log('[Benchmark Parser] 카드 파싱 실패', {
-          rawLineCount: safeLines.length,
-          unmatchedLines,
-          unmatchedCardCandidates
-        });
-      } else {
-        console.log('[Benchmark Parser] 카드 파싱 완료', {
-          goalNumbers: Object.keys(parsed),
-          cardCount: Object.values(parsed).reduce((sum, cards) => sum + cards.length, 0)
-        });
-      }
-      return parsed;
-    }
-
+    // AI 응답 텍스트를 파싱해 카드 배열로 변환한다.
+    // "@목표: N." 라인을 만날 때마다 currentGoalNumber를 갱신해, 각 카드가 어느 목표에 속하는지 추적한다
+    // (이 goalNumber는 나중에 "같은 목표 내에서만 유사도 매칭"을 하기 위해 반드시 필요하다).
+    // 카드 라인은 두 가지 형식을 지원한다:
+    //  1) "- [G3-02] 카드명:" — ID가 있는 새 형식(권장, 우선 매칭에 사용)
+    //  2) "- [카드명]:" — ID가 없는 구형식(AI가 ID를 누락한 경우 대비)
     function parseBracketCardsFromText(rawText) {
       if (typeof rawText !== 'string' || !rawText.trim()) return [];
 
       const lines = rawText.split(/\r?\n/);
       const parsedCards = [];
-      const cardLineRegex = /^\s*[-•*]?\s*\[?(.+?)\]?\s*:\s*(.*)$/;
+      const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
+      const idCardLineRegex = /^\s*[-•*]?\s*\[\s*([A-Za-z0-9\-]+)\s*\]\s*(.+?)\s*:\s*(.*)$/;
+      const plainCardLineRegex = /^\s*[-•*]?\s*\[?(.+?)\]?\s*:\s*(.*)$/;
       const companyLineRegex = /^\s*[-•*]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+
+      let currentGoalNumber = null;
       let currentCard = null;
       let activeFieldKey = '';
 
@@ -1398,9 +1244,26 @@
         if (currentCard && currentCard.title) parsedCards.push(currentCard);
       };
 
+      const applyInlineCompanyTail = (card, tailText) => {
+        const inlineTail = normalizeBenchmarkFieldText(tailText || '');
+        if (!inlineTail) return '';
+        const inlineCompany = inlineTail.match(companyLineRegex);
+        if (!inlineCompany) return '';
+        const inlineField = getBenchmarkFieldKey(inlineCompany[1] || '');
+        if (!inlineField) return '';
+        card.benchmarking[inlineField] = normalizeBenchmarkFieldText(inlineCompany[2] || '');
+        return inlineField;
+      };
+
       for (const rawLine of lines) {
         const line = typeof rawLine === 'string' ? rawLine : '';
         if (!line.trim()) continue;
+
+        const goalMatch = line.match(goalLineRegex);
+        if (goalMatch) {
+          currentGoalNumber = Number(goalMatch[1]);
+          continue;
+        }
 
         const companyMatch = line.match(companyLineRegex);
         if (currentCard && companyMatch) {
@@ -1412,35 +1275,37 @@
           continue;
         }
 
-        const cardLineMatch = line.match(cardLineRegex);
-        const hasBracket = /\[[^\]]+\]/.test(line);
-        const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
+        const idCardMatch = line.match(idCardLineRegex);
+        if (idCardMatch) {
+          pushCurrentCard();
+          currentCard = {
+            id: idCardMatch[1].trim(),
+            title: normalizeBenchmarkFieldText(idCardMatch[2] || ''),
+            goalNumber: currentGoalNumber,
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          };
+          activeFieldKey = applyInlineCompanyTail(currentCard, idCardMatch[3]) || '';
+          continue;
+        }
 
-        if (!isGoalLine && cardLineMatch && hasBracket) {
+        const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
+        const plainCardMatch = line.match(plainCardLineRegex);
+        const hasBracket = /\[[^\]]+\]/.test(line);
+        if (!isGoalLine && plainCardMatch && hasBracket) {
           const bracketTitleMatch = line.match(/\[([^\]]+)\]/);
-          const title = normalizeBenchmarkFieldText((bracketTitleMatch && bracketTitleMatch[1]) || cardLineMatch[1] || '')
+          const title = normalizeBenchmarkFieldText((bracketTitleMatch && bracketTitleMatch[1]) || plainCardMatch[1] || '')
             .replace(/^[\-*:•\s]+/, '')
             .replace(/[\-*:•\s]+$/, '');
           if (!title) continue;
 
           pushCurrentCard();
           currentCard = {
+            id: '',
             title,
+            goalNumber: currentGoalNumber,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           };
-          activeFieldKey = '';
-
-          const inlineTail = normalizeBenchmarkFieldText(cardLineMatch[2] || '');
-          if (inlineTail) {
-            const inlineCompany = inlineTail.match(companyLineRegex);
-            if (inlineCompany) {
-              const inlineField = getBenchmarkFieldKey(inlineCompany[1] || '');
-              if (inlineField) {
-                currentCard.benchmarking[inlineField] = normalizeBenchmarkFieldText(inlineCompany[2] || '');
-                activeFieldKey = inlineField;
-              }
-            }
-          }
+          activeFieldKey = applyInlineCompanyTail(currentCard, plainCardMatch[2]) || '';
           continue;
         }
 
@@ -1461,7 +1326,9 @@
           const title = normalizeBenchmarkFieldText(match[1] || '');
           if (!title) return;
           parsedCards.push({
+            id: '',
             title,
+            goalNumber: null,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           });
         });
@@ -2002,9 +1869,7 @@
 
       Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).forEach(([goalNumberText, goalKey]) => {
         const goalNumber = Number(goalNumberText);
-        const parsedTitles = Array.isArray(parsedByGoalNumber[goalNumber])
-          ? parsedByGoalNumber[goalNumber].filter((title) => !REMOVED_PROMPT_CARD_TITLES.has(title))
-          : [];
+        const parsedTitles = Array.isArray(parsedByGoalNumber[goalNumber]) ? parsedByGoalNumber[goalNumber] : [];
         const goalTemplate = goalTemplates[goalKey];
         if (!goalTemplate || !Array.isArray(goalTemplate.items) || !parsedTitles.length) return;
 
