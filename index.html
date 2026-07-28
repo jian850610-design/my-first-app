@@ -561,7 +561,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { initializeFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -582,12 +582,7 @@
       app = initializeApp(FIREBASE_CONFIG);
       auth = getAuth(app);
       db = getDatabase(app);
-      // Firestore 쓰기만 장시간 pending 되는 사내 프록시/방화벽 환경을 우회하기 위해
-      // WebChannel 대신 long-polling을 강제한다. 이 초기화는 어떤 Firestore API 호출보다 먼저 실행되어야 한다.
-      firestore = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        useFetchStreams: false
-      });
+      firestore = getFirestore(app);
     } catch (error) {
       firebaseInitError = error;
       console.error('[Firebase Init] 초기화 실패', error);
@@ -945,6 +940,9 @@
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
     const BENCHMARK_DEBUG_LOGS = false;
+    const BENCHMARK_APPLY_DEBUG = {
+      disableCommitTimeout: false
+    };
     const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
     let benchmarkRetryFailedItemKeys = [];
 
@@ -1656,9 +1654,22 @@
       const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
       console.log('[Apply] commit 시작', batchCount);
 
+      if (BENCHMARK_APPLY_DEBUG.disableCommitTimeout) {
+        try {
+          await batch.commit();
+          const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+          const elapsed = Math.round(endedAt - startedAt);
+          console.log('[Apply] commit 완료', elapsed, '(debug: timeout 비활성화)');
+          return elapsed;
+        } catch (error) {
+          console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
+          throw error;
+        }
+      }
+
       const timeoutPromise = new Promise((resolve, reject) => {
         timeoutId = window.setTimeout(() => {
-          const timeoutError = new Error('서버 응답 없음 — 네트워크/로그인 상태를 확인하세요');
+          const timeoutError = new Error('commit timeout');
           timeoutError.code = 'commit-timeout';
           reject(timeoutError);
         }, 20000);
@@ -1678,6 +1689,28 @@
           window.clearTimeout(timeoutId);
         }
       }
+    }
+
+    function validateBenchmarkDocPath(itemKey) {
+      if (!itemKey || typeof itemKey !== 'string') return 'invalid-item-key-empty';
+      if (itemKey.includes('/')) return 'invalid-item-key-slash';
+      return '';
+    }
+
+    function collectUndefinedFieldPaths(obj, prefix = '') {
+      const issues = [];
+      if (!obj || typeof obj !== 'object') return issues;
+      Object.entries(obj).forEach(([key, value]) => {
+        const nextPath = prefix ? `${prefix}.${key}` : key;
+        if (typeof value === 'undefined') {
+          issues.push(nextPath);
+          return;
+        }
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          issues.push(...collectUndefinedFieldPaths(value, nextPath));
+        }
+      });
+      return issues;
     }
 
     async function testFirestoreWrite() {
@@ -1736,6 +1769,80 @@
     }
 
     window.__testFirestore = testFirestoreWrite;
+    window.__benchmarkApplyDebug = BENCHMARK_APPLY_DEBUG;
+
+    async function testOneBenchmarkCardWrite() {
+      const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+      if (!rawText) {
+        console.warn('[__testOne] 테스트할 AI 응답 텍스트가 없습니다. 입력창에 붙여넣어 주세요.');
+        return { ok: false, reason: 'empty-input' };
+      }
+
+      const parsed = parseAiBenchmarkText(rawText);
+      if (!parsed || !parsed.matched || !Object.keys(parsed.matched).length) {
+        console.warn('[__testOne] 매칭된 카드가 없습니다.');
+        return { ok: false, reason: 'no-matched-cards' };
+      }
+
+      const firstItemKey = Object.keys(parsed.matched)[0];
+      const firstCard = parsed.matched[firstItemKey];
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const pathIssue = validateBenchmarkDocPath(firstItemKey);
+      if (pathIssue) {
+        console.error('[__testOne] 문서 ID 문제', { firstItemKey, pathIssue });
+        return { ok: false, reason: pathIssue };
+      }
+
+      const payload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+        skf: firstCard && firstCard.benchmarking ? firstCard.benchmarking.skf : '',
+        schaeffler: firstCard && firstCard.benchmarking ? firstCard.benchmarking.schaeffler : '',
+        koreaNsk: firstCard && firstCard.benchmarking ? firstCard.benchmarking.koreaNsk : '',
+        timken: firstCard && firstCard.benchmarking ? firstCard.benchmarking.timken : '',
+        updatedAt: new Date().toISOString()
+      }));
+
+      const undefinedIssues = collectUndefinedFieldPaths(payload, 'payload');
+      if (undefinedIssues.length) {
+        console.error('[__testOne] undefined 필드 감지', { firstItemKey, undefinedIssues });
+        return { ok: false, reason: 'payload-undefined', undefinedIssues };
+      }
+
+      const docRef = bridge.getBenchmarkDocRef(firstItemKey);
+      const startedAt = Date.now();
+      try {
+        await bridge.setDoc(docRef, payload, { merge: true });
+        const elapsed = Date.now() - startedAt;
+        console.log('[__testOne] 성공', {
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          rtdbPathForComments: `plans/skf-daily/${currentPlannerDateKey}`
+        });
+        return { ok: true, elapsedMs: elapsed, itemKey: firstItemKey };
+      } catch (error) {
+        const elapsed = Date.now() - startedAt;
+        console.error('[__testOne] 실패', {
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        });
+        return {
+          ok: false,
+          elapsedMs: elapsed,
+          itemKey: firstItemKey,
+          code: error && error.code ? error.code : 'unknown',
+          message: error && error.message ? error.message : String(error)
+        };
+      }
+    }
+
+    window.__testOne = testOneBenchmarkCardWrite;
 
     async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
@@ -1819,6 +1926,13 @@
         const nowIso = new Date().toISOString();
         const applyStartedAt = Date.now();
 
+        console.log('[Benchmark Compare] 저장 경로 비교', {
+          benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
+          plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
+          apiBenchmark: 'Firestore writeBatch.set/commit',
+          apiPlanner: 'Realtime Database set'
+        });
+
         Object.entries(matched).forEach(([itemKey, card]) => {
           const [goalKey, indexText] = itemKey.split('::');
           const goalTemplate = goalTemplates[goalKey];
@@ -1842,9 +1956,23 @@
             schaeffler: card.benchmarking.schaeffler || '',
             koreaNsk: card.benchmarking.koreaNsk || '',
             timken: card.benchmarking.timken || '',
-            sourceText: rawText,
             updatedAt: nowIso
           };
+
+          const pathIssue = validateBenchmarkDocPath(itemKey);
+          if (pathIssue) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] 문서 ID 검증 실패', { cardName, itemKey, pathIssue });
+            return;
+          }
+
+          const undefinedIssues = collectUndefinedFieldPaths(benchmarkPayload, `payload.${itemKey}`);
+          if (undefinedIssues.length) {
+            missingMappings.push(cardName);
+            console.error('[Benchmark Apply] undefined 필드 감지', { cardName, itemKey, undefinedIssues });
+            return;
+          }
+
           updates.push({
             itemKey,
             cardName,
@@ -1901,6 +2029,11 @@
             const batch = bridge.writeBatch(bridge.firestore);
             chunk.forEach((update) => {
               const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+              console.log('[Benchmark Apply] 배치 set 경로', {
+                firestorePath: `plans/skf-daily/benchmarks/${update.itemKey}`,
+                itemKey: update.itemKey,
+                cardName: update.cardName
+              });
               batch.set(docRef, update.payload, { merge: true });
             });
             await commitBatchWithTimeout(batch, chunk.length);
@@ -6880,7 +7013,7 @@
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'firestore-timeout-repeated') {
-                message = `Firestore 서버 응답 없음. 사내 방화벽이 원인일 수 있습니다. 휴대폰 핫스팟으로 접속해 다시 시도해 보세요.\n${reportLine}`;
+                message = `commit-timeout이 2회 연속 발생해 남은 배치를 중단했습니다. Firebase 에러 코드를 확인하려면 window.__benchmarkApplyDebug.disableCommitTimeout = true 후 다시 실행하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
