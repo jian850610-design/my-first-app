@@ -896,6 +896,61 @@
       return `${year}-${month}-${day}`;
     }
 
+    function getPlannerStorageKeyPrefix() {
+      return `${STORAGE_KEY}::`;
+    }
+
+    function getStoredPlannerSnapshotEntries() {
+      const entries = [];
+      const prefix = getPlannerStorageKeyPrefix();
+
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || !key.startsWith(prefix)) continue;
+
+        const dateKey = key.slice(prefix.length);
+        if (!dateKey) continue;
+
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          const state = normalizePlannerState(parsed);
+          if (!state || !state.items || !Object.keys(state.items).length) continue;
+          entries.push({
+            dateKey,
+            state,
+            updatedAt: new Date(state.meta && state.meta.lastUpdatedAt ? state.meta.lastUpdatedAt : 0).getTime()
+          });
+        } catch (error) {
+          // Ignore malformed snapshots and keep scanning.
+        }
+      }
+
+      return entries;
+    }
+
+    function getLatestPlannerSnapshotFromStorage() {
+      const entries = getStoredPlannerSnapshotEntries().sort((left, right) => {
+        if (left.updatedAt !== right.updatedAt) return right.updatedAt - left.updatedAt;
+        return right.dateKey.localeCompare(left.dateKey);
+      });
+
+      if (entries.length) {
+        return entries[0];
+      }
+
+      const todayKey = getLocalDateKey(new Date());
+      return {
+        dateKey: todayKey,
+        state: loadStateFromStorageForDate(todayKey)
+      };
+    }
+
+    function hasAnyPersistedPlannerState() {
+      return getStoredPlannerSnapshotEntries().length > 0;
+    }
+
     currentPlannerDateKey = getLocalDateKey();
 
     function getPlannerStorageKey(dateKey = currentPlannerDateKey) {
@@ -4923,6 +4978,53 @@
       });
     }
 
+    function attachFirebaseOverviewListener() {
+      const bridge = getFirebaseBridge();
+      if (!bridge) return;
+      if (firebaseDateUnsubscribe) {
+        firebaseDateUnsubscribe();
+        firebaseDateUnsubscribe = null;
+      }
+
+      firebaseDateUnsubscribe = bridge.onValue(bridge.ref(bridge.db, 'plans/skf-daily'), (snapshot) => {
+        const remoteRoot = snapshot.val();
+        let latestEntry = null;
+
+        if (remoteRoot && typeof remoteRoot === 'object') {
+          Object.entries(remoteRoot)
+            .filter(([dateKey, value]) => dateKey !== 'meta' && dateKey !== '_meta' && value && typeof value === 'object')
+            .forEach(([dateKey, value]) => {
+              const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), value);
+              const updatedAt = new Date(mergedState.meta && mergedState.meta.lastUpdatedAt ? mergedState.meta.lastUpdatedAt : 0).getTime();
+              if (!latestEntry || updatedAt > latestEntry.updatedAt || (updatedAt === latestEntry.updatedAt && dateKey > latestEntry.dateKey)) {
+                latestEntry = {
+                  dateKey,
+                  state: mergedState,
+                  updatedAt
+                };
+              }
+            });
+        }
+
+        if (!latestEntry) {
+          latestEntry = getLatestPlannerSnapshotFromStorage();
+        }
+
+        firebaseSyncSuppressed = true;
+        try {
+          currentPlannerDateKey = latestEntry.dateKey;
+          setCurrentPlannerState(latestEntry.state, { skipFirebaseSync: true });
+          updateFirebaseLastUpdatedText(latestEntry.state.meta || firebaseLastUpdatedMeta);
+          rerenderCurrentView();
+        } finally {
+          firebaseSyncSuppressed = false;
+        }
+      }, () => {
+        firebaseConnectionOnline = false;
+        updateFirebaseConnectionChip();
+      });
+    }
+
     function attachFirebaseDateListener(dateKey) {
       const bridge = getFirebaseBridge();
       if (!bridge) return;
@@ -4956,14 +5058,30 @@
     }
 
     function switchPlannerDate(dateKey, options = {}) {
-      const nextDateKey = dateKey || getLocalDateKey(new Date());
-      currentPlannerDateKey = nextDateKey;
-      if (plannerDatePicker && plannerDatePicker.value !== nextDateKey) {
-        plannerDatePicker.value = nextDateKey;
-      }
+      const nextDateKey = typeof dateKey === 'string' ? dateKey.trim() : '';
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
+      }
+
+      if (!nextDateKey) {
+        const latestSnapshot = getLatestPlannerSnapshotFromStorage();
+        currentPlannerDateKey = latestSnapshot.dateKey;
+        if (plannerDatePicker) {
+          plannerDatePicker.value = '';
+        }
+        setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
+        updateFirebaseLastUpdatedText(latestSnapshot.state.meta || firebaseLastUpdatedMeta);
+        if (!options.skipRender) {
+          rerenderCurrentView();
+        }
+        attachFirebaseOverviewListener();
+        return;
+      }
+
+      currentPlannerDateKey = nextDateKey;
+      if (plannerDatePicker && plannerDatePicker.value !== nextDateKey) {
+        plannerDatePicker.value = nextDateKey;
       }
       const nextState = loadStateFromStorageForDate(nextDateKey);
       setCurrentPlannerState(nextState, { skipFirebaseSync: true });
@@ -5050,7 +5168,12 @@
       }
 
       attachFirebaseConnectionListener();
-      attachFirebaseDateListener(currentPlannerDateKey);
+
+      if (plannerDatePicker && plannerDatePicker.value) {
+        attachFirebaseDateListener(currentPlannerDateKey);
+      } else {
+        attachFirebaseOverviewListener();
+      }
 
       updateFirebaseModeChip();
       updateFirebaseAuthControls();
@@ -5331,18 +5454,29 @@
 
     async function initializeApp() {
       const urlDate = new URLSearchParams(window.location.search).get('date');
-      currentPlannerDateKey = urlDate || getLocalDateKey(new Date());
-      if (plannerDatePicker) {
-        plannerDatePicker.value = currentPlannerDateKey;
+      const hasExplicitDate = typeof urlDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(urlDate);
+
+      if (hasExplicitDate) {
+        currentPlannerDateKey = urlDate;
+        if (plannerDatePicker) {
+          plannerDatePicker.value = urlDate;
+        }
+        const seededState = normalizePlannerState(loadStateFromStorageForDate(currentPlannerDateKey));
+        syncPinnedChecklistState(seededState);
+        setCurrentPlannerState(seededState, { skipFirebaseSync: true });
+      } else {
+        if (!hasAnyPersistedPlannerState()) {
+          await hydrateStateFromDataFile();
+        }
+        const latestSnapshot = getLatestPlannerSnapshotFromStorage();
+        currentPlannerDateKey = latestSnapshot.dateKey;
+        if (plannerDatePicker) {
+          plannerDatePicker.value = '';
+        }
+        syncPinnedChecklistState(latestSnapshot.state);
+        setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
       }
 
-      if (currentPlannerDateKey === getLocalDateKey(new Date()) && !hasPersistedPlannerState()) {
-        await hydrateStateFromDataFile();
-      }
-
-      const seededState = normalizePlannerState(loadStateFromStorageForDate(currentPlannerDateKey));
-      syncPinnedChecklistState(seededState);
-      setCurrentPlannerState(seededState, { skipFirebaseSync: true });
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       applyEditabilityState();
