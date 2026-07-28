@@ -719,6 +719,25 @@
       .workflow-header { align-items: flex-start; }
       .workflow-header-tools { width: 100%; }
     }
+
+    .news-card-hide-btn {
+      display: none !important;
+    }
+
+    .news-card-link,
+    .news-card-link:hover,
+    .news-card-link:focus,
+    .news-card-link:active,
+    .news-card-link:visited {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .news-card-date::before {
+      content: "\00B7\0020";
+      color: #6b7f95;
+      font-weight: 700;
+    }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
