@@ -1194,6 +1194,87 @@
       return Object.keys(result).length ? result : null;
     }
 
+    async function upsertBenchmarkFirestoreDoc(itemKey, payload) {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function' || typeof bridge.setDoc !== 'function') {
+        return { ok: false, reason: 'firestore-unavailable' };
+      }
+
+      const docRef = bridge.getBenchmarkDocRef(itemKey);
+      try {
+        await bridge.updateDoc(docRef, payload);
+        return { ok: true, mode: 'updateDoc' };
+      } catch (error) {
+        try {
+          await bridge.setDoc(docRef, payload, { merge: true });
+          return { ok: true, mode: 'setDoc-merge' };
+        } catch (fallbackError) {
+          console.error('Firestore 벤치마킹 저장 실패', itemKey, fallbackError);
+          return { ok: false, reason: 'write-failed', error: fallbackError };
+        }
+      }
+    }
+
+    async function applyAiBenchmarkUpdatesFromText(rawText) {
+      const parsedCards = parseAiBenchmarkText(rawText);
+      if (!parsedCards) {
+        return { ok: false, count: 0, reason: 'parse-failed' };
+      }
+
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const updates = [];
+      const nowIso = new Date().toISOString();
+
+      Object.entries(parsedCards).forEach(([itemKey, card]) => {
+        const [goalKey, indexText] = itemKey.split('::');
+        const goalTemplate = goalTemplates[goalKey];
+        const itemIndex = Number(indexText);
+        const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
+        if (!goalTemplate || !item) return;
+
+        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
+        const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+        itemState.benchmarking = {
+          skf: card.benchmarking.skf || '',
+          schaeffler: card.benchmarking.schaeffler || '',
+          koreaNsk: card.benchmarking.koreaNsk || '',
+          timken: card.benchmarking.timken || '',
+          sourceText: rawText,
+          updatedAt: nowIso
+        };
+        markItemUpdated(itemState);
+        updates.push({ itemKey, payload: itemState.benchmarking });
+      });
+
+      if (!updates.length) {
+        return { ok: false, count: 0, reason: 'no-matches' };
+      }
+
+      const writeResults = [];
+      for (const update of updates) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload);
+        writeResults.push(result);
+      }
+
+      const successCount = writeResults.filter((result) => result && result.ok).length;
+      if (!successCount) {
+        return { ok: false, count: 0, reason: 'firestore-write-failed' };
+      }
+
+      savePlannerState(plannerState, { reason: 'ai-benchmark-update' });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
+        updateGoalCard(currentGoalKey);
+      }
+      if (dashboardView && !dashboardView.classList.contains('hidden-view')) {
+        showView('dashboard');
+      }
+
+      return { ok: true, count: successCount };
+    }
+
     function applyTaggedPromptMappingToCards(parsedByGoalNumber) {
       const plannerState = loadPlannerState();
       let mappedCount = 0;
@@ -1301,6 +1382,14 @@
             customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
             customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
             isLeaderRequested: itemState.isLeaderRequested === true,
+            benchmarking: {
+              skf: typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : '',
+              schaeffler: typeof itemState.benchmarking?.schaeffler === 'string' ? itemState.benchmarking.schaeffler : '',
+              koreaNsk: typeof itemState.benchmarking?.koreaNsk === 'string' ? itemState.benchmarking.koreaNsk : '',
+              timken: typeof itemState.benchmarking?.timken === 'string' ? itemState.benchmarking.timken : '',
+              sourceText: typeof itemState.benchmarking?.sourceText === 'string' ? itemState.benchmarking.sourceText : '',
+              updatedAt: typeof itemState.benchmarking?.updatedAt === 'string' ? itemState.benchmarking.updatedAt : ''
+            },
             lastUpdatedAt: typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '',
             lastUpdatedByName: typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '',
             lastUpdatedByEmail: typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '',
@@ -1353,6 +1442,14 @@
           itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
           itemState.customSteps = Array.isArray(remoteItem?.customSteps) ? remoteItem.customSteps : itemState.customSteps;
           itemState.isLeaderRequested = remoteItem?.isLeaderRequested === true;
+          itemState.benchmarking = {
+            skf: typeof remoteItem?.benchmarking?.skf === 'string' ? remoteItem.benchmarking.skf : (typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : ''),
+            schaeffler: typeof remoteItem?.benchmarking?.schaeffler === 'string' ? remoteItem.benchmarking.schaeffler : (typeof itemState.benchmarking?.schaeffler === 'string' ? itemState.benchmarking.schaeffler : ''),
+            koreaNsk: typeof remoteItem?.benchmarking?.koreaNsk === 'string' ? remoteItem.benchmarking.koreaNsk : (typeof itemState.benchmarking?.koreaNsk === 'string' ? itemState.benchmarking.koreaNsk : ''),
+            timken: typeof remoteItem?.benchmarking?.timken === 'string' ? remoteItem.benchmarking.timken : (typeof itemState.benchmarking?.timken === 'string' ? itemState.benchmarking.timken : ''),
+            sourceText: typeof remoteItem?.benchmarking?.sourceText === 'string' ? remoteItem.benchmarking.sourceText : (typeof itemState.benchmarking?.sourceText === 'string' ? itemState.benchmarking.sourceText : ''),
+            updatedAt: typeof remoteItem?.benchmarking?.updatedAt === 'string' ? remoteItem.benchmarking.updatedAt : (typeof itemState.benchmarking?.updatedAt === 'string' ? itemState.benchmarking.updatedAt : '')
+          };
           itemState.lastUpdatedAt = typeof remoteItem?.lastUpdatedAt === 'string' ? remoteItem.lastUpdatedAt : itemState.lastUpdatedAt || '';
           itemState.lastUpdatedByName = typeof remoteItem?.lastUpdatedByName === 'string' ? remoteItem.lastUpdatedByName : itemState.lastUpdatedByName || '';
           itemState.lastUpdatedByEmail = typeof remoteItem?.lastUpdatedByEmail === 'string' ? remoteItem.lastUpdatedByEmail : itemState.lastUpdatedByEmail || '';
@@ -2093,6 +2190,15 @@
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
+        const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
+        itemState.benchmarking = {
+          skf: typeof benchmark.skf === 'string' ? benchmark.skf : '',
+          schaeffler: typeof benchmark.schaeffler === 'string' ? benchmark.schaeffler : '',
+          koreaNsk: typeof benchmark.koreaNsk === 'string' ? benchmark.koreaNsk : '',
+          timken: typeof benchmark.timken === 'string' ? benchmark.timken : '',
+          sourceText: typeof benchmark.sourceText === 'string' ? benchmark.sourceText : '',
+          updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : ''
+        };
         itemState.cycleCompletedCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
         itemState.totalCycles = Number.isFinite(itemState.totalCycles)
           ? Number(itemState.totalCycles)
@@ -2167,6 +2273,7 @@
           totalCycles: 0,
           activityLog: [],
           seriesDraftName: '',
+          benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
           lastUpdatedAt: '',
           lastUpdatedByName: '',
           lastUpdatedByEmail: '',
@@ -4408,6 +4515,23 @@
         const leaderTagHtml = itemState.isLeaderRequested === true
           ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
           : '';
+        const benchmarkState = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
+        const benchmarkItems = [
+          { label: 'SKF 본사 실행 내용', value: benchmarkState.skf || item.hq || '' },
+          { label: '셰플러', value: benchmarkState.schaeffler || (goalCompetitorExec[index] && goalCompetitorExec[index][0] ? `${goalCompetitorExec[index][0].company} ${goalCompetitorExec[index][0].summary}` : '') },
+          { label: '한국NSK', value: benchmarkState.koreaNsk || (goalCompetitorExec[index] && goalCompetitorExec[index][1] ? `${goalCompetitorExec[index][1].company} ${goalCompetitorExec[index][1].summary}` : '') },
+          { label: '팀켄', value: benchmarkState.timken || (goalCompetitorExec[index] && goalCompetitorExec[index][2] ? `${goalCompetitorExec[index][2].company} ${goalCompetitorExec[index][2].summary}` : '') }
+        ];
+        const benchmarkHtml = `
+          <div class="benchmark-exec-grid">
+            ${benchmarkItems.map((entry) => `
+              <div class="benchmark-exec-item">
+                <strong>${escapeHtml(entry.label)}</strong>
+                <p>${escapeHtml(entry.value || '입력된 데이터가 없습니다.')}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
         const workflowHtml = createWorkflowChecklistHtml(
           checklistSteps,
           index,
@@ -4453,14 +4577,7 @@
             </div>
           </div>
           <div class="detail-item-meta">
-            <div><strong>SKF 본사 실행 내용</strong><p>${item.hq}</p></div>
-            <div><strong>경쟁사 실행 내용</strong>
-              <div class="detail-item-competitor-list">
-                ${(goalCompetitorExec[index] || competitorExecFallback).map((competitor) => `
-                  <div class="detail-item-competitor-line"><strong>${competitor.company}</strong>${competitor.summary}</div>
-                `).join('')}
-              </div>
-            </div>
+            ${benchmarkHtml}
             ${principleBoxHtml}
             ${workflowHtml}
             ${historyArchiveHtml}
@@ -5501,6 +5618,51 @@
             }
           }
         });
+
+        if (benchmarkAutoApplyBtn) {
+          benchmarkAutoApplyBtn.addEventListener('click', async () => {
+            const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
+            if (!rawText) {
+              if (benchmarkAutoStatus) {
+                benchmarkAutoStatus.textContent = 'AI 결과 텍스트를 먼저 입력해 주세요.';
+                benchmarkAutoStatus.classList.remove('ok');
+                benchmarkAutoStatus.classList.add('warn');
+              }
+              return;
+            }
+
+            benchmarkAutoApplyBtn.disabled = true;
+            if (benchmarkAutoStatus) {
+              benchmarkAutoStatus.textContent = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
+              benchmarkAutoStatus.classList.remove('ok', 'warn');
+            }
+
+            try {
+              const result = await applyAiBenchmarkUpdatesFromText(rawText);
+              if (!result || !result.ok) {
+                const message = result && result.reason === 'no-matches'
+                  ? '매핑 가능한 카드가 없습니다. @목표 번호와 [카드명]을 확인해 주세요.'
+                  : 'Firestore 업데이트에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+                if (benchmarkAutoStatus) {
+                  benchmarkAutoStatus.textContent = message;
+                  benchmarkAutoStatus.classList.remove('ok');
+                  benchmarkAutoStatus.classList.add('warn');
+                }
+                return;
+              }
+
+              if (benchmarkAutoStatus) {
+                benchmarkAutoStatus.textContent = `${result.count}개 카드의 AI 벤치마킹 데이터가 성공적으로 업데이트되었습니다!`;
+                benchmarkAutoStatus.classList.remove('warn');
+                benchmarkAutoStatus.classList.add('ok');
+              }
+              window.alert(`${result.count}개 카드의 AI 벤치마킹 데이터가 성공적으로 업데이트되었습니다!`);
+              rerenderCurrentView();
+            } finally {
+              benchmarkAutoApplyBtn.disabled = false;
+            }
+          });
+        }
       }
 
       if (quickGoalSelect) {
