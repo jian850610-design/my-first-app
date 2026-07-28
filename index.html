@@ -748,6 +748,12 @@
       color: #6b7f95;
       font-weight: 700;
     }
+
+    .task-order-controls { display: none; align-items: center; gap: 4px; }
+    .detail-item-card.editing .task-order-controls { display: inline-flex; }
+    .task-order-btn { width: 26px; height: 26px; border: 1px solid #c7d9eb; border-radius: 8px; background: #ffffff; color: #36536f; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .task-order-btn:hover { background: #eef5fd; }
+    .task-order-btn:disabled { opacity: 0.45; cursor: default; background: #f5f8fb; }
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -1208,6 +1214,14 @@
       "1": [
         "B2B 마케팅 (유튜브 OR 링크드인 OR 영상 콘텐츠)",
         "제조업 OR 산업재 SNS 마케팅"
+      ],
+      "7": [
+        "B2B 프로모션",
+        "세일즈 인에이블먼트",
+        "채널 마케팅",
+        "리드 생성",
+        "고객 확보 전략",
+        "영업 마케팅 협업"
       ]
     };
     const newsPromiseByGoal = Object.create(null);
@@ -6396,6 +6410,10 @@
                 <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                 <span class="workflow-dday-badge unset" data-step-index="${stepIndex}">미설정</span>
                 <span class="workflow-completed-at-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
+                <div class="task-order-controls" aria-label="단계 순서 조정">
+                  <button type="button" class="task-order-btn task-order-up" data-step-move="up" data-step-index="${stepIndex}" ${stepIndex === 0 ? 'data-order-boundary-disabled="1" disabled' : ''} aria-label="단계 위로 이동">↑</button>
+                  <button type="button" class="task-order-btn task-order-down" data-step-move="down" data-step-index="${stepIndex}" ${stepIndex === steps.length - 1 ? 'data-order-boundary-disabled="1" disabled' : ''} aria-label="단계 아래로 이동">↓</button>
+                </div>
                 <button type="button" class="workflow-delete-step-btn" data-step-index="${stepIndex}" aria-label="단계 삭제">🗑️</button>
               </li>
             `);
@@ -7115,7 +7133,7 @@
       const goalNumber = String(getGoalNumberFromGoalKey(goalId) || '');
       const overrideQueries = Array.isArray(NEWS_QUERIES_BY_GOAL[goalNumber]) ? NEWS_QUERIES_BY_GOAL[goalNumber] : null;
       if (overrideQueries && overrideQueries.length) {
-        return overrideQueries
+        const goalSpecificQueries = overrideQueries
           .map((queryText, index) => normalizeNewsConfigItem({
             id: `goal-${goalNumber}-query-${index + 1}`,
             label: `목표 ${goalNumber} 쿼리 ${index + 1}`,
@@ -7124,6 +7142,23 @@
             sortOrder: index
           }, index))
           .filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query));
+
+        const baseQueries = getActiveNewsQueries(config);
+        const merged = [...baseQueries];
+        const existingNormalized = new Set(
+          baseQueries
+            .map((item) => sanitizeNewsWord(item && item.query ? item.query : '').toLowerCase())
+            .filter(Boolean)
+        );
+
+        goalSpecificQueries.forEach((item) => {
+          const normalized = sanitizeNewsWord(item && item.query ? item.query : '').toLowerCase();
+          if (!normalized || existingNormalized.has(normalized)) return;
+          existingNormalized.add(normalized);
+          merged.push(item);
+        });
+
+        return merged;
       }
       return getActiveNewsQueries(config);
     }
@@ -8134,6 +8169,40 @@
       Array.from(card.querySelectorAll('.workflow-delete-step-btn')).forEach((button) => {
         button.disabled = !isEditing;
       });
+      Array.from(card.querySelectorAll('.task-order-btn')).forEach((button) => {
+        button.disabled = !isEditing || button.hasAttribute('data-order-boundary-disabled');
+      });
+    }
+
+    function swapArrayItems(target, firstIndex, secondIndex) {
+      if (!Array.isArray(target)) return false;
+      if (firstIndex < 0 || secondIndex < 0) return false;
+      if (firstIndex >= target.length || secondIndex >= target.length) return false;
+      if (firstIndex === secondIndex) return false;
+      const cloned = target.slice();
+      const temp = cloned[firstIndex];
+      cloned[firstIndex] = cloned[secondIndex];
+      cloned[secondIndex] = temp;
+      target.splice(0, target.length, ...cloned);
+      return true;
+    }
+
+    function reorderChecklistStep(itemState, fromIndex, direction) {
+      if (!itemState || typeof itemState !== 'object') return false;
+      const stepList = Array.isArray(itemState.steps) ? itemState.steps : [];
+      if (!stepList.length) return false;
+      const delta = direction === 'up' ? -1 : (direction === 'down' ? 1 : 0);
+      if (!delta) return false;
+      const toIndex = fromIndex + delta;
+      if (fromIndex < 0 || fromIndex >= stepList.length) return false;
+      if (toIndex < 0 || toIndex >= stepList.length) return false;
+
+      if (!Array.isArray(itemState.customSteps)) itemState.customSteps = [];
+      if (itemState.customSteps.length !== stepList.length) return false;
+
+      const stepSwapped = swapArrayItems(itemState.steps, fromIndex, toIndex);
+      const customStepSwapped = swapArrayItems(itemState.customSteps, fromIndex, toIndex);
+      return stepSwapped && customStepSwapped;
     }
 
     function renderDetailItems(items, goalKey) {
@@ -8307,6 +8376,7 @@
         const checkboxes = Array.from(card.querySelectorAll('.workflow-check'));
         const stepTextInputs = Array.from(card.querySelectorAll('.workflow-step-text-input'));
         const deleteStepButtons = Array.from(card.querySelectorAll('.workflow-delete-step-btn'));
+        const moveStepButtons = Array.from(card.querySelectorAll('.task-order-btn'));
         const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
@@ -8470,6 +8540,23 @@
             savePlannerState(plannerState);
             syncOverviewWidgets(plannerState);
             updateGoalCard(currentGoal);
+          });
+        });
+
+        moveStepButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const fromIndex = Number(button.dataset.stepIndex);
+            const direction = button.dataset.stepMove || '';
+            if (Number.isNaN(fromIndex)) return;
+            ensureCustomSteps();
+            const moved = reorderChecklistStep(itemState, fromIndex, direction);
+            if (!moved) return;
+            markItemUpdated(itemState);
+            preserveWindowScroll(() => {
+              savePlannerState(plannerState, { reason: 'step-reorder' });
+              syncOverviewWidgets(plannerState);
+              updateGoalCard(currentGoal);
+            });
           });
         });
 
