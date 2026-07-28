@@ -34,6 +34,8 @@
     .header-bar p { margin: 0; color: rgba(255,255,255,0.78); max-width: 860px; line-height: 1.7; }
     .header-meta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
     .header-chip { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 12px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+    .header-chip.kpi-status-chip { cursor: pointer; color: #ffffff; font-weight: 800; }
+    .header-chip.kpi-status-chip:hover { background: rgba(255,255,255,0.18); }
     .header-status { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .quick-nav-wrap { display: inline-flex; align-items: center; gap: 8px; }
     .quick-nav-label { font-size: 12px; color: rgba(255,255,255,0.82); font-weight: 700; letter-spacing: 0.04em; }
@@ -420,10 +422,77 @@
     .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 24px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); }
     .detail-card h2 { margin: 0 0 10px; font-size: 20px; color: var(--text); }
     .detail-card p { margin: 0; color: var(--muted); line-height: 1.75; }
-    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 7px; }
-    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; }
-    .goal-guideline-badge-list { margin: 0; padding-left: 17px; display: grid; gap: 4px; }
-    .goal-guideline-badge-list li { font-size: 12px; color: #6d520a; line-height: 1.5; }
+    .goal-guideline-badge-box { margin-top: 12px; border: 1px solid #f2d57f; border-radius: 12px; background: linear-gradient(135deg, #fff9e6 0%, #fff2c7 100%); padding: 10px 12px; display: grid; gap: 10px; }
+    .goal-guideline-badge-title { font-size: 12px; font-weight: 800; color: #7b5a08; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .goal-guideline-badge-subtitle { font-size: 11px; color: #836113; font-weight: 700; }
+    .goal-guideline-badge-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-action-btn { border: 1px solid #d9b84c; border-radius: 10px; background: #ffffff; color: #805900; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-action-btn:hover { background: #fff8de; }
+    .kpi-action-btn.primary { background: #f3b71a; border-color: #dfaa11; color: #3f2d00; }
+    .kpi-action-btn.primary:hover { background: #ffc936; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .kpi-empty { border: 1px dashed #e0c55d; border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.55); color: #6c5510; font-size: 12px; line-height: 1.6; }
+    .kpi-card { border: 1px solid #e0c55d; border-radius: 14px; background: rgba(255,255,255,0.82); box-shadow: 0 8px 18px rgba(123, 90, 8, 0.08); padding: 12px; display: grid; gap: 10px; }
+    .kpi-card.good { border-color: #8dd5ab; }
+    .kpi-card.warn { border-color: #f2d18b; }
+    .kpi-card.poor { border-color: #f0b27f; }
+    .kpi-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .kpi-card-title { font-size: 13px; font-weight: 800; color: #433100; line-height: 1.45; }
+    .kpi-card-title small { display: block; margin-top: 2px; color: #796014; font-weight: 700; font-size: 11px; }
+    .kpi-card-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-icon-btn { border: 1px solid #dfc76e; border-radius: 999px; background: #ffffff; color: #6f5500; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .kpi-icon-btn:hover { background: #fff4c8; }
+    .kpi-stat { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #3f2f08; font-weight: 800; }
+    .kpi-progress-track { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.95); border: 1px solid rgba(178, 153, 63, 0.18); }
+    .kpi-progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f4c23b 0%, #ff9f1c 100%); }
+    .kpi-card.good .kpi-progress-bar { background: linear-gradient(90deg, #32c97a 0%, #14a96d 100%); }
+    .kpi-card.warn .kpi-progress-bar { background: linear-gradient(90deg, #ffdb55 0%, #e6a515 100%); }
+    .kpi-card.poor .kpi-progress-bar { background: linear-gradient(90deg, #ffb36b 0%, #ff8d2a 100%); }
+    .kpi-meta-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 11px; color: #6f5d28; font-weight: 700; }
+    .kpi-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; }
+    .kpi-badge.alert { background: #fff0d8; color: #b96a00; border: 1px solid #f0c581; }
+    .kpi-badge.stale { background: #fff1e7; color: #c15a14; border: 1px solid #efb38d; }
+    .kpi-card-editing { border-color: #d4aa2d; box-shadow: 0 10px 20px rgba(123, 90, 8, 0.12); }
+    .kpi-inline-editor { display: none; gap: 8px; border-top: 1px solid rgba(157, 124, 22, 0.16); padding-top: 10px; }
+    .kpi-card-editing .kpi-inline-editor { display: grid; }
+    .kpi-inline-editor input { width: 100%; border: 1px solid #dfc76e; border-radius: 10px; padding: 9px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-inline-editor input:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-inline-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .kpi-inline-btn { border: none; border-radius: 999px; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-inline-btn.save { background: #0f5f9d; color: #ffffff; }
+    .kpi-inline-btn.cancel { background: #f5e7b0; color: #6c5210; }
+    .kpi-edit-banner { border: 1px dashed #d9b84c; border-radius: 10px; padding: 12px; background: rgba(255,255,255,0.65); color: #755600; font-size: 12px; line-height: 1.6; }
+    .kpi-settings-list,
+    .kpi-batch-list { display: grid; gap: 10px; }
+    .kpi-settings-row,
+    .kpi-batch-row { border: 1px solid #e6d28d; border-radius: 14px; background: #ffffff; padding: 12px; display: grid; gap: 8px; }
+    .kpi-settings-row-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .kpi-settings-row-title { font-size: 13px; font-weight: 800; color: #40300b; }
+    .kpi-settings-row-tools { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .kpi-mini-btn { border: 1px solid #d9b84c; border-radius: 8px; background: #fff7db; color: #745300; padding: 5px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .kpi-mini-btn:hover { background: #fff0b5; }
+    .kpi-setting-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .kpi-setting-grid input,
+    .kpi-setting-grid textarea { width: 100%; border: 1px solid #deca83; border-radius: 10px; padding: 8px 10px; font-size: 12px; background: #ffffff; color: #40310b; outline: none; }
+    .kpi-setting-grid textarea { min-height: 72px; resize: vertical; grid-column: 1 / -1; }
+    .kpi-setting-grid input:focus,
+    .kpi-setting-grid textarea:focus { border-color: #c59012; box-shadow: 0 0 0 3px rgba(197, 144, 18, 0.14); }
+    .kpi-modal[hidden] { display: none; }
+    .kpi-modal { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; }
+    .kpi-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 22, 46, 0.58); backdrop-filter: blur(4px); }
+    .kpi-modal-panel { position: relative; width: min(960px, 100%); max-height: min(88vh, 900px); overflow: auto; background: #fffdf7; border-radius: 22px; border: 1px solid #e4cc78; box-shadow: 0 22px 50px rgba(8, 23, 49, 0.26); padding: 18px; display: grid; gap: 14px; }
+    .kpi-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .kpi-modal-kicker { font-size: 11px; font-weight: 900; color: #8a6700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .kpi-modal-title { font-size: 20px; font-weight: 900; color: #2f2200; line-height: 1.3; }
+    .kpi-modal-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #f3e1a9; color: #624500; font-size: 22px; font-weight: 900; cursor: pointer; }
+    .kpi-modal-body { display: grid; gap: 12px; }
+    .kpi-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .kpi-modal-note { font-size: 12px; color: #7b5f14; }
+    .kpi-modal-footer-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .kpi-toast { position: fixed; right: 20px; bottom: 20px; z-index: 3000; min-width: 220px; max-width: min(92vw, 420px); padding: 12px 14px; border-radius: 14px; color: #ffffff; font-size: 13px; font-weight: 800; box-shadow: 0 16px 30px rgba(8, 23, 49, 0.22); opacity: 0; transform: translateY(12px); transition: opacity 0.2s ease, transform 0.2s ease; pointer-events: none; }
+    .kpi-toast.visible { opacity: 1; transform: translateY(0); }
+    .kpi-toast.ok { background: linear-gradient(135deg, #0f8f58 0%, #17b16b 100%); }
+    .kpi-toast.warn { background: linear-gradient(135deg, #c96e00 0%, #ff8f1f 100%); }
 
     .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
@@ -585,7 +654,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, getDoc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -633,6 +702,7 @@
       onValue,
       ref,
       set,
+      getDoc,
       updateDoc,
       setDoc,
       writeBatch,
@@ -664,6 +734,7 @@
           <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
         </div>
         <div class="header-tools">
+          <button type="button" class="header-chip kpi-status-chip" id="kpiStatusChip">KPI 갱신 필요 0개 · 페이스 부족 0개</button>
           <div class="quick-nav-wrap">
             <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
             <select class="quick-nav-select" id="quickGoalSelect">
@@ -846,10 +917,7 @@
           <div class="detail-card">
             <h2 id="detailTitle">선택된 목표 상세 내용</h2>
             <p id="detailSubtitle">상단에서 목표를 선택하면 관련 업무 계획과 참고 내용이 자동으로 업데이트됩니다.</p>
-            <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden>
-              <div class="goal-guideline-badge-title" id="goalGuidelineBadgeTitle"></div>
-              <ul class="goal-guideline-badge-list" id="goalGuidelineBadgeList"></ul>
-            </div>
+            <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden></div>
           </div>
         </div>
         <div class="details-grid" id="detailItems"></div>
@@ -862,6 +930,21 @@
         </div>
       </section>
     </section>
+  </div>
+
+  <div class="kpi-modal" id="kpiModal" hidden>
+    <div class="kpi-modal-backdrop" data-kpi-modal-action="close"></div>
+    <div class="kpi-modal-panel" role="dialog" aria-modal="true" aria-labelledby="kpiModalTitle">
+      <div class="kpi-modal-header">
+        <div>
+          <div class="kpi-modal-kicker" id="kpiModalKicker"></div>
+          <div class="kpi-modal-title" id="kpiModalTitle"></div>
+        </div>
+        <button type="button" class="kpi-modal-close-btn" data-kpi-modal-action="close">×</button>
+      </div>
+      <div class="kpi-modal-body" id="kpiModalBody"></div>
+      <div class="kpi-modal-footer" id="kpiModalFooter"></div>
+    </div>
   </div>
 
   <script>
@@ -925,6 +1008,12 @@
     const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
     const benchmarkMissingCardsSection = document.getElementById('benchmarkMissingCardsSection');
     const benchmarkMissingCardsList = document.getElementById('benchmarkMissingCardsList');
+    const kpiStatusChip = document.getElementById('kpiStatusChip');
+    const kpiModal = document.getElementById('kpiModal');
+    const kpiModalTitle = document.getElementById('kpiModalTitle');
+    const kpiModalKicker = document.getElementById('kpiModalKicker');
+    const kpiModalBody = document.getElementById('kpiModalBody');
+    const kpiModalFooter = document.getElementById('kpiModalFooter');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -976,6 +1065,12 @@
     const BENCHMARK_DATA_FILE_NAME = 'benchmark-data.json';
     const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
     let benchmarkRetryFailedItemKeys = [];
+    const KPI_DEFAULT_DEADLINE = '2026-12-31';
+    const KPI_CATALOG_DOC_KEY = 'catalog';
+    let kpiCatalogState = null;
+    let kpiCatalogLoaded = false;
+    let kpiCatalogLoadPromise = null;
+    let kpiModalState = null;
 
     function benchmarkDebugLog(...args) {
       if (BENCHMARK_DEBUG_LOGS) {
@@ -4564,6 +4659,7 @@
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
       renderMandalartBoard(state);
+      renderKpiSummaryChip();
     }
 
     function focusDetailCardByKey(focusKey, focusStepIndex = -1) {
@@ -5267,6 +5363,249 @@
       }
     };
 
+    const KPI_SEED_BLUEPRINTS = {
+      'global-sns': [
+        { name: '영상 콘텐츠 누적 발행', unit: '편', targetValue: 12 },
+        { name: '페이스북 페이지 포스팅', unit: '건', targetValue: 16 },
+        { name: '영상 라이브러리 등록 콘텐츠', unit: '건', targetValue: 30 }
+      ],
+      'naver-platform': [
+        { name: '블로그 포스팅 발행', unit: '건', targetValue: 20 },
+        { name: '검색 1페이지 진입 키워드', unit: '개', targetValue: 5 },
+        { name: '네이버TV 영상 업로드', unit: '편', targetValue: 10 }
+      ],
+      'field-communication': [
+        { name: '고객 세미나·간담회 개최', unit: '회', targetValue: 4 },
+        { name: '대리점·고객사 현장 방문', unit: '개사', targetValue: 20 },
+        { name: '수집 VOC', unit: '건', targetValue: 30 }
+      ],
+      'web-ecosystem': [
+        { name: '웹사이트 개선 과제 완료', unit: '건', targetValue: 8 },
+        { name: '제품 정보 업데이트 완료율', unit: '%', targetValue: 100 }
+      ],
+      'ai-culture': [
+        { name: '사내 AI 트렌드 공유', unit: '건', targetValue: 20 },
+        { name: 'AI Talk 세션 참여·전파', unit: '회', targetValue: 10 }
+      ],
+      'offline-brand': [
+        { name: '참가 박람회·행사', unit: '건', targetValue: 3 },
+        { name: '대리점 간판·POP 리뉴얼', unit: '개소', targetValue: 10 },
+        { name: '브랜드 굿즈·판촉물 제작', unit: '종', targetValue: 3 }
+      ],
+      'sales-support': [
+        { name: '프로모션 기획·실행', unit: '건', targetValue: 4 },
+        { name: '영업팀 지원 자료 제작', unit: '건', targetValue: 12 }
+      ],
+      'marketing-skill': [
+        { name: '교육·세미나 수료', unit: '회', targetValue: 4 },
+        { name: '신규 시도 업무 회고 작성', unit: '건', targetValue: 5 }
+      ]
+    };
+
+    function buildDefaultKpiCatalog() {
+      const nowIso = new Date().toISOString();
+      const goals = {};
+      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
+        const items = KPI_SEED_BLUEPRINTS[goalKey] || [];
+        goals[goalKey] = {
+          goalKey,
+          goalLabel: goalTemplate.label,
+          items: items.map((item, index) => ({
+            id: `${goalKey}-kpi-${index + 1}`,
+            goalKey,
+            name: item.name,
+            unit: item.unit,
+            targetValue: Number(item.targetValue) || 0,
+            currentValue: 0,
+            dueDate: KPI_DEFAULT_DEADLINE,
+            description: item.description || '',
+            kpiUpdatedAt: nowIso,
+            definitionUpdatedAt: nowIso,
+            updatedAt: nowIso
+          }))
+        };
+      });
+
+      return {
+        meta: {
+          schemaVersion: 1,
+          updatedAt: '',
+          updatedByName: '',
+          updatedByEmail: '',
+          updatedByUid: ''
+        },
+        goals
+      };
+    }
+
+    function getKpiDocRef() {
+      const bridge = window.__plannerFirebase;
+      if (!bridge || !bridge.firestore) return null;
+      return doc(bridge.firestore, 'plans', 'skf-daily', 'kpis', KPI_CATALOG_DOC_KEY);
+    }
+
+    function cloneKpiCatalog(source) {
+      return JSON.parse(JSON.stringify(source || buildDefaultKpiCatalog()));
+    }
+
+    function normalizeKpiItem(rawItem, goalKey, index, fallbackGoalLabel) {
+      const fallbackSeed = (KPI_SEED_BLUEPRINTS[goalKey] && KPI_SEED_BLUEPRINTS[goalKey][index]) || {};
+      const currentValue = Number(rawItem && rawItem.currentValue);
+      const targetValue = Number(rawItem && rawItem.targetValue);
+      return {
+        id: typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `${goalKey}-kpi-${index + 1}`,
+        goalKey,
+        name: typeof rawItem?.name === 'string' && rawItem.name.trim() ? rawItem.name.trim() : fallbackSeed.name || `KPI ${index + 1}`,
+        unit: typeof rawItem?.unit === 'string' ? rawItem.unit : fallbackSeed.unit || '',
+        targetValue: Number.isFinite(targetValue) ? targetValue : Number(fallbackSeed.targetValue) || 0,
+        currentValue: Number.isFinite(currentValue) ? currentValue : 0,
+        dueDate: typeof rawItem?.dueDate === 'string' && rawItem.dueDate ? rawItem.dueDate : KPI_DEFAULT_DEADLINE,
+        description: typeof rawItem?.description === 'string' ? rawItem.description : '',
+        kpiUpdatedAt: typeof rawItem?.kpiUpdatedAt === 'string' ? rawItem.kpiUpdatedAt : '',
+        definitionUpdatedAt: typeof rawItem?.definitionUpdatedAt === 'string' ? rawItem.definitionUpdatedAt : '',
+        updatedAt: typeof rawItem?.updatedAt === 'string' ? rawItem.updatedAt : '',
+        sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
+        goalLabel: fallbackGoalLabel
+      };
+    }
+
+    function normalizeKpiCatalog(rawCatalog) {
+      const seed = buildDefaultKpiCatalog();
+      const source = rawCatalog && typeof rawCatalog === 'object' ? rawCatalog : {};
+      const sourceGoals = source.goals && typeof source.goals === 'object' ? source.goals : source;
+      const normalized = cloneKpiCatalog(seed);
+      Object.entries(normalized.goals).forEach(([goalKey, goalState]) => {
+        const incomingGoal = sourceGoals && typeof sourceGoals[goalKey] === 'object' ? sourceGoals[goalKey] : null;
+        const hasIncomingItems = Boolean(incomingGoal && Array.isArray(incomingGoal.items));
+        const incomingItems = hasIncomingItems ? incomingGoal.items : null;
+        const mergedItems = hasIncomingItems
+          ? incomingItems.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel))
+          : goalState.items.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel));
+        normalized.goals[goalKey] = {
+          goalKey,
+          goalLabel: goalState.goalLabel,
+          items: mergedItems.slice(0, 5)
+        };
+      });
+
+      if (source.meta && typeof source.meta === 'object') {
+        normalized.meta = {
+          ...normalized.meta,
+          ...source.meta
+        };
+      }
+
+      return normalized;
+    }
+
+    function getKpiGoalState(goalKey) {
+      const catalog = kpiCatalogState || buildDefaultKpiCatalog();
+      const goalState = catalog.goals && catalog.goals[goalKey] ? catalog.goals[goalKey] : null;
+      return goalState || { goalKey, goalLabel: goalTemplates[goalKey] ? goalTemplates[goalKey].label : goalKey, items: [] };
+    }
+
+    function getKpiItemsForGoal(goalKey) {
+      const goalState = getKpiGoalState(goalKey);
+      return Array.isArray(goalState.items) ? goalState.items : [];
+    }
+
+    function formatKpiNumber(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '0';
+      return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, '');
+    }
+
+    function getKpiProgressPercent(kpiItem) {
+      const currentValue = Number(kpiItem && kpiItem.currentValue);
+      const targetValue = Number(kpiItem && kpiItem.targetValue);
+      if (!Number.isFinite(currentValue) || !Number.isFinite(targetValue) || targetValue <= 0) return 0;
+      return Math.max(0, Math.min(100, (currentValue / targetValue) * 100));
+    }
+
+    function getKpiPacePercent(kpiItem, referenceDate = new Date()) {
+      const dueDate = kpiItem && kpiItem.dueDate ? new Date(`${kpiItem.dueDate}T23:59:59`) : null;
+      if (!dueDate || Number.isNaN(dueDate.getTime())) return 0;
+      const yearStart = new Date(dueDate.getFullYear(), 0, 1);
+      const totalMs = Math.max(1, dueDate.getTime() - yearStart.getTime());
+      const elapsedMs = Math.min(totalMs, Math.max(0, referenceDate.getTime() - yearStart.getTime()));
+      return Math.max(0, Math.min(100, (elapsedMs / totalMs) * 100));
+    }
+
+    function getKpiUpdatedMeta(kpiItem) {
+      const updatedAt = kpiItem && (kpiItem.kpiUpdatedAt || kpiItem.definitionUpdatedAt || kpiItem.updatedAt) ? new Date(kpiItem.kpiUpdatedAt || kpiItem.definitionUpdatedAt || kpiItem.updatedAt) : null;
+      if (!updatedAt || Number.isNaN(updatedAt.getTime())) {
+        return {
+          text: '갱신: -',
+          daysAgo: null,
+          isStale: true,
+          badgeText: '갱신 필요'
+        };
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const updatedDay = new Date(updatedAt);
+      updatedDay.setHours(0, 0, 0, 0);
+      const daysAgo = Math.max(0, Math.floor((today.getTime() - updatedDay.getTime()) / 86400000));
+      const mm = String(updatedAt.getMonth() + 1).padStart(2, '0');
+      const dd = String(updatedAt.getDate()).padStart(2, '0');
+      return {
+        text: `갱신: ${mm}-${dd} (${daysAgo}일 전)`,
+        daysAgo,
+        isStale: daysAgo > 30,
+        badgeText: daysAgo > 30 ? '갱신 필요' : ''
+      };
+    }
+
+    function getKpiCardClass(kpiItem) {
+      const progress = getKpiProgressPercent(kpiItem);
+      if (progress >= 70) return 'good';
+      if (progress >= 40) return 'warn';
+      return 'poor';
+    }
+
+    function getKpiPaceBadge(kpiItem) {
+      const progress = getKpiProgressPercent(kpiItem);
+      const pace = getKpiPacePercent(kpiItem);
+      if (pace - progress >= 20) return { text: '⚠️ 페이스 부족', cls: 'alert' };
+      return null;
+    }
+
+    function getKpiGoalStatus(goalKey) {
+      const items = getKpiItemsForGoal(goalKey);
+      return items.reduce((result, item) => {
+        const updatedMeta = getKpiUpdatedMeta(item);
+        const paceBadge = getKpiPaceBadge(item);
+        if (updatedMeta.isStale) result.staleCount += 1;
+        if (paceBadge) result.paceCount += 1;
+        return result;
+      }, { staleCount: 0, paceCount: 0 });
+    }
+
+    function getAllKpiIssueItems() {
+      const issueItems = [];
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        const goalState = getKpiGoalState(goalKey);
+        const status = getKpiGoalStatus(goalKey);
+        if (!goalState || !Array.isArray(goalState.items) || !goalState.items.length) return;
+        goalState.items.forEach((item) => {
+          const paceBadge = getKpiPaceBadge(item);
+          const updatedMeta = getKpiUpdatedMeta(item);
+          if (paceBadge || updatedMeta.isStale) {
+            issueItems.push({ goalKey, item });
+          }
+        });
+      });
+      return issueItems;
+    }
+
+    function getKpiSummaryText() {
+      const items = getAllKpiIssueItems();
+      const staleCount = items.filter(({ item }) => getKpiUpdatedMeta(item).isStale).length;
+      const paceCount = items.filter(({ item }) => Boolean(getKpiPaceBadge(item))).length;
+      return { staleCount, paceCount, text: `KPI 갱신 필요 ${staleCount}개 · 페이스 부족 ${paceCount}개` };
+    }
+
     const hqReferences = [
       {
         company: 'SKF 글로벌 본사',
@@ -5882,6 +6221,429 @@
       }
 
       return { text: `${percent}%`, cls: 'unset' };
+    }
+
+    function sanitizeKpiCatalogForFirestore(catalog) {
+      const normalized = normalizeKpiCatalog(catalog);
+      return {
+        meta: {
+          schemaVersion: Number(normalized.meta && normalized.meta.schemaVersion) || 1,
+          updatedAt: normalized.meta && normalized.meta.updatedAt ? normalized.meta.updatedAt : '',
+          updatedByName: normalized.meta && normalized.meta.updatedByName ? normalized.meta.updatedByName : '',
+          updatedByEmail: normalized.meta && normalized.meta.updatedByEmail ? normalized.meta.updatedByEmail : '',
+          updatedByUid: normalized.meta && normalized.meta.updatedByUid ? normalized.meta.updatedByUid : ''
+        },
+        goals: Object.fromEntries(Object.entries(normalized.goals || {}).map(([goalKey, goalState]) => [goalKey, {
+          goalKey,
+          goalLabel: goalState.goalLabel,
+          items: Array.isArray(goalState.items) ? goalState.items.slice(0, 5).map((item, index) => ({
+            id: item.id || `${goalKey}-kpi-${index + 1}`,
+            goalKey,
+            name: item.name || '',
+            unit: item.unit || '',
+            targetValue: Number(item.targetValue) || 0,
+            currentValue: Number(item.currentValue) || 0,
+            dueDate: item.dueDate || KPI_DEFAULT_DEADLINE,
+            description: item.description || '',
+            kpiUpdatedAt: item.kpiUpdatedAt || '',
+            definitionUpdatedAt: item.definitionUpdatedAt || '',
+            sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index
+          })) : []
+        }]))
+      };
+    }
+
+    async function loadKpiCatalogOnce() {
+      if (kpiCatalogLoadPromise) return kpiCatalogLoadPromise;
+
+      kpiCatalogLoadPromise = (async () => {
+        const bridge = await waitForFirebaseBridge();
+        const seed = buildDefaultKpiCatalog();
+        kpiCatalogState = normalizeKpiCatalog(seed);
+        renderKpiSummaryChip();
+        renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+
+        if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
+          kpiCatalogLoaded = true;
+          return kpiCatalogState;
+        }
+
+        try {
+          const docRef = getKpiDocRef();
+          if (!docRef) {
+            kpiCatalogLoaded = true;
+            return kpiCatalogState;
+          }
+
+          const snapshot = await bridge.getDoc(docRef);
+          if (!snapshot || !snapshot.exists()) {
+            kpiCatalogState = normalizeKpiCatalog(seed);
+            await bridge.setDoc(docRef, sanitizeKpiCatalogForFirestore(kpiCatalogState), { merge: true });
+            kpiCatalogLoaded = true;
+            renderKpiSummaryChip();
+            renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+            return kpiCatalogState;
+          }
+
+          const remoteData = snapshot.data ? snapshot.data() : {};
+          kpiCatalogState = normalizeKpiCatalog(remoteData);
+          kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
+          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+          return kpiCatalogState;
+        } catch (error) {
+          console.error('[KPI] 초기 로드 실패', error);
+          kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
+          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+          return kpiCatalogState;
+        }
+      })();
+
+      return kpiCatalogLoadPromise;
+    }
+
+    async function saveKpiCatalog(reason = '') {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || !bridge.firestore || typeof bridge.setDoc !== 'function') {
+        throw Object.assign(new Error('Firestore 사용 불가'), { code: 'firestore-unavailable' });
+      }
+      const docRef = getKpiDocRef();
+      if (!docRef) {
+        throw Object.assign(new Error('KPI 문서 참조를 만들 수 없습니다.'), { code: 'kpi-doc-unavailable' });
+      }
+
+      const nextCatalog = sanitizeKpiCatalogForFirestore(kpiCatalogState || buildDefaultKpiCatalog());
+      nextCatalog.meta = {
+        ...nextCatalog.meta,
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
+      };
+
+      await bridge.setDoc(docRef, nextCatalog, { merge: true });
+      kpiCatalogState = normalizeKpiCatalog(nextCatalog);
+      renderKpiSummaryChip();
+      renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+      if (reason) {
+        console.log('[KPI] 저장 완료', { reason });
+      }
+      return kpiCatalogState;
+    }
+
+    function renderKpiSummaryChip() {
+      if (!kpiStatusChip) return;
+      const summary = getKpiSummaryText();
+      kpiStatusChip.textContent = summary.text;
+      kpiStatusChip.hidden = false;
+      kpiStatusChip.disabled = false;
+      kpiStatusChip.onclick = () => {
+        const issues = getAllKpiIssueItems();
+        if (!issues.length) {
+          if (currentGoalKey && goalTemplates[currentGoalKey]) {
+            openGoalDetail(currentGoalKey);
+          }
+          return;
+        }
+        openGoalDetail(issues[0].goalKey);
+      };
+    }
+
+    function buildKpiCardHtml(goalKey, item, index) {
+      const progress = getKpiProgressPercent(item);
+      const progressClass = getKpiCardClass(item);
+      const paceBadge = getKpiPaceBadge(item);
+      const updatedMeta = getKpiUpdatedMeta(item);
+      const currentValueText = `${formatKpiNumber(item.currentValue)}${item.unit || ''}`;
+      const targetValueText = `${formatKpiNumber(item.targetValue)}${item.unit || ''}`;
+      const progressText = `${Math.round(item.targetValue > 0 ? (Number(item.currentValue) / Number(item.targetValue)) * 100 : 0)}%`;
+      const editButtons = EDIT_MODE_REQUESTED
+        ? `<div class="kpi-card-actions"><button type="button" class="kpi-icon-btn" data-kpi-action="edit-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}" aria-label="현재값 수정">✏️</button></div>`
+        : '';
+      const inlineEditor = EDIT_MODE_REQUESTED
+        ? `
+          <div class="kpi-inline-editor" data-kpi-inline-editor="${item.id}">
+            <input type="number" step="any" min="0" value="${escapeHtml(String(item.currentValue ?? 0))}" data-kpi-inline-input="${item.id}" aria-label="현재값 입력" />
+            <div class="kpi-inline-actions">
+              <button type="button" class="kpi-inline-btn save" data-kpi-action="save-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}">저장</button>
+              <button type="button" class="kpi-inline-btn cancel" data-kpi-action="cancel-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}">취소</button>
+            </div>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="kpi-card ${progressClass}" data-kpi-card="${item.id}" data-kpi-goal="${goalKey}">
+          <div class="kpi-card-header">
+            <div class="kpi-card-title">${escapeHtml(item.name || `KPI ${index + 1}`)}<small>${escapeHtml(currentValueText)} / ${escapeHtml(targetValueText)}</small></div>
+            ${editButtons}
+          </div>
+          <div class="kpi-stat"><span>진행률</span><span>${escapeHtml(progressText)}</span></div>
+          <div class="kpi-progress-track"><div class="kpi-progress-bar" style="width:${Math.max(0, Math.min(100, progress)).toFixed(1)}%"></div></div>
+          <div class="kpi-meta-row">
+            <span>기한: ${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}</span>
+            <span>${escapeHtml(updatedMeta.text)}</span>
+          </div>
+          ${paceBadge ? `<span class="kpi-badge alert">${escapeHtml(paceBadge.text)}</span>` : ''}
+          ${updatedMeta.badgeText ? `<span class="kpi-badge stale">${escapeHtml(updatedMeta.badgeText)}</span>` : ''}
+          ${inlineEditor}
+        </div>
+      `;
+    }
+
+    function renderKpiSection(goalKey) {
+      if (!goalGuidelineBadgeBox) return;
+      const goalTemplate = goalTemplates[goalKey];
+      const goalState = getKpiGoalState(goalKey);
+      const items = Array.isArray(goalState.items) ? goalState.items : [];
+
+      if (!items.length && !EDIT_MODE_REQUESTED) {
+        goalGuidelineBadgeBox.hidden = true;
+        return;
+      }
+
+      goalGuidelineBadgeBox.hidden = false;
+      const summary = getKpiGoalStatus(goalKey);
+      const actionButtons = EDIT_MODE_REQUESTED
+        ? `
+          <div class="goal-guideline-badge-actions">
+            <button type="button" class="kpi-action-btn primary" data-kpi-action="batch-edit" data-goal-key="${goalKey}">📝 이 목표 KPI 일괄 수정</button>
+            <button type="button" class="kpi-action-btn" data-kpi-action="settings" data-goal-key="${goalKey}">⚙️ KPI 설정</button>
+            ${!items.length ? '<button type="button" class="kpi-action-btn primary" data-kpi-action="settings" data-goal-key="' + goalKey + '">+ KPI 추가</button>' : ''}
+          </div>
+        `
+        : '';
+
+      const subtitleText = items.length
+        ? `${goalTemplate ? goalTemplate.label : goalState.goalLabel} KPI ${items.length}개 · 갱신 필요 ${summary.staleCount}개 · 페이스 부족 ${summary.paceCount}개`
+        : '등록된 KPI가 없습니다.';
+
+      const cardsHtml = items.length
+        ? `<div class="kpi-grid">${items.map((item, index) => buildKpiCardHtml(goalKey, item, index)).join('')}</div>`
+        : `<div class="kpi-empty">${EDIT_MODE_REQUESTED ? 'KPI를 추가해 주세요' : '등록된 KPI가 없습니다.'}${EDIT_MODE_REQUESTED ? ' [ + KPI 추가 ]' : ''}</div>`;
+
+      goalGuidelineBadgeBox.innerHTML = `
+        <div class="goal-guideline-badge-title">
+          <span>📌 목표 KPI</span>
+          ${actionButtons}
+        </div>
+        <div class="goal-guideline-badge-subtitle">${escapeHtml(subtitleText)}</div>
+        ${cardsHtml}
+      `;
+    }
+
+    function extractKpiDraftFromState(goalKey) {
+      const goalState = getKpiGoalState(goalKey);
+      return {
+        goalKey,
+        goalLabel: goalState.goalLabel,
+        items: goalState.items.map((item) => ({ ...item }))
+      };
+    }
+
+    function openKpiModal(goalKey, mode) {
+      if (!EDIT_MODE_REQUESTED) return;
+      kpiModalState = {
+        goalKey,
+        mode,
+        draft: extractKpiDraftFromState(goalKey)
+      };
+      renderKpiModal();
+      if (kpiModal) {
+        kpiModal.hidden = false;
+      }
+    }
+
+    function closeKpiModal() {
+      kpiModalState = null;
+      if (kpiModal) {
+        kpiModal.hidden = true;
+      }
+    }
+
+    function renderKpiModal() {
+      if (!kpiModalState || !kpiModalBody || !kpiModalTitle || !kpiModalKicker || !kpiModalFooter) return;
+      const goalState = getKpiGoalState(kpiModalState.goalKey);
+      const draftItems = Array.isArray(kpiModalState.draft.items) ? kpiModalState.draft.items : [];
+      kpiModalTitle.textContent = `${goalState.goalLabel} KPI ${kpiModalState.mode === 'batch' ? '일괄 수정' : '설정'}`;
+      kpiModalKicker.textContent = kpiModalState.mode === 'batch' ? '현재값 빠른 수정' : 'KPI 정의 수정';
+
+      if (kpiModalState.mode === 'batch') {
+        kpiModalBody.innerHTML = `
+          <div class="kpi-edit-banner">현재값만 한 화면에서 빠르게 수정합니다. 저장 시 각 KPI의 <strong>kpiUpdatedAt</strong>이 오늘 날짜로 기록됩니다.</div>
+          <div class="kpi-batch-list">
+            ${draftItems.map((item, index) => `
+              <div class="kpi-batch-row">
+                <div class="kpi-settings-row-title">${escapeHtml(item.name || `KPI ${index + 1}`)}</div>
+                <div class="kpi-setting-grid">
+                  <input type="number" step="any" min="0" data-kpi-draft-field="currentValue" data-kpi-index="${index}" value="${escapeHtml(String(item.currentValue ?? 0))}" aria-label="현재값" />
+                  <input type="text" value="${escapeHtml(item.unit || '')}" disabled aria-label="단위" />
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        kpiModalFooter.innerHTML = `
+          <div class="kpi-modal-note">현재값만 저장합니다. 정의는 변경하지 않습니다.</div>
+          <div class="kpi-modal-footer-actions">
+            <button type="button" class="kpi-action-btn" data-kpi-modal-action="close">취소</button>
+            <button type="button" class="kpi-action-btn primary" data-kpi-modal-action="save-batch">저장</button>
+          </div>
+        `;
+        return;
+      }
+
+      kpiModalBody.innerHTML = `
+        <div class="kpi-edit-banner">KPI 이름, 단위, 목표값, 기한, 설명을 수정할 수 있습니다. 최대 5개까지 등록됩니다.</div>
+        <div class="kpi-settings-list">
+          ${draftItems.map((item, index) => `
+            <div class="kpi-settings-row" data-kpi-setting-row="${index}">
+              <div class="kpi-settings-row-header">
+                <div class="kpi-settings-row-title">KPI ${index + 1}</div>
+                <div class="kpi-settings-row-tools">
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="move-up" data-kpi-index="${index}">↑</button>
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="move-down" data-kpi-index="${index}">↓</button>
+                  <button type="button" class="kpi-mini-btn" data-kpi-modal-action="delete" data-kpi-index="${index}">삭제</button>
+                </div>
+              </div>
+              <div class="kpi-setting-grid">
+                <input type="text" data-kpi-draft-field="name" data-kpi-index="${index}" value="${escapeHtml(item.name || '')}" placeholder="KPI 이름" />
+                <input type="text" data-kpi-draft-field="unit" data-kpi-index="${index}" value="${escapeHtml(item.unit || '')}" placeholder="단위" />
+                <input type="number" step="any" min="0" data-kpi-draft-field="targetValue" data-kpi-index="${index}" value="${escapeHtml(String(item.targetValue ?? 0))}" placeholder="목표값" />
+                <input type="date" data-kpi-draft-field="dueDate" data-kpi-index="${index}" value="${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}" placeholder="기한" />
+                <textarea data-kpi-draft-field="description" data-kpi-index="${index}" placeholder="설명">${escapeHtml(item.description || '')}</textarea>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      kpiModalFooter.innerHTML = `
+        <div class="kpi-modal-note">목표당 최대 5개 KPI까지 추가할 수 있습니다.</div>
+        <div class="kpi-modal-footer-actions">
+          <button type="button" class="kpi-action-btn" data-kpi-modal-action="add">+ KPI 추가</button>
+          <button type="button" class="kpi-action-btn" data-kpi-modal-action="close">취소</button>
+          <button type="button" class="kpi-action-btn primary" data-kpi-modal-action="save-settings">저장</button>
+        </div>
+      `;
+    }
+
+    function syncKpiModalInputState(index, field, value) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      const item = kpiModalState.draft.items[index];
+      if (!item) return;
+      if (field === 'name' || field === 'unit' || field === 'description' || field === 'dueDate') {
+        item[field] = value;
+        return;
+      }
+      if (field === 'currentValue' || field === 'targetValue') {
+        item[field] = Number(value);
+      }
+    }
+
+    function reorderKpiDraft(index, direction) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= kpiModalState.draft.items.length) return;
+      const items = kpiModalState.draft.items;
+      const [moved] = items.splice(index, 1);
+      items.splice(nextIndex, 0, moved);
+      renderKpiModal();
+    }
+
+    function addKpiDraftItem() {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      if (kpiModalState.draft.items.length >= 5) return;
+      const nextIndex = kpiModalState.draft.items.length + 1;
+      kpiModalState.draft.items.push({
+        id: `${kpiModalState.goalKey}-kpi-${Date.now()}-${nextIndex}`,
+        goalKey: kpiModalState.goalKey,
+        name: '',
+        unit: '',
+        targetValue: 0,
+        currentValue: 0,
+        dueDate: KPI_DEFAULT_DEADLINE,
+        description: '',
+        kpiUpdatedAt: '',
+        definitionUpdatedAt: '',
+        sortOrder: nextIndex
+      });
+      renderKpiModal();
+    }
+
+    function deleteKpiDraftItem(index) {
+      if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
+      if (!window.confirm('해당 KPI를 삭제하시겠습니까?')) return;
+      kpiModalState.draft.items.splice(index, 1);
+      renderKpiModal();
+    }
+
+    async function saveKpiBatch(goalKey) {
+      if (!kpiModalState || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextItems = kpiModalState.draft.items.map((item, index) => ({
+        ...item,
+        goalKey,
+        currentValue: Number(item.currentValue) || 0,
+        kpiUpdatedAt: new Date().toISOString(),
+        sortOrder: index
+      }));
+      kpiCatalogState = kpiCatalogState || buildDefaultKpiCatalog();
+      kpiCatalogState.goals[goalKey] = {
+        goalKey,
+        goalLabel: getKpiGoalState(goalKey).goalLabel,
+        items: nextItems
+      };
+      await saveKpiCatalog('batch-current-save');
+      closeKpiModal();
+    }
+
+    async function saveKpiSettings(goalKey) {
+      if (!kpiModalState || !Array.isArray(kpiModalState.draft.items)) return;
+      const nextItems = kpiModalState.draft.items
+        .map((item, index) => ({
+          ...item,
+          goalKey,
+          targetValue: Number(item.targetValue) || 0,
+          currentValue: Number(item.currentValue) || 0,
+          dueDate: item.dueDate || KPI_DEFAULT_DEADLINE,
+          description: item.description || '',
+          definitionUpdatedAt: new Date().toISOString(),
+          sortOrder: index
+        }))
+        .filter((item) => item.name && String(item.name).trim());
+
+      kpiCatalogState = kpiCatalogState || buildDefaultKpiCatalog();
+      kpiCatalogState.goals[goalKey] = {
+        goalKey,
+        goalLabel: getKpiGoalState(goalKey).goalLabel,
+        items: nextItems.slice(0, 5)
+      };
+      await saveKpiCatalog('definition-save');
+      closeKpiModal();
+    }
+
+    function updateKpiQuickEditCard(card, shouldEdit) {
+      if (!card) return;
+      card.classList.toggle('kpi-card-editing', shouldEdit);
+    }
+
+    function setToastMessage(message, tone = 'ok') {
+      if (!message) return;
+      let toast = document.getElementById('kpiToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'kpiToast';
+        toast.className = 'kpi-toast';
+        document.body.appendChild(toast);
+      }
+      toast.className = `kpi-toast ${tone || 'ok'}`;
+      toast.textContent = message;
+      toast.classList.add('visible');
+      window.clearTimeout(setToastMessage._timer);
+      setToastMessage._timer = window.setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 2400);
     }
 
     function renderGoalSummaryWidget(goalKey, state) {
@@ -7081,18 +7843,8 @@
       metricSelected.textContent = template.metric;
       detailTitle.textContent = `선택된 목표: ${template.label}`;
       detailSubtitle.textContent = template.goalText;
-      if (goalGuidelineBadgeBox) {
-        const guidelineBadge = goalGuidelineBadgeByKey[key];
-        if (!guidelineBadge || !Array.isArray(guidelineBadge.items) || !guidelineBadge.items.length) {
-          goalGuidelineBadgeBox.hidden = true;
-        } else {
-          goalGuidelineBadgeBox.hidden = false;
-          if (goalGuidelineBadgeTitle) goalGuidelineBadgeTitle.textContent = guidelineBadge.title;
-          if (goalGuidelineBadgeList) {
-            goalGuidelineBadgeList.innerHTML = guidelineBadge.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
-          }
-        }
-      }
+      renderKpiSection(key);
+      renderKpiSummaryChip();
       renderDetailItems(template.items, key);
       renderGoalSummaryWidget(key, latestState);
       renderNewsWidget(key, latestState);
@@ -7720,6 +8472,142 @@
         });
       }
 
+      if (goalGuidelineBadgeBox) {
+        goalGuidelineBadgeBox.addEventListener('click', async (event) => {
+          const actionButton = event.target.closest('[data-kpi-action]');
+          if (!actionButton) return;
+
+          const action = actionButton.dataset.kpiAction || '';
+          const goalKey = actionButton.dataset.goalKey || currentGoalKey || goalSelect.value || '';
+          const kpiId = actionButton.dataset.kpiId || '';
+          const card = actionButton.closest('.kpi-card');
+          const goalState = getKpiGoalState(goalKey);
+
+          if (action === 'edit-current' && card) {
+            updateKpiQuickEditCard(card, true);
+            const input = card.querySelector(`[data-kpi-inline-input="${kpiId}"]`);
+            if (input) input.focus();
+            return;
+          }
+
+          if (action === 'cancel-current' && card) {
+            updateKpiQuickEditCard(card, false);
+            return;
+          }
+
+          if (action === 'save-current' && card) {
+            const input = card.querySelector(`[data-kpi-inline-input="${kpiId}"]`);
+            const nextValue = Number(input ? input.value : 0);
+            const targetItem = goalState.items.find((item) => item.id === kpiId);
+            if (!targetItem) return;
+            targetItem.currentValue = Number.isFinite(nextValue) ? nextValue : 0;
+            targetItem.kpiUpdatedAt = new Date().toISOString();
+            kpiCatalogState.goals[goalKey].items = goalState.items;
+            try {
+              await saveKpiCatalog('inline-current-save');
+              updateKpiQuickEditCard(card, false);
+              setToastMessage('KPI 현재값을 저장했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            }
+            return;
+          }
+
+          if (action === 'batch-edit') {
+            openKpiModal(goalKey, 'batch');
+            return;
+          }
+
+          if (action === 'settings') {
+            openKpiModal(goalKey, 'settings');
+          }
+        });
+      }
+
+      if (kpiModal) {
+        kpiModal.addEventListener('click', async (event) => {
+          const actionButton = event.target.closest('[data-kpi-modal-action]');
+          const fieldInput = event.target.closest('[data-kpi-draft-field]');
+
+          if (fieldInput) {
+            const index = Number(fieldInput.dataset.kpiIndex);
+            const field = fieldInput.dataset.kpiDraftField || '';
+            syncKpiModalInputState(index, field, fieldInput.value);
+            return;
+          }
+
+          if (!actionButton) return;
+          const action = actionButton.dataset.kpiModalAction || '';
+          const goalKey = kpiModalState ? kpiModalState.goalKey : '';
+
+          if (action === 'close') {
+            closeKpiModal();
+            return;
+          }
+
+          if (action === 'add') {
+            addKpiDraftItem();
+            return;
+          }
+
+          if (action === 'delete') {
+            deleteKpiDraftItem(Number(actionButton.dataset.kpiIndex));
+            return;
+          }
+
+          if (action === 'move-up') {
+            reorderKpiDraft(Number(actionButton.dataset.kpiIndex), -1);
+            return;
+          }
+
+          if (action === 'move-down') {
+            reorderKpiDraft(Number(actionButton.dataset.kpiIndex), 1);
+            return;
+          }
+
+          if (action === 'save-batch') {
+            if (!goalKey) return;
+            const beforeText = actionButton.textContent;
+            actionButton.disabled = true;
+            actionButton.textContent = '저장 중...';
+            try {
+              await saveKpiBatch(goalKey);
+              setToastMessage('현재값 일괄 저장을 완료했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            } finally {
+              actionButton.disabled = false;
+              actionButton.textContent = beforeText || '저장';
+            }
+            return;
+          }
+
+          if (action === 'save-settings') {
+            if (!goalKey) return;
+            const beforeText = actionButton.textContent;
+            actionButton.disabled = true;
+            actionButton.textContent = '저장 중...';
+            try {
+              await saveKpiSettings(goalKey);
+              setToastMessage('KPI 설정 저장을 완료했습니다.', 'ok');
+            } catch (error) {
+              setToastMessage(`KPI 저장 실패: ${error && error.code ? error.code : 'unknown'}`, 'warn');
+            } finally {
+              actionButton.disabled = false;
+              actionButton.textContent = beforeText || '저장';
+            }
+          }
+        });
+
+        kpiModal.addEventListener('input', (event) => {
+          const fieldInput = event.target.closest('[data-kpi-draft-field]');
+          if (!fieldInput) return;
+          const index = Number(fieldInput.dataset.kpiIndex);
+          const field = fieldInput.dataset.kpiDraftField || '';
+          syncKpiModalInputState(index, field, fieldInput.value);
+        });
+      }
+
       if (todayActivityList) {
         todayActivityList.addEventListener('click', (event) => {
           const deleteButton = event.target.closest('[data-timeline-action="delete"]');
@@ -7880,6 +8768,7 @@
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
+      void loadKpiCatalogOnce();
       applyEditabilityState();
     }
 
