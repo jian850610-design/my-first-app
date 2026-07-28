@@ -484,7 +484,17 @@
     .benchmark-auto-status { font-size: 12px; color: #4f6781; }
     .benchmark-auto-status.ok { color: #0f6c43; }
     .benchmark-auto-status.warn { color: #9a4d00; }
+    .benchmark-auto-action-area { display: flex; gap: 8px; flex-wrap: wrap; }
+    .benchmark-inline-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .benchmark-inline-btn:hover { background: #e5f1ff; }
+    .benchmark-inline-btn.secondary { border-color: #cfd9e4; background: #ffffff; color: #44576b; }
     .benchmark-auto-progress { font-size: 12px; color: #0f5f9d; font-weight: 800; }
+    .benchmark-apply-failures { display: grid; gap: 8px; padding: 12px; border: 1px dashed #d28f8f; border-radius: 12px; background: #fff7f7; }
+    .benchmark-apply-failures[hidden] { display: none; }
+    .benchmark-apply-failures-title { font-size: 13px; font-weight: 800; color: #8a2c2c; }
+    .benchmark-apply-failures-list { display: grid; gap: 6px; }
+    .benchmark-apply-failure-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; background: #ffffff; border: 1px solid #f2c9c9; border-radius: 8px; font-size: 12px; color: #5f3030; }
+    .benchmark-apply-failure-code { font-weight: 800; color: #8a2c2c; white-space: nowrap; }
     /* 기본값은 반드시 display:none이어야 하며, [hidden] 속성이 없을 때만 grid로 표시한다. */
     /* (예전 버전은 .benchmark-manual-mapping { display: grid; } 이 [hidden] 기본 스타일보다 우선 적용되어 새로고침 직후에도 배너가 항상 보이는 버그가 있었음) */
     .benchmark-manual-mapping { display: none; gap: 10px; padding: 14px; border: 1px dashed #e0a53a; border-radius: 14px; background: #fff9ef; }
@@ -753,6 +763,11 @@
             <span class="benchmark-auto-progress" id="benchmarkAutoProgress"></span>
           </div>
           <div class="benchmark-auto-status" id="benchmarkAutoStatus">AI 결과를 붙여넣으면 각 카드의 벤치마킹 필드로 자동 업데이트됩니다.</div>
+          <div class="benchmark-auto-action-area" id="benchmarkAutoActionArea"></div>
+          <div class="benchmark-apply-failures" id="benchmarkApplyFailureSection" hidden>
+            <div class="benchmark-apply-failures-title">저장 실패 카드</div>
+            <div class="benchmark-apply-failures-list" id="benchmarkApplyFailureList"></div>
+          </div>
           <div class="benchmark-manual-mapping" id="benchmarkManualMappingSection" hidden>
             <div class="benchmark-manual-mapping-title">⚠️ 자동 매칭 실패 카드 — 후보 중에서 직접 연결해 주세요</div>
             <div class="benchmark-manual-mapping-list" id="benchmarkManualMappingList"></div>
@@ -873,6 +888,9 @@
     const benchmarkAutoApplyBtn = document.getElementById('benchmarkAutoApplyBtn');
     const benchmarkAutoStatus = document.getElementById('benchmarkAutoStatus');
     const benchmarkAutoProgress = document.getElementById('benchmarkAutoProgress');
+    const benchmarkAutoActionArea = document.getElementById('benchmarkAutoActionArea');
+    const benchmarkApplyFailureSection = document.getElementById('benchmarkApplyFailureSection');
+    const benchmarkApplyFailureList = document.getElementById('benchmarkApplyFailureList');
     const benchmarkManualMappingSection = document.getElementById('benchmarkManualMappingSection');
     const benchmarkManualMappingList = document.getElementById('benchmarkManualMappingList');
     const benchmarkMissingCardsSection = document.getElementById('benchmarkMissingCardsSection');
@@ -921,6 +939,14 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
+    const BENCHMARK_DEBUG_LOGS = false;
+
+    function benchmarkDebugLog(...args) {
+      if (BENCHMARK_DEBUG_LOGS) {
+        console.log(...args);
+      }
+    }
+
     // 프롬프트는 하드코딩된 문자열이 아니라 goalTemplates(실제 카드 데이터)를 "복사하기" 클릭 시점에 순회해 생성한다.
     // 하드코딩된 제외 목록(REMOVED_PROMPT_CARD_TITLES) 없이, 카탈로그(getBenchmarkCardCatalog)에 있는 카드만 그대로 사용한다.
     // 카드 제목을 수정하거나 카드를 추가/삭제해도 이 함수를 고칠 필요가 없다 — 항상 실제 데이터와 100% 일치한다.
@@ -1370,7 +1396,7 @@
     // 그래야 "하반기 프로모션 굿즈 제작"(목표7)이 다른 목표의 유사한 이름의 카드로 잘못 붙는 것을 막을 수 있다.
     function parseAiBenchmarkText(rawText) {
       const parsedCards = parseBracketCardsFromText(rawText);
-      console.log('[Benchmark Parser] 파싱된 카드들:', parsedCards);
+      benchmarkDebugLog('[Benchmark Parser] 파싱된 카드들:', parsedCards);
       if (!parsedCards.length) return null;
 
       const catalog = getBenchmarkCardCatalog();
@@ -1464,7 +1490,7 @@
           return;
         }
 
-        console.log('[Benchmark Parser] 카드 매핑 성공', { rawTitle: card.title, matchedTitle: bestMatch.title, matchSource });
+        benchmarkDebugLog('[Benchmark Parser] 카드 매핑 성공', { rawTitle: card.title, matchedTitle: bestMatch.title, matchSource });
 
         const itemKey = `${bestMatch.goalKey}::${bestMatch.index}`;
         matchedItemKeys.add(itemKey);
@@ -1508,6 +1534,51 @@
       return `앱 카드 ${appCardCount}개 / AI 응답 ${aiResponseCount}개 / 매칭 성공 ${successCount}개 / 앱에 없는 카드 ${notInAppCount}개 / 응답에 누락된 카드 ${missingCount}개`;
     }
 
+    function renderBenchmarkApplyActions(options = {}) {
+      if (!benchmarkAutoActionArea) return;
+      const showLogin = Boolean(options.showLogin);
+      const showRetry = Boolean(options.showRetry);
+      benchmarkAutoActionArea.innerHTML = '';
+      if (!showLogin && !showRetry) return;
+
+      const buttons = [];
+      if (showLogin) {
+        buttons.push('<button type="button" class="benchmark-inline-btn" data-benchmark-action="login">로그인</button>');
+      }
+      if (showRetry) {
+        buttons.push('<button type="button" class="benchmark-inline-btn secondary" data-benchmark-action="retry">재시도</button>');
+      }
+      benchmarkAutoActionArea.innerHTML = buttons.join('');
+
+      benchmarkAutoActionArea.querySelectorAll('[data-benchmark-action]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const action = button.getAttribute('data-benchmark-action');
+          if (action === 'login') {
+            await handleFirebaseLogin();
+            return;
+          }
+          if (action === 'retry' && benchmarkAutoApplyBtn && !benchmarkAutoApplyBtn.disabled) {
+            benchmarkAutoApplyBtn.click();
+          }
+        });
+      });
+    }
+
+    function renderBenchmarkApplyFailureList(failedCards) {
+      if (!benchmarkApplyFailureSection || !benchmarkApplyFailureList) return;
+      const list = Array.isArray(failedCards) ? failedCards : [];
+      benchmarkApplyFailureList.innerHTML = '';
+      benchmarkApplyFailureSection.hidden = true;
+      if (!list.length) return;
+
+      benchmarkApplyFailureList.innerHTML = list.map((entry) => {
+        const cardName = entry && entry.cardName ? entry.cardName : '(이름 없음)';
+        const errorCode = entry && entry.errorCode ? entry.errorCode : 'unknown';
+        return `<div class="benchmark-apply-failure-row"><span>${escapeHtml(cardName)}</span><span class="benchmark-apply-failure-code">${escapeHtml(errorCode)}</span></div>`;
+      }).join('');
+      benchmarkApplyFailureSection.hidden = false;
+    }
+
     function sanitizeFirestoreText(value) {
       if (typeof value === 'undefined' || value === null) return '';
       return String(value);
@@ -1528,6 +1599,54 @@
     function sanitizeFirestoreUpdateData(updateData) {
       const source = updateData && typeof updateData === 'object' ? updateData : {};
       return JSON.parse(JSON.stringify(source, (key, value) => (typeof value === 'undefined' ? '' : value)));
+    }
+
+    function getBenchmarkApplyReadiness(bridge) {
+      const authUser = bridge && bridge.auth && bridge.auth.currentUser ? bridge.auth.currentUser : currentFirebaseUser;
+      const online = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+      const firestoreConnected = Boolean(firebaseConnectionOnline);
+
+      console.log('[Apply] 저장 전 상태', {
+        hasCurrentUser: Boolean(authUser),
+        currentUserEmail: authUser && authUser.email ? authUser.email : '',
+        navigatorOnLine: online,
+        firestoreConnected,
+        bridgeReady: Boolean(bridge)
+      });
+
+      if (!authUser) return { ok: false, reason: 'login-required' };
+      if (!online) return { ok: false, reason: 'offline' };
+      if (!firestoreConnected) return { ok: false, reason: 'firestore-disconnected' };
+      return { ok: true, authUser };
+    }
+
+    async function commitBatchWithTimeout(batch, batchCount) {
+      let timeoutId = null;
+      const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+      console.log('[Apply] commit 시작', batchCount);
+
+      const timeoutPromise = new Promise((resolve, reject) => {
+        timeoutId = window.setTimeout(() => {
+          const timeoutError = new Error('서버 응답 없음 — 네트워크/로그인 상태를 확인하세요');
+          timeoutError.code = 'commit-timeout';
+          reject(timeoutError);
+        }, 20000);
+      });
+
+      try {
+        await Promise.race([batch.commit(), timeoutPromise]);
+        const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+        const elapsed = Math.round(endedAt - startedAt);
+        console.log('[Apply] commit 완료', elapsed);
+        return elapsed;
+      } catch (error) {
+        console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
+        throw error;
+      } finally {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+        }
+      }
     }
 
     async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
@@ -1564,7 +1683,7 @@
 
     async function applyAiBenchmarkUpdatesFromText(rawText, options = {}) {
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
-      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0 };
+      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
 
       try {
         const parsed = parseAiBenchmarkText(rawText);
@@ -1588,10 +1707,27 @@
           return response;
         }
 
+        const readiness = getBenchmarkApplyReadiness(bridge);
+        if (!readiness.ok) {
+          response = {
+            ok: false,
+            count: 0,
+            total: 0,
+            reason: readiness.reason,
+            unmatched,
+            missingFromResponse,
+            appCardCount,
+            aiResponseCount,
+            failedCards: []
+          };
+          return response;
+        }
+
         const plannerState = normalizePlannerState(loadPlannerState());
         const updates = [];
         const missingMappings = [];
         const nowIso = new Date().toISOString();
+        const applyStartedAt = Date.now();
 
         Object.entries(matched).forEach(([itemKey, card]) => {
           const [goalKey, indexText] = itemKey.split('::');
@@ -1626,7 +1762,7 @@
             item,
             payload: sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload))
           });
-          console.log('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
+          benchmarkDebugLog('[Benchmark Apply] 카드 반영 준비 완료', { itemKey, cardName, benchmarking: benchmarkPayload });
         });
 
         if (!updates.length) {
@@ -1635,8 +1771,10 @@
           return response;
         }
 
-        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 한 번에 커밋한다(청크당 최대 20개).
-        const BATCH_CHUNK_SIZE = 20;
+        console.table(updates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
+
+        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 10개).
+        const BATCH_CHUNK_SIZE = 10;
         const chunks = [];
         for (let i = 0; i < updates.length; i += BATCH_CHUNK_SIZE) {
           chunks.push(updates.slice(i, i + BATCH_CHUNK_SIZE));
@@ -1646,46 +1784,35 @@
         const failedCards = [];
         let processedCount = 0;
 
-        for (const chunk of chunks) {
+        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+          const chunk = chunks[chunkIndex];
           try {
             const batch = bridge.writeBatch(bridge.firestore);
             chunk.forEach((update) => {
               const docRef = bridge.getBenchmarkDocRef(update.itemKey);
               batch.set(docRef, update.payload, { merge: true });
             });
-            await batch.commit();
+            await commitBatchWithTimeout(batch, chunk.length);
             chunk.forEach((update) => successfulUpdates.push(update));
-            console.log('[Benchmark Apply] 배치 커밋 성공', { count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
+            console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
             const errorMessage = error && error.message ? error.message : String(error);
-            console.error('[Benchmark Apply] writeBatch 커밋 실패, 카드별 개별 저장으로 재시도', {
+            console.error('[Benchmark Apply] writeBatch 커밋 실패', {
+              batchIndex: chunkIndex + 1,
               errorCode,
               errorMessage,
               affectedCards: chunk.map((update) => update.cardName)
             });
-
-            for (const update of chunk) {
-              try {
-                const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-                await bridge.setDoc(docRef, update.payload, { merge: true });
-                successfulUpdates.push(update);
-                console.log('[Benchmark Apply] 개별 저장 성공', { itemKey: update.itemKey, cardName: update.cardName });
-              } catch (singleError) {
-                failedCards.push(update.cardName);
-                console.error('[Benchmark Apply] 개별 저장 실패', {
-                  itemKey: update.itemKey,
-                  cardName: update.cardName,
-                  errorCode: singleError && singleError.code ? singleError.code : 'unknown',
-                  errorMessage: singleError && singleError.message ? singleError.message : String(singleError)
-                });
-              }
-            }
+            chunk.forEach((update) => {
+              failedCards.push({ cardName: update.cardName, errorCode });
+            });
           }
 
           processedCount += chunk.length;
           onProgress(processedCount, updates.length);
           console.log(`[Benchmark Apply] 진행률 ${processedCount}/${updates.length}`);
+          await new Promise((resolve) => window.setTimeout(resolve, 0));
         }
 
         successfulUpdates.forEach((update) => {
@@ -1698,12 +1825,13 @@
 
         const successCount = successfulUpdates.length;
         const totalCount = updates.length + missingMappings.length + unmatched.length;
+        const durationMs = Date.now() - applyStartedAt;
+        const durationSec = (durationMs / 1000).toFixed(1);
 
-        console.log('[Benchmark Apply] 전체 반영 완료', {
-          성공: successCount,
-          실패: failedCards.length + missingMappings.length,
-          매핑실패: unmatched.length
-        });
+        console.log(`[Benchmark Apply] 전체 반영 완료 — 성공 ${successCount}개 / 실패 ${failedCards.length + missingMappings.length}개 / 소요 ${durationSec}초`);
+        if (failedCards.length) {
+          console.table(failedCards);
+        }
 
         if (!successCount) {
           response = {
@@ -1716,7 +1844,8 @@
             unmatched,
             missingFromResponse,
             appCardCount,
-            aiResponseCount
+            aiResponseCount,
+            durationMs
           };
           return response;
         }
@@ -1736,14 +1865,15 @@
           unmatched,
           missingFromResponse,
           appCardCount,
-          aiResponseCount
+          aiResponseCount,
+          durationMs
         };
         return response;
       } catch (error) {
         const errorCode = error && error.code ? error.code : 'unknown';
         const errorMessage = error && error.message ? error.message : String(error);
         console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
-        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
+        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
         return response;
       } finally {
         console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
@@ -6497,6 +6627,8 @@
       }
 
       // 최초 로드 시에는 파싱을 실행한 적이 없으므로 실패/누락 목록이 존재할 수 없다 — 배너를 항상 숨긴 채로 초기화한다.
+      renderBenchmarkApplyActions();
+      renderBenchmarkApplyFailureList([]);
       renderBenchmarkManualMappingSection([]);
       renderBenchmarkMissingCardsSection([]);
 
@@ -6544,27 +6676,29 @@
 
           benchmarkAutoApplyBtn.disabled = true;
           const loadingText = 'AI 벤치마킹 데이터를 파싱 및 저장 중입니다...';
-          let isCompleted = false;
-          let isTimedOut = false;
+          let isFinished = false;
           let timeoutId = null;
           if (benchmarkAutoStatus) {
             benchmarkAutoStatus.style.whiteSpace = 'pre-line';
             benchmarkAutoStatus.textContent = loadingText;
             benchmarkAutoStatus.classList.remove('ok', 'warn');
           }
+          renderBenchmarkApplyActions();
+          renderBenchmarkApplyFailureList([]);
+          renderBenchmarkManualMappingSection([]);
+          renderBenchmarkMissingCardsSection([]);
           if (benchmarkAutoProgress) {
             benchmarkAutoProgress.textContent = '';
           }
 
           timeoutId = window.setTimeout(() => {
-            if (isCompleted) return;
-            isTimedOut = true;
+            if (isFinished) return;
             if (benchmarkAutoStatus) {
-              benchmarkAutoStatus.textContent = '처리 시간이 초과되었습니다. 콘솔 로그를 확인하세요.';
+              benchmarkAutoStatus.textContent = '처리 시간이 60초를 초과했습니다. 네트워크/로그인 상태를 확인한 뒤 다시 시도해 주세요.';
               benchmarkAutoStatus.classList.remove('ok');
               benchmarkAutoStatus.classList.add('warn');
             }
-          }, 30000);
+          }, 60000);
 
           try {
             const result = await applyAiBenchmarkUpdatesFromText(rawText, {
@@ -6574,7 +6708,7 @@
                 }
               }
             });
-            isCompleted = true;
+            isFinished = true;
             if (timeoutId) {
               window.clearTimeout(timeoutId);
               timeoutId = null;
@@ -6582,29 +6716,37 @@
 
             renderBenchmarkManualMappingSection(result && Array.isArray(result.unmatched) ? result.unmatched : []);
             renderBenchmarkMissingCardsSection(result && Array.isArray(result.missingFromResponse) ? result.missingFromResponse : []);
+            renderBenchmarkApplyFailureList(result && Array.isArray(result.failedCards) ? result.failedCards : []);
             console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
-
-            if (isTimedOut) {
-              return;
-            }
 
             if (!result || !result.ok) {
               const reportLine = formatBenchmarkResultSummary(result);
-              const message = result && result.reason === 'no-matches'
-                ? `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`
-                : reportLine;
+              let message = reportLine;
+              if (result && result.reason === 'login-required') {
+                message = `로그인 후 다시 반영해 주세요.\n${reportLine}`;
+                renderBenchmarkApplyActions({ showLogin: true });
+              } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
+                message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
+                renderBenchmarkApplyActions({ showRetry: true });
+              } else if (result && result.reason === 'no-matches') {
+                message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
+              } else if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
+                message = `[Benchmark Apply] 전체 반영 완료 — 성공 ${result.count || 0}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${reportLine}`;
+                renderBenchmarkApplyActions({ showRetry: true });
+              }
               if (benchmarkAutoStatus) {
                 benchmarkAutoStatus.textContent = message;
                 benchmarkAutoStatus.classList.remove('ok');
                 benchmarkAutoStatus.classList.add('warn');
               }
-              if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
-                console.error('[Benchmark Apply] 저장 실패 카드 목록', result.failedCards);
-              }
               return;
             }
 
-            const successMessage = `성공적으로 카드 데이터가 반영되었습니다!\n${formatBenchmarkResultSummary(result)}`;
+            if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
+              renderBenchmarkApplyActions({ showRetry: true });
+            }
+
+            const successMessage = `[Benchmark Apply] 전체 반영 완료 — 성공 ${result.count}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${formatBenchmarkResultSummary(result)}`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
@@ -6613,13 +6755,10 @@
             showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
-            isCompleted = true;
+            isFinished = true;
             if (timeoutId) {
               window.clearTimeout(timeoutId);
               timeoutId = null;
-            }
-            if (isTimedOut) {
-              return;
             }
             console.error('[Benchmark Apply] 처리 중 치명적 오류', {
               errorCode: error && error.code ? error.code : 'unknown',
@@ -6631,8 +6770,9 @@
               benchmarkAutoStatus.classList.remove('ok');
               benchmarkAutoStatus.classList.add('warn');
             }
+            renderBenchmarkApplyActions({ showRetry: true });
           } finally {
-            isCompleted = true;
+            isFinished = true;
             if (timeoutId) {
               window.clearTimeout(timeoutId);
             }
