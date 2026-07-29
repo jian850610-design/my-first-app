@@ -9358,8 +9358,6 @@
 
           console.log('[COMMENT] 저장 시작', { itemKey, goalKey: currentGoal, dateKey: currentPlannerDateKey || '' });
 
-          itemState.note = text;
-          itemState.noteUpdatedAt = new Date().toISOString();
           itemState.comments.push({
             timestamp: new Date().toISOString(),
             text
@@ -9377,6 +9375,9 @@
 
           syncCommentDerivedFields(itemState);
           recalculateItemActivityTimestamp(itemState);
+          // Reset the draft state so re-rendered UI keeps the input empty after save.
+          itemState.note = '';
+          itemState.noteUpdatedAt = '';
           markItemUpdated(itemState);
 
           savePlannerState(plannerState, { reason: 'comment-save' });
@@ -9392,6 +9393,7 @@
             historyCount: Array.isArray(itemState.historyList) ? itemState.historyList.length : 0
           });
           syncOverviewWidgets(plannerState);
+          journalInput.value = '';
           journalSaved.classList.add('visible');
           setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           console.log('[COMMENT] 저장 완료', { itemKey });
