@@ -2545,33 +2545,11 @@
     }
 
     async function commitBatchWithTimeout(batch, batchCount) {
-      let timeoutId = null;
       const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
       console.log('[Apply] commit 시작', batchCount);
 
-      if (BENCHMARK_APPLY_DEBUG.disableCommitTimeout) {
-        try {
-          await batch.commit();
-          const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
-          const elapsed = Math.round(endedAt - startedAt);
-          console.log('[Apply] commit 완료', elapsed, '(debug: timeout 비활성화)');
-          return elapsed;
-        } catch (error) {
-          console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
-          throw error;
-        }
-      }
-
-      const timeoutPromise = new Promise((resolve, reject) => {
-        timeoutId = window.setTimeout(() => {
-          const timeoutError = new Error('commit timeout');
-          timeoutError.code = 'commit-timeout';
-          reject(timeoutError);
-        }, 20000);
-      });
-
       try {
-        await Promise.race([batch.commit(), timeoutPromise]);
+        await batch.commit();
         const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
         const elapsed = Math.round(endedAt - startedAt);
         console.log('[Apply] commit 완료', elapsed);
@@ -2579,10 +2557,6 @@
       } catch (error) {
         console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
         throw error;
-      } finally {
-        if (timeoutId) {
-          window.clearTimeout(timeoutId);
-        }
       }
     }
 
@@ -2905,8 +2879,8 @@
 
         console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
 
-        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 10개).
-        const BATCH_CHUNK_SIZE = 10;
+        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 5개).
+        const BATCH_CHUNK_SIZE = 5;
         const chunks = [];
         for (let i = 0; i < filteredUpdates.length; i += BATCH_CHUNK_SIZE) {
           chunks.push(filteredUpdates.slice(i, i + BATCH_CHUNK_SIZE));
@@ -2914,9 +2888,8 @@
 
         const successfulUpdates = [];
         const failedCards = [];
+        const retryCandidates = [];
         let processedCount = 0;
-        let consecutiveCommitTimeouts = 0;
-        let stoppedEarlyForTimeout = false;
 
         for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
           const chunk = chunks[chunkIndex];
@@ -2933,7 +2906,6 @@
             });
             await commitBatchWithTimeout(batch, chunk.length);
             chunk.forEach((update) => successfulUpdates.push(update));
-            consecutiveCommitTimeouts = 0;
             console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
@@ -2944,31 +2916,33 @@
               errorMessage,
               affectedCards: chunk.map((update) => update.cardName)
             });
-            chunk.forEach((update) => {
-              failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
-            });
-
-            if (errorCode === 'commit-timeout') {
-              consecutiveCommitTimeouts += 1;
-              if (consecutiveCommitTimeouts >= 2) {
-                stoppedEarlyForTimeout = true;
-                for (let remainingIndex = chunkIndex + 1; remainingIndex < chunks.length; remainingIndex += 1) {
-                  chunks[remainingIndex].forEach((update) => {
-                    failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode: 'skipped-after-timeout' });
-                  });
-                }
-                console.error('[Benchmark Apply] commit-timeout 2회 연속 발생, 남은 배치를 중단합니다.');
-                break;
-              }
-            } else {
-              consecutiveCommitTimeouts = 0;
-            }
+            chunk.forEach((update) => retryCandidates.push(update));
           }
 
           processedCount += chunk.length;
           onProgress(processedCount, filteredUpdates.length);
           console.log(`[Benchmark Apply] 진행률 ${processedCount}/${filteredUpdates.length}`);
-          await new Promise((resolve) => window.setTimeout(resolve, 0));
+          await new Promise((resolve) => window.setTimeout(resolve, 200));
+        }
+
+        // 배치 커밋 실패 카드만 개별 updateDoc으로 재시도한다.
+        for (const update of retryCandidates) {
+          try {
+            const docRef = bridge.getBenchmarkDocRef(update.itemKey);
+            await bridge.updateDoc(docRef, update.payload);
+            successfulUpdates.push(update);
+            console.log('[Benchmark Apply] 개별 updateDoc 재시도 성공', { itemKey: update.itemKey, cardName: update.cardName });
+          } catch (error) {
+            const errorCode = error && error.code ? error.code : 'unknown';
+            const errorMessage = error && error.message ? error.message : String(error);
+            failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
+            console.error('[Benchmark Apply] 개별 updateDoc 재시도 실패', {
+              itemKey: update.itemKey,
+              cardName: update.cardName,
+              errorCode,
+              errorMessage
+            });
+          }
         }
 
         successfulUpdates.forEach((update) => {
@@ -2995,7 +2969,7 @@
             ok: false,
             count: 0,
             total: totalCount,
-            reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : 'firestore-update-failed',
+            reason: 'firestore-update-failed',
             failedCards,
             missingMappings,
             unmatched,
@@ -3014,7 +2988,7 @@
         }
 
         response = {
-          ok: !stoppedEarlyForTimeout,
+          ok: true,
           count: successCount,
           total: totalCount,
           failedCards,
@@ -3024,7 +2998,7 @@
           appCardCount,
           aiResponseCount,
           durationMs,
-          reason: stoppedEarlyForTimeout ? 'firestore-timeout-repeated' : ''
+          reason: ''
         };
         return response;
       } catch (error) {
@@ -10236,9 +10210,6 @@
               } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
-              } else if (result && result.reason === 'firestore-timeout-repeated') {
-                message = `commit-timeout이 2회 연속 발생해 남은 배치를 중단했습니다.\n${reportLine}`;
-                renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
                 message = `자동 매칭된 카드가 없습니다. 아래 "수동 연결" 목록에서 후보를 선택해 연결해 주세요.\n${reportLine}`;
               } else if (result && result.reason === 'retry-no-targets') {
@@ -10264,6 +10235,11 @@
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
+            }
+            if ((result.count || 0) === 51 && (!result.failedCards || result.failedCards.length === 0)) {
+              window.alert('총 51개 카드의 AI 벤치마킹 동향이 성공적으로 반영되었습니다!');
+              window.location.reload();
+              return;
             }
             if (!result.failedCards.length) {
               writeBenchmarkAutoInputDraft('');
