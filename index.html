@@ -770,7 +770,7 @@
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, onValue, ref, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -820,18 +820,23 @@
       onValue,
       ref,
       set,
+      update,
       getDoc,
       onSnapshot,
       updateDoc,
       setDoc,
       writeBatch,
-      getBenchmarkDocRef(itemKey) {
-        if (!firestore) return null;
-        return doc(firestore, 'plans', 'skf-daily', 'benchmarks', itemKey);
-      },
       getNewsConfigDocRef() {
         if (!firestore) return null;
         return doc(firestore, 'plans', 'skf-daily', 'news-config', NEWS_CONFIG_DOC_KEY);
+      },
+      getBenchmarksRef() {
+        if (!db) return null;
+        return ref(db, 'plans/skf-daily/benchmarks');
+      },
+      getBenchmarkItemRef(itemKey) {
+        if (!db || !itemKey) return null;
+        return ref(db, `plans/skf-daily/benchmarks/${itemKey}`);
       },
       getDateRef(dateKey) {
         if (!db) return null;
@@ -2422,7 +2427,7 @@
         updatedAt: rawPayload && rawPayload.updatedAt ? rawPayload.updatedAt : new Date().toISOString()
       }));
 
-      const saveResult = await upsertBenchmarkFirestoreDoc(itemKey, payload, item.title);
+      const saveResult = await upsertBenchmarkRealtimeDbEntry(itemKey, payload, item.title);
       if (!saveResult.ok) {
         throw new Error(saveResult.reason || 'write-failed');
       }
@@ -2439,7 +2444,7 @@
       if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
         updateGoalCard(currentGoalKey);
       }
-      return { ok: true, mode: saveResult.mode || 'setDoc-merge' };
+      return { ok: true, mode: saveResult.mode || 'rtdb-update' };
     }
 
     async function saveBenchmarkEditorPanel(itemKey) {
@@ -2528,19 +2533,19 @@
     function getBenchmarkApplyReadiness(bridge) {
       const authUser = bridge && bridge.auth && bridge.auth.currentUser ? bridge.auth.currentUser : currentFirebaseUser;
       const online = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
-      const firestoreConnected = Boolean(firebaseConnectionOnline);
+      const realtimeDatabaseConnected = Boolean(firebaseConnectionOnline);
 
       console.log('[Apply] 저장 전 상태', {
         hasCurrentUser: Boolean(authUser),
         currentUserEmail: authUser && authUser.email ? authUser.email : '',
         navigatorOnLine: online,
-        firestoreConnected,
+        realtimeDatabaseConnected,
         bridgeReady: Boolean(bridge)
       });
 
       if (!authUser) return { ok: false, reason: 'login-required' };
       if (!online) return { ok: false, reason: 'offline' };
-      if (!firestoreConnected) return { ok: false, reason: 'firestore-disconnected' };
+      if (!realtimeDatabaseConnected) return { ok: false, reason: 'rtdb-disconnected' };
       return { ok: true, authUser };
     }
 
@@ -2640,7 +2645,7 @@
       const firstItemKey = Object.keys(parsed.matched)[0];
       const firstCard = parsed.matched[firstItemKey];
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function') {
+      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
       }
 
@@ -2664,15 +2669,14 @@
         return { ok: false, reason: 'payload-undefined', undefinedIssues };
       }
 
-      const docRef = bridge.getBenchmarkDocRef(firstItemKey);
       const startedAt = Date.now();
       try {
-        await bridge.setDoc(docRef, payload, { merge: true });
+        await bridge.update(bridge.getBenchmarksRef(), { [firstItemKey]: payload });
         const elapsed = Date.now() - startedAt;
         console.log('[__testOne] 성공', {
           elapsedMs: elapsed,
           itemKey: firstItemKey,
-          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          rtdbPath: `plans/skf-daily/benchmarks/${firstItemKey}`,
           rtdbPathForComments: `plans/skf-daily/${currentPlannerDateKey}`
         });
         return { ok: true, elapsedMs: elapsed, itemKey: firstItemKey };
@@ -2681,7 +2685,7 @@
         console.error('[__testOne] 실패', {
           elapsedMs: elapsed,
           itemKey: firstItemKey,
-          firestorePath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          rtdbPath: `plans/skf-daily/benchmarks/${firstItemKey}`,
           code: error && error.code ? error.code : 'unknown',
           message: error && error.message ? error.message : String(error)
         });
@@ -2697,35 +2701,48 @@
 
     window.__testOne = testOneBenchmarkCardWrite;
 
-    async function upsertBenchmarkFirestoreDoc(itemKey, payload, cardName) {
+    async function upsertBenchmarkRealtimeDbEntry(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
-        return { ok: false, reason: 'firestore-unavailable' };
+      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+        return { ok: false, reason: 'rtdb-unavailable' };
       }
 
       const safePayload = sanitizeBenchmarkPayload(payload);
-      const docRef = bridge.getBenchmarkDocRef(itemKey);
       try {
-        await bridge.updateDoc(docRef, safePayload);
-        return { ok: true, mode: 'updateDoc' };
+        await bridge.update(bridge.getBenchmarksRef(), { [itemKey]: safePayload });
+        return { ok: true, mode: 'rtdb-update' };
       } catch (error) {
-        console.error('[Benchmark Apply] updateDoc 실패', {
+        console.error('[Benchmark Apply] RTDB 저장 실패', {
           cardName,
           itemKey,
           errorMessage: error && error.message ? error.message : String(error)
         });
-        try {
-          await bridge.setDoc(docRef, safePayload, { merge: true });
-          console.log('[Benchmark Apply] setDoc(merge)로 대체 저장 성공', { cardName, itemKey });
-          return { ok: true, mode: 'setDoc-merge' };
-        } catch (fallbackError) {
-          console.error('[Benchmark Apply] 저장 최종 실패', {
-            cardName,
-            itemKey,
-            errorMessage: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
-          });
-          return { ok: false, reason: 'write-failed', error: fallbackError };
-        }
+        return { ok: false, reason: 'write-failed', error };
+      }
+    }
+
+    async function updateBenchmarkRealtimeDbEntries(entryMap) {
+      const bridge = await waitForFirebaseBridge();
+      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+        return { ok: false, reason: 'rtdb-unavailable' };
+      }
+
+      const safeEntryMap = Object.entries(entryMap && typeof entryMap === 'object' ? entryMap : {}).reduce((acc, [itemKey, payload]) => {
+        if (!itemKey) return acc;
+        acc[itemKey] = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(payload));
+        return acc;
+      }, {});
+
+      try {
+        await bridge.update(bridge.getBenchmarksRef(), safeEntryMap);
+        return { ok: true, mode: 'rtdb-update' };
+      } catch (error) {
+        console.error('[Benchmark Apply] RTDB 일괄 저장 실패', {
+          cardCount: Object.keys(safeEntryMap).length,
+          errorCode: error && error.code ? error.code : 'unknown',
+          errorMessage: error && error.message ? error.message : String(error)
+        });
+        return { ok: false, reason: 'write-failed', error };
       }
     }
 
@@ -2746,14 +2763,14 @@
         const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
 
         const bridge = await waitForFirebaseBridge();
-        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
-          console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
+        if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+          console.error('[Benchmark Apply] Realtime Database 업데이트 함수 사용 불가', {
             hasBridge: Boolean(bridge),
-            hasFirestore: Boolean(bridge && bridge.firestore),
-            hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef),
-            hasUpdateDoc: Boolean(bridge && bridge.updateDoc)
+            hasDatabase: Boolean(bridge && bridge.db),
+            hasBenchmarksRefFactory: Boolean(bridge && bridge.getBenchmarksRef),
+            hasUpdate: Boolean(bridge && bridge.update)
           });
-          response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
+          response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: 'rtdb-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
         }
 
@@ -2781,9 +2798,9 @@
         const applyStartedAt = Date.now();
 
         console.log('[Benchmark Compare] 저장 경로 비교', {
-          benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
+          benchmarkRtdbPathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
           plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
-          apiBenchmark: 'Firestore updateDoc/setDoc + Promise.allSettled',
+          apiBenchmark: 'Realtime Database update',
           apiPlanner: 'Realtime Database set'
         });
 
@@ -2863,97 +2880,45 @@
           return response;
         }
 
+        const successfulUpdates = [];
+        let failedCards = [];
+
         console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
         console.log('[Benchmark Apply][Debug] 저장 실행 모드', {
-          mode: 'chunked-sequential-parallel',
+          mode: 'rtdb-single-update',
           totalCards: filteredUpdates.length,
-          chunkSize: 10,
-          timeoutMsPerCard: 'none',
+          benchmarkPath: 'plans/skf-daily/benchmarks',
           firebaseConnectionOnline,
           hasCurrentUser: Boolean(currentFirebaseUser)
         });
-        console.time('benchmarkApplyChunked');
+        console.time('benchmarkApplyRtdbUpdate');
 
-        const successfulUpdates = [];
-        const failedCards = [];
-        let processedCount = 0;
+        const updatePayload = filteredUpdates.reduce((acc, update) => {
+          acc[update.itemKey] = update.payload;
+          return acc;
+        }, {});
 
-        const chunkSize = 10;
-        for (let chunkStart = 0; chunkStart < filteredUpdates.length; chunkStart += chunkSize) {
-          const chunk = filteredUpdates.slice(chunkStart, chunkStart + chunkSize);
-          console.log('[Benchmark Apply][Debug] 청크 저장 시작', {
-            chunkRange: `${chunkStart + 1}-${chunkStart + chunk.length}`,
-            chunkSize: chunk.length,
-            totalCards: filteredUpdates.length
-          });
+        const saveResult = await updateBenchmarkRealtimeDbEntries(updatePayload);
+        console.timeEnd('benchmarkApplyRtdbUpdate');
 
-          const chunkJobs = chunk.map((update) => (async () => {
-            try {
-              console.log('[Benchmark Apply][Debug] 카드 저장 시작', {
-                itemKey: update.itemKey,
-                cardName: update.cardName,
-                mode: 'updateDoc->setDocFallback'
-              });
-              const saveResult = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
-              if (!saveResult || !saveResult.ok) {
-                throw Object.assign(new Error(saveResult && saveResult.reason ? saveResult.reason : 'write-failed'), {
-                  code: saveResult && saveResult.reason ? saveResult.reason : 'write-failed'
-                });
-              }
-              return {
-                ok: true,
-                update,
-                mode: saveResult.mode || ''
-              };
-            } catch (error) {
-              const errorCode = error && error.code ? error.code : 'unknown';
-              const errorMessage = error && error.message ? error.message : String(error);
-              return {
-                ok: false,
-                update,
-                errorCode,
-                errorMessage
-              };
-            } finally {
-              processedCount += 1;
-              onProgress(processedCount, filteredUpdates.length);
-            }
-          })());
-
-          const chunkResults = await Promise.all(chunkJobs);
-          chunkResults.forEach((resultEntry) => {
-            if (resultEntry.ok) {
-              successfulUpdates.push(resultEntry.update);
-              console.log('[Benchmark Apply][Debug] 카드 저장 성공', {
-                itemKey: resultEntry.update.itemKey,
-                cardName: resultEntry.update.cardName,
-                mode: resultEntry.mode
-              });
-              return;
-            }
-
-            failedCards.push({
-              cardName: resultEntry.update.cardName,
-              itemKey: resultEntry.update.itemKey,
-              errorCode: resultEntry.errorCode,
-              errorMessage: resultEntry.errorMessage
-            });
-            console.error('[Benchmark Apply] 개별 저장 실패', {
-              itemKey: resultEntry.update.itemKey,
-              cardName: resultEntry.update.cardName,
-              errorCode: resultEntry.errorCode,
-              errorMessage: resultEntry.errorMessage
-            });
-            console.error('[Benchmark Apply][Debug] 실패 원인 체크', {
-              itemKey: resultEntry.update.itemKey,
-              securityRuleDeniedLikely: resultEntry.errorCode === 'permission-denied',
-              networkDelayLikely: resultEntry.errorCode === 'unavailable' || resultEntry.errorCode === 'deadline-exceeded',
-              authMissingLikely: !currentFirebaseUser,
-              awaitMissingLikely: false
-            });
+        if (saveResult.ok) {
+          successfulUpdates.push(...filteredUpdates);
+        } else {
+          const errorCode = saveResult && saveResult.error && saveResult.error.code ? saveResult.error.code : (saveResult && saveResult.reason ? saveResult.reason : 'unknown');
+          const errorMessage = saveResult && saveResult.error && saveResult.error.message ? saveResult.error.message : (saveResult && saveResult.reason ? saveResult.reason : 'write-failed');
+          failedCards = filteredUpdates.map((update) => ({
+            cardName: update.cardName,
+            itemKey: update.itemKey,
+            errorCode,
+            errorMessage
+          }));
+          console.error('[Benchmark Apply] RTDB 일괄 저장 실패', {
+            errorCode,
+            errorMessage,
+            attemptedCount: filteredUpdates.length
           });
         }
-        console.timeEnd('benchmarkApplyChunked');
+        onProgress(filteredUpdates.length, filteredUpdates.length);
 
         successfulUpdates.forEach((update) => {
           const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
@@ -2969,7 +2934,7 @@
         const durationMs = Date.now() - applyStartedAt;
         const durationSec = (durationMs / 1000).toFixed(1);
 
-        console.log(`[Benchmark Apply] 전체 반영 완료 — 성공 ${successCount}개 / 실패 ${failedCards.length + missingMappings.length}개 / 소요 ${durationSec}초`);
+        console.log(`[Benchmark Apply] RTDB 전체 반영 완료 — 성공 ${successCount}개 / 실패 ${failedCards.length + missingMappings.length}개 / 소요 ${durationSec}초`);
         if (failedCards.length) {
           console.table(failedCards);
         }
@@ -2980,7 +2945,7 @@
             count: 0,
             total: totalCount,
             attemptedCount: filteredUpdates.length,
-            reason: 'firestore-update-failed',
+            reason: 'rtdb-update-failed',
             failedCards,
             missingMappings,
             unmatched,
@@ -3050,7 +3015,7 @@
         };
         const safePayload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(benchmarkPayload));
 
-        const result = await upsertBenchmarkFirestoreDoc(chosenItemKey, safePayload, item.title);
+        const result = await upsertBenchmarkRealtimeDbEntry(chosenItemKey, safePayload, item.title);
         if (!result.ok) {
           console.error('[Benchmark Manual Map] 저장 실패', { chosenItemKey, reason: result.reason });
           return { ok: false, reason: result.reason || 'write-failed' };
@@ -10221,7 +10186,7 @@
               if (result && result.reason === 'login-required') {
                 message = `로그인 후 다시 반영해 주세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showLogin: true });
-              } else if (result && (result.reason === 'offline' || result.reason === 'firestore-disconnected')) {
+              } else if (result && (result.reason === 'offline' || result.reason === 'rtdb-disconnected')) {
                 message = `서버 응답 없음 — 네트워크/로그인 상태를 확인하세요.\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               } else if (result && result.reason === 'no-matches') {
@@ -10229,7 +10194,7 @@
               } else if (result && result.reason === 'retry-no-targets') {
                 message = `재시도할 실패 카드가 없습니다.\n${reportLine}`;
               } else if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
-                message = `[Benchmark Apply] 전체 반영 완료 — 성공 ${result.count || 0}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${reportLine}`;
+                message = `[Benchmark Apply] Realtime Database 전체 반영 완료 — 성공 ${result.count || 0}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${reportLine}`;
                 renderBenchmarkApplyActions({ showRetry: true });
               }
               if (benchmarkAutoStatus) {
@@ -10244,7 +10209,7 @@
               renderBenchmarkApplyActions({ showRetry: true });
             }
 
-            const successMessage = `[Benchmark Apply] 전체 반영 완료 — 성공 ${result.count}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${formatBenchmarkResultSummary(result)}`;
+            const successMessage = `[Benchmark Apply] Realtime Database 전체 반영 완료 — 성공 ${result.count}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${formatBenchmarkResultSummary(result)}`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
@@ -10252,9 +10217,9 @@
             }
             const fullCardCount = countBenchmarkPromptCards();
             if ((result.count || 0) === fullCardCount) {
-              window.alert('총 51개 카드가 성공적으로 업데이트되었습니다!');
+              window.alert('Realtime Database에 총 51개 카드가 성공적으로 업데이트되었습니다!');
             } else {
-              window.alert(`총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
+              window.alert(`Realtime Database에 총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
             }
             showView('dashboard');
             rerenderCurrentView();
