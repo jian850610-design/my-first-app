@@ -773,7 +773,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, ref, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-    import { getFirestore, doc, getDoc, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+    import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
@@ -823,6 +823,7 @@
       ref,
       set,
       getDoc,
+      onSnapshot,
       updateDoc,
       setDoc,
       writeBatch,
@@ -1294,6 +1295,8 @@
     let newsConfigState = null;
     let newsConfigLoaded = false;
     let newsConfigLoadPromise = null;
+    let newsConfigUnsubscribe = null;
+    let newsConfigLoadError = '';
     let newsDatasetLoaded = false;
     let newsDatasetLoadPromise = null;
     let newsRawItemsCache = [];
@@ -1326,6 +1329,7 @@
     let currentPlannerState = { items: {}, meta: {} };
     let currentFirebaseUser = null;
     let firebaseConnectionOnline = false;
+    let firebaseLastSnapshotAt = 0;
     let firebaseSaving = false;
     let firebaseSaveTimer = null;
     let firebaseDateUnsubscribe = null;
@@ -1335,6 +1339,11 @@
     let firebaseBridgeReady = false;
     let firebaseAuthInitializing = true;
     let firebaseAuthReady = false;
+    let firebaseAuthStateResolved = false;
+    let resolveFirebaseAuthStateReady = () => {};
+    const firebaseAuthStateReadyPromise = new Promise((resolve) => {
+      resolveFirebaseAuthStateReady = resolve;
+    });
     let firebaseLoginInProgress = false;
     let firebaseInitErrorReason = typeof window.__plannerFirebaseInitError === 'string' ? window.__plannerFirebaseInitError : '';
     let noteDebounceTimers = new Map();
@@ -1352,7 +1361,24 @@
     let kpiCatalogState = null;
     let kpiCatalogLoaded = false;
     let kpiCatalogLoadPromise = null;
+    let kpiCatalogUnsubscribe = null;
+    let kpiCatalogLoadError = '';
     let kpiModalState = null;
+
+    function markFirebaseAuthStateResolved() {
+      if (firebaseAuthStateResolved) return;
+      firebaseAuthStateResolved = true;
+      resolveFirebaseAuthStateReady();
+    }
+
+    async function waitForFirebaseAuthState() {
+      await firebaseAuthStateReadyPromise;
+    }
+
+    function markFirebaseSnapshotReceived() {
+      firebaseLastSnapshotAt = Date.now();
+      updateFirebaseConnectionChip();
+    }
 
     function benchmarkDebugLog(...args) {
       if (BENCHMARK_DEBUG_LOGS) {
@@ -3205,7 +3231,12 @@
       }
       if (firebaseConnectionOnline) {
         firebaseConnectionChip.classList.add('connected');
-        firebaseConnectionChip.textContent = '🟢 연결됨';
+        if (firebaseLastSnapshotAt > 0) {
+          const hhmm = new Date(firebaseLastSnapshotAt).toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
+          firebaseConnectionChip.textContent = `🟢 연결됨 · 데이터 수신 ${hhmm}`;
+        } else {
+          firebaseConnectionChip.textContent = '🟡 연결됨 · 데이터 수신 대기';
+        }
         return;
       }
       firebaseConnectionChip.classList.add('disconnected');
@@ -6704,47 +6735,72 @@
       if (kpiCatalogLoadPromise) return kpiCatalogLoadPromise;
 
       kpiCatalogLoadPromise = (async () => {
+        await waitForFirebaseAuthState();
         const bridge = await waitForFirebaseBridge();
         const seed = buildDefaultKpiCatalog();
         kpiCatalogState = normalizeKpiCatalog(seed);
         renderKpiSummaryChip();
         renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
 
-        if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
+        if (!bridge || !bridge.firestore || typeof bridge.onSnapshot !== 'function') {
+          kpiCatalogLoadError = 'firestore-unavailable';
           kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
           return kpiCatalogState;
         }
 
-        try {
-          const docRef = getKpiDocRef();
-          if (!docRef) {
-            kpiCatalogLoaded = true;
-            return kpiCatalogState;
-          }
+        const docRef = getKpiDocRef();
+        if (!docRef) {
+          kpiCatalogLoadError = 'kpi-doc-unavailable';
+          kpiCatalogLoaded = true;
+          renderKpiSummaryChip();
+          return kpiCatalogState;
+        }
 
-          const snapshot = await bridge.getDoc(docRef);
-          if (!snapshot || !snapshot.exists()) {
-            kpiCatalogState = normalizeKpiCatalog(seed);
-            await bridge.setDoc(docRef, sanitizeKpiCatalogForFirestore(kpiCatalogState), { merge: true });
+        if (kpiCatalogUnsubscribe) {
+          kpiCatalogUnsubscribe();
+          kpiCatalogUnsubscribe = null;
+        }
+
+        return new Promise((resolve) => {
+          let resolved = false;
+          const settle = () => {
+            if (resolved) return;
+            resolved = true;
+            resolve(kpiCatalogState);
+          };
+
+          kpiCatalogUnsubscribe = bridge.onSnapshot(docRef, async (snapshot) => {
+            markFirebaseSnapshotReceived();
+            kpiCatalogLoadError = '';
+
+            if (!snapshot || !snapshot.exists()) {
+              kpiCatalogState = normalizeKpiCatalog(seed);
+              if (EDIT_MODE_REQUESTED && currentFirebaseUser && typeof bridge.setDoc === 'function') {
+                try {
+                  await bridge.setDoc(docRef, sanitizeKpiCatalogForFirestore(kpiCatalogState), { merge: true });
+                } catch (seedError) {
+                  console.warn('[KPI] 기본 문서 생성 실패', seedError);
+                }
+              }
+            } else {
+              const remoteData = snapshot.data ? snapshot.data() : {};
+              kpiCatalogState = normalizeKpiCatalog(remoteData);
+            }
+
             kpiCatalogLoaded = true;
             renderKpiSummaryChip();
             renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
-            return kpiCatalogState;
-          }
-
-          const remoteData = snapshot.data ? snapshot.data() : {};
-          kpiCatalogState = normalizeKpiCatalog(remoteData);
-          kpiCatalogLoaded = true;
-          renderKpiSummaryChip();
-          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
-          return kpiCatalogState;
-        } catch (error) {
-          console.error('[KPI] 초기 로드 실패', error);
-          kpiCatalogLoaded = true;
-          renderKpiSummaryChip();
-          renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
-          return kpiCatalogState;
-        }
+            settle();
+          }, (error) => {
+            console.error('[KPI] 초기 로드 실패', error);
+            kpiCatalogLoadError = error && error.message ? error.message : 'kpi-load-failed';
+            kpiCatalogLoaded = true;
+            renderKpiSummaryChip();
+            renderKpiSection(currentGoalKey || goalSelect && goalSelect.value || Object.keys(goalTemplates)[0]);
+            settle();
+          });
+        });
       })();
 
       return kpiCatalogLoadPromise;
@@ -6782,6 +6838,17 @@
 
     function renderKpiSummaryChip() {
       if (!kpiStatusChip) return;
+      if (kpiCatalogLoadError) {
+        kpiStatusChip.textContent = '데이터를 불러오지 못했습니다 · 다시 시도';
+        kpiStatusChip.hidden = false;
+        kpiStatusChip.disabled = false;
+        kpiStatusChip.onclick = () => {
+          kpiCatalogLoadError = '';
+          kpiCatalogLoadPromise = null;
+          void loadKpiCatalogOnce();
+        };
+        return;
+      }
       const summary = getKpiSummaryText();
       kpiStatusChip.textContent = summary.text;
       kpiStatusChip.hidden = false;
@@ -7788,47 +7855,78 @@
     async function loadNewsConfigOnce() {
       if (newsConfigLoadPromise) return newsConfigLoadPromise;
       newsConfigLoadPromise = (async () => {
+        await waitForFirebaseAuthState();
         const bridge = await waitForFirebaseBridge();
         const seed = buildDefaultNewsConfig();
-        const fallback = readNewsCache();
 
-        try {
-          if (!bridge || !bridge.firestore || typeof bridge.getDoc !== 'function') {
-            newsConfigState = normalizeNewsConfig(seed);
-            newsConfigLoaded = true;
-            return newsConfigState;
-          }
-
-          const docRef = getNewsConfigDocRef();
-          if (!docRef) {
-            newsConfigState = normalizeNewsConfig(seed);
-            newsConfigLoaded = true;
-            return newsConfigState;
-          }
-
-          const snapshot = await bridge.getDoc(docRef);
-          if (!snapshot || !snapshot.exists()) {
-            newsConfigState = normalizeNewsConfig(seed);
-            await bridge.setDoc(docRef, newsConfigState, { merge: true });
-          } else {
-            newsConfigState = normalizeNewsConfig(snapshot.data ? snapshot.data() : {});
-          }
-
-          if (fallback && Array.isArray(fallback.items) && fallback.items.length) {
-            newsRawItemsCache = fallback.items;
-            newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState, newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
-            newsVisibleItems = newsFilterStats.items;
-            newsQueryResultCounts = fallback.meta && typeof fallback.meta.queryCounts === 'object' ? fallback.meta.queryCounts : {};
-          }
+        if (!bridge || !bridge.firestore || typeof bridge.onSnapshot !== 'function') {
+          newsConfigLoadError = 'firestore-unavailable';
+          newsConfigState = normalizeNewsConfig(seed);
           newsConfigLoaded = true;
           updateNewsUpdatedText();
           return newsConfigState;
-        } catch (error) {
-          console.error('[news] 설정 초기 로드 실패', error);
+        }
+
+        const docRef = getNewsConfigDocRef();
+        if (!docRef) {
+          newsConfigLoadError = 'news-doc-unavailable';
           newsConfigState = normalizeNewsConfig(seed);
           newsConfigLoaded = true;
+          updateNewsUpdatedText();
           return newsConfigState;
         }
+
+        if (newsConfigUnsubscribe) {
+          newsConfigUnsubscribe();
+          newsConfigUnsubscribe = null;
+        }
+
+        return new Promise((resolve) => {
+          let resolved = false;
+          const settle = () => {
+            if (resolved) return;
+            resolved = true;
+            resolve(newsConfigState);
+          };
+
+          newsConfigUnsubscribe = bridge.onSnapshot(docRef, async (snapshot) => {
+            markFirebaseSnapshotReceived();
+            newsConfigLoadError = '';
+
+            if (!snapshot || !snapshot.exists()) {
+              newsConfigState = normalizeNewsConfig(seed);
+              if (EDIT_MODE_REQUESTED && currentFirebaseUser && typeof bridge.setDoc === 'function') {
+                try {
+                  await bridge.setDoc(docRef, newsConfigState, { merge: true });
+                } catch (seedError) {
+                  console.warn('[news] 기본 설정 문서 생성 실패', seedError);
+                }
+              }
+            } else {
+              newsConfigState = normalizeNewsConfig(snapshot.data ? snapshot.data() : {});
+            }
+
+            newsConfigLoaded = true;
+            updateNewsUpdatedText();
+            settle();
+          }, (error) => {
+            console.error('[news] 설정 초기 로드 실패', error);
+            newsConfigLoadError = error && error.message ? error.message : 'news-config-load-failed';
+            newsConfigState = normalizeNewsConfig(seed);
+
+            const fallback = readNewsCache();
+            if (fallback && Array.isArray(fallback.items) && fallback.items.length) {
+              newsRawItemsCache = fallback.items;
+              newsFilterStats = applyNewsFilters(newsRawItemsCache, newsConfigState, newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+              newsVisibleItems = newsFilterStats.items;
+              newsQueryResultCounts = fallback.meta && typeof fallback.meta.queryCounts === 'object' ? fallback.meta.queryCounts : {};
+            }
+
+            newsConfigLoaded = true;
+            updateNewsUpdatedText();
+            settle();
+          });
+        });
       })();
       return newsConfigLoadPromise;
     }
@@ -7942,6 +8040,14 @@
       newsPromiseByGoal[activeGoalId] = (async () => {
         try {
           await loadNewsConfigOnce();
+          if (newsConfigLoadError) {
+            return {
+              items: [],
+              totalCount: 0,
+              error: '데이터를 불러오지 못했습니다',
+              goalId: activeGoalId
+            };
+          }
           const config = getNewsConfigState();
           const activeQueries = getNewsQueriesForGoal(activeGoalId, config);
           const signature = buildNewsQuerySignatureForGoal(activeGoalId, config);
@@ -8167,7 +8273,7 @@
       newsWidgetLoading.hidden = true;
     }
 
-    function setNewsWidgetEmptyState(message, showSettingsButton = false) {
+    function setNewsWidgetEmptyState(message, showSettingsButton = false, showRetryButton = false) {
       if (!newsWidgetEmpty) return;
       newsWidgetEmpty.hidden = false;
       newsWidgetEmpty.innerHTML = '';
@@ -8175,6 +8281,18 @@
       text.className = 'news-widget-empty-text';
       text.textContent = message;
       newsWidgetEmpty.appendChild(text);
+      if (showRetryButton) {
+        const retryButton = document.createElement('button');
+        retryButton.type = 'button';
+        retryButton.className = 'news-widget-empty-btn';
+        retryButton.textContent = '재시도';
+        retryButton.addEventListener('click', () => {
+          newsConfigLoadError = '';
+          newsConfigLoadPromise = null;
+          void refreshNewsDataset(true, newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+        });
+        newsWidgetEmpty.appendChild(retryButton);
+      }
       if (showSettingsButton && EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser)) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -8312,7 +8430,7 @@
 
           if (result.error) {
             newsWidgetList.innerHTML = '';
-            setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${result.error}`, false);
+            setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${result.error}`, false, true);
             return;
           }
 
@@ -8328,7 +8446,7 @@
         }).catch((error) => {
           if (requestId !== newsRequestSerial) return;
           newsWidgetList.innerHTML = '';
-          setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false);
+          setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false, true);
         }).finally(() => {
           if (requestId !== newsRequestSerial) return;
           newsWidgetLoading.hidden = true;
@@ -8340,7 +8458,7 @@
           newsWidgetLoading.hidden = true;
           newsWidgetLoading.textContent = '';
         }
-        setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false);
+        setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false, true);
       }
     }
 
@@ -9424,9 +9542,7 @@
       }
 
       firebaseDateUnsubscribe = bridge.onValue(bridge.ref(bridge.db, 'plans/skf-daily'), (snapshot) => {
-        if (!currentFirebaseUser) {
-          return;
-        }
+        markFirebaseSnapshotReceived();
         const remoteRoot = snapshot.val();
         let latestEntry = null;
 
@@ -9483,10 +9599,8 @@
         firebaseDateUnsubscribe = null;
       }
       firebaseDateUnsubscribe = bridge.onValue(bridge.getDateRef(dateKey), (snapshot) => {
+        markFirebaseSnapshotReceived();
         if (isChecklistTextInputFocused()) {
-          return;
-        }
-        if (!currentFirebaseUser) {
           return;
         }
         const remoteSnapshot = snapshot.val();
@@ -9622,6 +9736,7 @@
         if (!firebaseInitErrorReason) {
           firebaseInitErrorReason = 'Firebase 인증 모듈 준비에 실패했습니다.';
         }
+        markFirebaseAuthStateResolved();
         updateFirebaseConnectionChip();
         updateFirebaseAuthControls();
         return;
@@ -9639,6 +9754,7 @@
       }
       bridge.onAuthStateChanged(bridge.auth, (user) => {
         currentFirebaseUser = user || null;
+        markFirebaseAuthStateResolved();
         updateFirebaseModeChip();
         updateFirebaseAuthControls();
         applyEditabilityState();
