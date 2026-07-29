@@ -10087,12 +10087,10 @@
       }
 
       if (benchmarkAutoInput) {
-        const draftText = readBenchmarkAutoInputDraft();
-        if (!benchmarkAutoInput.value && draftText) {
-          benchmarkAutoInput.value = draftText;
-        }
+        benchmarkAutoInput.value = '';
+        writeBenchmarkAutoInputDraft('');
         benchmarkAutoInput.addEventListener('input', () => {
-          writeBenchmarkAutoInputDraft(benchmarkAutoInput.value || '');
+          // 새로고침 시 항상 비어 있는 상태를 유지하기 위해 드래프트를 저장하지 않는다.
         });
       }
 
@@ -10133,8 +10131,7 @@
         benchmarkAutoApplyBtn.addEventListener('click', async () => {
           const retryItemKeys = Array.isArray(benchmarkRetryFailedItemKeys) ? [...benchmarkRetryFailedItemKeys] : [];
           benchmarkRetryFailedItemKeys = [];
-          const fallbackDraftText = readBenchmarkAutoInputDraft();
-          const rawText = benchmarkAutoInput ? (benchmarkAutoInput.value.trim() || fallbackDraftText.trim()) : fallbackDraftText.trim();
+          const rawText = benchmarkAutoInput ? benchmarkAutoInput.value.trim() : '';
           if (!benchmarkAutoStatus) {
             console.warn('[Benchmark Apply] 상태 문구 요소를 찾지 못했습니다. selector: #benchmarkAutoStatus');
           }
@@ -10145,11 +10142,6 @@
               benchmarkAutoStatus.classList.add('warn');
             }
             return;
-          }
-
-          writeBenchmarkAutoInputDraft(rawText);
-          if (benchmarkAutoInput && !benchmarkAutoInput.value.trim()) {
-            benchmarkAutoInput.value = rawText;
           }
 
           benchmarkAutoApplyBtn.disabled = true;
@@ -10237,11 +10229,18 @@
               benchmarkAutoStatus.classList.add('ok');
             }
             if ((result.count || 0) === 51 && (!result.failedCards || result.failedCards.length === 0)) {
+              if (benchmarkAutoInput) {
+                benchmarkAutoInput.value = '';
+              }
+              writeBenchmarkAutoInputDraft('');
               window.alert('총 51개 카드의 AI 벤치마킹 동향이 성공적으로 반영되었습니다!');
               window.location.reload();
               return;
             }
             if (!result.failedCards.length) {
+              if (benchmarkAutoInput) {
+                benchmarkAutoInput.value = '';
+              }
               writeBenchmarkAutoInputDraft('');
             }
             showView('dashboard');
