@@ -2762,12 +2762,12 @@
         const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
 
         const bridge = await waitForFirebaseBridge();
-        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || !bridge.firestore || typeof bridge.writeBatch !== 'function') {
+        if (!bridge || typeof bridge.getBenchmarkDocRef !== 'function' || typeof bridge.updateDoc !== 'function') {
           console.error('[Benchmark Apply] Firestore 업데이트 함수 사용 불가', {
             hasBridge: Boolean(bridge),
-            hasWriteBatch: Boolean(bridge && bridge.writeBatch),
             hasFirestore: Boolean(bridge && bridge.firestore),
-            hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef)
+            hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef),
+            hasUpdateDoc: Boolean(bridge && bridge.updateDoc)
           });
           response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
@@ -2879,71 +2879,35 @@
 
         console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
 
-        // Firestore에 카드마다 순차 저장하지 않고, writeBatch로 묶어 커밋한다(청크당 최대 5개).
-        const BATCH_CHUNK_SIZE = 5;
-        const chunks = [];
-        for (let i = 0; i < filteredUpdates.length; i += BATCH_CHUNK_SIZE) {
-          chunks.push(filteredUpdates.slice(i, i + BATCH_CHUNK_SIZE));
-        }
-
         const successfulUpdates = [];
         const failedCards = [];
-        const retryCandidates = [];
         let processedCount = 0;
 
-        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
-          const chunk = chunks[chunkIndex];
+        const saveJobs = filteredUpdates.map((update) => (async () => {
           try {
-            const batch = bridge.writeBatch(bridge.firestore);
-            chunk.forEach((update) => {
-              const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-              console.log('[Benchmark Apply] 배치 set 경로', {
-                firestorePath: `plans/skf-daily/benchmarks/${update.itemKey}`,
-                itemKey: update.itemKey,
-                cardName: update.cardName
+            const saveResult = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
+            if (!saveResult || !saveResult.ok) {
+              throw Object.assign(new Error(saveResult && saveResult.reason ? saveResult.reason : 'write-failed'), {
+                code: saveResult && saveResult.reason ? saveResult.reason : 'write-failed'
               });
-              batch.set(docRef, update.payload, { merge: true });
-            });
-            await commitBatchWithTimeout(batch, chunk.length);
-            chunk.forEach((update) => successfulUpdates.push(update));
-            console.log('[Benchmark Apply] 배치 커밋 성공', { batchIndex: chunkIndex + 1, count: chunk.length, itemKeys: chunk.map((update) => update.itemKey) });
-          } catch (error) {
-            const errorCode = error && error.code ? error.code : 'unknown';
-            const errorMessage = error && error.message ? error.message : String(error);
-            console.error('[Benchmark Apply] writeBatch 커밋 실패', {
-              batchIndex: chunkIndex + 1,
-              errorCode,
-              errorMessage,
-              affectedCards: chunk.map((update) => update.cardName)
-            });
-            chunk.forEach((update) => retryCandidates.push(update));
-          }
-
-          processedCount += chunk.length;
-          onProgress(processedCount, filteredUpdates.length);
-          console.log(`[Benchmark Apply] 진행률 ${processedCount}/${filteredUpdates.length}`);
-          await new Promise((resolve) => window.setTimeout(resolve, 200));
-        }
-
-        // 배치 커밋 실패 카드만 개별 updateDoc으로 재시도한다.
-        for (const update of retryCandidates) {
-          try {
-            const docRef = bridge.getBenchmarkDocRef(update.itemKey);
-            await bridge.updateDoc(docRef, update.payload);
+            }
             successfulUpdates.push(update);
-            console.log('[Benchmark Apply] 개별 updateDoc 재시도 성공', { itemKey: update.itemKey, cardName: update.cardName });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
-            const errorMessage = error && error.message ? error.message : String(error);
             failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
-            console.error('[Benchmark Apply] 개별 updateDoc 재시도 실패', {
+            console.error('[Benchmark Apply] 개별 저장 실패', {
               itemKey: update.itemKey,
               cardName: update.cardName,
               errorCode,
-              errorMessage
+              errorMessage: error && error.message ? error.message : String(error)
             });
+          } finally {
+            processedCount += 1;
+            onProgress(processedCount, filteredUpdates.length);
           }
-        }
+        })());
+
+        await Promise.allSettled(saveJobs);
 
         successfulUpdates.forEach((update) => {
           const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
@@ -10218,6 +10182,13 @@
               return;
             }
 
+            if ((result.count || 0) > 0) {
+              if (benchmarkAutoInput) {
+                benchmarkAutoInput.value = '';
+              }
+              writeBenchmarkAutoInputDraft('');
+            }
+
             if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
               renderBenchmarkApplyActions({ showRetry: true });
             }
@@ -10228,21 +10199,7 @@
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
-            if ((result.count || 0) === 51 && (!result.failedCards || result.failedCards.length === 0)) {
-              if (benchmarkAutoInput) {
-                benchmarkAutoInput.value = '';
-              }
-              writeBenchmarkAutoInputDraft('');
-              window.alert('총 51개 카드의 AI 벤치마킹 동향이 성공적으로 반영되었습니다!');
-              window.location.reload();
-              return;
-            }
-            if (!result.failedCards.length) {
-              if (benchmarkAutoInput) {
-                benchmarkAutoInput.value = '';
-              }
-              writeBenchmarkAutoInputDraft('');
-            }
+            window.alert(`총 51개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
             showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
