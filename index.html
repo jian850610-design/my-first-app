@@ -2544,46 +2544,6 @@
       return { ok: true, authUser };
     }
 
-    async function commitBatchWithTimeout(batch, batchCount) {
-      const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
-      console.log('[Apply] commit 시작', batchCount);
-      console.log('[Apply][Debug] commit 사전 점검', {
-        batchCount,
-        firebaseConnectionOnline,
-        hasCurrentUser: Boolean(currentFirebaseUser),
-        editMode: EDIT_MODE_REQUESTED
-      });
-      console.time('batchCommit');
-
-      try {
-        const timeoutPromise = new Promise((_, reject) => {
-          window.setTimeout(() => {
-            const timeoutError = new Error('batch commit timeout (10s)');
-            timeoutError.code = 'batch-commit-timeout';
-            reject(timeoutError);
-          }, 10000);
-        });
-        await Promise.race([batch.commit(), timeoutPromise]);
-        const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
-        const elapsed = Math.round(endedAt - startedAt);
-        console.log('[Apply] commit 완료', elapsed);
-        console.timeEnd('batchCommit');
-        return elapsed;
-      } catch (error) {
-        const errorCode = error && error.code ? error.code : 'unknown';
-        const errorMessage = error && error.message ? error.message : String(error);
-        console.error('[Apply] commit 실패', { errorCode, errorMessage, batchCount });
-        console.error('[Apply][Debug] 가능 원인 체크', {
-          securityRuleDeniedLikely: errorCode === 'permission-denied',
-          networkDelayLikely: errorCode === 'unavailable' || errorCode === 'deadline-exceeded' || errorCode === 'batch-commit-timeout',
-          authMissingLikely: !currentFirebaseUser,
-          awaitMissingLikely: false
-        });
-        console.timeEnd('batchCommit');
-        throw error;
-      }
-    }
-
     function validateBenchmarkDocPath(itemKey) {
       if (!itemKey || typeof itemKey !== 'string') return 'invalid-item-key-empty';
       if (itemKey.includes('/')) return 'invalid-item-key-slash';
@@ -2773,13 +2733,13 @@
       const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
       const retryItemKeys = Array.isArray(options.retryItemKeys) ? options.retryItemKeys.filter(Boolean) : [];
       const retryItemKeySet = retryItemKeys.length ? new Set(retryItemKeys) : null;
-      let response = { ok: false, count: 0, total: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
+      let response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: 'unknown', unmatched: [], missingFromResponse: [], appCardCount: 0, aiResponseCount: 0, failedCards: [], durationMs: 0 };
 
       try {
         const parsed = parseAiBenchmarkText(rawText);
         if (!parsed) {
           console.log('[Benchmark Parser] 반영 가능한 카드가 없습니다. 입력 텍스트를 확인해 주세요.');
-          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
+          response = { ok: false, count: 0, reason: 'parse-failed', total: 0, attemptedCount: 0, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0 };
           return response;
         }
 
@@ -2793,7 +2753,7 @@
             hasDocRefFactory: Boolean(bridge && bridge.getBenchmarkDocRef),
             hasUpdateDoc: Boolean(bridge && bridge.updateDoc)
           });
-          response = { ok: false, count: 0, total: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
+          response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: 'firestore-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
         }
 
@@ -2803,6 +2763,7 @@
             ok: false,
             count: 0,
             total: 0,
+            attemptedCount: 0,
             reason: readiness.reason,
             unmatched,
             missingFromResponse,
@@ -2878,7 +2839,7 @@
 
         if (!updates.length) {
           console.log('[Benchmark Apply] 매칭된 카드가 없어서 저장을 중단합니다.', { rawText });
-          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, unmatched, missingFromResponse, appCardCount, aiResponseCount };
+          response = { ok: false, count: 0, reason: 'no-matches', total: unmatched.length, attemptedCount: 0, unmatched, missingFromResponse, appCardCount, aiResponseCount };
           return response;
         }
 
@@ -2891,6 +2852,7 @@
             ok: false,
             count: 0,
             total: updates.length,
+            attemptedCount: 0,
             reason: 'retry-no-targets',
             unmatched,
             missingFromResponse,
@@ -2905,7 +2867,7 @@
         console.log('[Benchmark Apply][Debug] 저장 실행 모드', {
           mode: 'per-card-allSettled',
           totalCards: filteredUpdates.length,
-          timeoutMsPerCard: 10000,
+          timeoutMsPerCard: 5000,
           firebaseConnectionOnline,
           hasCurrentUser: Boolean(currentFirebaseUser)
         });
@@ -2926,10 +2888,10 @@
               upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName),
               new Promise((_, reject) => {
                 window.setTimeout(() => {
-                  const timeoutError = new Error('per-card write timeout (10s)');
+                  const timeoutError = new Error('per-card write timeout (5s)');
                   timeoutError.code = 'card-write-timeout';
                   reject(timeoutError);
-                }, 10000);
+                }, 5000);
               })
             ]);
             if (!saveResult || !saveResult.ok) {
@@ -2945,12 +2907,13 @@
             });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
-            failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
+            const errorMessage = error && error.message ? error.message : String(error);
+            failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode, errorMessage });
             console.error('[Benchmark Apply] 개별 저장 실패', {
               itemKey: update.itemKey,
               cardName: update.cardName,
               errorCode,
-              errorMessage: error && error.message ? error.message : String(error)
+              errorMessage
             });
             console.error('[Benchmark Apply][Debug] 실패 원인 체크', {
               itemKey: update.itemKey,
@@ -2992,6 +2955,7 @@
             ok: false,
             count: 0,
             total: totalCount,
+            attemptedCount: filteredUpdates.length,
             reason: 'firestore-update-failed',
             failedCards,
             missingMappings,
@@ -3014,6 +2978,7 @@
           ok: true,
           count: successCount,
           total: totalCount,
+          attemptedCount: filteredUpdates.length,
           failedCards,
           missingMappings,
           unmatched,
@@ -3028,7 +2993,7 @@
         const errorCode = error && error.code ? error.code : 'unknown';
         const errorMessage = error && error.message ? error.message : String(error);
         console.error('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 실패', { errorCode, errorMessage });
-        response = { ok: false, count: 0, total: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
+        response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: errorMessage, unmatched: [], missingFromResponse: [], appCardCount: getBenchmarkCardCatalog().length, aiResponseCount: 0, failedCards: [], durationMs: 0 };
         return response;
       } finally {
         console.log('[Benchmark Apply] applyAiBenchmarkUpdatesFromText 종료', response);
@@ -10216,6 +10181,13 @@
               : [];
             console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
 
+            if (result && (result.attemptedCount || 0) > 0) {
+              if (benchmarkAutoInput) {
+                benchmarkAutoInput.value = '';
+              }
+              writeBenchmarkAutoInputDraft('');
+            }
+
             if (!result || !result.ok) {
               const reportLine = formatBenchmarkResultSummary(result);
               let message = reportLine;
@@ -10241,13 +10213,6 @@
               return;
             }
 
-            if ((result.count || 0) > 0) {
-              if (benchmarkAutoInput) {
-                benchmarkAutoInput.value = '';
-              }
-              writeBenchmarkAutoInputDraft('');
-            }
-
             if (result && Array.isArray(result.failedCards) && result.failedCards.length) {
               renderBenchmarkApplyActions({ showRetry: true });
             }
@@ -10258,7 +10223,7 @@
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
-            window.alert(`총 51개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
+            window.alert(`총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
             showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
