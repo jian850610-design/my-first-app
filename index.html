@@ -2865,71 +2865,95 @@
 
         console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
         console.log('[Benchmark Apply][Debug] 저장 실행 모드', {
-          mode: 'per-card-allSettled',
+          mode: 'chunked-sequential-parallel',
           totalCards: filteredUpdates.length,
-          timeoutMsPerCard: 5000,
+          chunkSize: 10,
+          timeoutMsPerCard: 'none',
           firebaseConnectionOnline,
           hasCurrentUser: Boolean(currentFirebaseUser)
         });
-        console.time('benchmarkApplyAllSettled');
+        console.time('benchmarkApplyChunked');
 
         const successfulUpdates = [];
         const failedCards = [];
         let processedCount = 0;
 
-        const saveJobs = filteredUpdates.map((update) => (async () => {
-          try {
-            console.log('[Benchmark Apply][Debug] 카드 저장 시작', {
-              itemKey: update.itemKey,
-              cardName: update.cardName,
-              mode: 'updateDoc->setDocFallback'
-            });
-            const saveResult = await Promise.race([
-              upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName),
-              new Promise((_, reject) => {
-                window.setTimeout(() => {
-                  const timeoutError = new Error('per-card write timeout (5s)');
-                  timeoutError.code = 'card-write-timeout';
-                  reject(timeoutError);
-                }, 5000);
-              })
-            ]);
-            if (!saveResult || !saveResult.ok) {
-              throw Object.assign(new Error(saveResult && saveResult.reason ? saveResult.reason : 'write-failed'), {
-                code: saveResult && saveResult.reason ? saveResult.reason : 'write-failed'
+        const chunkSize = 10;
+        for (let chunkStart = 0; chunkStart < filteredUpdates.length; chunkStart += chunkSize) {
+          const chunk = filteredUpdates.slice(chunkStart, chunkStart + chunkSize);
+          console.log('[Benchmark Apply][Debug] 청크 저장 시작', {
+            chunkRange: `${chunkStart + 1}-${chunkStart + chunk.length}`,
+            chunkSize: chunk.length,
+            totalCards: filteredUpdates.length
+          });
+
+          const chunkJobs = chunk.map((update) => (async () => {
+            try {
+              console.log('[Benchmark Apply][Debug] 카드 저장 시작', {
+                itemKey: update.itemKey,
+                cardName: update.cardName,
+                mode: 'updateDoc->setDocFallback'
               });
+              const saveResult = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
+              if (!saveResult || !saveResult.ok) {
+                throw Object.assign(new Error(saveResult && saveResult.reason ? saveResult.reason : 'write-failed'), {
+                  code: saveResult && saveResult.reason ? saveResult.reason : 'write-failed'
+                });
+              }
+              return {
+                ok: true,
+                update,
+                mode: saveResult.mode || ''
+              };
+            } catch (error) {
+              const errorCode = error && error.code ? error.code : 'unknown';
+              const errorMessage = error && error.message ? error.message : String(error);
+              return {
+                ok: false,
+                update,
+                errorCode,
+                errorMessage
+              };
+            } finally {
+              processedCount += 1;
+              onProgress(processedCount, filteredUpdates.length);
             }
-            successfulUpdates.push(update);
-            console.log('[Benchmark Apply][Debug] 카드 저장 성공', {
-              itemKey: update.itemKey,
-              cardName: update.cardName,
-              mode: saveResult.mode || ''
+          })());
+
+          const chunkResults = await Promise.all(chunkJobs);
+          chunkResults.forEach((resultEntry) => {
+            if (resultEntry.ok) {
+              successfulUpdates.push(resultEntry.update);
+              console.log('[Benchmark Apply][Debug] 카드 저장 성공', {
+                itemKey: resultEntry.update.itemKey,
+                cardName: resultEntry.update.cardName,
+                mode: resultEntry.mode
+              });
+              return;
+            }
+
+            failedCards.push({
+              cardName: resultEntry.update.cardName,
+              itemKey: resultEntry.update.itemKey,
+              errorCode: resultEntry.errorCode,
+              errorMessage: resultEntry.errorMessage
             });
-          } catch (error) {
-            const errorCode = error && error.code ? error.code : 'unknown';
-            const errorMessage = error && error.message ? error.message : String(error);
-            failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode, errorMessage });
             console.error('[Benchmark Apply] 개별 저장 실패', {
-              itemKey: update.itemKey,
-              cardName: update.cardName,
-              errorCode,
-              errorMessage
+              itemKey: resultEntry.update.itemKey,
+              cardName: resultEntry.update.cardName,
+              errorCode: resultEntry.errorCode,
+              errorMessage: resultEntry.errorMessage
             });
             console.error('[Benchmark Apply][Debug] 실패 원인 체크', {
-              itemKey: update.itemKey,
-              securityRuleDeniedLikely: errorCode === 'permission-denied',
-              networkDelayLikely: errorCode === 'unavailable' || errorCode === 'deadline-exceeded' || errorCode === 'card-write-timeout',
+              itemKey: resultEntry.update.itemKey,
+              securityRuleDeniedLikely: resultEntry.errorCode === 'permission-denied',
+              networkDelayLikely: resultEntry.errorCode === 'unavailable' || resultEntry.errorCode === 'deadline-exceeded',
               authMissingLikely: !currentFirebaseUser,
               awaitMissingLikely: false
             });
-          } finally {
-            processedCount += 1;
-            onProgress(processedCount, filteredUpdates.length);
-          }
-        })());
-
-        await Promise.allSettled(saveJobs);
-        console.timeEnd('benchmarkApplyAllSettled');
+          });
+        }
+        console.timeEnd('benchmarkApplyChunked');
 
         successfulUpdates.forEach((update) => {
           const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
@@ -2974,8 +2998,11 @@
           updateGoalCard(currentGoalKey);
         }
 
+        const allWritesSucceeded = successCount === filteredUpdates.length && failedCards.length === 0;
+        const noMappingOrParseDrops = missingMappings.length === 0 && unmatched.length === 0;
+
         response = {
-          ok: true,
+          ok: allWritesSucceeded && noMappingOrParseDrops,
           count: successCount,
           total: totalCount,
           attemptedCount: filteredUpdates.length,
@@ -10181,7 +10208,7 @@
               : [];
             console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
 
-            if (result && (result.attemptedCount || 0) > 0) {
+            if (result && result.ok && (result.attemptedCount || 0) > 0) {
               if (benchmarkAutoInput) {
                 benchmarkAutoInput.value = '';
               }
@@ -10223,7 +10250,12 @@
               benchmarkAutoStatus.classList.remove('warn');
               benchmarkAutoStatus.classList.add('ok');
             }
-            window.alert(`총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
+            const fullCardCount = countBenchmarkPromptCards();
+            if ((result.count || 0) === fullCardCount) {
+              window.alert('총 51개 카드가 성공적으로 업데이트되었습니다!');
+            } else {
+              window.alert(`총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
+            }
             showView('dashboard');
             rerenderCurrentView();
           } catch (error) {
