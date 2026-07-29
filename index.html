@@ -105,25 +105,23 @@
     .mandalart-section { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
     .mandalart-section strong { display: block; margin-bottom: 12px; color: #264a6d; font-size: 13px; }
     .mandalart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .mandalart-cell { height: auto; border: 1px dashed #d8e5f1; border-radius: 14px; padding: 8px; background: #fbfdff; }
+    .mandalart-cell { border: 1px dashed #d8e5f1; border-radius: 14px; padding: 8px; background: #fbfdff; display: flex; }
     .mandalart-center { border-style: solid; border-color: #9cb8d3; background: linear-gradient(135deg, #e8f2ff 0%, #f1f7ff 100%); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 16px; font-weight: 800; color: #1d4f7f; line-height: 1.35; }
-    .mandalart-goal-btn { width: 100%; height: auto; border: 1px solid #cfdeed; border-radius: 12px; background: white; text-align: left; padding: 9px; cursor: pointer; display: grid; gap: 6px; align-content: start; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease; }
+    .mandalart-goal-btn { width: 100%; min-height: 184px; border: 1px solid #cfdeed; border-radius: 12px; background: white; text-align: left; padding: 9px; cursor: pointer; display: flex; flex-direction: column; gap: 7px; align-items: stretch; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease; }
     .mandalart-goal-btn:hover,
     .mandalart-goal-btn:focus-visible { background: #f3f8ff; border-color: #2b7bbd; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.18); transform: translateY(-3px); }
     .mandalart-goal-btn.search-hit { border-color: #e3a200; box-shadow: 0 14px 28px rgba(179, 130, 0, 0.2); background: #fffdf2; }
     .mandalart-goal-title { font-size: 12px; font-weight: 800; color: #244c72; line-height: 1.3; min-height: 30px; }
-    .mandalart-goal-meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #5f7590; }
-    .mandalart-star { font-weight: 700; color: #9b6b00; }
+    .mandalart-goal-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 11px; color: #5f7590; }
     .mandalart-activity-meta { font-size: 11px; color: #5f7590; font-weight: 700; }
+    .mandalart-badge-group { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+    .mandalart-mini-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; }
+    .mandalart-mini-badge.urgent { background: #ffe9ea; color: #b53d45; border-color: #f2c6ca; }
+    .mandalart-mini-badge.important { background: #fff5d9; color: #8b6510; border-color: #ecdca9; }
+    .mandalart-mini-badge.leader { background: #fff3dd; color: #8f6400; border-color: #ebd29a; }
     .mandalart-keyword-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .mandalart-keyword-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
-    .mandalart-comment-box { margin-top: 2px; padding: 8px 9px; border-radius: 10px; background: #f7fbff; border: 1px solid #dde9f4; display: grid; gap: 4px; }
-    .mandalart-comment-label { font-size: 10px; font-weight: 800; color: #4d6d8c; }
-    .mandalart-comment-date { font-size: 10px; color: #698099; }
-    .mandalart-comment-title { font-size: 11px; font-weight: 700; color: #244c72; }
-    .mandalart-comment-text { font-size: 11px; color: #425c77; line-height: 1.45; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .mandalart-comment-empty { font-size: 11px; color: #96a7b9; }
-    .mandalart-cta { margin-top: auto; justify-self: end; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; border: 1px solid #0d548b; }
+    .mandalart-cta { margin-top: auto; align-self: flex-end; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; border: 1px solid #0d548b; }
     .mandalart-goal-btn:hover .mandalart-cta,
     .mandalart-goal-btn:focus-visible .mandalart-cta { background: #0b73bc; border-color: #0b73bc; }
     .goal-highlight-card,
@@ -4948,16 +4946,21 @@
       let totalSteps = 0;
       let checkedSteps = 0;
       let leaderRequestedCount = 0;
+      let urgentCount = 0;
+      let importantCount = 0;
 
       entries.forEach(([, itemState]) => {
         const steps = Array.isArray(itemState.steps) ? itemState.steps : [];
         totalSteps += steps.length;
         checkedSteps += steps.filter((step) => step && step.checked).length;
+        const priority = normalizePriorityValue(itemState && itemState.priority);
+        if (priority === PRIORITY_URGENT) urgentCount += 1;
+        if (priority === PRIORITY_IMPORTANT) importantCount += 1;
         if (itemState && itemState.isLeaderRequested === true) leaderRequestedCount += 1;
       });
 
       const percent = totalSteps ? Math.round((checkedSteps / totalSteps) * 100) : 0;
-      return { percent, leaderRequestedCount };
+      return { percent, leaderRequestedCount, urgentCount, importantCount };
     }
 
     function getGoalDisplayLabel(goalKey) {
@@ -5010,45 +5013,17 @@
       };
     }
 
-    function formatShortCommentDate(timestamp) {
-      const date = new Date(timestamp);
-      if (Number.isNaN(date.getTime())) return '';
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hour = String(date.getHours()).padStart(2, '0');
-      const minute = String(date.getMinutes()).padStart(2, '0');
-      return `${month}/${day} ${hour}:${minute}`;
-    }
+    function renderGoalFlagBadges(stats) {
+      const badgeConfigs = [
+        { className: 'urgent', emoji: '🔴', label: '긴급', count: stats.urgentCount },
+        { className: 'important', emoji: '🟡', label: '중요', count: stats.importantCount },
+        { className: 'leader', emoji: '⭐', label: '팀장님', count: stats.leaderRequestedCount }
+      ];
 
-    function getLatestCommentByGoal(goalKey, state) {
-      const entries = Object.entries((state && state.items) || {})
-        .filter(([itemKey, itemState]) => itemKey.startsWith(`${goalKey}::`) && itemState && Array.isArray(itemState.comments) && itemState.comments.length);
-
-      let latest = null;
-
-      entries.forEach(([itemKey, itemState]) => {
-        itemState.comments.forEach((comment) => {
-          const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
-          const parsedTime = rawTimestamp ? new Date(rawTimestamp).getTime() : NaN;
-          if (Number.isNaN(parsedTime)) return;
-          if (!latest || parsedTime > latest.time) {
-            latest = {
-              itemKey,
-              time: parsedTime,
-              timestamp: rawTimestamp,
-              text: comment.text || ''
-            };
-          }
-        });
-      });
-
-      if (!latest) return null;
-      const itemDetail = getItemDetailByKey(latest.itemKey, state);
-      return {
-        ...latest,
-        title: itemDetail ? itemDetail.title : latest.itemKey,
-        formattedDate: formatShortCommentDate(latest.timestamp)
-      };
+      return badgeConfigs
+        .filter((badge) => badge.count > 0)
+        .map((badge) => `<span class="mandalart-mini-badge ${badge.className}">${badge.emoji} ${badge.label} ${badge.count}건</span>`)
+        .join('');
     }
 
     function renderMandalartBoard(state) {
@@ -5079,23 +5054,18 @@
         const stats = getGoalStats(goalKey, state);
         const previewTags = getGoalPreviewTags(goalKey);
         const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
-        const latestComment = getLatestCommentByGoal(goalKey, state);
-        const latestActivityText = latestComment ? latestComment.formattedDate : '최근 기록 없음';
-        const latestCommentHtml = latestComment
-          ? `<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-date">${escapeHtml(latestComment.formattedDate)}</div><div class="mandalart-comment-title">[${escapeHtml(latestComment.title)}]</div><div class="mandalart-comment-text">${escapeHtml(latestComment.text)}</div></div>`
-          : '<div class="mandalart-comment-box"><div class="mandalart-comment-label">💬 최근 업무 코멘트</div><div class="mandalart-comment-empty">등록된 코멘트가 없습니다.</div></div>';
+        const goalFlagBadges = renderGoalFlagBadges(stats);
         return `
           <div class="mandalart-cell">
             <button type="button" class="mandalart-goal-btn ${isSearchHit ? 'search-hit' : ''}" data-goal="${goalKey}">
               <div class="mandalart-goal-title">${getGoalDisplayLabel(goalKey)}</div>
               <div class="mandalart-goal-meta">
-                <span class="mandalart-activity-meta">🕒 ${escapeHtml(latestActivityText)}</span>
-                <span class="mandalart-star">★ ${stats.leaderRequestedCount}</span>
+                <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}%</span>
+                <span class="mandalart-badge-group">${goalFlagBadges}</span>
               </div>
               <div class="mandalart-keyword-list">
                 ${previewTags.map((tag) => `<span class="mandalart-keyword-tag">${escapeHtml(tag)}</span>`).join('')}
               </div>
-              ${latestCommentHtml}
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
           </div>`;
