@@ -2547,15 +2547,39 @@
     async function commitBatchWithTimeout(batch, batchCount) {
       const startedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
       console.log('[Apply] commit 시작', batchCount);
+      console.log('[Apply][Debug] commit 사전 점검', {
+        batchCount,
+        firebaseConnectionOnline,
+        hasCurrentUser: Boolean(currentFirebaseUser),
+        editMode: EDIT_MODE_REQUESTED
+      });
+      console.time('batchCommit');
 
       try {
-        await batch.commit();
+        const timeoutPromise = new Promise((_, reject) => {
+          window.setTimeout(() => {
+            const timeoutError = new Error('batch commit timeout (10s)');
+            timeoutError.code = 'batch-commit-timeout';
+            reject(timeoutError);
+          }, 10000);
+        });
+        await Promise.race([batch.commit(), timeoutPromise]);
         const endedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
         const elapsed = Math.round(endedAt - startedAt);
         console.log('[Apply] commit 완료', elapsed);
+        console.timeEnd('batchCommit');
         return elapsed;
       } catch (error) {
-        console.error('[Apply] commit 실패', error && error.code ? error.code : 'unknown', error && error.message ? error.message : String(error));
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const errorMessage = error && error.message ? error.message : String(error);
+        console.error('[Apply] commit 실패', { errorCode, errorMessage, batchCount });
+        console.error('[Apply][Debug] 가능 원인 체크', {
+          securityRuleDeniedLikely: errorCode === 'permission-denied',
+          networkDelayLikely: errorCode === 'unavailable' || errorCode === 'deadline-exceeded' || errorCode === 'batch-commit-timeout',
+          authMissingLikely: !currentFirebaseUser,
+          awaitMissingLikely: false
+        });
+        console.timeEnd('batchCommit');
         throw error;
       }
     }
@@ -2798,7 +2822,7 @@
         console.log('[Benchmark Compare] 저장 경로 비교', {
           benchmarkFirestorePathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
           plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
-          apiBenchmark: 'Firestore writeBatch.set/commit',
+          apiBenchmark: 'Firestore updateDoc/setDoc + Promise.allSettled',
           apiPlanner: 'Realtime Database set'
         });
 
@@ -2878,6 +2902,14 @@
         }
 
         console.table(filteredUpdates.map((update) => ({ itemKey: update.itemKey, cardName: update.cardName, goalKey: update.goalKey })));
+        console.log('[Benchmark Apply][Debug] 저장 실행 모드', {
+          mode: 'per-card-allSettled',
+          totalCards: filteredUpdates.length,
+          timeoutMsPerCard: 10000,
+          firebaseConnectionOnline,
+          hasCurrentUser: Boolean(currentFirebaseUser)
+        });
+        console.time('benchmarkApplyAllSettled');
 
         const successfulUpdates = [];
         const failedCards = [];
@@ -2885,13 +2917,32 @@
 
         const saveJobs = filteredUpdates.map((update) => (async () => {
           try {
-            const saveResult = await upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName);
+            console.log('[Benchmark Apply][Debug] 카드 저장 시작', {
+              itemKey: update.itemKey,
+              cardName: update.cardName,
+              mode: 'updateDoc->setDocFallback'
+            });
+            const saveResult = await Promise.race([
+              upsertBenchmarkFirestoreDoc(update.itemKey, update.payload, update.cardName),
+              new Promise((_, reject) => {
+                window.setTimeout(() => {
+                  const timeoutError = new Error('per-card write timeout (10s)');
+                  timeoutError.code = 'card-write-timeout';
+                  reject(timeoutError);
+                }, 10000);
+              })
+            ]);
             if (!saveResult || !saveResult.ok) {
               throw Object.assign(new Error(saveResult && saveResult.reason ? saveResult.reason : 'write-failed'), {
                 code: saveResult && saveResult.reason ? saveResult.reason : 'write-failed'
               });
             }
             successfulUpdates.push(update);
+            console.log('[Benchmark Apply][Debug] 카드 저장 성공', {
+              itemKey: update.itemKey,
+              cardName: update.cardName,
+              mode: saveResult.mode || ''
+            });
           } catch (error) {
             const errorCode = error && error.code ? error.code : 'unknown';
             failedCards.push({ cardName: update.cardName, itemKey: update.itemKey, errorCode });
@@ -2901,6 +2952,13 @@
               errorCode,
               errorMessage: error && error.message ? error.message : String(error)
             });
+            console.error('[Benchmark Apply][Debug] 실패 원인 체크', {
+              itemKey: update.itemKey,
+              securityRuleDeniedLikely: errorCode === 'permission-denied',
+              networkDelayLikely: errorCode === 'unavailable' || errorCode === 'deadline-exceeded' || errorCode === 'card-write-timeout',
+              authMissingLikely: !currentFirebaseUser,
+              awaitMissingLikely: false
+            });
           } finally {
             processedCount += 1;
             onProgress(processedCount, filteredUpdates.length);
@@ -2908,6 +2966,7 @@
         })());
 
         await Promise.allSettled(saveJobs);
+        console.timeEnd('benchmarkApplyAllSettled');
 
         successfulUpdates.forEach((update) => {
           const itemPrinciples = getCardGuidelines(plannerState, update.goalKey, update.item, goalTemplates[update.goalKey], update.itemKey);
