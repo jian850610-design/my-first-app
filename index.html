@@ -150,18 +150,20 @@
     .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
     .today-activity-clear-btn:hover { background: #ffecec; }
     .today-activity-meta { font-size: 12px; color: #688099; }
-    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
     .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
-    .today-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
-    .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 16px; background: #ffffff; padding: 12px 14px; display: grid; gap: 6px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
+    .today-activity-row { position: relative; display: block; }
+    .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 12px; background: #ffffff; padding: 8px 38px 8px 10px; display: grid; gap: 3px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
     .today-activity-item:hover { transform: translateY(-1px); border-color: #9cc3e5; box-shadow: 0 10px 22px rgba(19, 73, 122, 0.12); }
-    .today-activity-delete-btn { display: none; border: 1px solid #efc6c6; border-radius: 12px; background: #fff6f6; color: #af4545; padding: 0 11px; min-width: 44px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .today-activity-item-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+    .today-activity-item-bottom { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
+    .today-activity-delete-btn { display: none; position: absolute; top: 7px; right: 7px; border: 1px solid #efc6c6; border-radius: 8px; background: #fff6f6; color: #af4545; width: 24px; height: 24px; padding: 0; font-size: 12px; font-weight: 800; cursor: pointer; z-index: 2; }
     .today-activity-delete-btn.visible { display: inline-flex; align-items: center; justify-content: center; }
     .today-activity-delete-btn:hover { background: #ffecec; }
-    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; background: #eef5ff; color: #24547f; }
-    .today-activity-item-title { font-size: 13px; font-weight: 800; color: #183b5f; line-height: 1.45; }
-    .today-activity-item-detail { font-size: 12px; color: #4e657f; line-height: 1.6; white-space: pre-wrap; }
-    .today-activity-item-meta { font-size: 11px; color: #70859c; }
+    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; background: #eef5ff; color: #24547f; white-space: nowrap; }
+    .today-activity-item-title { font-size: 12px; font-weight: 800; color: #183b5f; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .today-activity-item-detail { font-size: 11px; color: #4e657f; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .today-activity-item-meta { font-size: 10px; color: #70859c; white-space: nowrap; }
 
     .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
     .team-overview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -5292,10 +5294,14 @@
           <li>
             <div class="today-activity-row">
               <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
-                <span class="today-activity-item-type">${typeLabel}</span>
-                <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
-                <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
-                <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
+                <div class="today-activity-item-top">
+                  <span class="today-activity-item-type">${typeLabel}</span>
+                  <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
+                  <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
+                </div>
+                <div class="today-activity-item-bottom">
+                  <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
+                </div>
               </button>
               <button
                 type="button"
