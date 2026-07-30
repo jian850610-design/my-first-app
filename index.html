@@ -323,6 +323,15 @@
     .card-edit-modal-note { font-size: 12px; color: #60768f; line-height: 1.6; }
     .card-edit-modal-fields { display: grid; gap: 12px; }
     .edit-form-container { display: block; margin: 0; padding: 0; border: 0; background: transparent; }
+    .card-edit-modal-section { display: grid; gap: 10px; }
+    .card-edit-modal-section-title { font-size: 13px; font-weight: 900; color: #173b5f; }
+    .card-edit-modal-section-note { font-size: 12px; color: #60768f; line-height: 1.6; }
+    .card-edit-modal-step-list { display: grid; gap: 10px; }
+    .card-edit-modal-step-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 180px; gap: 10px; align-items: center; }
+    .card-edit-modal-step-index { width: 40px; height: 40px; border-radius: 12px; background: #eef4fb; color: #1f4a71; font-size: 12px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; }
+    .card-edit-modal-step-name,
+    .card-edit-modal-step-date { min-width: 0; width: 100%; }
+    .card-edit-modal-step-date { font-variant-numeric: tabular-nums; }
     .card-editor-field { display: grid; gap: 4px; }
     .card-editor-field label { font-size: 11px; color: #4a627d; font-weight: 700; }
     .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 12px; padding: 12px 12px; background: #fdfefe; color: #1f3d5b; font-size: 13px; outline: none; }
@@ -335,6 +344,10 @@
     .card-edit-modal-btn.secondary:hover { background: #dfeaf5; }
     .card-edit-modal-btn.primary { background: #0f5f9d; color: #ffffff; }
     .card-edit-modal-btn.primary:hover { background: #0b73bc; }
+    @media (max-width: 760px) {
+      .card-edit-modal-step-row { grid-template-columns: 40px minmax(0, 1fr); }
+      .card-edit-modal-step-date { grid-column: 2; }
+    }
     .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
     .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
     .history-archive-toggle::-webkit-details-marker { display: none; }
@@ -1155,21 +1168,30 @@
       </div>
       <div class="card-edit-modal-body">
         <div class="card-edit-modal-note" id="cardEditModalItemTitle"></div>
-        <div class="edit-form-container">
-          <div class="card-editor-panel">
-            <div class="card-editor-field">
-              <label for="cardEditModalTitleInput">카드 제목</label>
-              <input type="text" class="card-editor-input" id="cardEditModalTitleInput" />
-            </div>
-            <div class="card-editor-field">
-              <label for="cardEditModalSummaryInput">본문 설명</label>
-              <textarea class="card-editor-textarea" id="cardEditModalSummaryInput"></textarea>
-            </div>
-            <div class="card-editor-field">
-              <label for="cardEditModalGuidelinesInput">가이드라인 (줄바꿈으로 항목 구분)</label>
-              <textarea class="card-editor-textarea" id="cardEditModalGuidelinesInput"></textarea>
+        <div class="card-edit-modal-fields">
+          <div class="edit-form-container">
+            <div class="card-editor-panel">
+              <div class="card-editor-field">
+                <label for="cardEditModalTitleInput">카드 제목</label>
+                <input type="text" class="card-editor-input" id="cardEditModalTitleInput" />
+              </div>
+              <div class="card-editor-field">
+                <label for="cardEditModalSummaryInput">본문 설명</label>
+                <textarea class="card-editor-textarea" id="cardEditModalSummaryInput"></textarea>
+              </div>
+              <div class="card-editor-field">
+                <label for="cardEditModalGuidelinesInput">가이드라인 (줄바꿈으로 항목 구분)</label>
+                <textarea class="card-editor-textarea" id="cardEditModalGuidelinesInput"></textarea>
+              </div>
             </div>
           </div>
+          <section class="card-edit-modal-section">
+            <div>
+              <div class="card-edit-modal-section-title">업무 단계 체크리스트 및 마감일(Due Date) 수정</div>
+              <div class="card-edit-modal-section-note">각 단계의 항목명과 마감일을 바로 수정할 수 있습니다.</div>
+            </div>
+            <div class="card-edit-modal-step-list" id="cardEditModalChecklistList"></div>
+          </section>
         </div>
       </div>
       <div class="card-edit-modal-footer">
@@ -1271,6 +1293,7 @@
     const cardEditModalTitleInput = document.getElementById('cardEditModalTitleInput');
     const cardEditModalSummaryInput = document.getElementById('cardEditModalSummaryInput');
     const cardEditModalGuidelinesInput = document.getElementById('cardEditModalGuidelinesInput');
+    const cardEditModalChecklistList = document.getElementById('cardEditModalChecklistList');
     const cardEditModalCloseBtn = document.getElementById('cardEditModalCloseBtn');
     const cardEditModalCancelBtn = document.getElementById('cardEditModalCancelBtn');
     const cardEditModalSaveBtn = document.getElementById('cardEditModalSaveBtn');
@@ -7267,6 +7290,29 @@
       document.body.classList.remove('modal-open');
     }
 
+    function renderCardEditChecklistList(stepLabels, itemState) {
+      if (!cardEditModalChecklistList) return;
+      const safeSteps = Array.isArray(stepLabels) ? stepLabels : [];
+      const safeItemSteps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+
+      if (!safeSteps.length) {
+        cardEditModalChecklistList.innerHTML = '<div class="card-edit-modal-section-note">체크리스트 단계가 없습니다.</div>';
+        return;
+      }
+
+      cardEditModalChecklistList.innerHTML = safeSteps.map((stepText, index) => {
+        const stepState = safeItemSteps[index] || {};
+        const dueDate = typeof stepState.dueDate === 'string' ? stepState.dueDate : '';
+        return `
+          <div class="card-edit-modal-step-row" data-step-index="${index}">
+            <div class="card-edit-modal-step-index">${index + 1}</div>
+            <input type="text" class="card-editor-input card-edit-modal-step-name" data-card-edit-step-field="stepName" data-step-index="${index}" value="${escapeHtml(typeof stepText === 'string' ? stepText : '')}" placeholder="단계 이름" />
+            <input type="date" class="card-editor-input card-edit-modal-step-date" data-card-edit-step-field="dueDate" data-step-index="${index}" value="${escapeHtml(dueDate)}" placeholder="YYYY-MM-DD" />
+          </div>
+        `;
+      }).join('');
+    }
+
     function openCardEditModal(itemKey) {
       const latestState = loadPlannerState();
       const [goalKey, indexText] = String(itemKey || '').split('::');
@@ -7275,11 +7321,13 @@
       if (!goalTemplate || !Array.isArray(goalTemplate.items) || Number.isNaN(itemIndex) || !goalTemplate.items[itemIndex]) return;
 
       const item = goalTemplate.items[itemIndex];
-      const itemState = getItemState(latestState, itemKey, getWorkflowSteps(goalKey, item, itemKey).length, goalTemplate.principles || []);
+      const checklistSteps = getChecklistStepsForItem(latestState, goalKey, item, itemKey, goalTemplate.principles || []);
+      const itemState = getItemState(latestState, itemKey, checklistSteps.length, goalTemplate.principles || []);
       cardEditModalState = {
         itemKey,
         goalKey,
         itemIndex,
+        checklistSteps,
         title: getCardTitleText(itemState, item),
         summary: getCardSummaryText(itemState, item),
         guidelines: getCardGuidelines(latestState, goalKey, item, goalTemplate, itemKey).join('\n')
@@ -7300,6 +7348,7 @@
       if (cardEditModalTitleInput) cardEditModalTitleInput.value = cardEditModalState.title;
       if (cardEditModalSummaryInput) cardEditModalSummaryInput.value = cardEditModalState.summary;
       if (cardEditModalGuidelinesInput) cardEditModalGuidelinesInput.value = cardEditModalState.guidelines;
+      renderCardEditChecklistList(checklistSteps, itemState);
       if (cardEditModal) {
         cardEditModal.hidden = false;
         document.body.classList.add('modal-open');
@@ -7318,12 +7367,24 @@
       if (!goalTemplate || !Array.isArray(goalTemplate.items) || !goalTemplate.items[itemIndex]) return;
 
       const item = goalTemplate.items[itemIndex];
-      const itemState = getItemState(latestState, itemKey, getWorkflowSteps(goalKey, item, itemKey).length, goalTemplate.principles || []);
+      const currentChecklistSteps = getChecklistStepsForItem(latestState, goalKey, item, itemKey, goalTemplate.principles || []);
+      const itemState = getItemState(latestState, itemKey, currentChecklistSteps.length, goalTemplate.principles || []);
       const nextTitle = cardEditModalTitleInput ? cardEditModalTitleInput.value.trim() : '';
       const nextSummary = cardEditModalSummaryInput ? cardEditModalSummaryInput.value.trim() : '';
       const nextGuidelines = cardEditModalGuidelinesInput
         ? cardEditModalGuidelinesInput.value.split('\n').map((line) => line.trim()).filter((line) => line)
         : [];
+      const checklistRows = cardEditModalChecklistList
+        ? Array.from(cardEditModalChecklistList.querySelectorAll('.card-edit-modal-step-row'))
+        : [];
+      const nextChecklistSteps = checklistRows.map((row) => {
+        const nameInput = row.querySelector('[data-card-edit-step-field="stepName"]');
+        const dueDateInput = row.querySelector('[data-card-edit-step-field="dueDate"]');
+        return {
+          stepName: nameInput ? nameInput.value.trim() : '',
+          dueDate: dueDateInput ? dueDateInput.value || '' : ''
+        };
+      });
 
       if (nextTitle) itemState.customTitle = nextTitle;
       else delete itemState.customTitle;
@@ -7334,15 +7395,21 @@
       if (nextGuidelines.length) itemState.customGuidelines = nextGuidelines;
       else delete itemState.customGuidelines;
 
+      itemState.customSteps = nextChecklistSteps.map((entry) => entry.stepName);
+      itemState.steps = nextChecklistSteps.map((entry, index) => {
+        const previousStep = Array.isArray(itemState.steps) ? itemState.steps[index] : null;
+        return {
+          checked: Boolean(previousStep && previousStep.checked),
+          dueDate: entry.dueDate || '',
+          completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : ''
+        };
+      });
+
       markItemUpdated(itemState);
       const savedState = savePlannerState(latestState, { reason: 'card-edit-save', skipFirebaseSync: true });
       await flushFirebaseSnapshot('card-edit-save');
       closeCardEditModal();
-      if (currentGoalKey === goalKey) {
-        updateGoalCard(goalKey);
-      } else {
-        renderDetailItems(goalTemplate.items, goalKey);
-      }
+      updateGoalCard(goalKey);
       syncOverviewWidgets(savedState);
       updateStats();
     }
