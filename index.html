@@ -3734,6 +3734,12 @@
       };
     }
 
+    function createChecklistStepId(itemKey, stepIndex = -1) {
+      const baseKey = String(itemKey || 'item').replace(/[^a-zA-Z0-9:_-]/g, '-');
+      const indexPart = Number.isInteger(stepIndex) && stepIndex >= 0 ? String(stepIndex + 1) : 'x';
+      return `${baseKey}-step-${indexPart}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
     function upsertChecklistActivityLog(itemState, payload = {}) {
       if (!itemState || typeof itemState !== 'object') return;
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
@@ -3752,7 +3758,8 @@
         itemState.activityLog[targetIndex] = {
           ...itemState.activityLog[targetIndex],
           timestamp: new Date().toISOString(),
-          stepText: payload.stepText || ''
+          stepText: payload.stepText || '',
+          checklistId: typeof payload.checklistId === 'string' ? payload.checklistId : ''
         };
         return;
       }
@@ -3767,6 +3774,52 @@
       const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
       if (!item) return itemKey;
       return getCardTitleText(state && state.items ? state.items[itemKey] : null, item);
+    }
+
+    function getTimelineItemContext(state, itemKey) {
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      const goalTemplate = goalTemplates[goalKey];
+      const itemIndex = Number(indexText);
+      const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex]
+        ? goalTemplate.items[itemIndex]
+        : null;
+      if (!goalTemplate || !item) {
+        return {
+          goalKey,
+          item,
+          itemKey,
+          itemState: state && state.items ? state.items[itemKey] : null
+        };
+      }
+
+      return {
+        goalKey,
+        item,
+        itemKey,
+        itemState: state && state.items ? state.items[itemKey] : null
+      };
+    }
+
+    function resolveTimelineChecklistStepText(state, itemKey, logEntry) {
+      const fallback = logEntry && typeof logEntry.stepText === 'string' ? logEntry.stepText : '';
+      const context = getTimelineItemContext(state, itemKey);
+      if (!context.item || !context.itemState) return fallback;
+
+      const steps = getChecklistStepsForItem(state, context.goalKey, context.item, context.itemKey) || [];
+      const stepIndex = Number.isInteger(logEntry && logEntry.stepIndex) ? logEntry.stepIndex : -1;
+      if (stepIndex >= 0 && stepIndex < steps.length && typeof steps[stepIndex] === 'string' && steps[stepIndex].trim()) {
+        return steps[stepIndex].trim();
+      }
+
+      const checklistId = logEntry && typeof logEntry.checklistId === 'string' ? logEntry.checklistId.trim() : '';
+      if (checklistId && Array.isArray(context.itemState.steps)) {
+        const byIdIndex = context.itemState.steps.findIndex((step) => step && typeof step.id === 'string' && step.id === checklistId);
+        if (byIdIndex >= 0 && byIdIndex < steps.length && typeof steps[byIdIndex] === 'string' && steps[byIdIndex].trim()) {
+          return steps[byIdIndex].trim();
+        }
+      }
+
+      return fallback;
     }
 
     function parseAssigneeFromText(text) {
@@ -4684,6 +4737,7 @@
       }
 
       itemState.steps = itemState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, index),
         checked: Boolean(step && step.checked),
         dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
         completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
@@ -5129,11 +5183,9 @@
       const todayKey = getLocalDateKey();
 
       Object.entries((state && state.items) || {}).forEach(([itemKey, itemState]) => {
-        const [goalKey, indexText] = itemKey.split('::');
-        const goalTemplate = goalTemplates[goalKey];
-        const itemIndex = Number(indexText);
-        const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
-        if (!goalTemplate || !item) return;
+        const context = getTimelineItemContext(state, itemKey);
+        const goalKey = context.goalKey;
+        if (!context.item) return;
 
         const cardTitle = getCardActivityTitle(state, itemKey);
 
@@ -5160,6 +5212,7 @@
           if (getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey) return;
 
           if (logEntry.type === 'checklist-complete') {
+            const latestStepText = resolveTimelineChecklistStepText(state, itemKey, logEntry);
             entries.push({
               type: 'checklist',
               timestamp: new Date(logEntry.timestamp).getTime(),
@@ -5168,7 +5221,7 @@
               cardTitle,
               title: cardTitle,
               timeText: formatEntryDateTime(logEntry.timestamp),
-              detail: logEntry.stepText ? `완료 단계: ${logEntry.stepText}` : '체크리스트 항목 완료',
+              detail: latestStepText ? `완료 단계: ${latestStepText}` : '체크리스트 항목 완료',
               stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1,
               sourceType: 'activity',
               sourceIndex: logIndex
@@ -7405,6 +7458,7 @@
       itemState.steps = nextChecklistSteps.map((entry, index) => {
         const previousStep = Array.isArray(itemState.steps) ? itemState.steps[index] : null;
         return {
+          id: previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index),
           checked: Boolean(previousStep && previousStep.checked),
           dueDate: entry.dueDate || '',
           completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : ''
@@ -9246,6 +9300,7 @@
             ensureCustomSteps();
             itemState.customSteps[idx] = input.value || '';
             savePlannerState(plannerState, { debounceMs: 450, reason: 'step-text-input' });
+            updateStats();
           });
         });
 
@@ -9283,7 +9338,7 @@
           addStepButton.addEventListener('click', () => {
             ensureCustomSteps();
             itemState.customSteps.push('새 단계 입력');
-            itemState.steps.push({ checked: false, dueDate: '', completedAt: '' });
+            itemState.steps.push({ id: createChecklistStepId(itemKey, itemState.steps.length), checked: false, dueDate: '', completedAt: '' });
             preserveWindowScroll(() => {
               savePlannerState(plannerState);
               syncOverviewWidgets(plannerState);
@@ -9396,6 +9451,7 @@
             }));
 
             itemState.steps = itemState.steps.map(() => ({
+              id: createChecklistStepId(itemKey),
               checked: false,
               dueDate: '',
               completedAt: ''
@@ -9570,6 +9626,7 @@
 
         const updateLatestActivityPanel = (skipPersist = false) => {
           itemState.steps = itemState.steps.map((step, idx) => ({
+            id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, idx),
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
             completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
@@ -9689,6 +9746,7 @@
             }));
 
             itemState.steps = itemState.steps.map(() => ({
+              id: createChecklistStepId(itemKey),
               checked: false,
               dueDate: '',
               completedAt: ''
@@ -9738,6 +9796,7 @@
                   itemKey,
                   goalKey: currentGoal,
                   stepIndex: idx,
+                  checklistId: typeof itemState.steps[idx].id === 'string' ? itemState.steps[idx].id : '',
                   stepText
                 });
               }
