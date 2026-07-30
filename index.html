@@ -149,6 +149,11 @@
     .today-activity-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
     .today-activity-date { font-size: 12px; font-weight: 800; color: #5a748f; background: #eef5ff; border: 1px solid #d8e6f5; border-radius: 999px; padding: 6px 10px; }
+    .today-activity-filter-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid #cfe0ef; border-radius: 999px; background: #ffffff; }
+    .today-activity-filter-btn { border: none; border-radius: 999px; background: transparent; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .today-activity-filter-btn.active { background: #0f5f9d; color: #ffffff; }
+    .today-activity-filter-btn:hover { background: #e7f1ff; }
+    .today-activity-filter-btn.active:hover { background: #0b73bc; }
     .today-activity-clear-btn { display: none; border: 1px solid #d9a8a8; border-radius: 10px; background: #fff7f7; color: #9a3737; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
     .today-activity-clear-btn:hover { background: #ffecec; }
@@ -1008,7 +1013,7 @@
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, onValue, ref, remove, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, onValue, push, ref, remove, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -1059,6 +1064,7 @@
       ref,
       set,
       update,
+      push,
       getDoc,
       onSnapshot,
       updateDoc,
@@ -1087,6 +1093,14 @@
       getCalendarEventRef(eventId) {
         if (!db || !eventId) return null;
         return ref(db, `plans/skf-daily/calendarEvents/${eventId}`);
+      },
+      getActivityLogsRef() {
+        if (!db) return null;
+        return ref(db, 'activityLogs');
+      },
+      getActivityLogRef(logId) {
+        if (!db || !logId) return null;
+        return ref(db, `activityLogs/${logId}`);
       },
       getConnectedRef() {
         if (!db) return null;
@@ -1240,6 +1254,10 @@
             <div class="today-activity-meta">오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.</div>
           </div>
           <div class="today-activity-header-tools">
+            <div class="today-activity-filter-toggle" aria-label="오늘 활동 필터">
+              <button type="button" class="today-activity-filter-btn active" id="todayActivityAllBtn">전체</button>
+              <button type="button" class="today-activity-filter-btn" id="todayActivityMineBtn">내 활동</button>
+            </div>
             <button type="button" class="today-activity-history-btn" id="allTimelineHistoryBtn">📅 전체 히스토리 모아보기</button>
             <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
             <div class="today-activity-date" id="todayActivityDate">오늘</div>
@@ -1563,6 +1581,8 @@
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
+    const todayActivityAllBtn = document.getElementById('todayActivityAllBtn');
+    const todayActivityMineBtn = document.getElementById('todayActivityMineBtn');
     const allTimelineHistoryBtn = document.getElementById('allTimelineHistoryBtn');
     const timelineTodayBtn = document.getElementById('timelineTodayBtn');
     const miniCalendarSection = document.getElementById('miniCalendarSection');
@@ -1699,9 +1719,16 @@
     let dashboardUnifiedOverviewState = null;
     let dashboardUnifiedTimelineEntries = [];
     let dashboardUnifiedLoadPromise = null;
+    let activityTimelineEntries = [];
+    let activityTimelineLoadPromise = null;
     let timelineHistoryEntries = [];
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
+    let timelineActivityFilterMode = 'all';
+    let timelineActivityLoading = true;
+    let timelineActivityLoadError = '';
+    let timelineActivityRealtimeUnsubscribe = null;
+    const ACTIVITY_LOGS_MIGRATED_KEY = 'skfActivityLogsMigratedToFirebaseV1';
     const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
     const MINI_CALENDAR_MIGRATED_KEY = 'skfMiniCalendarMigratedToFirebaseV1';
     const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
@@ -4442,6 +4469,347 @@
       return Number.isNaN(time) ? 0 : time;
     }
 
+    function parseActivityTimestamp(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (value instanceof Date) {
+        const time = value.getTime();
+        return Number.isNaN(time) ? 0 : time;
+      }
+      if (typeof value !== 'string') return 0;
+      const text = value.trim();
+      if (!text) return 0;
+      const numeric = Number(text);
+      if (Number.isFinite(numeric)) return numeric;
+      return parseIsoTimestamp(text);
+    }
+
+    function getKstDateKeyFromTimestamp(value) {
+      const time = parseActivityTimestamp(value);
+      if (!time) return '';
+      const kstDate = new Date(time + 9 * 60 * 60 * 1000);
+      if (Number.isNaN(kstDate.getTime())) return '';
+      const year = kstDate.getUTCFullYear();
+      const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(kstDate.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getActivityLogAuthorInfo() {
+      const user = currentFirebaseUser || (getFirebaseBridge() && getFirebaseBridge().auth ? getFirebaseBridge().auth.currentUser : null);
+      return {
+        authorId: user ? (user.uid || user.email || '') : '',
+        authorName: user ? (user.displayName || user.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL
+      };
+    }
+
+    function normalizeActivityLogEntry(rawEntry, fallback = {}) {
+      if (!rawEntry || typeof rawEntry !== 'object') return null;
+      const type = ['comment', 'checklist', 'card'].includes(rawEntry.type) ? rawEntry.type : (fallback.type || 'card');
+      const cardId = typeof rawEntry.cardId === 'string' && rawEntry.cardId.trim() ? rawEntry.cardId.trim() : (typeof fallback.cardId === 'string' ? fallback.cardId.trim() : '');
+      const cardTitle = typeof rawEntry.cardTitle === 'string' && rawEntry.cardTitle.trim() ? rawEntry.cardTitle.trim() : (typeof fallback.cardTitle === 'string' ? fallback.cardTitle.trim() : cardId);
+      const content = typeof rawEntry.content === 'string' ? rawEntry.content.trim() : (typeof fallback.content === 'string' ? fallback.content.trim() : '');
+      const authorId = typeof rawEntry.authorId === 'string' && rawEntry.authorId.trim() ? rawEntry.authorId.trim() : (typeof fallback.authorId === 'string' ? fallback.authorId.trim() : '');
+      const authorName = typeof rawEntry.authorName === 'string' && rawEntry.authorName.trim() ? rawEntry.authorName.trim() : (typeof fallback.authorName === 'string' ? fallback.authorName.trim() : EDITOR_NAME_LABEL);
+      const createdAtRaw = rawEntry.createdAt || fallback.createdAt || rawEntry.timestamp || fallback.timestamp || new Date().toISOString();
+      const createdAt = parseActivityTimestamp(createdAtRaw) > 0
+        ? new Date(parseActivityTimestamp(createdAtRaw)).toISOString()
+        : new Date().toISOString();
+      return {
+        logId: typeof rawEntry.logId === 'string' && rawEntry.logId.trim() ? rawEntry.logId.trim() : (typeof fallback.logId === 'string' ? fallback.logId.trim() : ''),
+        type,
+        cardId,
+        cardTitle,
+        content,
+        authorId,
+        authorName,
+        createdAt,
+        dateKey: getKstDateKeyFromTimestamp(createdAt),
+        sourceType: typeof rawEntry.sourceType === 'string' ? rawEntry.sourceType : (typeof fallback.sourceType === 'string' ? fallback.sourceType : 'remote')
+      };
+    }
+
+    function buildActivityLogPayload(type, details = {}) {
+      const author = getActivityLogAuthorInfo();
+      const timestamp = typeof details.createdAt === 'string' && details.createdAt.trim() ? details.createdAt.trim() : new Date().toISOString();
+      const cardId = typeof details.cardId === 'string' ? details.cardId : '';
+      const cardTitle = typeof details.cardTitle === 'string' && details.cardTitle.trim() ? details.cardTitle.trim() : cardId;
+      const content = typeof details.content === 'string' ? details.content.trim() : '';
+      return {
+        type: ['comment', 'checklist', 'card'].includes(type) ? type : 'card',
+        cardId,
+        cardTitle,
+        content,
+        authorId: typeof details.authorId === 'string' ? details.authorId : author.authorId,
+        authorName: typeof details.authorName === 'string' && details.authorName.trim() ? details.authorName.trim() : author.authorName,
+        createdAt: timestamp
+      };
+    }
+
+    function formatActivityLogContent(type, payload = {}) {
+      const cardTitle = typeof payload.cardTitle === 'string' && payload.cardTitle.trim() ? payload.cardTitle.trim() : (typeof payload.cardId === 'string' ? payload.cardId : '');
+      if (type === 'comment') return typeof payload.content === 'string' && payload.content.trim() ? payload.content.trim() : '코멘트 추가';
+      if (type === 'checklist') return typeof payload.content === 'string' && payload.content.trim() ? payload.content.trim() : '체크리스트 완료';
+      if (type === 'card') return typeof payload.content === 'string' && payload.content.trim() ? payload.content.trim() : (cardTitle ? `히스토리 등록: ${cardTitle}` : '히스토리 등록');
+      return typeof payload.content === 'string' ? payload.content.trim() : '';
+    }
+
+    function getActivityLogFingerprint(entry) {
+      return [entry && entry.type ? entry.type : '', entry && entry.cardId ? entry.cardId : '', entry && entry.cardTitle ? entry.cardTitle : '', entry && entry.content ? entry.content : '', entry && entry.authorId ? entry.authorId : '', entry && entry.authorName ? entry.authorName : '', entry && entry.createdAt ? entry.createdAt : ''].join('|');
+    }
+
+    function loadActivityLogsFromRemoteValue(remoteValue) {
+      const sourceItems = Array.isArray(remoteValue)
+        ? remoteValue
+        : (remoteValue && typeof remoteValue === 'object' ? Object.entries(remoteValue).map(([logId, value]) => ({ logId, ...(value && typeof value === 'object' ? value : {}) })) : []);
+      return sourceItems
+        .map((item) => normalizeActivityLogEntry(item, { logId: item && item.logId ? item.logId : '' }))
+        .filter(Boolean)
+        .sort((left, right) => parseActivityTimestamp(right.createdAt) - parseActivityTimestamp(left.createdAt));
+    }
+
+    function loadLegacyActivityLogsForMigration() {
+      const logs = [];
+      const seen = new Set();
+      const pushIfUnique = (entry) => {
+        const normalized = normalizeActivityLogEntry(entry, entry);
+        if (!normalized) return;
+        const fingerprint = getActivityLogFingerprint(normalized);
+        if (seen.has(fingerprint)) return;
+        seen.add(fingerprint);
+        logs.push(normalized);
+      };
+
+      try {
+        const legacyRaw = localStorage.getItem('skfActivityLogsV1');
+        if (legacyRaw) {
+          const parsed = JSON.parse(legacyRaw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(pushIfUnique);
+          }
+        }
+      } catch (error) {
+        console.warn('활동 로그 legacy key 파싱 실패', error);
+      }
+
+      getStoredPlannerSnapshotEntries().forEach((snapshotEntry) => {
+        const snapshotState = snapshotEntry && snapshotEntry.state ? snapshotEntry.state : null;
+        const authorName = snapshotState && snapshotState.meta && typeof snapshotState.meta.updatedByName === 'string' ? snapshotState.meta.updatedByName : EDITOR_NAME_LABEL;
+        const authorId = snapshotState && snapshotState.meta && typeof snapshotState.meta.updatedByUid === 'string' ? snapshotState.meta.updatedByUid : '';
+        Object.entries((snapshotState && snapshotState.items) || {}).forEach(([itemKey, itemState]) => {
+          const context = getTimelineItemContext(snapshotState, itemKey);
+          if (!context.item) return;
+          const cardTitle = getCardActivityTitle(snapshotState, itemKey);
+          const cardId = itemKey;
+
+          (Array.isArray(itemState && itemState.comments) ? itemState.comments : []).forEach((comment, commentIndex) => {
+            const createdAt = (comment && (comment.updatedAt || comment.timestamp)) || (snapshotState && snapshotState.meta && snapshotState.meta.lastUpdatedAt) || '';
+            pushIfUnique({
+              type: 'comment',
+              cardId,
+              cardTitle,
+              content: comment && typeof comment.text === 'string' ? comment.text.trim() : '',
+              authorId,
+              authorName,
+              createdAt,
+              sourceType: 'legacy',
+              sourceIndex: commentIndex
+            });
+          });
+
+          (Array.isArray(itemState && itemState.activityLog) ? itemState.activityLog : []).forEach((logEntry, logIndex) => {
+            if (!logEntry || typeof logEntry !== 'object') return;
+            if (logEntry.type === 'checklist-complete') {
+              pushIfUnique({
+                type: 'checklist',
+                cardId,
+                cardTitle,
+                content: logEntry.stepComment || logEntry.stepText || '체크리스트 항목 완료',
+                authorId,
+                authorName,
+                createdAt: logEntry.timestamp || snapshotState?.meta?.lastUpdatedAt || '',
+                sourceType: 'legacy',
+                sourceIndex: logIndex
+              });
+            }
+            if (logEntry.type === 'history-add') {
+              pushIfUnique({
+                type: 'card',
+                cardId,
+                cardTitle,
+                content: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 등록',
+                authorId,
+                authorName,
+                createdAt: logEntry.timestamp || logEntry.completedAt || snapshotState?.meta?.lastUpdatedAt || '',
+                sourceType: 'legacy',
+                sourceIndex: logIndex
+              });
+            }
+          });
+        });
+      });
+
+      return logs.sort((left, right) => parseActivityTimestamp(right.createdAt) - parseActivityTimestamp(left.createdAt));
+    }
+
+    function markActivityLogsMigrationComplete() {
+      try {
+        localStorage.setItem(ACTIVITY_LOGS_MIGRATED_KEY, '1');
+        localStorage.removeItem('skfActivityLogsV1');
+      } catch (error) {
+        console.warn('활동 로그 마이그레이션 플래그 저장 실패', error);
+      }
+    }
+
+    function isActivityLogsMigrated() {
+      try {
+        return localStorage.getItem(ACTIVITY_LOGS_MIGRATED_KEY) === '1';
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function setActivityTimelineLoadingState(isLoading, errorMessage = '') {
+      timelineActivityLoading = Boolean(isLoading);
+      timelineActivityLoadError = errorMessage || '';
+    }
+
+    function getActivityTimelineBridge() {
+      return getFirebaseBridge();
+    }
+
+    function getActivityTimelineRef() {
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || typeof bridge.getActivityLogsRef !== 'function') return null;
+      return bridge.getActivityLogsRef();
+    }
+
+    function createActivityTimelineEntryFromLog(logEntry) {
+      const normalized = normalizeActivityLogEntry(logEntry);
+      if (!normalized) return null;
+      const timestamp = parseActivityTimestamp(normalized.createdAt);
+      return {
+        type: normalized.type,
+        timestamp,
+        itemKey: normalized.cardId,
+        goalKey: normalized.cardId ? String(normalized.cardId).split('::')[0] : '',
+        cardTitle: normalized.cardTitle || normalized.cardId,
+        title: normalized.cardTitle || normalized.cardId,
+        timeText: timestamp ? formatEntryDateTime(timestamp) : '',
+        detail: normalized.content || '',
+        dateKey: normalized.dateKey || getKstDateKeyFromTimestamp(normalized.createdAt),
+        authorId: normalized.authorId || '',
+        authorName: normalized.authorName || EDITOR_NAME_LABEL,
+        logId: normalized.logId || '',
+        sourceType: normalized.sourceType || 'remote'
+      };
+    }
+
+    function getActivityTimelineEntriesForDate(dateKey = getLocalDateKey()) {
+      const normalizedDateKey = formatDateToISO(dateKey) || getLocalDateKey();
+      return activityTimelineEntries
+        .filter((entry) => entry && entry.dateKey === normalizedDateKey)
+        .sort((left, right) => right.timestamp - left.timestamp);
+    }
+
+    function filterActivityTimelineEntriesByAuthor(entries, filterMode = 'all') {
+      if (filterMode !== 'mine') return Array.isArray(entries) ? entries.slice() : [];
+      const author = getActivityLogAuthorInfo();
+      return (Array.isArray(entries) ? entries : []).filter((entry) => {
+        if (!entry) return false;
+        if (!entry.authorId && !entry.authorName) return true;
+        if (author.authorId && entry.authorId && entry.authorId === author.authorId) return true;
+        if (author.authorName && entry.authorName && entry.authorName === author.authorName) return true;
+        return false;
+      });
+    }
+
+    async function recordSharedActivityLog(type, details = {}) {
+      const bridge = getActivityTimelineBridge();
+      const rootRef = getActivityTimelineRef();
+      if (!bridge || !rootRef || typeof bridge.push !== 'function') return null;
+      const payload = buildActivityLogPayload(type, {
+        cardId: typeof details.cardId === 'string' ? details.cardId : '',
+        cardTitle: typeof details.cardTitle === 'string' ? details.cardTitle : '',
+        content: formatActivityLogContent(type, details),
+        createdAt: typeof details.createdAt === 'string' ? details.createdAt : '',
+        authorId: typeof details.authorId === 'string' ? details.authorId : '',
+        authorName: typeof details.authorName === 'string' ? details.authorName : ''
+      });
+
+      const record = {
+        ...payload,
+        content: formatActivityLogContent(type, details)
+      };
+
+      try {
+        const result = await bridge.push(rootRef, record);
+        return result || null;
+      } catch (error) {
+        console.error('활동 로그 저장 실패', error);
+        return null;
+      }
+    }
+
+    async function migrateActivityLogsIfNeeded() {
+      if (isActivityLogsMigrated()) return;
+      const legacyLogs = loadLegacyActivityLogsForMigration();
+      if (!legacyLogs.length) {
+        markActivityLogsMigrationComplete();
+        return;
+      }
+
+      const bridge = getActivityTimelineBridge();
+      const rootRef = getActivityTimelineRef();
+      if (!bridge || !rootRef || typeof bridge.push !== 'function') return;
+
+      try {
+        for (const legacyLog of legacyLogs) {
+          const payload = buildActivityLogPayload(legacyLog.type, legacyLog);
+          await bridge.push(rootRef, payload);
+        }
+        markActivityLogsMigrationComplete();
+      } catch (error) {
+        console.error('활동 로그 이관 실패', error);
+      }
+    }
+
+    function attachActivityTimelineRealtimeListener() {
+      const bridge = getActivityTimelineBridge();
+      const rootRef = getActivityTimelineRef();
+      if (!bridge || !rootRef || typeof bridge.onValue !== 'function') return;
+
+      if (timelineActivityRealtimeUnsubscribe) {
+        timelineActivityRealtimeUnsubscribe();
+        timelineActivityRealtimeUnsubscribe = null;
+      }
+
+      setActivityTimelineLoadingState(true);
+      timelineActivityRealtimeUnsubscribe = bridge.onValue(rootRef, (snapshot) => {
+        try {
+          const nextLogs = loadActivityLogsFromRemoteValue(snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null);
+          activityTimelineEntries = nextLogs.map(createActivityTimelineEntryFromLog).filter(Boolean);
+          timelineActivityLoading = false;
+          timelineActivityLoadError = '';
+          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+          if (timelineHistoryEntries.length) {
+            timelineHistoryEntries = activityTimelineEntries.slice();
+            setTimelineHistoryMonthFilterOptions(timelineHistoryEntries);
+            renderTimelineHistoryModalBody();
+          }
+        } catch (error) {
+          console.error('활동 로그 구독 처리 실패', error);
+          timelineActivityLoading = false;
+          timelineActivityLoadError = '활동 로그를 불러오는 중 오류가 발생했습니다.';
+          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+        }
+      }, (error) => {
+        console.error('활동 로그 실시간 구독 실패', error);
+        timelineActivityLoading = false;
+        timelineActivityLoadError = '활동 로그를 불러오지 못했습니다.';
+        renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+      });
+    }
+
     function getLatestCommentActivityTimestamp(itemState) {
       if (!Array.isArray(itemState && itemState.comments)) return 0;
       return itemState.comments
@@ -6667,6 +7035,15 @@
       return rows;
     }
 
+    function setTodayActivityFilterButtons() {
+      if (todayActivityAllBtn) {
+        todayActivityAllBtn.classList.toggle('active', timelineActivityFilterMode === 'all');
+      }
+      if (todayActivityMineBtn) {
+        todayActivityMineBtn.classList.toggle('active', timelineActivityFilterMode === 'mine');
+      }
+    }
+
     async function loadTimelineSnapshotsFromRemote() {
       try {
         const bridge = await waitForFirebaseBridge();
@@ -6792,7 +7169,7 @@
         dashboardUnifiedOverviewState = buildUnifiedOverviewStateFromSnapshots(snapshots);
 
         if (!timelineHistoryEntries.length || reason === 'history-modal-open' || reason === 'initialize' || reason === 'date-change') {
-          timelineHistoryEntries = dashboardUnifiedTimelineEntries.slice();
+          timelineHistoryEntries = activityTimelineEntries.length ? activityTimelineEntries.slice() : dashboardUnifiedTimelineEntries.slice();
         }
 
         const selectedDate = formatDateToYYYYMMDD(getTimelineSelectedDateKey()) || getLocalDateKey();
@@ -6846,7 +7223,7 @@
                   ? '업무 코멘트'
                   : entry.type === 'checklist'
                     ? '업무 수행 완료'
-                    : '히스토리 추가';
+                    : '카드 히스토리';
                 return `
                   <li>
                     <div class="timeline-history-row">
@@ -6900,7 +7277,7 @@
       }
 
       await refreshDashboardUnifiedData('history-modal-open');
-      timelineHistoryEntries = dashboardUnifiedTimelineEntries.slice();
+      timelineHistoryEntries = activityTimelineEntries.length ? activityTimelineEntries.slice() : dashboardUnifiedTimelineEntries.slice();
       setTimelineHistoryMonthFilterOptions(timelineHistoryEntries);
       renderTimelineHistoryModalBody();
       if (timelineHistoryModalSubtitle) {
@@ -6924,16 +7301,25 @@
       if (todayTimelineClearBtn) {
         todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
       }
+      setTodayActivityFilterButtons();
 
-      const unifiedEntries = Array.isArray(dashboardUnifiedTimelineEntries)
-        ? dashboardUnifiedTimelineEntries
-            .filter((entry) => formatDateToYYYYMMDD(entry && entry.dateKey) === selectedDateKey)
-            .sort((left, right) => right.timestamp - left.timestamp)
-        : [];
-      const entries = unifiedEntries.length ? unifiedEntries : collectTodayActivityEntries(state, selectedDateKey);
+      const sharedEntries = getActivityTimelineEntriesForDate(selectedDateKey);
+      const filteredSharedEntries = filterActivityTimelineEntriesByAuthor(sharedEntries, timelineActivityFilterMode);
+      const fallbackEntries = collectTodayActivityEntries(state, selectedDateKey);
+      const entries = filteredSharedEntries.length ? filteredSharedEntries : filterActivityTimelineEntriesByAuthor(fallbackEntries, timelineActivityFilterMode);
+      console.log('[timeline] today entries', {
+        selectedDateKey,
+        totalCount: sharedEntries.length,
+        filteredCount: filteredSharedEntries.length,
+        fallbackCount: fallbackEntries.length,
+        filterMode: timelineActivityFilterMode
+      });
+
       if (!entries.length) {
         todayActivityList.innerHTML = '';
-        todayActivityEmpty.textContent = `${selectedDateKey} 기준으로 등록된 업무 코멘트/활동 내역이 없습니다.`;
+        todayActivityEmpty.textContent = timelineActivityLoading
+          ? '오늘 활동 로그를 불러오는 중입니다...'
+          : (timelineActivityLoadError || `${selectedDateKey} 기준으로 등록된 업무 코멘트/활동 내역이 없습니다.`);
         todayActivityEmpty.style.display = 'block';
         return;
       }
@@ -6943,9 +7329,9 @@
           ? '오늘의 업무 코멘트'
           : entry.type === 'checklist'
             ? '업무 수행 완료'
-            : '히스토리 추가';
+            : '카드 히스토리';
         const focusStep = Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex : '';
-        const canDeleteRow = canManageTimeline && (entry.sourceType === 'comment' || entry.sourceType === 'activity') && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0;
+        const canDeleteRow = canManageTimeline && Boolean(entry.logId || (entry.sourceType === 'comment' || entry.sourceType === 'activity') && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0);
         return `
           <li>
             <div class="today-activity-row">
@@ -6959,6 +7345,7 @@
                 type="button"
                 class="today-activity-delete-btn${canDeleteRow ? ' visible' : ''}"
                 data-timeline-action="delete"
+                data-timeline-log-id="${escapeHtml(entry.logId || '')}"
                 data-source-type="${escapeHtml(entry.sourceType || '')}"
                 data-source-index="${Number.isInteger(entry.sourceIndex) ? entry.sourceIndex : -1}"
                 data-key="${escapeHtml(entry.itemKey)}"
@@ -11306,6 +11693,13 @@
               firebaseArchiveId: archiveResult.archiveId
             });
 
+            void recordSharedActivityLog('card', {
+              cardId: itemKey,
+              cardTitle: getCardActivityTitle(plannerState, itemKey),
+              content: `${roundDate} 회차 수행 완료`,
+              createdAt: nowIso
+            });
+
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
@@ -11451,6 +11845,13 @@
                 commentSummary: nextSummary || '코멘트 기록 없음'
               };
 
+              void recordSharedActivityLog('card', {
+                cardId: itemKey,
+                cardTitle: getCardActivityTitle(plannerState, itemKey),
+                content: nextTitle,
+                createdAt: `${nextDate}T00:00:00.000Z`
+              });
+
               historyEditIndex = -1;
               savePlannerState(plannerState);
               rerenderHistoryArchive();
@@ -11588,6 +11989,14 @@
               completedAt: new Date().toISOString(),
               commentSummary: createCommentSummary(itemState.comments)
             });
+
+            void recordSharedActivityLog('card', {
+              cardId: itemKey,
+              cardTitle: getCardActivityTitle(plannerState, itemKey),
+              content: projectName,
+              createdAt: new Date().toISOString()
+            });
+
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
@@ -11641,13 +12050,19 @@
               itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
               if (checkbox.checked) {
                 const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
+                const stepComment = itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string' ? itemState.steps[idx].comment : '';
                 upsertChecklistActivityLog(itemState, {
                   itemKey,
                   goalKey: currentGoal,
                   stepIndex: idx,
                   checklistId: typeof itemState.steps[idx].id === 'string' ? itemState.steps[idx].id : '',
                   stepText,
-                  stepComment: itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string' ? itemState.steps[idx].comment : ''
+                  stepComment
+                });
+                void recordSharedActivityLog('checklist', {
+                  cardId: itemKey,
+                  cardTitle: getCardActivityTitle(plannerState, itemKey),
+                  content: stepText ? `완료 단계: ${stepText}${stepComment ? ` | 💬 ${stepComment}` : ''}` : `완료 단계: ${idx + 1}단계`
                 });
               }
             }
@@ -12709,6 +13124,20 @@
         });
       }
 
+      if (todayActivityAllBtn) {
+        todayActivityAllBtn.addEventListener('click', () => {
+          timelineActivityFilterMode = 'all';
+          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+        });
+      }
+
+      if (todayActivityMineBtn) {
+        todayActivityMineBtn.addEventListener('click', () => {
+          timelineActivityFilterMode = 'mine';
+          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+        });
+      }
+
       if (miniCalendarSection) {
         miniCalendarSection.addEventListener('click', (event) => {
           const moreButton = event.target.closest('[data-mini-calendar-more-date]');
@@ -12852,11 +13281,32 @@
       }, true);
 
       if (todayActivityList) {
-        todayActivityList.addEventListener('click', (event) => {
+        todayActivityList.addEventListener('click', async (event) => {
           const deleteButton = event.target.closest('[data-timeline-action="delete"]');
           if (deleteButton) {
             if (!EDIT_MODE_REQUESTED || !currentFirebaseUser) {
               window.alert('편집 모드 로그인 상태에서만 타임라인 항목을 삭제할 수 있습니다.');
+              return;
+            }
+
+            const logId = deleteButton.dataset.timelineLogId || '';
+            if (logId) {
+              const bridge = getActivityTimelineBridge();
+              const logRef = bridge && typeof bridge.getActivityLogRef === 'function' ? bridge.getActivityLogRef(logId) : null;
+              if (!bridge || !logRef || typeof bridge.remove !== 'function') {
+                window.alert('공용 타임라인 로그를 삭제할 수 없습니다. Firebase 연결을 확인해 주세요.');
+                return;
+              }
+
+              const confirmed = window.confirm('이 타임라인 기록을 삭제하시겠습니까?');
+              if (!confirmed) return;
+
+              try {
+                await bridge.remove(logRef);
+              } catch (error) {
+                console.error('공용 타임라인 로그 삭제 실패', error);
+                window.alert('타임라인 기록 삭제에 실패했습니다.');
+              }
               return;
             }
 
@@ -12907,7 +13357,7 @@
       }
 
       if (todayTimelineClearBtn) {
-        todayTimelineClearBtn.addEventListener('click', () => {
+        todayTimelineClearBtn.addEventListener('click', async () => {
           if (!EDIT_MODE_REQUESTED || !currentFirebaseUser) {
             window.alert('편집 모드 로그인 상태에서만 초기화할 수 있습니다.');
             return;
@@ -12921,6 +13371,20 @@
 
           const confirmed = window.confirm(`${selectedDateKey} 타임라인 기록을 모두 삭제하시겠습니까? (선택 날짜 코멘트/활동 로그가 삭제됩니다)`);
           if (!confirmed) return;
+
+          const bridge = getActivityTimelineBridge();
+          const rootRef = getActivityTimelineRef();
+          const targetRemoteLogs = activityTimelineEntries.filter((entry) => entry && entry.dateKey === selectedDateKey && entry.logId);
+          let removedRemoteCount = 0;
+          if (bridge && rootRef && typeof bridge.remove === 'function' && typeof bridge.getActivityLogRef === 'function' && targetRemoteLogs.length) {
+            try {
+              await Promise.all(targetRemoteLogs.map((entry) => bridge.remove(bridge.getActivityLogRef(entry.logId))));
+              removedRemoteCount = targetRemoteLogs.length;
+            } catch (error) {
+              console.error('공용 타임라인 초기화 실패', error);
+              window.alert('공용 타임라인 기록을 삭제하지 못했습니다.');
+            }
+          }
 
           const plannerState = loadPlannerState();
           let changedCount = 0;
@@ -12956,7 +13420,7 @@
             }
           });
 
-          if (changedCount === 0) {
+          if (changedCount === 0 && removedRemoteCount === 0) {
             window.alert('삭제할 타임라인 기록이 없습니다.');
             return;
           }
@@ -13008,6 +13472,8 @@
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       initializeMiniCalendar();
+      attachActivityTimelineRealtimeListener();
+      await migrateActivityLogsIfNeeded();
       resetTimelineDateToToday();
       await refreshDashboardUnifiedData('initialize');
       await loadNewsConfigOnce();
