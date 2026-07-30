@@ -264,6 +264,108 @@
     .team-overview-progress-comment,
     .team-overview-progress-completion { font-size: 11px; line-height: 1.3; color: #536980; }
     .team-overview-progress-comment { white-space: normal; }
+    .mini-calendar-section { margin-top: 14px; border: 1px solid #d8e5f1; border-radius: 18px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); box-shadow: 0 14px 26px rgba(14, 27, 45, 0.06); padding: 14px; display: grid; gap: 10px; }
+    .mini-calendar-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .mini-calendar-title { font-size: 16px; font-weight: 900; color: #173b5f; }
+    .mini-calendar-subtitle { font-size: 12px; color: #6a8197; margin-top: 4px; line-height: 1.5; }
+    .mini-calendar-tools { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .mini-calendar-toggle-pair { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #d1e0ed; border-radius: 12px; background: #f7fbff; }
+    .mini-calendar-toggle-btn,
+    .mini-calendar-mode-btn { height: 32px; border: 1px solid #95b8db; border-radius: 10px; background: #f3f8ff; color: #1f507a; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .mini-calendar-toggle-btn:hover,
+    .mini-calendar-mode-btn:hover { background: #e7f1ff; }
+    .mini-calendar-mode-btn { border-color: transparent; background: transparent; color: #55738f; }
+    .mini-calendar-mode-btn.active { background: #0f5f9d; color: #ffffff; border-color: #0f5f9d; }
+    .mini-calendar-body { display: grid; gap: 8px; min-height: 0; }
+    .mini-calendar-section.collapsed .mini-calendar-body { display: none; }
+    .mini-calendar-collapsed-strip { display: none; min-height: 34px; border-radius: 12px; border: 1px solid #d8e6f4; background: #f6fbff; padding: 8px 10px; align-items: center; gap: 8px; color: #35526f; font-size: 12px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-calendar-section.collapsed .mini-calendar-collapsed-strip { display: flex; }
+    .mini-calendar-strip-label { font-weight: 900; color: #163b5f; white-space: nowrap; }
+    .mini-calendar-strip-items { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-calendar-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mini-calendar-nav-group { display: inline-flex; align-items: center; gap: 8px; }
+    .mini-calendar-nav-btn,
+    .mini-calendar-today-btn { height: 32px; border: 1px solid #c8d9e8; border-radius: 10px; background: #ffffff; color: #23425f; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .mini-calendar-nav-btn:hover,
+    .mini-calendar-today-btn:hover { background: #eef5fd; }
+    .mini-calendar-month-label { font-size: 14px; font-weight: 900; color: #183b5f; min-width: 120px; text-align: center; }
+    .mini-calendar-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; font-size: 10px; font-weight: 800; color: #6b8095; text-align: center; }
+    .mini-calendar-grid { display: grid; gap: 6px; }
+    .mini-calendar-week { display: grid; gap: 4px; }
+    .mini-calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .mini-calendar-day { min-height: 44px; border: 1px solid #dce7f1; border-radius: 10px; background: #ffffff; padding: 4px; display: grid; align-content: start; gap: 3px; cursor: pointer; text-align: left; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+    .mini-calendar-day:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(14, 27, 45, 0.08); border-color: #b8cee3; }
+    .mini-calendar-day.outside-month { background: #f8fbfe; color: #95a7b8; }
+    .mini-calendar-day.is-today { border-color: #0f5f9d; box-shadow: inset 0 0 0 1px rgba(15, 95, 157, 0.08); }
+    .mini-calendar-day.is-selected { border-color: #0f5f9d; background: #eef7ff; }
+    .mini-calendar-day-number { font-size: 12px; font-weight: 900; color: #21486f; }
+    .mini-calendar-day.outside-month .mini-calendar-day-number { color: #94a4b5; }
+    .mini-calendar-section.is-expanded .mini-calendar-day { min-height: 90px; padding: 6px; }
+    .mini-calendar-section.is-expanded .mini-calendar-day-number { font-size: 13px; }
+    .mini-calendar-section.is-expanded .mini-calendar-day-event,
+    .mini-calendar-section.is-expanded .mini-calendar-day-more { min-height: 18px; line-height: 18px; font-size: 12px; }
+    .mini-calendar-section.is-expanded .mini-calendar-day-event { white-space: normal; overflow: visible; text-overflow: clip; align-items: flex-start; height: auto; }
+    .mini-calendar-section.is-expanded .mini-calendar-day-event .mini-calendar-day-event-title { white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; }
+    .mini-calendar-section.is-expanded .mini-calendar-day-event .mini-calendar-day-event-range { white-space: normal; overflow: visible; text-overflow: clip; }
+    .mini-calendar-day-events { display: grid; gap: 2px; }
+    .mini-calendar-day-event,
+    .mini-calendar-day-more { appearance: none; border: 1px solid transparent; border-radius: 3px; min-height: 16px; padding: 0 4px; font-size: 11px; line-height: 16px; font-weight: 800; color: #17324c; display: flex; align-items: center; justify-content: flex-start; text-align: left; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .mini-calendar-day-event .mini-calendar-day-event-range { margin-left: 4px; font-weight: 700; opacity: 0.82; }
+    .mini-calendar-day-event-range { margin-left: 4px; font-weight: 700; opacity: 0.82; white-space: nowrap; }
+    .mini-calendar-day-more { background: #eef5ff; border-color: #c6daee; color: #26527b; justify-content: center; }
+    .mini-calendar-day-more:hover { background: #dfeeff; }
+    .mini-calendar-day-event.pink { background: linear-gradient(90deg, #ffdbe6 0%, #ffc3d5 100%); border-color: #f4b0c6; }
+    .mini-calendar-day-event.yellow { background: linear-gradient(90deg, #fff2bf 0%, #ffe38b 100%); border-color: #e6cf79; }
+    .mini-calendar-day-event.blue { background: linear-gradient(90deg, #d9ecff 0%, #b9dcff 100%); border-color: #9fc8f0; }
+    .mini-calendar-day-event.green { background: linear-gradient(90deg, #dff6e9 0%, #bceecd 100%); border-color: #9dd9b2; }
+    .mini-calendar-day-event.purple { background: linear-gradient(90deg, #ece2ff 0%, #d9c6ff 100%); border-color: #c2a9f2; }
+    .mini-calendar-day-event:hover { filter: brightness(0.985); box-shadow: 0 6px 14px rgba(15, 95, 157, 0.12); }
+    .mini-calendar-empty { border: 1px dashed #cad9e8; border-radius: 14px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; text-align: center; }
+    .mini-calendar-popover { position: fixed; z-index: 2300; width: min(320px, calc(100vw - 20px)); border: 1px solid #cfdced; border-radius: 14px; background: #ffffff; box-shadow: 0 20px 48px rgba(8, 23, 49, 0.24); padding: 12px; display: grid; gap: 10px; }
+    .mini-calendar-popover[hidden] { display: none; }
+    .mini-calendar-popover-header { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .mini-calendar-popover-title { font-size: 13px; font-weight: 900; color: #173b5f; }
+    .mini-calendar-popover-close { border: none; background: #eef4fb; color: #244a70; border-radius: 8px; width: 28px; height: 28px; font-size: 16px; cursor: pointer; }
+    .mini-calendar-popover-list { display: grid; gap: 6px; }
+    .mini-calendar-popover-item { border: 1px solid #dce7f1; border-radius: 10px; padding: 7px 8px; background: #fbfdff; display: grid; gap: 2px; font-size: 12px; color: #24405d; }
+    .mini-calendar-popover-item-title { font-weight: 800; }
+    .mini-calendar-popover-item-meta { font-size: 11px; color: #6a8097; }
+    .mini-calendar-popover-empty { font-size: 12px; color: #6a8097; }
+    .mini-calendar-day-event-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-calendar-modal[hidden] { display: none; }
+    .mini-calendar-modal { position: fixed; inset: 0; z-index: 2150; display: grid; place-items: center; padding: 20px; }
+    .mini-calendar-modal-backdrop { position: absolute; inset: 0; background: rgba(7, 20, 45, 0.62); backdrop-filter: blur(4px); }
+    .mini-calendar-modal-panel { position: relative; width: min(680px, 100%); max-height: min(90vh, 840px); overflow: auto; border-radius: 24px; border: 1px solid #d6e2ec; background: #ffffff; box-shadow: 0 26px 60px rgba(8, 23, 49, 0.28); padding: 18px; display: grid; gap: 14px; }
+    .mini-calendar-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .mini-calendar-modal-kicker { font-size: 11px; font-weight: 900; color: #5f7690; letter-spacing: 0.08em; text-transform: uppercase; }
+    .mini-calendar-modal-title { font-size: 22px; font-weight: 900; color: #173b5f; line-height: 1.3; }
+    .mini-calendar-modal-close-btn { border: none; border-radius: 999px; width: 38px; height: 38px; background: #eef4fb; color: #20496f; font-size: 18px; font-weight: 900; cursor: pointer; }
+    .mini-calendar-modal-close-btn:hover { background: #dfeaf5; }
+    .mini-calendar-modal-body { display: grid; gap: 12px; }
+    .mini-calendar-modal-note { font-size: 12px; color: #60768f; line-height: 1.6; }
+    .mini-calendar-modal-fields { display: grid; gap: 12px; }
+    .mini-calendar-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .mini-calendar-modal-grid .mini-calendar-field.full { grid-column: 1 / -1; }
+    .mini-calendar-field { display: grid; gap: 5px; }
+    .mini-calendar-field label { font-size: 12px; font-weight: 800; color: #244365; }
+    .mini-calendar-input, .mini-calendar-textarea, .mini-calendar-select { width: 100%; border: 1px solid #cfdced; border-radius: 12px; padding: 11px 12px; background: #fdfefe; color: #1f3d5b; font-size: 13px; outline: none; }
+    .mini-calendar-textarea { min-height: 94px; resize: vertical; line-height: 1.5; }
+    .mini-calendar-input:focus, .mini-calendar-textarea:focus, .mini-calendar-select:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .mini-calendar-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #e4ebf2; padding-top: 12px; }
+    .mini-calendar-modal-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .mini-calendar-modal-btn { border: none; border-radius: 12px; padding: 10px 14px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .mini-calendar-modal-btn.secondary { background: #eef4fb; color: #244a70; }
+    .mini-calendar-modal-btn.secondary:hover { background: #dfeaf5; }
+    .mini-calendar-modal-btn.primary { background: #0f5f9d; color: #ffffff; }
+    .mini-calendar-modal-btn.primary:hover { background: #0b73bc; }
+    .mini-calendar-modal-btn.danger { background: #ffe7e7; color: #a32f2f; }
+    .mini-calendar-modal-btn.danger:hover { background: #ffd9d9; }
+    @media (max-width: 760px) {
+      .mini-calendar-modal-grid { grid-template-columns: 1fr; }
+      .mini-calendar-toolbar { justify-content: center; }
+      .mini-calendar-month-label { order: -1; width: 100%; }
+      .mini-calendar-tools { width: 100%; justify-content: space-between; }
+    }
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
@@ -730,7 +832,7 @@
     .leader-summary-title { font-size: 13px; color: #133a61; }
     .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; }
     .leader-summary-empty { font-size: 12px; color: #70839a; }
-    .urgent-deadline-section { margin-top: 14px; background: linear-gradient(135deg, #fff9ef 0%, #fff4e6 100%); border: 1px solid #f0d8ba; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+    .urgent-deadline-section { margin-top: 12px; background: linear-gradient(135deg, #fff9ef 0%, #fff4e6 100%); border: 1px solid #f0d8ba; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
     .urgent-deadline-section strong { font-size: 13px; color: #7a4412; }
     .urgent-deadline-list { display: grid; gap: 8px; }
     .urgent-deadline-item { border: 1px solid #f0dbc2; background: #ffffff; color: #3d3f45; padding: 10px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; line-height: 1.45; cursor: pointer; text-align: left; display: grid; gap: 6px; }
@@ -1018,6 +1120,45 @@
     </section>
 
     <section class="view" id="dashboardView">
+        <section class="mini-calendar-section" id="miniCalendarSection">
+          <div class="mini-calendar-header">
+            <div>
+              <div class="mini-calendar-title">🗓️ 사용자 직접 입력 전용 월간 일정 달력</div>
+              <div class="mini-calendar-subtitle">사용자가 직접 등록한 일정만 표시합니다. 카드/체크리스트 마감일은 자동 연동하지 않습니다.</div>
+            </div>
+            <div class="mini-calendar-tools">
+              <div class="mini-calendar-toggle-pair" aria-label="달력 표시 밀도 전환">
+                <button type="button" class="mini-calendar-mode-btn" id="miniCalendarCompactBtn">컴팩트</button>
+                <button type="button" class="mini-calendar-mode-btn" id="miniCalendarExpandedBtn">펼치기</button>
+              </div>
+              <button type="button" class="mini-calendar-toggle-btn" id="miniCalendarToggleBtn">접기</button>
+            </div>
+          </div>
+          <div class="mini-calendar-collapsed-strip" id="miniCalendarCollapsedStrip"></div>
+          <div class="mini-calendar-body" id="miniCalendarBody">
+            <div class="mini-calendar-toolbar">
+              <div class="mini-calendar-nav-group">
+                <button type="button" class="mini-calendar-nav-btn" id="miniCalendarPrevBtn" aria-label="이전달">‹</button>
+                <div class="mini-calendar-month-label" id="miniCalendarMonthLabel">2026년 8월</div>
+                <button type="button" class="mini-calendar-nav-btn" id="miniCalendarNextBtn" aria-label="다음달">›</button>
+              </div>
+              <button type="button" class="mini-calendar-today-btn" id="miniCalendarTodayBtn">Today</button>
+            </div>
+            <div class="mini-calendar-weekdays">
+              <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+            </div>
+            <div class="mini-calendar-grid" id="miniCalendarGrid"></div>
+          </div>
+        </section>
+
+        <div class="mini-calendar-popover" id="miniCalendarPopover" hidden>
+          <div class="mini-calendar-popover-header">
+            <div class="mini-calendar-popover-title" id="miniCalendarPopoverTitle"></div>
+            <button type="button" class="mini-calendar-popover-close" id="miniCalendarPopoverCloseBtn" aria-label="닫기">×</button>
+          </div>
+          <div class="mini-calendar-popover-list" id="miniCalendarPopoverList"></div>
+        </div>
+
       <section class="team-overview-section" id="teamOverviewSection">
         <div class="team-overview-header">
           <div>
@@ -1058,6 +1199,12 @@
         </div>
       </section>
 
+      <section class="urgent-deadline-section">
+        <strong>⚡ 이번 주 마감 임박 업무 (D-7)</strong>
+        <div class="urgent-deadline-list" id="urgentDeadlineList"></div>
+        <div class="urgent-deadline-empty" id="urgentDeadlineEmpty">🎉 7일 이내 마감 예정인 임박 업무가 없습니다.</div>
+      </section>
+
       <section class="today-activity-section" id="timelineSection">
         <div class="today-activity-header">
           <div>
@@ -1072,12 +1219,6 @@
         </div>
         <ul class="today-activity-list" id="todayActivityList"></ul>
         <div class="today-activity-empty" id="todayActivityEmpty">🎉 오늘 새로 등록된 업무 코멘트나 활동 내역이 없습니다.</div>
-      </section>
-
-      <section class="urgent-deadline-section">
-        <strong>⚡ 이번 주 마감 임박 업무 (D-7)</strong>
-        <div class="urgent-deadline-list" id="urgentDeadlineList"></div>
-        <div class="urgent-deadline-empty" id="urgentDeadlineEmpty">🎉 7일 이내 마감 예정인 임박 업무가 없습니다.</div>
       </section>
 
       <section class="leader-summary-section">
@@ -1312,6 +1453,60 @@
     </section>
   </div>
 
+  <div class="mini-calendar-modal" id="miniCalendarModal" hidden>
+    <div class="mini-calendar-modal-backdrop" data-mini-calendar-action="close"></div>
+    <section class="mini-calendar-modal-panel" role="dialog" aria-modal="true" aria-labelledby="miniCalendarModalTitle">
+      <div class="mini-calendar-modal-header">
+        <div>
+          <div class="mini-calendar-modal-kicker" id="miniCalendarModalKicker">일정 등록</div>
+          <div class="mini-calendar-modal-title" id="miniCalendarModalTitle">새 일정 등록</div>
+        </div>
+        <button type="button" class="mini-calendar-modal-close-btn" data-mini-calendar-action="close" aria-label="닫기">×</button>
+      </div>
+      <div class="mini-calendar-modal-body">
+        <div class="mini-calendar-modal-note">달력 일정은 카드 마감일과 자동 연동되지 않으며, 직접 입력한 일정만 저장됩니다.</div>
+        <div class="mini-calendar-modal-fields">
+          <div class="mini-calendar-modal-grid">
+            <div class="mini-calendar-field full">
+              <label for="miniCalendarEventTitleInput">일정 제목</label>
+              <input type="text" class="mini-calendar-input" id="miniCalendarEventTitleInput" placeholder="예: 휴가, 외근, 회의" />
+            </div>
+            <div class="mini-calendar-field">
+              <label for="miniCalendarEventStartInput">시작일</label>
+              <input type="date" class="mini-calendar-input" id="miniCalendarEventStartInput" />
+            </div>
+            <div class="mini-calendar-field">
+              <label for="miniCalendarEventEndInput">종료일</label>
+              <input type="date" class="mini-calendar-input" id="miniCalendarEventEndInput" />
+            </div>
+            <div class="mini-calendar-field">
+              <label for="miniCalendarEventColorInput">색상 라벨</label>
+              <select class="mini-calendar-select" id="miniCalendarEventColorInput">
+                <option value="pink">핑크 - 휴가</option>
+                <option value="yellow">노랑 - 중요</option>
+                <option value="blue">파랑 - 외근</option>
+                <option value="green">초록 - 개인</option>
+                <option value="purple">보라 - 기타</option>
+              </select>
+            </div>
+            <div class="mini-calendar-field full">
+              <label for="miniCalendarEventMemoInput">간단 메모</label>
+              <textarea class="mini-calendar-textarea" id="miniCalendarEventMemoInput" placeholder="간단 메모를 입력하세요"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mini-calendar-modal-footer">
+        <div class="mini-calendar-modal-note" id="miniCalendarModalNote">저장 후 달력에 즉시 반영됩니다.</div>
+        <div class="mini-calendar-modal-actions">
+          <button type="button" class="mini-calendar-modal-btn secondary" data-mini-calendar-action="close">취소</button>
+          <button type="button" class="mini-calendar-modal-btn danger" id="miniCalendarDeleteBtn" hidden>삭제</button>
+          <button type="button" class="mini-calendar-modal-btn primary" id="miniCalendarSaveBtn">저장</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <div class="timeline-history-modal" id="timelineHistoryModal" hidden>
     <div class="timeline-history-modal-backdrop" data-timeline-history-action="close"></div>
     <section class="timeline-history-modal-panel" role="dialog" aria-modal="true" aria-labelledby="timelineHistoryModalTitle">
@@ -1342,6 +1537,32 @@
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
     const allTimelineHistoryBtn = document.getElementById('allTimelineHistoryBtn');
     const timelineTodayBtn = document.getElementById('timelineTodayBtn');
+    const miniCalendarSection = document.getElementById('miniCalendarSection');
+    const miniCalendarBody = document.getElementById('miniCalendarBody');
+    const miniCalendarCollapsedStrip = document.getElementById('miniCalendarCollapsedStrip');
+    const miniCalendarToggleBtn = document.getElementById('miniCalendarToggleBtn');
+    const miniCalendarCompactBtn = document.getElementById('miniCalendarCompactBtn');
+    const miniCalendarExpandedBtn = document.getElementById('miniCalendarExpandedBtn');
+    const miniCalendarPrevBtn = document.getElementById('miniCalendarPrevBtn');
+    const miniCalendarNextBtn = document.getElementById('miniCalendarNextBtn');
+    const miniCalendarTodayBtn = document.getElementById('miniCalendarTodayBtn');
+    const miniCalendarMonthLabel = document.getElementById('miniCalendarMonthLabel');
+    const miniCalendarGrid = document.getElementById('miniCalendarGrid');
+    const miniCalendarPopover = document.getElementById('miniCalendarPopover');
+    const miniCalendarPopoverTitle = document.getElementById('miniCalendarPopoverTitle');
+    const miniCalendarPopoverList = document.getElementById('miniCalendarPopoverList');
+    const miniCalendarPopoverCloseBtn = document.getElementById('miniCalendarPopoverCloseBtn');
+    const miniCalendarModal = document.getElementById('miniCalendarModal');
+    const miniCalendarModalKicker = document.getElementById('miniCalendarModalKicker');
+    const miniCalendarModalTitle = document.getElementById('miniCalendarModalTitle');
+    const miniCalendarModalNote = document.getElementById('miniCalendarModalNote');
+    const miniCalendarEventTitleInput = document.getElementById('miniCalendarEventTitleInput');
+    const miniCalendarEventStartInput = document.getElementById('miniCalendarEventStartInput');
+    const miniCalendarEventEndInput = document.getElementById('miniCalendarEventEndInput');
+    const miniCalendarEventColorInput = document.getElementById('miniCalendarEventColorInput');
+    const miniCalendarEventMemoInput = document.getElementById('miniCalendarEventMemoInput');
+    const miniCalendarSaveBtn = document.getElementById('miniCalendarSaveBtn');
+    const miniCalendarDeleteBtn = document.getElementById('miniCalendarDeleteBtn');
     const timelineHistoryModal = document.getElementById('timelineHistoryModal');
     const timelineHistoryModalBody = document.getElementById('timelineHistoryModalBody');
     const timelineHistoryModalSubtitle = document.getElementById('timelineHistoryModalSubtitle');
@@ -1450,6 +1671,15 @@
     let timelineHistoryEntries = [];
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
+    const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
+    const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
+    const MINI_CALENDAR_VIEW_MODE_KEY = 'skfMiniCalendarViewModeV1';
+    let miniCalendarEvents = [];
+    let miniCalendarViewDate = new Date('2026-08-01T00:00:00');
+    let miniCalendarModalState = null;
+    let miniCalendarCollapsed = false;
+    let miniCalendarViewMode = 'compact';
+    let miniCalendarPopoverState = null;
     let newsRequestSerial = 0;
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
@@ -5190,6 +5420,434 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function getMiniCalendarDateKey(value) {
+      if (!value) return '';
+      if (value instanceof Date) {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      const raw = String(value).trim();
+      if (!raw) return '';
+      return isValidPlannerDateKey(raw) ? raw : '';
+    }
+
+    function createMiniCalendarDate(dateKey) {
+      return new Date(`${dateKey}T00:00:00`);
+    }
+
+    function cloneMiniCalendarDate(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function formatMiniCalendarMonthLabel(date) {
+      return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long' }).format(date);
+    }
+
+    function normalizeMiniCalendarEvent(rawEvent) {
+      if (!rawEvent || typeof rawEvent !== 'object') return null;
+      const title = typeof rawEvent.title === 'string' ? rawEvent.title.trim() : '';
+      const startDate = getMiniCalendarDateKey(rawEvent.startDate);
+      const endDate = getMiniCalendarDateKey(rawEvent.endDate) || startDate;
+      if (!title || !startDate || !endDate) return null;
+
+      const normalizedStart = startDate <= endDate ? startDate : endDate;
+      const normalizedEnd = startDate <= endDate ? endDate : startDate;
+      const color = ['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.color) ? rawEvent.color : 'blue';
+
+      return {
+        id: typeof rawEvent.id === 'string' && rawEvent.id ? rawEvent.id : `mini-${normalizedStart}-${normalizedEnd}-${Math.random().toString(36).slice(2, 8)}`,
+        title,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
+        color,
+        memo: typeof rawEvent.memo === 'string' ? rawEvent.memo.trim() : '',
+        createdAt: typeof rawEvent.createdAt === 'string' ? rawEvent.createdAt : new Date().toISOString(),
+        updatedAt: typeof rawEvent.updatedAt === 'string' ? rawEvent.updatedAt : new Date().toISOString()
+      };
+    }
+
+    function loadMiniCalendarEvents() {
+      try {
+        const raw = localStorage.getItem(MINI_CALENDAR_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeMiniCalendarEvent).filter(Boolean).sort((left, right) => {
+          if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
+          if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
+          return left.title.localeCompare(right.title);
+        });
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function persistMiniCalendarEvents() {
+      try {
+        localStorage.setItem(MINI_CALENDAR_STORAGE_KEY, JSON.stringify(miniCalendarEvents));
+      } catch (error) {
+        console.error('미니 캘린더 저장에 실패했습니다.', error);
+      }
+    }
+
+    function loadMiniCalendarCollapsedState() {
+      try {
+        const raw = localStorage.getItem(MINI_CALENDAR_COLLAPSED_KEY);
+        return raw === '1';
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function persistMiniCalendarCollapsedState() {
+      try {
+        localStorage.setItem(MINI_CALENDAR_COLLAPSED_KEY, miniCalendarCollapsed ? '1' : '0');
+      } catch (error) {
+        console.error('미니 캘린더 접힘 상태 저장에 실패했습니다.', error);
+      }
+    }
+
+    function loadMiniCalendarViewMode() {
+      try {
+        const raw = localStorage.getItem(MINI_CALENDAR_VIEW_MODE_KEY);
+        return raw === 'expanded' ? 'expanded' : 'compact';
+      } catch (error) {
+        return 'compact';
+      }
+    }
+
+    function persistMiniCalendarViewMode() {
+      try {
+        localStorage.setItem(MINI_CALENDAR_VIEW_MODE_KEY, miniCalendarViewMode === 'expanded' ? 'expanded' : 'compact');
+      } catch (error) {
+        console.error('미니 캘린더 밀도 저장에 실패했습니다.', error);
+      }
+    }
+
+    function getMiniCalendarWeekStart(date) {
+      const result = cloneMiniCalendarDate(date);
+      result.setHours(0, 0, 0, 0);
+      result.setDate(result.getDate() - result.getDay());
+      return result;
+    }
+
+    function addMiniCalendarDays(date, days) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+    }
+
+    function getMiniCalendarEmoji(eventItem) {
+      const color = eventItem && eventItem.color ? eventItem.color : 'blue';
+      if (color === 'pink') return '🏖️';
+      if (color === 'yellow') return '⭐';
+      if (color === 'green') return '✅';
+      if (color === 'purple') return '📝';
+      return '📌';
+    }
+
+    function truncateMiniCalendarTitle(title) {
+      const text = typeof title === 'string' ? title : '';
+      if (text.length <= 8) return text;
+      return `${text.slice(0, 8)}…`;
+    }
+
+    function getMiniCalendarTooltipText(eventItem) {
+      const title = eventItem && eventItem.title ? eventItem.title : '';
+      const rangeLabel = formatMiniCalendarRangeLabel(eventItem && eventItem.startDate, eventItem && eventItem.endDate);
+      const memo = eventItem && eventItem.memo ? eventItem.memo : '메모 없음';
+      return `${title}\n기간: ${rangeLabel}\n메모: ${memo}`;
+    }
+
+    function formatMiniCalendarCompactDate(dateKey) {
+      if (!dateKey) return '';
+      const date = createMiniCalendarDate(dateKey);
+      if (Number.isNaN(date.getTime())) return dateKey;
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    function formatMiniCalendarRangeLabel(startDateKey, endDateKey) {
+      if (!startDateKey || !endDateKey) return '';
+      if (startDateKey === endDateKey) return formatMiniCalendarCompactDate(startDateKey);
+      const startDate = createMiniCalendarDate(startDateKey);
+      const endDate = createMiniCalendarDate(endDateKey);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return `${startDateKey}~${endDateKey}`;
+      const startLabel = `${startDate.getMonth() + 1}/${startDate.getDate()}`;
+      const endLabel = `${endDate.getMonth() + 1}/${endDate.getDate()}`;
+      return startDate.getMonth() === endDate.getMonth() ? `${startLabel}~${endDate.getDate()}` : `${startLabel}~${endLabel}`;
+    }
+
+    function formatMiniCalendarDisplayRange(rangeStart, rangeEnd) {
+      const startLabel = `${rangeStart.getMonth() + 1}/${rangeStart.getDate()}`;
+      const endLabel = `${rangeEnd.getMonth() + 1}/${rangeEnd.getDate()}`;
+      return `${startLabel} ~ ${endLabel}`;
+    }
+
+    function getMiniCalendarEventsForDate(dateKey) {
+      return miniCalendarEvents
+        .filter((eventItem) => eventItem.startDate <= dateKey && eventItem.endDate >= dateKey)
+        .slice()
+        .sort((left, right) => {
+          if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
+          if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
+          return left.title.localeCompare(right.title);
+        });
+    }
+
+    function getMiniCalendarVisibleWeeks() {
+      const monthStart = new Date(miniCalendarViewDate.getFullYear(), miniCalendarViewDate.getMonth(), 1);
+      const monthEnd = new Date(miniCalendarViewDate.getFullYear(), miniCalendarViewDate.getMonth() + 1, 0);
+      const firstWeekStart = getMiniCalendarWeekStart(monthStart);
+      const lastWeekStart = getMiniCalendarWeekStart(monthEnd);
+      const weeks = [];
+      let cursor = cloneMiniCalendarDate(firstWeekStart);
+      while (cursor <= lastWeekStart) {
+        weeks.push(cloneMiniCalendarDate(cursor));
+        cursor = addMiniCalendarDays(cursor, 7);
+      }
+      return weeks;
+    }
+
+    function renderMiniCalendarCollapsedStrip() {
+      if (!miniCalendarCollapsedStrip) return;
+      const weekStart = getMiniCalendarWeekStart(new Date());
+      const weekEnd = addMiniCalendarDays(weekStart, 6);
+      const events = miniCalendarEvents
+        .filter((eventItem) => {
+          const eventStart = createMiniCalendarDate(eventItem.startDate);
+          const eventEnd = createMiniCalendarDate(eventItem.endDate);
+          return !(Number.isNaN(eventStart.getTime()) || Number.isNaN(eventEnd.getTime()) || eventEnd < weekStart || eventStart > weekEnd);
+        })
+        .slice()
+        .sort((left, right) => left.startDate.localeCompare(right.startDate) || left.endDate.localeCompare(right.endDate) || left.title.localeCompare(right.title));
+
+      const stripItems = events.length
+        ? events.slice(0, 2).map((eventItem) => `${escapeHtml(getMiniCalendarEmoji(eventItem))} ${escapeHtml(eventItem.title)}(${escapeHtml(formatMiniCalendarRangeLabel(eventItem.startDate, eventItem.endDate))})`).join(', ')
+        : '없음';
+      miniCalendarCollapsedStrip.innerHTML = `
+        <span class="mini-calendar-strip-label">이번 주 일정:</span>
+        <span class="mini-calendar-strip-items">${stripItems}${events.length > 2 ? ` 외 ${events.length - 2}건` : ''}</span>
+      `;
+    }
+
+    function buildMiniCalendarDayEvents(dateKey, eventsForDay) {
+      const visibleEvents = miniCalendarViewMode === 'compact' ? eventsForDay.slice(0, 2) : eventsForDay;
+      const overflowCount = miniCalendarViewMode === 'compact' ? Math.max(eventsForDay.length - visibleEvents.length, 0) : 0;
+      return `
+        <div class="mini-calendar-day-events">
+          ${visibleEvents.map((eventItem) => `
+            <button type="button" class="mini-calendar-day-event ${eventItem.color}" data-mini-calendar-event-id="${escapeHtml(eventItem.id)}" title="${escapeHtml(getMiniCalendarTooltipText(eventItem))}">
+              <span class="mini-calendar-day-event-emoji">${escapeHtml(getMiniCalendarEmoji(eventItem))}</span>
+              <span class="mini-calendar-day-event-title">${escapeHtml(miniCalendarViewMode === 'compact' ? truncateMiniCalendarTitle(eventItem.title) : eventItem.title)}</span>
+              <span class="mini-calendar-day-event-range">${escapeHtml(formatMiniCalendarRangeLabel(eventItem.startDate, eventItem.endDate))}</span>
+            </button>
+          `).join('')}
+          ${overflowCount > 0 ? `<button type="button" class="mini-calendar-day-more" data-mini-calendar-more-date="${escapeHtml(dateKey)}">+${overflowCount}</button>` : ''}
+        </div>
+      `;
+    }
+
+    function buildMiniCalendarDayCell(cellDate, selectedDateKey, todayDateKey) {
+      const dateKey = getMiniCalendarDateKey(cellDate);
+      const isOutsideMonth = cellDate.getMonth() !== miniCalendarViewDate.getMonth();
+      const eventsForDay = getMiniCalendarEventsForDate(dateKey);
+      return `
+        <div class="mini-calendar-day${isOutsideMonth ? ' outside-month' : ''}${dateKey === todayDateKey ? ' is-today' : ''}${dateKey === selectedDateKey ? ' is-selected' : ''}" data-mini-calendar-date="${dateKey}" role="button" tabindex="0" aria-label="${escapeHtml(formatMiniCalendarMonthLabel(cellDate))} ${cellDate.getDate()}일">
+          <div class="mini-calendar-day-number">${cellDate.getDate()}</div>
+          ${buildMiniCalendarDayEvents(dateKey, eventsForDay)}
+        </div>
+      `;
+    }
+
+    function setMiniCalendarModeButtons() {
+      if (miniCalendarCompactBtn) miniCalendarCompactBtn.classList.toggle('active', miniCalendarViewMode === 'compact');
+      if (miniCalendarExpandedBtn) miniCalendarExpandedBtn.classList.toggle('active', miniCalendarViewMode === 'expanded');
+    }
+
+    function renderMiniCalendarPopover(dateKey, anchorElement) {
+      if (!miniCalendarPopover || !miniCalendarPopoverTitle || !miniCalendarPopoverList) return;
+      const eventsForDay = getMiniCalendarEventsForDate(dateKey);
+      miniCalendarPopoverTitle.textContent = `${dateKey.replace(/-/g, '.')} 전체 일정`;
+      if (!eventsForDay.length) {
+        miniCalendarPopoverList.innerHTML = '<div class="mini-calendar-popover-empty">해당 날짜의 일정이 없습니다.</div>';
+      } else {
+        miniCalendarPopoverList.innerHTML = eventsForDay.map((eventItem) => `
+          <div class="mini-calendar-popover-item">
+            <div class="mini-calendar-popover-item-title">${escapeHtml(eventItem.title)}</div>
+            <div class="mini-calendar-popover-item-meta">${escapeHtml(formatMiniCalendarRangeLabel(eventItem.startDate, eventItem.endDate))}${eventItem.memo ? ` · ${escapeHtml(eventItem.memo)}` : ''}</div>
+          </div>
+        `).join('');
+      }
+
+      miniCalendarPopover.hidden = false;
+      miniCalendarPopover.dataset.dateKey = dateKey;
+
+      const anchorRect = anchorElement ? anchorElement.getBoundingClientRect() : null;
+      const popoverRect = miniCalendarPopover.getBoundingClientRect();
+      let left = anchorRect ? anchorRect.left : 24;
+      let top = anchorRect ? anchorRect.bottom + 8 : 24;
+      const viewportRight = window.innerWidth - 12;
+      const viewportBottom = window.innerHeight - 12;
+      if (left + popoverRect.width > viewportRight) left = Math.max(12, viewportRight - popoverRect.width);
+      if (top + popoverRect.height > viewportBottom && anchorRect) top = Math.max(12, anchorRect.top - popoverRect.height - 8);
+      miniCalendarPopover.style.left = `${Math.max(12, left)}px`;
+      miniCalendarPopover.style.top = `${Math.max(12, top)}px`;
+    }
+
+    function closeMiniCalendarPopover() {
+      if (!miniCalendarPopover) return;
+      miniCalendarPopover.hidden = true;
+      miniCalendarPopover.dataset.dateKey = '';
+    }
+
+    function renderMiniCalendarWidget() {
+      if (!miniCalendarSection || !miniCalendarBody || !miniCalendarToggleBtn || !miniCalendarMonthLabel || !miniCalendarGrid) return;
+
+      miniCalendarSection.classList.toggle('collapsed', miniCalendarCollapsed);
+      miniCalendarSection.classList.toggle('is-compact', miniCalendarViewMode === 'compact');
+      miniCalendarSection.classList.toggle('is-expanded', miniCalendarViewMode === 'expanded');
+      miniCalendarToggleBtn.textContent = miniCalendarCollapsed ? '펼치기' : '접기';
+      setMiniCalendarModeButtons();
+      renderMiniCalendarCollapsedStrip();
+
+      if (miniCalendarCollapsed) {
+        miniCalendarGrid.innerHTML = '';
+        return;
+      }
+
+      const weeks = getMiniCalendarVisibleWeeks();
+      const todayDateKey = getMiniCalendarDateKey(new Date());
+      const selectedDateKey = miniCalendarModalState && miniCalendarModalState.selectedDateKey ? miniCalendarModalState.selectedDateKey : '';
+      miniCalendarMonthLabel.textContent = formatMiniCalendarMonthLabel(miniCalendarViewDate);
+
+      miniCalendarGrid.innerHTML = weeks.map((weekStart) => {
+        const days = [];
+        for (let index = 0; index < 7; index += 1) {
+          const cellDate = addMiniCalendarDays(weekStart, index);
+          days.push(buildMiniCalendarDayCell(cellDate, selectedDateKey, todayDateKey));
+        }
+        return `
+          <div class="mini-calendar-week">
+            <div class="mini-calendar-days">${days.join('')}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openMiniCalendarModal(options = {}) {
+      if (!miniCalendarModal || !miniCalendarEventTitleInput || !miniCalendarEventStartInput || !miniCalendarEventEndInput || !miniCalendarEventColorInput || !miniCalendarEventMemoInput || !miniCalendarSaveBtn || !miniCalendarDeleteBtn) return;
+      const eventId = typeof options.eventId === 'string' ? options.eventId : '';
+      const selectedDateKey = getMiniCalendarDateKey(options.selectedDateKey) || getMiniCalendarDateKey(new Date());
+      const existingEvent = eventId ? miniCalendarEvents.find((eventItem) => eventItem.id === eventId) || null : null;
+      const isEditMode = Boolean(existingEvent);
+      miniCalendarModalState = {
+        eventId,
+        selectedDateKey,
+        mode: isEditMode ? 'edit' : 'create'
+      };
+
+      miniCalendarModalKicker.textContent = isEditMode ? '일정 수정' : '일정 등록';
+      miniCalendarModalTitle.textContent = isEditMode ? '일정 수정' : '새 일정 등록';
+      miniCalendarModalNote.textContent = isEditMode ? '저장하면 선택한 일정이 갱신됩니다.' : '저장하면 달력에 즉시 반영됩니다.';
+      miniCalendarSaveBtn.textContent = isEditMode ? '수정 저장' : '저장';
+      miniCalendarDeleteBtn.hidden = !isEditMode;
+
+      miniCalendarEventTitleInput.value = existingEvent ? existingEvent.title : '';
+      miniCalendarEventStartInput.value = existingEvent ? existingEvent.startDate : selectedDateKey;
+      miniCalendarEventEndInput.value = existingEvent ? existingEvent.endDate : selectedDateKey;
+      miniCalendarEventColorInput.value = existingEvent ? existingEvent.color : 'blue';
+      miniCalendarEventMemoInput.value = existingEvent ? (existingEvent.memo || '') : '';
+      miniCalendarModal.hidden = false;
+      miniCalendarEventTitleInput.focus();
+      miniCalendarEventTitleInput.select();
+    }
+
+    function closeMiniCalendarModal() {
+      if (!miniCalendarModal) return;
+      miniCalendarModal.hidden = true;
+      miniCalendarModalState = null;
+    }
+
+    function saveMiniCalendarModal() {
+      if (!miniCalendarModalState || !miniCalendarEventTitleInput || !miniCalendarEventStartInput || !miniCalendarEventEndInput || !miniCalendarEventColorInput || !miniCalendarEventMemoInput) return;
+      const title = miniCalendarEventTitleInput.value.trim();
+      const startDate = getMiniCalendarDateKey(miniCalendarEventStartInput.value);
+      const endDate = getMiniCalendarDateKey(miniCalendarEventEndInput.value || miniCalendarEventStartInput.value);
+      const color = miniCalendarEventColorInput.value;
+      const memo = miniCalendarEventMemoInput.value.trim();
+
+      if (!title) {
+        window.alert('일정 제목을 입력해 주세요.');
+        miniCalendarEventTitleInput.focus();
+        return;
+      }
+      if (!startDate || !endDate) {
+        window.alert('시작일과 종료일을 확인해 주세요.');
+        return;
+      }
+
+      const normalizedStart = startDate <= endDate ? startDate : endDate;
+      const normalizedEnd = startDate <= endDate ? endDate : startDate;
+      const timestamp = new Date().toISOString();
+      const nextEvent = {
+        id: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId ? miniCalendarModalState.eventId : `mini-${timestamp.replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 7)}`,
+        title,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
+        color: ['pink', 'yellow', 'blue', 'green', 'purple'].includes(color) ? color : 'blue',
+        memo,
+        createdAt: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId
+          ? (miniCalendarEvents.find((eventItem) => eventItem.id === miniCalendarModalState.eventId)?.createdAt || timestamp)
+          : timestamp,
+        updatedAt: timestamp
+      };
+
+      if (miniCalendarModalState.mode === 'edit') {
+        miniCalendarEvents = miniCalendarEvents.map((eventItem) => (eventItem.id === miniCalendarModalState.eventId ? nextEvent : eventItem));
+      } else {
+        miniCalendarEvents = [...miniCalendarEvents, nextEvent];
+      }
+      miniCalendarEvents = miniCalendarEvents
+        .map(normalizeMiniCalendarEvent)
+        .filter(Boolean)
+        .sort((left, right) => {
+          if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
+          if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
+          return left.title.localeCompare(right.title);
+        });
+
+      persistMiniCalendarEvents();
+      closeMiniCalendarPopover();
+      renderMiniCalendarWidget();
+      closeMiniCalendarModal();
+    }
+
+    function deleteMiniCalendarModalEvent() {
+      if (!miniCalendarModalState || !miniCalendarModalState.eventId) return;
+      const confirmed = window.confirm('이 일정을 삭제하시겠습니까?');
+      if (!confirmed) return;
+      miniCalendarEvents = miniCalendarEvents.filter((eventItem) => eventItem.id !== miniCalendarModalState.eventId);
+      persistMiniCalendarEvents();
+      closeMiniCalendarPopover();
+      renderMiniCalendarWidget();
+      closeMiniCalendarModal();
+    }
+
+    function initializeMiniCalendar() {
+      miniCalendarEvents = loadMiniCalendarEvents();
+      miniCalendarCollapsed = loadMiniCalendarCollapsedState();
+      miniCalendarViewMode = loadMiniCalendarViewMode();
+      const now = new Date();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const diffToMonthEnd = Math.floor((monthEnd.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+      if (diffToMonthEnd <= 6) {
+        miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      } else {
+        miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      renderMiniCalendarWidget();
     }
 
     function getDueBadgeInfo(dueDate, checked = false) {
@@ -11775,6 +12433,132 @@
         });
       }
 
+      if (miniCalendarSection) {
+        miniCalendarSection.addEventListener('click', (event) => {
+          const moreButton = event.target.closest('[data-mini-calendar-more-date]');
+          if (moreButton) {
+            event.stopPropagation();
+            renderMiniCalendarPopover(moreButton.dataset.miniCalendarMoreDate || '', moreButton);
+            return;
+          }
+
+          const eventButton = event.target.closest('[data-mini-calendar-event-id]');
+          if (eventButton) {
+            closeMiniCalendarPopover();
+            openMiniCalendarModal({ eventId: eventButton.dataset.miniCalendarEventId || '' });
+            return;
+          }
+
+          const dateButton = event.target.closest('[data-mini-calendar-date]');
+          if (dateButton) {
+            closeMiniCalendarPopover();
+            openMiniCalendarModal({ selectedDateKey: dateButton.dataset.miniCalendarDate || '' });
+          }
+        });
+
+        miniCalendarSection.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          const dateButton = event.target.closest('[data-mini-calendar-date]');
+          if (!dateButton) return;
+          event.preventDefault();
+          closeMiniCalendarPopover();
+          openMiniCalendarModal({ selectedDateKey: dateButton.dataset.miniCalendarDate || '' });
+        });
+      }
+
+      if (miniCalendarToggleBtn) {
+        miniCalendarToggleBtn.addEventListener('click', () => {
+          miniCalendarCollapsed = !miniCalendarCollapsed;
+          persistMiniCalendarCollapsedState();
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarCompactBtn) {
+        miniCalendarCompactBtn.addEventListener('click', () => {
+          miniCalendarViewMode = 'compact';
+          persistMiniCalendarViewMode();
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarExpandedBtn) {
+        miniCalendarExpandedBtn.addEventListener('click', () => {
+          miniCalendarViewMode = 'expanded';
+          persistMiniCalendarViewMode();
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarPrevBtn) {
+        miniCalendarPrevBtn.addEventListener('click', () => {
+          miniCalendarViewDate = new Date(miniCalendarViewDate.getFullYear(), miniCalendarViewDate.getMonth() - 1, 1);
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarNextBtn) {
+        miniCalendarNextBtn.addEventListener('click', () => {
+          miniCalendarViewDate = new Date(miniCalendarViewDate.getFullYear(), miniCalendarViewDate.getMonth() + 1, 1);
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarTodayBtn) {
+        miniCalendarTodayBtn.addEventListener('click', () => {
+          const now = new Date();
+          miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          renderMiniCalendarWidget();
+        });
+      }
+
+      if (miniCalendarPopoverCloseBtn) {
+        miniCalendarPopoverCloseBtn.addEventListener('click', closeMiniCalendarPopover);
+      }
+
+      if (miniCalendarModal) {
+        miniCalendarModal.addEventListener('click', (event) => {
+          const actionButton = event.target.closest('[data-mini-calendar-action]');
+          if (actionButton) {
+            const action = actionButton.dataset.miniCalendarAction || '';
+            if (action === 'close') closeMiniCalendarModal();
+            return;
+          }
+
+          if (event.target === miniCalendarModal) {
+            closeMiniCalendarModal();
+          }
+        });
+
+        miniCalendarModal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeMiniCalendarModal();
+          }
+        });
+      }
+
+      if (miniCalendarSaveBtn) {
+        miniCalendarSaveBtn.addEventListener('click', () => {
+          saveMiniCalendarModal();
+        });
+      }
+
+      if (miniCalendarDeleteBtn) {
+        miniCalendarDeleteBtn.addEventListener('click', () => {
+          deleteMiniCalendarModalEvent();
+        });
+      }
+
+      window.addEventListener('resize', () => {
+        if (!miniCalendarPopover || miniCalendarPopover.hidden) return;
+        closeMiniCalendarPopover();
+      });
+
+      window.addEventListener('scroll', () => {
+        if (!miniCalendarPopover || miniCalendarPopover.hidden) return;
+        closeMiniCalendarPopover();
+      }, true);
+
       if (todayActivityList) {
         todayActivityList.addEventListener('click', (event) => {
           const deleteButton = event.target.closest('[data-timeline-action="delete"]');
@@ -11931,6 +12715,7 @@
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
+      initializeMiniCalendar();
       resetTimelineDateToToday();
       await refreshDashboardUnifiedData('initialize');
       await loadNewsConfigOnce();
