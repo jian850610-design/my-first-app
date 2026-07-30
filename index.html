@@ -227,17 +227,15 @@
     .team-overview-table th { background: #edf4fc; color: #21486f; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
     .team-overview-table td { background: #ffffff; }
     .team-overview-table th:nth-child(1),
-    .team-overview-table td:nth-child(1) { width: 84px; }
+    .team-overview-table td:nth-child(1) { width: 10%; min-width: 105px; white-space: nowrap; }
     .team-overview-table th:nth-child(2),
-    .team-overview-table td:nth-child(2) { width: 92px; }
+    .team-overview-table td:nth-child(2) { width: 25%; }
     .team-overview-table th:nth-child(3),
-    .team-overview-table td:nth-child(3) { width: 24%; }
+    .team-overview-table td:nth-child(3) { width: 35%; }
     .team-overview-table th:nth-child(4),
-    .team-overview-table td:nth-child(4) { width: 28%; }
+    .team-overview-table td:nth-child(4) { width: 10%; }
     .team-overview-table th:nth-child(5),
-    .team-overview-table td:nth-child(5) { width: 92px; }
-    .team-overview-table th:nth-child(6),
-    .team-overview-table td:nth-child(6) { width: 32%; }
+    .team-overview-table td:nth-child(5) { width: 20%; }
     .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
     .team-overview-cell-title { font-weight: 800; color: #1d456d; }
     .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
@@ -1047,7 +1045,6 @@
               <thead>
                 <tr>
                   <th>마감일</th>
-                  <th>대분류</th>
                   <th>AGENDA(업무명)</th>
                   <th>ACTION PLAN(To-Do)</th>
                   <th>담당자</th>
@@ -4363,17 +4360,33 @@
           const priorityMeta = getPriorityMeta(priorityValue);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
-          const directiveSummary = getDirectiveSummaryText(itemState);
-          const actionPlan = directiveSummary
-            ? directiveSummary
-            : (checklistSteps.length
-                ? checklistSteps.slice(0, 2).join(' / ')
-                : '-');
           const assignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
           const dueSummary = getChecklistDueDateSummary(itemState.steps);
           const dueDateText = dueSummary.dueDateText;
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
+          const stepLabels = Array.isArray(checklistSteps)
+            ? checklistSteps.map((text) => (typeof text === 'string' ? text.trim() : '')).filter(Boolean)
+            : [];
+          const stripCompletedTag = (text) => text.replace(/^\[완료\]\s*/u, '').trim();
+          const nextPendingStepIndex = Array.isArray(itemState.steps)
+            ? itemState.steps.findIndex((step, stepIndex) => {
+                if (!step || step.checked) return false;
+                const label = stepLabels[stepIndex] || '';
+                return label ? !/^\[완료\]\s*/u.test(label) : true;
+              })
+            : -1;
+          const fallbackPendingStepIndex = Array.isArray(itemState.steps)
+            ? itemState.steps.findIndex((step) => step && !step.checked)
+            : -1;
+          let actionPlan = '-';
+          if (totalCount > 0 && doneCount >= totalCount) {
+            actionPlan = '🎉 모든 업무 단계 완료';
+          } else if (nextPendingStepIndex >= 0) {
+            actionPlan = stripCompletedTag(stepLabels[nextPendingStepIndex] || '진행 중 단계 확인 필요');
+          } else if (fallbackPendingStepIndex >= 0) {
+            actionPlan = stripCompletedTag(stepLabels[fallbackPendingStepIndex] || '진행 중 단계 확인 필요');
+          }
           const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
           const latestComment = getLatestCommentActivityDetails(itemKey, itemState);
           const latestDoneAt = Array.isArray(itemState.steps)
@@ -4392,7 +4405,6 @@
           rows.push({
             itemKey,
             dueDateText: dueDateText || '-',
-            category: goalTemplate.label,
             agenda: title,
             actionPlan,
             assignee,
@@ -4474,7 +4486,6 @@
         if (leftBucket !== rightBucket) return leftBucket - rightBucket;
         if (left.dueSort !== right.dueSort) return left.dueSort.localeCompare(right.dueSort);
         if (left.lastUpdateTs !== right.lastUpdateTs) return right.lastUpdateTs - left.lastUpdateTs;
-        if (left.category !== right.category) return left.category.localeCompare(right.category);
         return left.agenda.localeCompare(right.agenda);
       });
 
@@ -4495,7 +4506,6 @@
               <div class="team-overview-due-date">${escapeHtml(row.dueDateText)}</div>
             </div>
           </td>
-          <td>${escapeHtml(row.category)}</td>
           <td>
             <div class="team-overview-cell-title-wrap">
               <div class="team-overview-badge-stack">
