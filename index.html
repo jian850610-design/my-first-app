@@ -192,14 +192,14 @@
     .timeline-history-filter:focus,
     .timeline-history-search:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .timeline-history-modal-body { min-height: 0; overflow: auto; padding: 12px 16px 16px; display: grid; gap: 10px; }
-    .timeline-history-group { border: 1px solid #dce8f4; border-radius: 12px; background: #ffffff; overflow: hidden; }
+    .timeline-history-group { border: 1px solid #dce8f4; border-radius: 12px; background: #ffffff; overflow: visible; height: auto; }
     .timeline-history-group-title { margin: 0; padding: 9px 11px; font-size: 13px; font-weight: 900; color: #1f476d; border-bottom: 1px solid #e9f1f8; background: #f5f9ff; }
     .timeline-history-group-list { list-style: none; margin: 0; padding: 0; }
     .timeline-history-group-list > li { border-bottom: 1px solid #edf3f9; }
     .timeline-history-group-list > li:last-child { border-bottom: none; }
-    .timeline-history-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; }
+    .timeline-history-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: flex-start; gap: 8px; padding: 8px 10px; }
     .timeline-history-type { display: inline-flex; align-items: center; border-radius: 999px; background: #edf4fd; color: #24547f; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
-    .timeline-history-detail { min-width: 0; font-size: 12px; color: #2f4a66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .timeline-history-detail { min-width: 0; font-size: 12px; color: #2f4a66; white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; line-height: 1.45; }
     .timeline-history-meta { font-size: 10px; color: #6e859c; white-space: nowrap; }
     .timeline-history-empty { border: 1px dashed #cad9e8; border-radius: 12px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.6; padding: 16px; }
     @media (max-width: 760px) {
@@ -1404,6 +1404,7 @@
     let currentGoalKey = '';
     let cardEditModalState = null;
     let dashboardSearchTerm = '';
+    let hasUserSelectedTimelineDate = false;
     let timelineHistoryEntries = [];
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
@@ -10499,7 +10500,9 @@
       firebaseDateUnsubscribe = bridge.onValue(bridge.ref(bridge.db, 'plans/skf-daily'), (snapshot) => {
         markFirebaseSnapshotReceived();
         const remoteRoot = snapshot.val();
+        const todayKey = getLocalDateKey();
         let latestEntry = null;
+        let selectedEntry = null;
 
         if (remoteRoot && typeof remoteRoot === 'object') {
           Object.entries(remoteRoot)
@@ -10507,6 +10510,13 @@
             .forEach(([dateKey, value]) => {
               const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), value);
               const updatedAt = new Date(mergedState.meta && mergedState.meta.lastUpdatedAt ? mergedState.meta.lastUpdatedAt : 0).getTime();
+              if (dateKey === currentPlannerDateKey) {
+                selectedEntry = {
+                  dateKey,
+                  state: mergedState,
+                  updatedAt
+                };
+              }
               if (!latestEntry || updatedAt > latestEntry.updatedAt || (updatedAt === latestEntry.updatedAt && dateKey > latestEntry.dateKey)) {
                 latestEntry = {
                   dateKey,
@@ -10517,15 +10527,37 @@
             });
         }
 
-        const latestLocalSnapshot = getLatestPlannerSnapshotFromStorage();
-        if (!latestEntry) {
-          latestEntry = latestLocalSnapshot;
-        } else {
-          latestEntry = {
-            ...latestEntry,
-            state: preferMoreRecentPlannerState(latestLocalSnapshot.state, latestEntry.state)
+        const selectedDateKey = hasUserSelectedTimelineDate && isValidPlannerDateKey(currentPlannerDateKey)
+          ? currentPlannerDateKey
+          : todayKey;
+        const localSelectedState = loadStateFromStorageForDate(selectedDateKey);
+        let nextEntry = selectedEntry;
+
+        if (!nextEntry && latestEntry && latestEntry.dateKey === selectedDateKey) {
+          nextEntry = latestEntry;
+        }
+
+        if (!nextEntry && latestEntry) {
+          // 선택 날짜 스냅샷이 없더라도 조회 기준 날짜는 유지하고 로컬(또는 빈 상태)을 보여준다.
+          nextEntry = {
+            dateKey: selectedDateKey,
+            state: localSelectedState,
+            updatedAt: getPlannerStateUpdatedAt(localSelectedState)
           };
         }
+
+        if (!nextEntry) {
+          nextEntry = {
+            dateKey: selectedDateKey,
+            state: localSelectedState,
+            updatedAt: getPlannerStateUpdatedAt(localSelectedState)
+          };
+        }
+
+        nextEntry = {
+          ...nextEntry,
+          state: preferMoreRecentPlannerState(localSelectedState, nextEntry.state)
+        };
 
         if (isChecklistTextInputFocused()) {
           return;
@@ -10533,9 +10565,12 @@
 
         firebaseSyncSuppressed = true;
         try {
-          currentPlannerDateKey = latestEntry.dateKey;
-          setCurrentPlannerState(latestEntry.state, { skipFirebaseSync: true });
-          updateFirebaseLastUpdatedText(latestEntry.state.meta || firebaseLastUpdatedMeta);
+          currentPlannerDateKey = nextEntry.dateKey;
+          if (plannerDatePicker) {
+            plannerDatePicker.value = currentPlannerDateKey;
+          }
+          setCurrentPlannerState(nextEntry.state, { skipFirebaseSync: true });
+          updateFirebaseLastUpdatedText(nextEntry.state.meta || firebaseLastUpdatedMeta);
           preserveWindowScroll(() => rerenderCurrentView());
         } finally {
           firebaseSyncSuppressed = false;
@@ -10592,17 +10627,18 @@
       }
 
       if (!nextDateKey) {
-        const latestSnapshot = getLatestPlannerSnapshotFromStorage();
-        currentPlannerDateKey = latestSnapshot.dateKey;
+        const todayKey = getLocalDateKey();
+        currentPlannerDateKey = todayKey;
         if (plannerDatePicker) {
-          plannerDatePicker.value = '';
+          plannerDatePicker.value = todayKey;
         }
-        setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
-        updateFirebaseLastUpdatedText(latestSnapshot.state.meta || firebaseLastUpdatedMeta);
+        const todayState = normalizePlannerState(loadStateFromStorageForDate(todayKey));
+        setCurrentPlannerState(todayState, { skipFirebaseSync: true });
+        updateFirebaseLastUpdatedText(todayState.meta || firebaseLastUpdatedMeta);
         if (!options.skipRender) {
           rerenderCurrentView();
         }
-        attachFirebaseOverviewListener();
+        attachFirebaseDateListener(todayKey);
         return;
       }
 
@@ -10617,6 +10653,15 @@
         rerenderCurrentView();
       }
       attachFirebaseDateListener(nextDateKey);
+    }
+
+    function resetTimelineDateToToday(options = {}) {
+      const todayKey = getLocalDateKey();
+      hasUserSelectedTimelineDate = options.fromUser === true;
+      if (plannerDatePicker) {
+        plannerDatePicker.value = todayKey;
+      }
+      switchPlannerDate(todayKey, options);
     }
 
     async function handleFirebaseLogin() {
@@ -10810,6 +10855,7 @@
 
       if (plannerDatePicker) {
         plannerDatePicker.addEventListener('change', () => {
+          hasUserSelectedTimelineDate = true;
           const nextDate = plannerDatePicker.value || getLocalDateKey(new Date());
           switchPlannerDate(nextDate);
         });
@@ -10817,11 +10863,7 @@
 
       if (timelineTodayBtn) {
         timelineTodayBtn.addEventListener('click', () => {
-          const todayKey = getLocalDateKey();
-          if (plannerDatePicker) {
-            plannerDatePicker.value = todayKey;
-          }
-          switchPlannerDate(todayKey);
+          resetTimelineDateToToday({ fromUser: true });
         });
       }
 
@@ -11064,6 +11106,7 @@
         quickGoalSelect.addEventListener('change', () => {
           const selectedGoal = quickGoalSelect.value;
           if (selectedGoal === 'dashboard') {
+            resetTimelineDateToToday({ skipRender: true });
             showView('dashboard');
             syncOverviewWidgets(loadPlannerState());
             return;
@@ -11084,6 +11127,7 @@
 
       if (backToDashboardBtn) {
         backToDashboardBtn.addEventListener('click', () => {
+          resetTimelineDateToToday({ skipRender: true });
           showView('dashboard');
           syncOverviewWidgets(loadPlannerState());
         });
@@ -11498,32 +11542,24 @@
     }
 
     async function initializeApp() {
-      const urlDate = new URLSearchParams(window.location.search).get('date');
-      const hasExplicitDate = typeof urlDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(urlDate);
+      const todayKey = getLocalDateKey();
+      hasUserSelectedTimelineDate = false;
 
-      if (hasExplicitDate) {
-        currentPlannerDateKey = urlDate;
-        if (plannerDatePicker) {
-          plannerDatePicker.value = urlDate;
-        }
-        const seededState = normalizePlannerState(loadStateFromStorageForDate(currentPlannerDateKey));
-        syncPinnedChecklistState(seededState);
-        setCurrentPlannerState(seededState, { skipFirebaseSync: true });
-      } else {
-        if (!hasAnyPersistedPlannerState()) {
-          await hydrateStateFromDataFile();
-        }
-        const latestSnapshot = getLatestPlannerSnapshotFromStorage();
-        currentPlannerDateKey = latestSnapshot.dateKey;
-        if (plannerDatePicker) {
-          plannerDatePicker.value = '';
-        }
-        syncPinnedChecklistState(latestSnapshot.state);
-        setCurrentPlannerState(latestSnapshot.state, { skipFirebaseSync: true });
+      if (!hasAnyPersistedPlannerState()) {
+        await hydrateStateFromDataFile();
       }
+
+      currentPlannerDateKey = todayKey;
+      if (plannerDatePicker) {
+        plannerDatePicker.value = todayKey;
+      }
+      const todayState = normalizePlannerState(loadStateFromStorageForDate(todayKey));
+      syncPinnedChecklistState(todayState);
+      setCurrentPlannerState(todayState, { skipFirebaseSync: true });
 
       initializeGoalSelect();
       await initializeFirebaseIntegration();
+      resetTimelineDateToToday();
       await loadNewsConfigOnce();
       attachNewsWidgetInteractionHandlers();
       void loadKpiCatalogOnce();
