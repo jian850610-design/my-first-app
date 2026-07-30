@@ -1735,7 +1735,7 @@
     const MINI_CALENDAR_VIEW_MODE_KEY = 'skfMiniCalendarViewModeV1';
     const MINI_CALENDAR_WEEK_START_KEY = 'skfMiniCalendarWeekStartV1';
     let miniCalendarEvents = [];
-    let miniCalendarViewDate = new Date('2026-08-01T00:00:00');
+    let miniCalendarViewDate = getInitialMiniCalendarViewDate();
     let miniCalendarModalState = null;
     let miniCalendarCollapsed = false;
     let miniCalendarViewMode = 'compact';
@@ -1744,6 +1744,12 @@
     let miniCalendarLoading = true;
     let miniCalendarLoadError = '';
     let miniCalendarRealtimeUnsubscribe = null;
+    let miniCalendarAuthConfirmedAt = 0;
+    let miniCalendarSubscriptionStartedAt = 0;
+    let miniCalendarFirstSnapshotLogged = false;
+    let miniCalendarRealtimeStartRequested = false;
+    let miniCalendarRealtimeStartStarted = false;
+    let miniCalendarAuthWaitTimer = null;
     let newsRequestSerial = 0;
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
@@ -2347,6 +2353,16 @@
 
     function formatDateToYYYYMMDD(value) {
       return formatDateToISO(value);
+    }
+
+    function getInitialMiniCalendarViewDate() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const diffToMonthEnd = Math.floor((monthEnd.getTime() - today.getTime()) / 86400000);
+      return diffToMonthEnd <= 6
+        ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
     function isValidPlannerDateKey(value) {
@@ -6033,43 +6049,90 @@
       }
     }
 
-    function attachMiniCalendarRealtimeListener() {
+    async function attachMiniCalendarRealtimeListener() {
       const bridge = getMiniCalendarBridge();
       const collectionRef = getMiniCalendarCollectionRef();
-      if (!bridge || !collectionRef || typeof bridge.onValue !== 'function') return;
+      if (!bridge || !collectionRef || typeof bridge.onValue !== 'function') {
+        setMiniCalendarLoadingState(false, 'Firebase 연결을 준비하지 못했습니다.');
+        console.error('[miniCalendar] 구독 시작 실패', {
+          authConfirmedAt: miniCalendarAuthConfirmedAt ? new Date(miniCalendarAuthConfirmedAt).toISOString() : '',
+          reason: bridge && bridge.initError ? bridge.initError : 'missing-bridge-or-ref'
+        });
+        return;
+      }
       if (miniCalendarRealtimeUnsubscribe) {
         miniCalendarRealtimeUnsubscribe();
         miniCalendarRealtimeUnsubscribe = null;
       }
+      if (miniCalendarSubscriptionStartedAt) return;
+
+      miniCalendarAuthConfirmedAt = Date.now();
+      console.log('[miniCalendar] 인증 확정 시각', new Date(miniCalendarAuthConfirmedAt).toISOString(), {
+        hasUser: Boolean(currentFirebaseUser),
+        uid: currentFirebaseUser && currentFirebaseUser.uid ? currentFirebaseUser.uid : ''
+      });
 
       setMiniCalendarLoadingState(true);
+      miniCalendarSubscriptionStartedAt = Date.now();
+      console.log('[miniCalendar] 구독 시작 시각', new Date(miniCalendarSubscriptionStartedAt).toISOString(), {
+        path: 'calendarEvents'
+      });
+
       miniCalendarRealtimeUnsubscribe = bridge.onValue(collectionRef, (snapshot) => {
         try {
-          const nextEvents = loadMiniCalendarEventsFromRemoteValue(snapshot.val());
+          const snapshotValue = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+          const nextEvents = loadMiniCalendarEventsFromRemoteValue(snapshotValue);
           updateMiniCalendarRemoteEvents(nextEvents);
+          if (!miniCalendarFirstSnapshotLogged) {
+            miniCalendarFirstSnapshotLogged = true;
+            console.log('[miniCalendar] 첫 스냅샷 수신 시각·건수', {
+              receivedAt: new Date().toISOString(),
+              count: nextEvents.length
+            });
+          }
           clearMiniCalendarLoadingState();
         } catch (error) {
           console.error('미니 캘린더 일정 파싱 실패', error);
-          miniCalendarLoadError = '일정 데이터를 불러오는 중 문제가 발생했습니다.';
-          miniCalendarLoading = false;
-          if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
-            miniCalendarLoadingEl.textContent = miniCalendarLoadError;
-            miniCalendarLoadingEl.classList.add('visible');
-          }
-          renderMiniCalendarWidget();
+          setMiniCalendarLoadingState(false, '일정 데이터를 불러오는 중 문제가 발생했습니다.');
           window.alert('달력 일정을 불러오는 데 실패했습니다.');
         }
       }, (error) => {
-        console.error('미니 캘린더 일정 구독 실패', error);
-        miniCalendarLoading = false;
-        miniCalendarLoadError = '일정을 불러오지 못했습니다.';
-        if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
-          miniCalendarLoadingEl.textContent = miniCalendarLoadError;
-          miniCalendarLoadingEl.classList.add('visible');
-        }
-        renderMiniCalendarWidget();
+        const errorCode = error && error.code ? error.code : 'unknown';
+        console.error('미니 캘린더 일정 구독 실패', { errorCode, error });
+        setMiniCalendarLoadingState(false, errorCode === 'permission_denied'
+          ? '권한이 없어 달력을 불러오지 못했습니다.'
+          : '일정을 불러오지 못했습니다.');
         window.alert('달력 일정을 불러오지 못했습니다. Firebase 권한 또는 연결을 확인해 주세요.');
       });
+    }
+
+    async function startMiniCalendarRealtimeSync() {
+      miniCalendarRealtimeStartRequested = true;
+      if (miniCalendarRealtimeStartStarted) return;
+
+      if (!firebaseAuthStateResolved) {
+        if (!miniCalendarAuthWaitTimer) {
+          miniCalendarAuthWaitTimer = window.setTimeout(() => {
+            miniCalendarAuthWaitTimer = null;
+            if (miniCalendarRealtimeStartStarted || firebaseAuthStateResolved) return;
+            setMiniCalendarLoadingState(false, 'Firebase 인증 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
+            console.error('[miniCalendar] 인증 대기 초과', {
+              waitedUntil: new Date().toISOString()
+            });
+          }, 8000);
+        }
+        return;
+      }
+
+      miniCalendarRealtimeStartStarted = true;
+      if (miniCalendarAuthWaitTimer) {
+        window.clearTimeout(miniCalendarAuthWaitTimer);
+        miniCalendarAuthWaitTimer = null;
+      }
+
+      await attachMiniCalendarRealtimeListener();
+      if (miniCalendarLoadError) return;
+      await migrateMiniCalendarLegacyDataIfNeeded();
     }
 
     function loadMiniCalendarCollapsedState() {
@@ -6478,20 +6541,20 @@
       miniCalendarEvents = [];
       miniCalendarLoading = true;
       miniCalendarLoadError = '';
+      miniCalendarRealtimeUnsubscribe = null;
+      miniCalendarAuthConfirmedAt = 0;
+      miniCalendarSubscriptionStartedAt = 0;
+      miniCalendarFirstSnapshotLogged = false;
+      miniCalendarRealtimeStartRequested = false;
+      miniCalendarRealtimeStartStarted = false;
+      if (miniCalendarAuthWaitTimer) {
+        window.clearTimeout(miniCalendarAuthWaitTimer);
+        miniCalendarAuthWaitTimer = null;
+      }
       miniCalendarCollapsed = loadMiniCalendarCollapsedState();
       miniCalendarViewMode = loadMiniCalendarViewMode();
       miniCalendarWeekStart = loadMiniCalendarWeekStartMode();
-      const now = new Date();
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const diffToMonthEnd = Math.floor((monthEnd.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-      if (diffToMonthEnd <= 6) {
-        miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      } else {
-        miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      }
       renderMiniCalendarWidget();
-      attachMiniCalendarRealtimeListener();
-      await migrateMiniCalendarLegacyDataIfNeeded();
     }
 
     function getDueBadgeInfo(dueDate, checked = false) {
@@ -12468,6 +12531,7 @@
         updateFirebaseAuthControls();
         applyEditabilityState();
         updateFirebaseConnectionChip();
+        void startMiniCalendarRealtimeSync();
       });
     }
 
@@ -13472,6 +13536,7 @@
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       initializeMiniCalendar();
+      void startMiniCalendarRealtimeSync();
       attachActivityTimelineRealtimeListener();
       await migrateActivityLogsIfNeeded();
       resetTimelineDateToToday();
