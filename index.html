@@ -223,7 +223,7 @@
     .team-overview-table-wrap { width: 100%; overflow: auto; border: 1px solid #d8e5f1; border-radius: 12px; background: #ffffff; }
     .team-overview-table { width: 100%; border-collapse: collapse; min-width: 960px; table-layout: fixed; }
     .team-overview-table th,
-    .team-overview-table td { border: 1px solid #dbe7f3; padding: 8px 9px; font-size: 12px; color: #23425f; vertical-align: top; line-height: 1.45; }
+    .team-overview-table td { border: 1px solid #dbe7f3; padding: 10px 10px; font-size: 12px; color: #23425f; vertical-align: middle; line-height: 1.4; }
     .team-overview-table th { background: #edf4fc; color: #21486f; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
     .team-overview-table td { background: #ffffff; }
     .team-overview-table th:nth-child(1),
@@ -243,11 +243,17 @@
     .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
     .team-overview-row-clickable { cursor: pointer; }
     .team-overview-row-clickable:hover td { background: #f2f8ff; }
+    .team-overview-row-urgent td { background: #fff5f5; }
+    .team-overview-row-important td { background: #fffdf0; }
     .team-overview-card-link { appearance: none; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
     .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
     .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
+    .team-overview-priority-badge.leader { background: #eaf3ff; color: #1d5f9f; border: 1px solid #c7dcf2; }
+    .team-overview-badge-stack { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .team-overview-due-wrap { display: grid; justify-items: center; gap: 0; }
+    .team-overview-due-date { font-weight: 800; color: #23425f; text-align: center; }
     .team-overview-cell-muted { color: #6a7f95; }
     .team-overview-progress-cell { display: grid; gap: 4px; line-height: 1.25; word-break: keep-all; }
     .team-overview-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
@@ -425,6 +431,9 @@
     .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 12px; padding: 12px 12px; background: #fdfefe; color: #1f3d5b; font-size: 13px; outline: none; }
     .card-editor-textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
     .card-editor-input:focus, .card-editor-textarea:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .card-edit-flag-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .card-edit-flag-option { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #d5e0ea; border-radius: 12px; background: #fbfdff; color: #244365; padding: 9px 10px; font-size: 12px; font-weight: 800; line-height: 1.2; cursor: pointer; }
+    .card-edit-flag-option input { margin: 0; accent-color: #0f5f9d; }
     .card-edit-modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #e4ebf2; padding-top: 12px; }
     .card-edit-modal-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
     .card-edit-modal-btn { border: none; border-radius: 12px; padding: 10px 14px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -1274,6 +1283,14 @@
                 <label for="cardEditModalGuidelinesInput">가이드라인 (줄바꿈으로 항목 구분)</label>
                 <textarea class="card-editor-textarea" id="cardEditModalGuidelinesInput"></textarea>
               </div>
+              <div class="card-editor-field">
+                <label>중요도 및 지시 상태</label>
+                <div class="card-edit-flag-grid">
+                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalUrgentInput" /> 🔴 긴급</label>
+                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalImportantInput" /> 🟡 중요</label>
+                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalBossInput" /> 📌 팀장지시</label>
+                </div>
+              </div>
             </div>
           </div>
           <section class="card-edit-modal-section">
@@ -1416,6 +1433,9 @@
     const cardEditModalTitleInput = document.getElementById('cardEditModalTitleInput');
     const cardEditModalSummaryInput = document.getElementById('cardEditModalSummaryInput');
     const cardEditModalGuidelinesInput = document.getElementById('cardEditModalGuidelinesInput');
+    const cardEditModalUrgentInput = document.getElementById('cardEditModalUrgentInput');
+    const cardEditModalImportantInput = document.getElementById('cardEditModalImportantInput');
+    const cardEditModalBossInput = document.getElementById('cardEditModalBossInput');
     const cardEditModalChecklistList = document.getElementById('cardEditModalChecklistList');
     const cardEditModalAddStepBtn = document.getElementById('cardEditModalAddStepBtn');
     const cardEditModalCloseBtn = document.getElementById('cardEditModalCloseBtn');
@@ -2065,6 +2085,18 @@
         return { value: PRIORITY_IMPORTANT, label: '🟡 중요', detailLabel: '🟡 중요', rank: 1, pinned: true, badgeClass: 'important' };
       }
       return { value: PRIORITY_NORMAL, label: '⚪ 일반', detailLabel: '⚪ 일반', rank: 2, pinned: false, badgeClass: '' };
+    }
+
+    function resolveTeamOverviewPriority(itemState) {
+      const direct = normalizePriorityValue(itemState && itemState.priority);
+      if (direct !== PRIORITY_NORMAL) return direct;
+      if (itemState && (itemState.isUrgent === true || itemState.urgent === true)) return PRIORITY_URGENT;
+      if (itemState && (itemState.isImportant === true || itemState.important === true)) return PRIORITY_IMPORTANT;
+      return PRIORITY_NORMAL;
+    }
+
+    function isTeamLeaderRequested(itemState) {
+      return Boolean(itemState && (itemState.isLeaderRequested === true || itemState.bossRequest === true || itemState.isBossRequested === true));
     }
 
     async function copyTextToClipboard(text) {
@@ -3607,6 +3639,9 @@
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
             customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
             customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
+            isUrgent: itemState.isUrgent === true || itemState.urgent === true,
+            isImportant: itemState.isImportant === true || itemState.important === true,
+            isBossRequested: itemState.isBossRequested === true || itemState.bossRequest === true,
             isLeaderRequested: itemState.isLeaderRequested === true,
             benchmarking: {
               skf: typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : '',
@@ -3679,6 +3714,9 @@
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
           itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
           itemState.customSteps = Array.isArray(remoteItem?.customSteps) ? remoteItem.customSteps : itemState.customSteps;
+          itemState.isUrgent = remoteItem?.isUrgent === true || remoteItem?.urgent === true || itemState.isUrgent === true;
+          itemState.isImportant = remoteItem?.isImportant === true || remoteItem?.important === true || itemState.isImportant === true;
+          itemState.isBossRequested = remoteItem?.isBossRequested === true || remoteItem?.bossRequest === true || itemState.isBossRequested === true;
           itemState.isLeaderRequested = remoteItem?.isLeaderRequested === true;
           itemState.benchmarking = {
             skf: typeof remoteItem?.benchmarking?.skf === 'string' ? remoteItem.benchmarking.skf : (typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : ''),
@@ -4214,7 +4252,6 @@
       const commentText = row && typeof row.latestCommentText === 'string' ? row.latestCommentText.trim() : '';
       const commentAt = row && row.latestCommentAt ? formatEntryDateTime(row.latestCommentAt) : '';
       const doneAt = row && row.latestDoneAt ? formatEntryDateTime(row.latestDoneAt) : '';
-      const summaryText = `[ progress bar (${percentText}) ] ${doneCount}/${totalCount} 완료`;
 
       return `
         <div class="team-overview-progress-cell">
@@ -4224,7 +4261,6 @@
             </div>
             <div class="team-overview-progress-meta"><span>${escapeHtml(percentText)}</span><span class="team-overview-progress-count">${escapeHtml(`${doneCount}/${totalCount}`)}</span></div>
           </div>
-          <div class="team-overview-progress-summary">${escapeHtml(summaryText)}</div>
           ${commentText ? `<div class="team-overview-progress-comment">💬 ${commentAt ? `[${escapeHtml(commentAt)}] : ` : ''}${escapeHtml(commentText)}</div>` : ''}
           ${doneAt ? `<div class="team-overview-progress-completion">🟢 최근 완료: ${escapeHtml(doneAt)}</div>` : ''}
         </div>
@@ -4323,7 +4359,8 @@
           const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
           const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
-          const priorityMeta = getPriorityMeta(itemState.priority);
+          const priorityValue = resolveTeamOverviewPriority(itemState);
+          const priorityMeta = getPriorityMeta(priorityValue);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
           const directiveSummary = getDirectiveSummaryText(itemState);
@@ -4350,7 +4387,7 @@
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
           const hasActivityEvidence = hasRecentActivityEvidence(itemState);
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
-          const isLeaderPinned = itemState && itemState.isLeaderRequested === true;
+          const isLeaderPinned = isTeamLeaderRequested(itemState);
 
           rows.push({
             itemKey,
@@ -4359,6 +4396,7 @@
             agenda: title,
             actionPlan,
             assignee,
+            priorityValue,
             doneCount,
             totalCount,
             progressPercent,
@@ -4451,12 +4489,20 @@
 
       teamOverviewEmpty.hidden = true;
       teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
-        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
-          <td>${escapeHtml(row.dueDateText)}</td>
+        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} ${row.priority === PRIORITY_URGENT ? 'team-overview-row-urgent' : ''} ${row.priority === PRIORITY_IMPORTANT ? 'team-overview-row-important' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
+          <td>
+            <div class="team-overview-due-wrap">
+              <div class="team-overview-due-date">${escapeHtml(row.dueDateText)}</div>
+            </div>
+          </td>
           <td>${escapeHtml(row.category)}</td>
           <td>
             <div class="team-overview-cell-title-wrap">
-              ${row.priorityPinned ? `<span class="team-overview-priority-badge ${row.priorityBadgeClass}">${escapeHtml(row.priorityLabel)}</span>` : ''}
+              <div class="team-overview-badge-stack">
+                ${row.priority === PRIORITY_URGENT ? '<span class="team-overview-priority-badge urgent">🔴 [긴급]</span>' : ''}
+                ${row.priority === PRIORITY_IMPORTANT ? '<span class="team-overview-priority-badge important">🟡 [중요]</span>' : ''}
+                ${row.leaderPinned ? '<span class="team-overview-priority-badge leader">📌 [팀장지시]</span>' : ''}
+              </div>
               <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}</button>
             </div>
           </td>
@@ -4844,6 +4890,9 @@
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
         itemState.isLeaderRequested = itemState.isLeaderRequested === true;
+        itemState.isUrgent = itemState.isUrgent === true || itemState.urgent === true;
+        itemState.isImportant = itemState.isImportant === true || itemState.important === true;
+        itemState.isBossRequested = itemState.isBossRequested === true || itemState.bossRequest === true;
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
         itemState.activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
@@ -4964,6 +5013,9 @@
           lastUpdatedByEmail: '',
           lastUpdatedByUid: '',
           principles: Array.isArray(principles) ? [...principles] : [],
+          isUrgent: false,
+          isImportant: false,
+          isBossRequested: false,
           isLeaderRequested: false
         };
       }
@@ -8187,7 +8239,10 @@
         checklistDraft: buildCardEditChecklistDraft(checklistSteps, itemState, itemKey),
         title: getCardTitleText(itemState, item),
         summary: getCardSummaryText(itemState, item),
-        guidelines: getCardGuidelines(latestState, goalKey, item, goalTemplate, itemKey).join('\n')
+        guidelines: getCardGuidelines(latestState, goalKey, item, goalTemplate, itemKey).join('\n'),
+        isUrgent: resolveTeamOverviewPriority(itemState) === PRIORITY_URGENT || itemState.isUrgent === true || itemState.urgent === true,
+        isImportant: resolveTeamOverviewPriority(itemState) === PRIORITY_IMPORTANT || itemState.isImportant === true || itemState.important === true,
+        isBossRequested: itemState.isBossRequested === true || itemState.bossRequest === true
       };
 
       if (cardEditModalTitle) {
@@ -8205,6 +8260,9 @@
       if (cardEditModalTitleInput) cardEditModalTitleInput.value = cardEditModalState.title;
       if (cardEditModalSummaryInput) cardEditModalSummaryInput.value = cardEditModalState.summary;
       if (cardEditModalGuidelinesInput) cardEditModalGuidelinesInput.value = cardEditModalState.guidelines;
+      if (cardEditModalUrgentInput) cardEditModalUrgentInput.checked = cardEditModalState.isUrgent === true;
+      if (cardEditModalImportantInput) cardEditModalImportantInput.checked = cardEditModalState.isImportant === true;
+      if (cardEditModalBossInput) cardEditModalBossInput.checked = cardEditModalState.isBossRequested === true;
       renderCardEditChecklistList();
       if (cardEditModal) {
         cardEditModal.hidden = false;
@@ -8248,6 +8306,17 @@
 
       if (nextGuidelines.length) itemState.customGuidelines = nextGuidelines;
       else delete itemState.customGuidelines;
+
+      const nextUrgent = cardEditModalUrgentInput ? cardEditModalUrgentInput.checked === true : itemState.isUrgent === true;
+      const nextImportant = cardEditModalImportantInput ? cardEditModalImportantInput.checked === true : itemState.isImportant === true;
+      const nextBossRequested = cardEditModalBossInput ? cardEditModalBossInput.checked === true : itemState.isBossRequested === true;
+      itemState.isUrgent = nextUrgent;
+      itemState.urgent = nextUrgent;
+      itemState.isImportant = !nextUrgent && nextImportant;
+      itemState.important = !nextUrgent && nextImportant;
+      itemState.isBossRequested = nextBossRequested;
+      itemState.bossRequest = nextBossRequested;
+      itemState.priority = nextUrgent ? PRIORITY_URGENT : (nextImportant ? PRIORITY_IMPORTANT : PRIORITY_NORMAL);
 
       itemState.customSteps = nextChecklistSteps.map((entry) => entry.stepName);
       const previousStepById = new Map(
@@ -11606,6 +11675,16 @@
         });
 
         cardEditModal.addEventListener('input', (event) => {
+          const flagInput = event.target.closest('#cardEditModalUrgentInput, #cardEditModalImportantInput');
+          if (flagInput) {
+            if (flagInput === cardEditModalUrgentInput && cardEditModalUrgentInput && cardEditModalUrgentInput.checked && cardEditModalImportantInput) {
+              cardEditModalImportantInput.checked = false;
+            }
+            if (flagInput === cardEditModalImportantInput && cardEditModalImportantInput && cardEditModalImportantInput.checked && cardEditModalUrgentInput) {
+              cardEditModalUrgentInput.checked = false;
+            }
+            return;
+          }
           const fieldInput = event.target.closest('[data-card-edit-step-field]');
           if (!fieldInput) return;
           const stepIndex = Number(fieldInput.dataset.stepIndex);
