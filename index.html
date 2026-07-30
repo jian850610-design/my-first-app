@@ -4163,7 +4163,14 @@
       return hasComments || hasChecklistLogs;
     }
 
-    function getLatestCommentActivityDetails(itemState) {
+    function getLatestOverviewTimelineEntry(itemKey) {
+      if (!itemKey || !Array.isArray(dashboardUnifiedTimelineEntries)) return null;
+      return dashboardUnifiedTimelineEntries
+        .filter((entry) => entry && entry.itemKey === itemKey && (entry.type === 'comment' || entry.type === 'checklist'))
+        .sort((left, right) => right.timestamp - left.timestamp)[0] || null;
+    }
+
+    function getLatestCommentActivityDetails(itemKey, itemState) {
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
       const latestComment = getLatestCommentEntry(comments);
       if (latestComment) {
@@ -4183,6 +4190,16 @@
         return {
           text: normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized,
           timestamp: parseIsoTimestamp(latestStepLog.timestamp)
+        };
+      }
+
+      const timelineEntry = getLatestOverviewTimelineEntry(itemKey);
+      if (timelineEntry) {
+        return {
+          text: typeof timelineEntry.detail === 'string' && timelineEntry.detail.trim()
+            ? timelineEntry.detail.trim()
+            : (timelineEntry.type === 'checklist' ? '업무 수행 완료' : '아직 등록된 코멘트가 없습니다.'),
+          timestamp: Number.isFinite(timelineEntry.timestamp) ? timelineEntry.timestamp : 0
         };
       }
 
@@ -4282,10 +4299,19 @@
 
     window.__cleanupDrafts = cleanupDirectiveDrafts;
 
-    function getLastOverviewUpdateTimestamp(itemState) {
+    function getLastOverviewUpdateTimestamp(itemState, itemKey = '') {
       const explicit = parseIsoTimestamp(itemState && itemState.activityUpdatedAt);
-      if (explicit > 0) return explicit;
-      return Math.max(getLatestCommentActivityTimestamp(itemState), getLatestChecklistActivityTimestamp(itemState), 0);
+      const lastUpdatedAt = parseIsoTimestamp(itemState && itemState.lastUpdatedAt);
+      const timelineEntry = getLatestOverviewTimelineEntry(itemKey);
+      const timelineTs = timelineEntry && Number.isFinite(timelineEntry.timestamp) ? timelineEntry.timestamp : 0;
+      return Math.max(
+        explicit,
+        lastUpdatedAt,
+        getLatestCommentActivityTimestamp(itemState),
+        getLatestChecklistActivityTimestamp(itemState),
+        timelineTs,
+        0
+      );
     }
 
     function buildTeamOverviewRows(state) {
@@ -4312,7 +4338,7 @@
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
           const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
-          const latestComment = getLatestCommentActivityDetails(itemState);
+          const latestComment = getLatestCommentActivityDetails(itemKey, itemState);
           const latestDoneAt = Array.isArray(itemState.steps)
             ? itemState.steps
                 .map((step) => (step && typeof step.completedAt === 'string' ? step.completedAt : ''))
@@ -4320,7 +4346,7 @@
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
             : '';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
-          const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
+          const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState, itemKey);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
           const hasActivityEvidence = hasRecentActivityEvidence(itemState);
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
@@ -4369,9 +4395,13 @@
         teamOverviewFilterNotice.hidden = teamOverviewUpdateFilterMode !== 'recent15';
       }
 
-      const windowFilteredRows = teamOverviewUpdateFilterMode === 'all'
+      let windowFilteredRows = teamOverviewUpdateFilterMode === 'all'
         ? rows
-        : rows.filter((row) => row.priorityPinned || row.leaderPinned || row.isRecentUpdate);
+        : rows.filter((row) => row.priorityPinned || row.leaderPinned || row.isRecentUpdate || row.highlight);
+
+      if (teamOverviewUpdateFilterMode === 'recent15' && !windowFilteredRows.length) {
+        windowFilteredRows = rows.slice();
+      }
 
       const assigneeValues = Array.from(new Set(windowFilteredRows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
       const fixedOptions = ['Jian', 'Jay', 'CHCho'];
