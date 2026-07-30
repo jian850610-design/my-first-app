@@ -4547,7 +4547,7 @@
       if (itemKey === FACEBOOK_PAGE_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index),
+          dueDate: typeof step?.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
           completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
@@ -4555,7 +4555,7 @@
       if (itemKey === VIDEO_SERIES_ITEM_KEY) {
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index),
+          dueDate: typeof step?.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
           completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
         }));
       }
@@ -9586,15 +9586,13 @@
             console.log('[DUE] 변경 날짜', nextDueDate);
             itemState.steps[idx].dueDate = nextDueDate;
             markItemUpdated(itemState);
+            input.value = nextDueDate;
             updateDueDateBadges();
             const savedState = savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
             await flushFirebaseSnapshot('due-date-change');
             renderLatestActivityPanel(latestActivityPanel, itemState);
             renderGoalSummaryWidget(currentGoal, savedState);
             syncOverviewWidgets(savedState);
-            if (currentGoal && goalTemplates[currentGoal]) {
-              updateGoalCard(currentGoal);
-            }
             console.log('[DUE] Firestore 저장 성공', { itemKey, checklistId: idx, dueDate: nextDueDate });
             console.log('[DUE] D-Day 갱신 완료', { itemKey, checklistId: idx, dDay: dueDateBadges[idx] ? dueDateBadges[idx].textContent : '' });
           });
