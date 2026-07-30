@@ -3687,13 +3687,60 @@
       return found || '-';
     }
 
+    function isChecklistStepCompleted(step) {
+      return Boolean(
+        step && (
+          step.completed === true ||
+          step.checked === true ||
+          parseIsoTimestamp(step.completedAt) > 0
+        )
+      );
+    }
+
+    function getChecklistDueDateSummary(steps) {
+      if (!Array.isArray(steps) || !steps.length) {
+        return { dueDateText: '', dueSort: '9999-12-31', latestDueDate: '' };
+      }
+
+      const allCompleted = steps.every((step) => isChecklistStepCompleted(step));
+      if (allCompleted) {
+        const completedDates = steps
+          .map((step) => (step && typeof step.dueDate === 'string' ? step.dueDate : ''))
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right));
+
+        return {
+          dueDateText: '완료',
+          dueSort: '9999-12-31',
+          latestDueDate: completedDates.length ? completedDates[completedDates.length - 1] : ''
+        };
+      }
+
+      const datedSteps = steps
+        .map((step) => ({
+          dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
+          completed: isChecklistStepCompleted(step)
+        }))
+        .filter((step) => Boolean(step.dueDate))
+        .sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+
+      const pendingDueDates = datedSteps
+        .filter((step) => !step.completed)
+        .map((step) => step.dueDate);
+
+      if (pendingDueDates.length) {
+        return {
+          dueDateText: pendingDueDates[0],
+          dueSort: pendingDueDates[0],
+          latestDueDate: datedSteps[datedSteps.length - 1]?.dueDate || ''
+        };
+      }
+
+      return { dueDateText: '', dueSort: '9999-12-31', latestDueDate: '' };
+    }
+
     function getNearestDueDateText(steps) {
-      if (!Array.isArray(steps)) return '';
-      const dueDates = steps
-        .map((step) => (step && typeof step.dueDate === 'string' ? step.dueDate : ''))
-        .filter(Boolean)
-        .sort((left, right) => left.localeCompare(right));
-      return dueDates.length ? dueDates[0] : '';
+      return getChecklistDueDateSummary(steps).dueDateText;
     }
 
     function isDueSoon(dueDateText) {
@@ -3836,7 +3883,8 @@
                 ? checklistSteps.slice(0, 2).join(' / ')
                 : '-');
           const assignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
-          const dueDateText = getNearestDueDateText(itemState.steps);
+          const dueSummary = getChecklistDueDateSummary(itemState.steps);
+          const dueDateText = dueSummary.dueDateText;
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
           const latestCommentText = getLatestCommentPreview(itemState);
@@ -3864,7 +3912,7 @@
             progressText,
             noteText,
             highlight,
-            dueSort: dueDateText || '9999-12-31',
+            dueSort: dueSummary.dueSort,
             lastUpdateTs,
             lastUpdateDays,
             isRecentUpdate,
@@ -5198,19 +5246,18 @@
       const idx = Number(indexText);
       if (!goal || !Array.isArray(goal.items) || Number.isNaN(idx) || !goal.items[idx]) return null;
       const itemState = state && state.items ? state.items[itemKey] : null;
-      const dueDates = Array.isArray(itemState && itemState.steps)
-        ? itemState.steps
-            .filter((step) => step && typeof step.dueDate === 'string' && step.dueDate)
-            .sort((left, right) => left.dueDate.localeCompare(right.dueDate))
-        : [];
-      const dueDate = dueDates.length ? dueDates[0].dueDate : '';
-      const dueInfo = getDueBadgeInfo(dueDate, false);
+      const dueSummary = getChecklistDueDateSummary(itemState && itemState.steps);
+      const dueDate = dueSummary.dueDateText;
       return {
         goalKey,
         goalLabel: getGoalDisplayLabel(goalKey),
         title: goal.items[idx].title,
         dueDate,
-        dueText: dueDate ? `${dueDate} | ${dueInfo.text}` : '미설정'
+        dueText: dueDate === '완료'
+          ? '완료'
+          : dueDate
+            ? `${dueDate} | ${getDueBadgeInfo(dueDate, false).text}`
+            : '미설정'
       };
     }
 
