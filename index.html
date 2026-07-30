@@ -5693,6 +5693,8 @@
         const selectedDate = formatDateToYYYYMMDD(getTimelineSelectedDateKey()) || getLocalDateKey();
         renderTodayActivityWidget(loadPlannerState(), selectedDate);
         renderTeamOverviewTable(dashboardUnifiedOverviewState || loadPlannerState());
+        renderBossSummary(dashboardUnifiedOverviewState || loadPlannerState());
+        renderMandalartBoard(dashboardUnifiedOverviewState || loadPlannerState());
 
         if (reason) {
           console.log('[timeline] 통합 데이터 새로고침 완료', { reason, totalEntries: dashboardUnifiedTimelineEntries.length });
@@ -5910,9 +5912,12 @@
         totalSteps += steps.length;
         checkedSteps += steps.filter((step) => step && step.checked).length;
         const priority = normalizePriorityValue(itemState && itemState.priority);
-        if (priority === PRIORITY_URGENT) urgentCount += 1;
-        if (priority === PRIORITY_IMPORTANT) importantCount += 1;
-        if (itemState && itemState.isLeaderRequested === true) leaderRequestedCount += 1;
+        const isUrgent = priority === PRIORITY_URGENT || itemState?.isUrgent === true || itemState?.urgent === true;
+        const isImportant = priority === PRIORITY_IMPORTANT || itemState?.isImportant === true || itemState?.important === true;
+        const isLeaderRequested = itemState?.isLeaderRequested === true || itemState?.bossRequest === true || itemState?.isBossRequested === true;
+        if (isUrgent) urgentCount += 1;
+        if (isImportant) importantCount += 1;
+        if (isLeaderRequested) leaderRequestedCount += 1;
       });
 
       const percent = totalSteps ? Math.round((checkedSteps / totalSteps) * 100) : 0;
@@ -5972,7 +5977,7 @@
       const badgeConfigs = [
         { className: 'urgent', emoji: '🔴', label: '긴급', count: stats.urgentCount },
         { className: 'important', emoji: '🟡', label: '중요', count: stats.importantCount },
-        { className: 'leader', emoji: '⭐', label: '팀장님', count: stats.leaderRequestedCount }
+        { className: 'leader', emoji: '📌', label: '지시', count: stats.leaderRequestedCount }
       ];
 
       return badgeConfigs
@@ -5983,6 +5988,9 @@
 
     function renderMandalartBoard(state) {
       if (!mandalartGrid) return;
+      const sourceState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
+        ? dashboardUnifiedOverviewState
+        : state;
       const goalKeys = Object.keys(goalTemplates);
       const slotMap = {
         0: goalKeys[0],
@@ -6006,7 +6014,7 @@
         }
 
         const goal = goalTemplates[goalKey];
-        const stats = getGoalStats(goalKey, state);
+        const stats = getGoalStats(goalKey, sourceState);
         const previewTags = getGoalPreviewTags(goalKey);
         const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
         const goalFlagBadges = renderGoalFlagBadges(stats);
@@ -6031,7 +6039,7 @@
 
     function syncOverviewWidgets(state) {
       renderUrgentDeadlineWidget(state);
-      renderLeaderRequestSummary(state);
+      renderBossSummary(state);
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
       renderMandalartBoard(state);
@@ -6186,9 +6194,22 @@
 
     function renderLeaderRequestSummary(state) {
       if (!leaderSummaryList || !leaderSummaryEmpty) return;
-      const requestedEntries = Object.entries(state.items || {})
-        .filter(([, value]) => value && value.isLeaderRequested === true)
-        .map(([itemKey]) => ({ itemKey, detail: getItemDetailByKey(itemKey, state) }))
+      const sourceState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
+        ? dashboardUnifiedOverviewState
+        : state;
+      const requestedEntries = Object.entries((sourceState && sourceState.items) || {})
+        .filter(([, value]) => value && (value.isLeaderRequested === true || value.bossRequest === true || value.isBossRequested === true))
+        .map(([itemKey, itemState]) => {
+          const detail = getItemDetailByKey(itemKey, sourceState);
+          const latestDirective = typeof itemState?.directive === 'string' && itemState.directive.trim()
+            ? itemState.directive.trim()
+            : '';
+          const latestHistoryDirective = Array.isArray(itemState?.directiveHistory) && itemState.directiveHistory.length
+            ? String(itemState.directiveHistory[itemState.directiveHistory.length - 1]?.text || '').trim()
+            : '';
+          const directivePreview = latestDirective || latestHistoryDirective || '최근 지시사항 없음';
+          return { itemKey, detail, directivePreview };
+        })
         .filter((entry) => entry.detail);
 
       if (!requestedEntries.length) {
@@ -6198,9 +6219,13 @@
       }
 
       leaderSummaryList.innerHTML = requestedEntries
-        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">★ ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">소속: ${escapeHtml(entry.detail.goalLabel)} | 마감: ${escapeHtml(entry.detail.dueText)}</div></button>`)
+        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">📌 [${escapeHtml(entry.detail.goalLabel)}] - ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">최신 지시: ${escapeHtml(entry.directivePreview)} | 마감: ${escapeHtml(entry.detail.dueText)}</div></button>`)
         .join('');
       leaderSummaryEmpty.style.display = 'none';
+    }
+
+    function renderBossSummary(state) {
+      renderLeaderRequestSummary(state);
     }
 
     function syncPinnedChecklistState(state) {
