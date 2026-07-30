@@ -10023,7 +10023,6 @@
             button.textContent = '저장 중...';
 
             try {
-              itemState.steps[stepIndex].comment = nextComment;
               upsertChecklistActivityLog(itemState, {
                 itemKey,
                 goalKey: currentGoal,
@@ -10044,9 +10043,16 @@
               savePlannerState(plannerState, { reason: 'step-comment-save', skipFirebaseSync: true });
               await flushFirebaseSnapshot('step-comment-save');
 
+              // 코멘트는 히스토리에만 남기고 입력 상태는 즉시 비운다.
+              itemState.steps[stepIndex].comment = '';
               if (commentInput) commentInput.value = '';
+              markItemUpdated(itemState);
+              savePlannerState(plannerState, { reason: 'step-comment-clear', skipFirebaseSync: true });
+              await flushFirebaseSnapshot('step-comment-clear');
+
               rerenderHistoryArchive();
               updateLatestActivityPanel(true);
+              setToastMessage('코멘트가 성공적으로 등록되었습니다.', 'ok');
               button.textContent = '저장됨';
             } catch (error) {
               console.error('[STEP COMMENT] 저장 실패', error);
