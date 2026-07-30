@@ -1963,16 +1963,62 @@
       return `${STORAGE_KEY}::${dateKey}`;
     }
 
+    function formatDateToISO(value) {
+      if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) return '';
+        return getLocalDateKey(value);
+      }
+
+      if (typeof value !== 'string') return '';
+      const text = value.trim();
+      if (!text) return '';
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        return text;
+      }
+
+      const ymdSlash = text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+      if (ymdSlash) {
+        const year = Number(ymdSlash[1]);
+        const month = String(Number(ymdSlash[2])).padStart(2, '0');
+        const day = String(Number(ymdSlash[3])).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      const mdySlash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (mdySlash) {
+        const year = Number(mdySlash[3]);
+        const month = String(Number(mdySlash[1])).padStart(2, '0');
+        const day = String(Number(mdySlash[2])).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      const ymdDot = text.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})$/);
+      if (ymdDot) {
+        const year = Number(ymdDot[1]);
+        const month = String(Number(ymdDot[2])).padStart(2, '0');
+        const day = String(Number(ymdDot[3])).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      const normalizedDateTime = /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(text)
+        ? text.replace(' ', 'T')
+        : text;
+      const parsed = new Date(normalizedDateTime);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return getLocalDateKey(parsed);
+    }
+
     function isValidPlannerDateKey(value) {
       return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
     }
 
     function getTimelineSelectedDateKey() {
-      return isValidPlannerDateKey(currentPlannerDateKey) ? currentPlannerDateKey : getLocalDateKey();
+      return formatDateToISO(currentPlannerDateKey) || getLocalDateKey();
     }
 
     function formatTimelineDateBadge(dateKey) {
-      const safeDate = isValidPlannerDateKey(dateKey) ? dateKey : getLocalDateKey();
+      const safeDate = formatDateToISO(dateKey) || getLocalDateKey();
       return safeDate === getLocalDateKey() ? `${safeDate} Today` : safeDate;
     }
 
@@ -3870,7 +3916,7 @@
         if (entry.goalKey !== payload.goalKey) return false;
         if (!Number.isInteger(entry.stepIndex) || entry.stepIndex !== stepIndex) return false;
         if (typeof entry.timestamp !== 'string') return false;
-        return getLocalDateKey(new Date(entry.timestamp)) === todayKey;
+        return formatDateToISO(entry.timestamp) === todayKey;
       });
 
       if (targetIndex >= 0) {
@@ -4045,13 +4091,23 @@
       return Array.isArray(itemState && itemState.comments)
         && itemState.comments.some((comment) => {
           const ts = comment && (comment.updatedAt || comment.timestamp);
-          return Boolean(ts) && getLocalDateKey(new Date(ts)) === todayKey;
+          return Boolean(ts) && formatDateToISO(ts) === todayKey;
         });
     }
 
     function parseIsoTimestamp(value) {
       if (typeof value !== 'string' || !value) return 0;
-      const time = new Date(value).getTime();
+      const text = value.trim();
+      if (!text) return 0;
+      const isoDate = formatDateToISO(text);
+      if (isoDate && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        const dateOnlyTs = new Date(`${isoDate}T00:00:00`).getTime();
+        return Number.isNaN(dateOnlyTs) ? 0 : dateOnlyTs;
+      }
+      const normalized = /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(text)
+        ? text.replace(' ', 'T')
+        : text;
+      const time = new Date(normalized).getTime();
       return Number.isNaN(time) ? 0 : time;
     }
 
@@ -4189,6 +4245,7 @@
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
           const hasActivityEvidence = hasRecentActivityEvidence(itemState);
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
+          const isLeaderPinned = itemState && itemState.isLeaderRequested === true;
 
           rows.push({
             itemKey,
@@ -4208,7 +4265,8 @@
             priorityLabel: priorityMeta.label,
             priorityBadgeClass: priorityMeta.badgeClass,
             priorityRank: priorityMeta.rank,
-            priorityPinned: priorityMeta.pinned
+            priorityPinned: priorityMeta.pinned,
+            leaderPinned: isLeaderPinned
           });
         });
       });
@@ -4227,7 +4285,7 @@
 
       const windowFilteredRows = teamOverviewUpdateFilterMode === 'all'
         ? rows
-        : rows.filter((row) => row.priorityPinned || row.isRecentUpdate);
+        : rows.filter((row) => row.priorityPinned || row.leaderPinned || row.isRecentUpdate);
 
       const assigneeValues = Array.from(new Set(windowFilteredRows.map((row) => row.assignee).filter((value) => value && value !== '-'))).sort((a, b) => a.localeCompare(b));
       const fixedOptions = ['Jian', 'Jay', 'CHCho'];
@@ -4253,8 +4311,12 @@
 
       const filteredRows = scopedRows.sort((left, right) => {
         if (left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
-        const leftBucket = left.priorityRank < 2 ? left.priorityRank : (left.isRecentUpdate ? 2 : 3);
-        const rightBucket = right.priorityRank < 2 ? right.priorityRank : (right.isRecentUpdate ? 2 : 3);
+        const leftBucket = left.priorityRank < 2
+          ? left.priorityRank
+          : (left.leaderPinned ? 2 : (left.isRecentUpdate ? 3 : 4));
+        const rightBucket = right.priorityRank < 2
+          ? right.priorityRank
+          : (right.leaderPinned ? 2 : (right.isRecentUpdate ? 3 : 4));
         if (leftBucket !== rightBucket) return leftBucket - rightBucket;
         if (left.dueSort !== right.dueSort) return left.dueSort.localeCompare(right.dueSort);
         if (left.lastUpdateTs !== right.lastUpdateTs) return right.lastUpdateTs - left.lastUpdateTs;
@@ -5349,7 +5411,7 @@
 
     function collectTodayActivityEntries(state, targetDateKey = getTimelineSelectedDateKey()) {
       const entries = [];
-      const dateKey = isValidPlannerDateKey(targetDateKey) ? targetDateKey : getLocalDateKey();
+      const dateKey = formatDateToISO(targetDateKey) || getLocalDateKey();
 
       Object.entries((state && state.items) || {}).forEach(([itemKey, itemState]) => {
         const context = getTimelineItemContext(state, itemKey);
@@ -5360,7 +5422,7 @@
 
         (itemState.comments || []).forEach((comment, commentIndex) => {
           const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
-          if (!rawTimestamp || getLocalDateKey(new Date(rawTimestamp)) !== dateKey) return;
+          if (!rawTimestamp || formatDateToISO(rawTimestamp) !== dateKey) return;
           entries.push({
             type: 'comment',
             timestamp: new Date(rawTimestamp).getTime(),
@@ -5379,7 +5441,7 @@
 
         (itemState.activityLog || []).forEach((logEntry, logIndex) => {
           if (!logEntry || typeof logEntry.timestamp !== 'string') return;
-          if (getLocalDateKey(new Date(logEntry.timestamp)) !== dateKey) return;
+          if (formatDateToISO(logEntry.timestamp) !== dateKey) return;
 
           if (logEntry.type === 'checklist-complete') {
             const latestStepText = resolveTimelineChecklistStepText(state, itemKey, logEntry);
@@ -10620,7 +10682,7 @@
     }
 
     function switchPlannerDate(dateKey, options = {}) {
-      const nextDateKey = typeof dateKey === 'string' ? dateKey.trim() : '';
+      const nextDateKey = formatDateToISO(dateKey);
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -10856,7 +10918,7 @@
       if (plannerDatePicker) {
         plannerDatePicker.addEventListener('change', () => {
           hasUserSelectedTimelineDate = true;
-          const nextDate = plannerDatePicker.value || getLocalDateKey(new Date());
+          const nextDate = formatDateToISO(plannerDatePicker.value) || getLocalDateKey(new Date());
           switchPlannerDate(nextDate);
         });
       }
@@ -11487,7 +11549,7 @@
               itemState.comments = itemState.comments.filter((comment) => {
                 const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
                 if (!rawTimestamp) return true;
-                return getLocalDateKey(new Date(rawTimestamp)) !== selectedDateKey;
+                return formatDateToISO(rawTimestamp) !== selectedDateKey;
               });
               syncCommentDerivedFields(itemState);
               recalculateItemActivityTimestamp(itemState);
@@ -11496,7 +11558,7 @@
             if (Array.isArray(itemState.activityLog)) {
               itemState.activityLog = itemState.activityLog.filter((logEntry) => {
                 if (!logEntry || typeof logEntry.timestamp !== 'string') return true;
-                return getLocalDateKey(new Date(logEntry.timestamp)) !== selectedDateKey;
+                return formatDateToISO(logEntry.timestamp) !== selectedDateKey;
               });
             }
 
