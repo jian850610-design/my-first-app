@@ -289,6 +289,8 @@
     .mini-calendar-nav-btn:hover,
     .mini-calendar-today-btn:hover { background: #eef5fd; }
     .mini-calendar-month-label { font-size: 14px; font-weight: 900; color: #183b5f; min-width: 120px; text-align: center; }
+    .mini-calendar-loading { min-height: 42px; border-radius: 12px; border: 1px dashed #cddbeb; background: #f8fbff; color: #5f7590; font-size: 12px; font-weight: 800; display: none; align-items: center; justify-content: center; }
+    .mini-calendar-loading.visible { display: flex; }
     .mini-calendar-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; font-size: 10px; font-weight: 800; color: #6b8095; text-align: center; }
     .mini-calendar-grid { display: grid; gap: 6px; }
     .mini-calendar-week { display: grid; gap: 4px; }
@@ -1006,7 +1008,7 @@
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, onValue, ref, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, onValue, ref, remove, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -1077,6 +1079,14 @@
       getDateRef(dateKey) {
         if (!db) return null;
         return ref(db, `plans/skf-daily/${dateKey}`);
+      },
+      getCalendarEventsRef() {
+        if (!db) return null;
+        return ref(db, 'plans/skf-daily/calendarEvents');
+      },
+      getCalendarEventRef(eventId) {
+        if (!db || !eventId) return null;
+        return ref(db, `plans/skf-daily/calendarEvents/${eventId}`);
       },
       getConnectedRef() {
         if (!db) return null;
@@ -1161,6 +1171,7 @@
               </div>
               <button type="button" class="mini-calendar-today-btn" id="miniCalendarTodayBtn">Today</button>
             </div>
+            <div class="mini-calendar-loading" id="miniCalendarLoading">일정 불러오는 중...</div>
             <div class="mini-calendar-weekdays">
               <div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div><div>일</div>
             </div>
@@ -1566,6 +1577,7 @@
     const miniCalendarNextBtn = document.getElementById('miniCalendarNextBtn');
     const miniCalendarTodayBtn = document.getElementById('miniCalendarTodayBtn');
     const miniCalendarMonthLabel = document.getElementById('miniCalendarMonthLabel');
+    const miniCalendarLoadingEl = document.getElementById('miniCalendarLoading');
     const miniCalendarGrid = document.getElementById('miniCalendarGrid');
     const miniCalendarPopover = document.getElementById('miniCalendarPopover');
     const miniCalendarPopoverTitle = document.getElementById('miniCalendarPopoverTitle');
@@ -1691,6 +1703,7 @@
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
     const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
+    const MINI_CALENDAR_MIGRATED_KEY = 'skfMiniCalendarMigratedToFirebaseV1';
     const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
     const MINI_CALENDAR_VIEW_MODE_KEY = 'skfMiniCalendarViewModeV1';
     const MINI_CALENDAR_WEEK_START_KEY = 'skfMiniCalendarWeekStartV1';
@@ -1701,6 +1714,9 @@
     let miniCalendarViewMode = 'compact';
     let miniCalendarWeekStart = 'monday';
     let miniCalendarPopoverState = null;
+    let miniCalendarLoading = true;
+    let miniCalendarLoadError = '';
+    let miniCalendarRealtimeUnsubscribe = null;
     let newsRequestSerial = 0;
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
@@ -5468,7 +5484,7 @@
       return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long' }).format(date);
     }
 
-    function normalizeMiniCalendarEvent(rawEvent) {
+    function normalizeMiniCalendarEvent(rawEvent, fallbackCreatedBy = '') {
       if (!rawEvent || typeof rawEvent !== 'object') return null;
       const title = typeof rawEvent.title === 'string' ? rawEvent.title.trim() : '';
       const startDate = getMiniCalendarDateKey(rawEvent.startDate);
@@ -5477,27 +5493,82 @@
 
       const normalizedStart = startDate <= endDate ? startDate : endDate;
       const normalizedEnd = startDate <= endDate ? endDate : startDate;
-      const color = ['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.color) ? rawEvent.color : 'blue';
+      const colorLabel = ['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.colorLabel)
+        ? rawEvent.colorLabel
+        : (['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.color) ? rawEvent.color : 'blue');
+      const createdBy = typeof rawEvent.createdBy === 'string' && rawEvent.createdBy.trim()
+        ? rawEvent.createdBy.trim()
+        : fallbackCreatedBy;
+      const createdAt = typeof rawEvent.createdAt === 'string' && rawEvent.createdAt.trim() ? rawEvent.createdAt.trim() : new Date().toISOString();
+      const updatedAt = typeof rawEvent.updatedAt === 'string' && rawEvent.updatedAt.trim() ? rawEvent.updatedAt.trim() : createdAt;
 
       return {
         id: typeof rawEvent.id === 'string' && rawEvent.id ? rawEvent.id : `mini-${normalizedStart}-${normalizedEnd}-${Math.random().toString(36).slice(2, 8)}`,
         title,
         startDate: normalizedStart,
         endDate: normalizedEnd,
-        color,
+        colorLabel,
         memo: typeof rawEvent.memo === 'string' ? rawEvent.memo.trim() : '',
-        createdAt: typeof rawEvent.createdAt === 'string' ? rawEvent.createdAt : new Date().toISOString(),
-        updatedAt: typeof rawEvent.updatedAt === 'string' ? rawEvent.updatedAt : new Date().toISOString()
+        createdBy,
+        createdAt,
+        updatedAt,
+        isPrivate: Boolean(rawEvent.isPrivate)
       };
     }
 
-    function loadMiniCalendarEvents() {
+    function getMiniCalendarBridge() {
+      return getFirebaseBridge();
+    }
+
+    function getMiniCalendarCollectionRef() {
+      const bridge = getMiniCalendarBridge();
+      if (!bridge) return null;
+      if (typeof bridge.getCalendarEventsRef === 'function') {
+        return bridge.getCalendarEventsRef();
+      }
+      if (!bridge.db || typeof bridge.ref !== 'function') return null;
+      return bridge.ref(bridge.db, 'plans/skf-daily/calendarEvents');
+    }
+
+    function getMiniCalendarEventRef(eventId) {
+      const bridge = getMiniCalendarBridge();
+      if (!bridge) return null;
+      if (typeof bridge.getCalendarEventRef === 'function') {
+        return bridge.getCalendarEventRef(eventId);
+      }
+      if (!bridge.db || !eventId || typeof bridge.ref !== 'function') return null;
+      return bridge.ref(bridge.db, `plans/skf-daily/calendarEvents/${eventId}`);
+    }
+
+    function getMiniCalendarCreatedByValue() {
+      const user = currentFirebaseUser || (getMiniCalendarBridge() && getMiniCalendarBridge().auth ? getMiniCalendarBridge().auth.currentUser : null);
+      return user ? (user.uid || user.email || user.displayName || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
+    }
+
+    function buildMiniCalendarEventPayload(rawEvent, overrides = {}) {
+      const normalized = normalizeMiniCalendarEvent(rawEvent, overrides.createdBy || getMiniCalendarCreatedByValue());
+      if (!normalized) return null;
+      return {
+        id: normalized.id,
+        title: normalized.title,
+        startDate: normalized.startDate,
+        endDate: normalized.endDate,
+        colorLabel: normalized.colorLabel,
+        memo: normalized.memo,
+        createdBy: overrides.createdBy || normalized.createdBy || getMiniCalendarCreatedByValue(),
+        createdAt: overrides.createdAt || normalized.createdAt || new Date().toISOString(),
+        updatedAt: overrides.updatedAt || normalized.updatedAt || new Date().toISOString(),
+        isPrivate: Boolean(overrides.isPrivate !== undefined ? overrides.isPrivate : normalized.isPrivate)
+      };
+    }
+
+    function loadLegacyMiniCalendarEventsForMigration() {
       try {
         const raw = localStorage.getItem(MINI_CALENDAR_STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed.map(normalizeMiniCalendarEvent).filter(Boolean).sort((left, right) => {
+        return parsed.map((item) => normalizeMiniCalendarEvent(item, getMiniCalendarCreatedByValue())).filter(Boolean).sort((left, right) => {
           if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
           if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
           return left.title.localeCompare(right.title);
@@ -5507,12 +5578,130 @@
       }
     }
 
-    function persistMiniCalendarEvents() {
+    function loadMiniCalendarEventsFromRemoteValue(remoteValue) {
+      const sourceItems = Array.isArray(remoteValue)
+        ? remoteValue
+        : (remoteValue && typeof remoteValue === 'object' ? Object.values(remoteValue) : []);
+      return sourceItems
+        .map((item) => normalizeMiniCalendarEvent(item, getMiniCalendarCreatedByValue()))
+        .filter(Boolean)
+        .sort((left, right) => {
+          if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
+          if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
+          return left.title.localeCompare(right.title);
+        });
+    }
+
+    function getMiniCalendarMigrationFlag() {
       try {
-        localStorage.setItem(MINI_CALENDAR_STORAGE_KEY, JSON.stringify(miniCalendarEvents));
+        return localStorage.getItem(MINI_CALENDAR_MIGRATED_KEY) === '1';
       } catch (error) {
-        console.error('미니 캘린더 저장에 실패했습니다.', error);
+        return false;
       }
+    }
+
+    function markMiniCalendarMigrationComplete() {
+      try {
+        localStorage.setItem(MINI_CALENDAR_MIGRATED_KEY, '1');
+        localStorage.removeItem(MINI_CALENDAR_STORAGE_KEY);
+      } catch (error) {
+        console.error('미니 캘린더 마이그레이션 표시 저장에 실패했습니다.', error);
+      }
+    }
+
+    function clearMiniCalendarLoadingState() {
+      miniCalendarLoading = false;
+      miniCalendarLoadError = '';
+      if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
+        miniCalendarLoadingEl.classList.remove('visible');
+      }
+    }
+
+    function setMiniCalendarLoadingState(isLoading, errorMessage = '') {
+      miniCalendarLoading = Boolean(isLoading);
+      miniCalendarLoadError = errorMessage || '';
+      if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
+        miniCalendarLoadingEl.textContent = miniCalendarLoadError || '일정 불러오는 중...';
+        miniCalendarLoadingEl.classList.toggle('visible', miniCalendarLoading || Boolean(miniCalendarLoadError));
+      }
+      renderMiniCalendarWidget();
+    }
+
+    function updateMiniCalendarRemoteEvents(nextEvents) {
+      miniCalendarEvents = Array.isArray(nextEvents) ? nextEvents.slice() : [];
+      renderMiniCalendarWidget();
+    }
+
+    async function migrateMiniCalendarLegacyDataIfNeeded() {
+      if (getMiniCalendarMigrationFlag()) return;
+      const legacyEvents = loadLegacyMiniCalendarEventsForMigration();
+      if (!legacyEvents.length) {
+        markMiniCalendarMigrationComplete();
+        return;
+      }
+
+      const bridge = getMiniCalendarBridge();
+      const collectionRef = getMiniCalendarCollectionRef();
+      if (!bridge || !collectionRef || typeof bridge.update !== 'function') {
+        return;
+      }
+
+      const payload = legacyEvents.reduce((map, eventItem) => {
+        map[eventItem.id] = buildMiniCalendarEventPayload(eventItem, {
+          createdBy: eventItem.createdBy || getMiniCalendarCreatedByValue(),
+          createdAt: eventItem.createdAt,
+          updatedAt: eventItem.updatedAt,
+          isPrivate: eventItem.isPrivate === true
+        });
+        return map;
+      }, {});
+
+      try {
+        await bridge.update(collectionRef, payload);
+        markMiniCalendarMigrationComplete();
+      } catch (error) {
+        console.error('미니 캘린더 기존 데이터 이관 실패', error);
+        window.alert('달력 일정 이관에 실패했습니다. Firebase 연결 또는 권한을 확인해 주세요.');
+      }
+    }
+
+    function attachMiniCalendarRealtimeListener() {
+      const bridge = getMiniCalendarBridge();
+      const collectionRef = getMiniCalendarCollectionRef();
+      if (!bridge || !collectionRef || typeof bridge.onValue !== 'function') return;
+      if (miniCalendarRealtimeUnsubscribe) {
+        miniCalendarRealtimeUnsubscribe();
+        miniCalendarRealtimeUnsubscribe = null;
+      }
+
+      setMiniCalendarLoadingState(true);
+      miniCalendarRealtimeUnsubscribe = bridge.onValue(collectionRef, (snapshot) => {
+        try {
+          const nextEvents = loadMiniCalendarEventsFromRemoteValue(snapshot.val());
+          updateMiniCalendarRemoteEvents(nextEvents);
+          clearMiniCalendarLoadingState();
+        } catch (error) {
+          console.error('미니 캘린더 일정 파싱 실패', error);
+          miniCalendarLoadError = '일정 데이터를 불러오는 중 문제가 발생했습니다.';
+          miniCalendarLoading = false;
+          if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
+            miniCalendarLoadingEl.textContent = miniCalendarLoadError;
+            miniCalendarLoadingEl.classList.add('visible');
+          }
+          renderMiniCalendarWidget();
+          window.alert('달력 일정을 불러오는 데 실패했습니다.');
+        }
+      }, (error) => {
+        console.error('미니 캘린더 일정 구독 실패', error);
+        miniCalendarLoading = false;
+        miniCalendarLoadError = '일정을 불러오지 못했습니다.';
+        if (miniCalendarLoadingEl && miniCalendarLoadingEl.classList) {
+          miniCalendarLoadingEl.textContent = miniCalendarLoadError;
+          miniCalendarLoadingEl.classList.add('visible');
+        }
+        renderMiniCalendarWidget();
+        window.alert('달력 일정을 불러오지 못했습니다. Firebase 권한 또는 연결을 확인해 주세요.');
+      });
     }
 
     function loadMiniCalendarCollapsedState() {
@@ -5583,7 +5772,7 @@
     }
 
     function getMiniCalendarEmoji(eventItem) {
-      const color = eventItem && eventItem.color ? eventItem.color : 'blue';
+      const color = eventItem && (eventItem.colorLabel || eventItem.color) ? (eventItem.colorLabel || eventItem.color) : 'blue';
       if (color === 'pink') return '🏖️';
       if (color === 'yellow') return '⭐';
       if (color === 'green') return '✅';
@@ -5681,7 +5870,7 @@
       return `
         <div class="mini-calendar-day-events">
           ${visibleEvents.map((eventItem) => `
-            <button type="button" class="mini-calendar-day-event ${eventItem.color}" data-mini-calendar-event-id="${escapeHtml(eventItem.id)}" title="${escapeHtml(getMiniCalendarTooltipText(eventItem))}">
+            <button type="button" class="mini-calendar-day-event ${eventItem.colorLabel}" data-mini-calendar-event-id="${escapeHtml(eventItem.id)}" title="${escapeHtml(getMiniCalendarTooltipText(eventItem))}">
               <span class="mini-calendar-day-event-emoji">${escapeHtml(getMiniCalendarEmoji(eventItem))}</span>
               <span class="mini-calendar-day-event-title">${escapeHtml(miniCalendarViewMode === 'compact' ? truncateMiniCalendarTitle(eventItem.title) : eventItem.title)}</span>
               <span class="mini-calendar-day-event-range">${escapeHtml(formatMiniCalendarRangeLabel(eventItem.startDate, eventItem.endDate))}</span>
@@ -5769,8 +5958,20 @@
       renderMiniCalendarWeekdayHeader();
       renderMiniCalendarCollapsedStrip();
 
+      if (miniCalendarLoadingEl) {
+        miniCalendarLoadingEl.textContent = miniCalendarLoadError || '일정 불러오는 중...';
+        miniCalendarLoadingEl.classList.toggle('visible', miniCalendarLoading || Boolean(miniCalendarLoadError));
+      }
+
       if (miniCalendarCollapsed) {
         miniCalendarGrid.innerHTML = '';
+        return;
+      }
+
+      if (miniCalendarLoading || miniCalendarLoadError) {
+        miniCalendarGrid.innerHTML = miniCalendarLoadError
+          ? `<div class="mini-calendar-empty">${escapeHtml(miniCalendarLoadError)}</div>`
+          : '<div class="mini-calendar-empty">일정 불러오는 중...</div>';
         return;
       }
 
@@ -5814,7 +6015,7 @@
       miniCalendarEventTitleInput.value = existingEvent ? existingEvent.title : '';
       miniCalendarEventStartInput.value = existingEvent ? existingEvent.startDate : selectedDateKey;
       miniCalendarEventEndInput.value = existingEvent ? existingEvent.endDate : selectedDateKey;
-      miniCalendarEventColorInput.value = existingEvent ? existingEvent.color : 'blue';
+      miniCalendarEventColorInput.value = existingEvent ? (existingEvent.colorLabel || 'blue') : 'blue';
       miniCalendarEventMemoInput.value = existingEvent ? (existingEvent.memo || '') : '';
       miniCalendarModal.hidden = false;
       miniCalendarEventTitleInput.focus();
@@ -5827,7 +6028,7 @@
       miniCalendarModalState = null;
     }
 
-    function saveMiniCalendarModal() {
+    async function saveMiniCalendarModal() {
       if (!miniCalendarModalState || !miniCalendarEventTitleInput || !miniCalendarEventStartInput || !miniCalendarEventEndInput || !miniCalendarEventColorInput || !miniCalendarEventMemoInput) return;
       const title = miniCalendarEventTitleInput.value.trim();
       const startDate = getMiniCalendarDateKey(miniCalendarEventStartInput.value);
@@ -5848,52 +6049,67 @@
       const normalizedStart = startDate <= endDate ? startDate : endDate;
       const normalizedEnd = startDate <= endDate ? endDate : startDate;
       const timestamp = new Date().toISOString();
-      const nextEvent = {
+      const nextEvent = buildMiniCalendarEventPayload({
         id: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId ? miniCalendarModalState.eventId : `mini-${timestamp.replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 7)}`,
         title,
         startDate: normalizedStart,
         endDate: normalizedEnd,
-        color: ['pink', 'yellow', 'blue', 'green', 'purple'].includes(color) ? color : 'blue',
+        colorLabel: ['pink', 'yellow', 'blue', 'green', 'purple'].includes(color) ? color : 'blue',
         memo,
+        isPrivate: false,
         createdAt: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId
           ? (miniCalendarEvents.find((eventItem) => eventItem.id === miniCalendarModalState.eventId)?.createdAt || timestamp)
           : timestamp,
-        updatedAt: timestamp
-      };
+        updatedAt: timestamp,
+        createdBy: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId
+          ? (miniCalendarEvents.find((eventItem) => eventItem.id === miniCalendarModalState.eventId)?.createdBy || getMiniCalendarCreatedByValue())
+          : getMiniCalendarCreatedByValue()
+      });
 
-      if (miniCalendarModalState.mode === 'edit') {
-        miniCalendarEvents = miniCalendarEvents.map((eventItem) => (eventItem.id === miniCalendarModalState.eventId ? nextEvent : eventItem));
-      } else {
-        miniCalendarEvents = [...miniCalendarEvents, nextEvent];
+      const bridge = getMiniCalendarBridge();
+      const eventRef = getMiniCalendarEventRef(nextEvent.id);
+      if (!bridge || !eventRef || typeof bridge.update !== 'function') {
+        window.alert('달력 저장을 위한 Firebase 연결이 준비되지 않았습니다.');
+        return;
       }
-      miniCalendarEvents = miniCalendarEvents
-        .map(normalizeMiniCalendarEvent)
-        .filter(Boolean)
-        .sort((left, right) => {
-          if (left.startDate !== right.startDate) return left.startDate.localeCompare(right.startDate);
-          if (left.endDate !== right.endDate) return left.endDate.localeCompare(right.endDate);
-          return left.title.localeCompare(right.title);
-        });
 
-      persistMiniCalendarEvents();
-      closeMiniCalendarPopover();
-      renderMiniCalendarWidget();
-      closeMiniCalendarModal();
+      try {
+        await bridge.update(eventRef, nextEvent);
+        miniCalendarLoading = false;
+        miniCalendarLoadError = '';
+        closeMiniCalendarPopover();
+        closeMiniCalendarModal();
+      } catch (error) {
+        console.error('미니 캘린더 저장 실패', error);
+        window.alert('달력 일정 저장에 실패했습니다. Firebase 권한 또는 연결을 확인해 주세요.');
+      }
     }
 
-    function deleteMiniCalendarModalEvent() {
+    async function deleteMiniCalendarModalEvent() {
       if (!miniCalendarModalState || !miniCalendarModalState.eventId) return;
       const confirmed = window.confirm('이 일정을 삭제하시겠습니까?');
       if (!confirmed) return;
-      miniCalendarEvents = miniCalendarEvents.filter((eventItem) => eventItem.id !== miniCalendarModalState.eventId);
-      persistMiniCalendarEvents();
-      closeMiniCalendarPopover();
-      renderMiniCalendarWidget();
-      closeMiniCalendarModal();
+      const bridge = getMiniCalendarBridge();
+      const eventRef = getMiniCalendarEventRef(miniCalendarModalState.eventId);
+      if (!bridge || !eventRef || typeof bridge.remove !== 'function') {
+        window.alert('달력 삭제를 위한 Firebase 연결이 준비되지 않았습니다.');
+        return;
+      }
+
+      try {
+        await bridge.remove(eventRef);
+        closeMiniCalendarPopover();
+        closeMiniCalendarModal();
+      } catch (error) {
+        console.error('미니 캘린더 삭제 실패', error);
+        window.alert('달력 일정 삭제에 실패했습니다. Firebase 권한 또는 연결을 확인해 주세요.');
+      }
     }
 
-    function initializeMiniCalendar() {
-      miniCalendarEvents = loadMiniCalendarEvents();
+    async function initializeMiniCalendar() {
+      miniCalendarEvents = [];
+      miniCalendarLoading = true;
+      miniCalendarLoadError = '';
       miniCalendarCollapsed = loadMiniCalendarCollapsedState();
       miniCalendarViewMode = loadMiniCalendarViewMode();
       miniCalendarWeekStart = loadMiniCalendarWeekStartMode();
@@ -5906,6 +6122,8 @@
         miniCalendarViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
       renderMiniCalendarWidget();
+      attachMiniCalendarRealtimeListener();
+      await migrateMiniCalendarLegacyDataIfNeeded();
     }
 
     function getDueBadgeInfo(dueDate, checked = false) {
