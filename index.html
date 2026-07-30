@@ -194,7 +194,7 @@
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
-    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; scroll-margin-top: 88px; }
+    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; overflow: visible; scroll-margin-top: 88px; }
     .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
     .detail-item-card h3 { margin: 0; font-size: 17px; color: var(--text); }
     .detail-item-card.row-jump-highlight {
@@ -314,8 +314,9 @@
     .card-save-btn:hover { background: #0f5f9d; transform: translateY(-1px); }
     .detail-item-card.editing .card-edit-btn { display: none; }
     .detail-item-card.editing .card-save-btn { display: inline-flex; align-items: center; justify-content: center; }
-    .card-editor-panel { display: none; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; gap: 8px; }
-    .detail-item-card.editing .card-editor-panel { display: grid; }
+    .edit-form-container { display: none; position: static; z-index: auto; margin-bottom: 20px; border: 1px solid #dbe6f1; border-radius: 14px; background: #f8fafc; padding: 12px; }
+    .detail-item-card.editing .edit-form-container { display: block; }
+    .card-editor-panel { display: flex; flex-direction: column; gap: 8px; position: static; z-index: auto; background: transparent; padding: 0; }
     .card-editor-field { display: grid; gap: 4px; }
     .card-editor-field label { font-size: 11px; color: #4a627d; font-weight: 700; }
     .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 10px; padding: 8px 10px; background: #ffffff; color: #1f3d5b; font-size: 12px; outline: none; }
@@ -8837,18 +8838,20 @@
             </div>
           </div>
           <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
-          <div class="card-editor-panel">
-            <div class="card-editor-field">
-              <label>카드 제목</label>
-              <input type="text" class="card-editor-input card-title-input" value="${escapeHtml(displayTitle)}" />
-            </div>
-            <div class="card-editor-field">
-              <label>본문 설명</label>
-              <textarea class="card-editor-textarea card-summary-input">${escapeHtml(displaySummary)}</textarea>
-            </div>
-            <div class="card-editor-field">
-              <label>가이드라인 (줄바꿈으로 항목 구분)</label>
-              <textarea class="card-editor-textarea card-guidelines-input">${escapeHtml(guidelineEditorText)}</textarea>
+          <div class="edit-form-container">
+            <div class="card-editor-panel">
+              <div class="card-editor-field">
+                <label>카드 제목</label>
+                <input type="text" class="card-editor-input card-title-input" value="${escapeHtml(displayTitle)}" />
+              </div>
+              <div class="card-editor-field">
+                <label>본문 설명</label>
+                <textarea class="card-editor-textarea card-summary-input">${escapeHtml(displaySummary)}</textarea>
+              </div>
+              <div class="card-editor-field">
+                <label>가이드라인 (줄바꿈으로 항목 구분)</label>
+                <textarea class="card-editor-textarea card-guidelines-input">${escapeHtml(guidelineEditorText)}</textarea>
+              </div>
             </div>
           </div>
           <div class="detail-item-meta">
