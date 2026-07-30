@@ -4371,13 +4371,13 @@
           const stripCompletedTag = (text) => text.replace(/^\[완료\]\s*/u, '').trim();
           const nextPendingStepIndex = Array.isArray(itemState.steps)
             ? itemState.steps.findIndex((step, stepIndex) => {
-                if (!step || step.checked) return false;
+                if (!step || isChecklistStepCompleted(step)) return false;
                 const label = stepLabels[stepIndex] || '';
                 return label ? !/^\[완료\]\s*/u.test(label) : true;
               })
             : -1;
           const fallbackPendingStepIndex = Array.isArray(itemState.steps)
-            ? itemState.steps.findIndex((step) => step && !step.checked)
+            ? itemState.steps.findIndex((step) => step && !isChecklistStepCompleted(step))
             : -1;
           let actionPlan = '-';
           if (totalCount > 0 && doneCount >= totalCount) {
@@ -5192,7 +5192,11 @@
         .replace(/'/g, '&#39;');
     }
 
-    function getDueBadgeInfo(dueDate, checked) {
+    function getDueBadgeInfo(dueDate, checked = false) {
+      if (checked === true) {
+        return { text: '완료', cls: 'done' };
+      }
+
       if (!dueDate) {
         return { text: '미설정', cls: 'unset' };
       }
@@ -10531,7 +10535,7 @@
         const updateDueDateBadges = () => {
           dueDateBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, dueDate: '' };
-            const info = getDueBadgeInfo(stepState.dueDate);
+            const info = getDueBadgeInfo(stepState.dueDate, isChecklistStepCompleted(stepState));
             badge.textContent = info.text;
             badge.className = `workflow-dday-badge ${info.cls}`;
           });
