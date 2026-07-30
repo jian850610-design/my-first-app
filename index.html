@@ -221,11 +221,23 @@
     .team-overview-section.collapsed .team-overview-body { display: none; }
     .team-overview-filter-notice { margin: 0 0 8px; border-radius: 10px; border: 1px solid #f1dd9d; background: #fff7dc; color: #7b5a08; padding: 8px 10px; font-size: 12px; font-weight: 700; }
     .team-overview-table-wrap { width: 100%; overflow: auto; border: 1px solid #d8e5f1; border-radius: 12px; background: #ffffff; }
-    .team-overview-table { width: 100%; border-collapse: collapse; min-width: 1060px; }
+    .team-overview-table { width: 100%; border-collapse: collapse; min-width: 960px; table-layout: fixed; }
     .team-overview-table th,
     .team-overview-table td { border: 1px solid #dbe7f3; padding: 8px 9px; font-size: 12px; color: #23425f; vertical-align: top; line-height: 1.45; }
     .team-overview-table th { background: #edf4fc; color: #21486f; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
     .team-overview-table td { background: #ffffff; }
+    .team-overview-table th:nth-child(1),
+    .team-overview-table td:nth-child(1) { width: 84px; }
+    .team-overview-table th:nth-child(2),
+    .team-overview-table td:nth-child(2) { width: 92px; }
+    .team-overview-table th:nth-child(3),
+    .team-overview-table td:nth-child(3) { width: 24%; }
+    .team-overview-table th:nth-child(4),
+    .team-overview-table td:nth-child(4) { width: 28%; }
+    .team-overview-table th:nth-child(5),
+    .team-overview-table td:nth-child(5) { width: 92px; }
+    .team-overview-table th:nth-child(6),
+    .team-overview-table td:nth-child(6) { width: 32%; }
     .team-overview-table tr.team-overview-row-highlight td { background: #fff2cc; }
     .team-overview-cell-title { font-weight: 800; color: #1d456d; }
     .team-overview-cell-title-wrap { display: inline-flex; align-items: center; gap: 8px; }
@@ -237,6 +249,17 @@
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
     .team-overview-cell-muted { color: #6a7f95; }
+    .team-overview-progress-cell { display: grid; gap: 4px; line-height: 1.25; word-break: keep-all; }
+    .team-overview-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+    .team-overview-progress-track { height: 8px; border-radius: 999px; background: #e3edf7; overflow: hidden; border: 1px solid #d2e0ec; }
+    .team-overview-progress-fill { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f39c12 0%, #f6b64f 100%); transition: width 0.25s ease; }
+    .team-overview-progress-fill.done { background: linear-gradient(90deg, #0f5f9d 0%, #169f9f 100%); }
+    .team-overview-progress-meta { display: inline-flex; align-items: baseline; gap: 5px; justify-self: end; font-size: 11px; font-weight: 800; color: #1f507a; white-space: nowrap; }
+    .team-overview-progress-count { color: #5a7087; font-weight: 700; }
+    .team-overview-progress-summary { font-size: 11px; font-weight: 700; color: #38536f; line-height: 1.2; }
+    .team-overview-progress-comment,
+    .team-overview-progress-completion { font-size: 11px; line-height: 1.3; color: #536980; }
+    .team-overview-progress-comment { white-space: normal; }
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
@@ -1020,7 +1043,6 @@
                   <th>ACTION PLAN(To-Do)</th>
                   <th>담당자</th>
                   <th>진행 상황(최신 코멘트 및 체크 현황)</th>
-                  <th>비고</th>
                 </tr>
               </thead>
               <tbody id="teamOverviewTableBody"></tbody>
@@ -4141,6 +4163,57 @@
       return hasComments || hasChecklistLogs;
     }
 
+    function getLatestCommentActivityDetails(itemState) {
+      const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
+      const latestComment = getLatestCommentEntry(comments);
+      if (latestComment) {
+        const text = computeLatestCommentSummary(comments);
+        return {
+          text: text || '아직 등록된 코멘트가 없습니다.',
+          timestamp: parseIsoTimestamp(latestComment.updatedAt || latestComment.timestamp)
+        };
+      }
+
+      const checklistLogs = Array.isArray(itemState && itemState.activityLog) ? itemState.activityLog : [];
+      const latestStepLog = checklistLogs
+        .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.stepComment === 'string' && entry.stepComment.trim())
+        .sort((left, right) => new Date(right.timestamp || 0).getTime() - new Date(left.timestamp || 0).getTime())[0];
+      if (latestStepLog && typeof latestStepLog.stepComment === 'string' && latestStepLog.stepComment.trim()) {
+        const normalized = latestStepLog.stepComment.replace(/\s+/g, ' ').trim();
+        return {
+          text: normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized,
+          timestamp: parseIsoTimestamp(latestStepLog.timestamp)
+        };
+      }
+
+      return { text: '아직 등록된 코멘트가 없습니다.', timestamp: 0 };
+    }
+
+    function buildTeamOverviewProgressHtml(row) {
+      const percent = Math.max(0, Math.min(100, Number(row && row.progressPercent) || 0));
+      const percentText = `${Math.round(percent)}%`;
+      const doneCount = Number(row && row.doneCount) || 0;
+      const totalCount = Number(row && row.totalCount) || 0;
+      const commentText = row && typeof row.latestCommentText === 'string' ? row.latestCommentText.trim() : '';
+      const commentAt = row && row.latestCommentAt ? formatEntryDateTime(row.latestCommentAt) : '';
+      const doneAt = row && row.latestDoneAt ? formatEntryDateTime(row.latestDoneAt) : '';
+      const summaryText = `[ progress bar (${percentText}) ] ${doneCount}/${totalCount} 완료`;
+
+      return `
+        <div class="team-overview-progress-cell">
+          <div class="team-overview-progress-row">
+            <div class="team-overview-progress-track" aria-hidden="true">
+              <div class="team-overview-progress-fill ${percent >= 100 ? 'done' : ''}" style="width:${percent.toFixed(1)}%"></div>
+            </div>
+            <div class="team-overview-progress-meta"><span>${escapeHtml(percentText)}</span><span class="team-overview-progress-count">${escapeHtml(`${doneCount}/${totalCount}`)}</span></div>
+          </div>
+          <div class="team-overview-progress-summary">${escapeHtml(summaryText)}</div>
+          ${commentText ? `<div class="team-overview-progress-comment">💬 ${commentAt ? `[${escapeHtml(commentAt)}] : ` : ''}${escapeHtml(commentText)}</div>` : ''}
+          ${doneAt ? `<div class="team-overview-progress-completion">🟢 최근 완료: ${escapeHtml(doneAt)}</div>` : ''}
+        </div>
+      `;
+    }
+
     function recalculateItemActivityTimestamp(itemState) {
       if (!itemState || typeof itemState !== 'object') return;
       const commentTs = getLatestCommentActivityTimestamp(itemState);
@@ -4238,15 +4311,14 @@
           const dueDateText = dueSummary.dueDateText;
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
-          const latestCommentText = getLatestCommentPreview(itemState);
+          const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
+          const latestComment = getLatestCommentActivityDetails(itemState);
           const latestDoneAt = Array.isArray(itemState.steps)
             ? itemState.steps
                 .map((step) => (step && typeof step.completedAt === 'string' ? step.completedAt : ''))
                 .filter(Boolean)
                 .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || ''
             : '';
-          const progressText = `체크 ${doneCount}/${totalCount} · 최근 수행 내용: ${latestCommentText}${latestDoneAt ? ` · 최근 완료: ${formatEntryDateTime(latestDoneAt)}` : ''}`;
-          const noteText = itemState && typeof itemState.remark === 'string' && itemState.remark.trim() ? itemState.remark.trim() : '-';
           const highlight = isDueSoon(dueDateText) || hasTodayCommentUpdate(itemState);
           const lastUpdateTs = getLastOverviewUpdateTimestamp(itemState);
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
@@ -4261,8 +4333,12 @@
             agenda: title,
             actionPlan,
             assignee,
-            progressText,
-            noteText,
+            doneCount,
+            totalCount,
+            progressPercent,
+            latestCommentText: latestComment.text,
+            latestCommentAt: latestComment.timestamp > 0 ? new Date(latestComment.timestamp).toISOString() : '',
+            latestDoneAt,
             highlight,
             dueSort: dueSummary.dueSort,
             lastUpdateTs,
@@ -4356,8 +4432,7 @@
           </td>
           <td>${escapeHtml(row.actionPlan)}</td>
           <td>${escapeHtml(row.assignee)}</td>
-          <td>${escapeHtml(row.progressText)}</td>
-          <td class="team-overview-cell-muted">${escapeHtml(row.noteText)}</td>
+          <td>${buildTeamOverviewProgressHtml(row)}</td>
         </tr>
       `).join('');
     }
