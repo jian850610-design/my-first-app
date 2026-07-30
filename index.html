@@ -332,11 +332,20 @@
     .card-edit-modal-section-title { font-size: 13px; font-weight: 900; color: #173b5f; }
     .card-edit-modal-section-note { font-size: 12px; color: #60768f; line-height: 1.6; }
     .card-edit-modal-step-list { display: grid; gap: 10px; }
-    .card-edit-modal-step-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 180px; gap: 10px; align-items: center; }
+    .card-edit-modal-step-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 180px auto; gap: 10px; align-items: center; }
     .card-edit-modal-step-index { width: 40px; height: 40px; border-radius: 12px; background: #eef4fb; color: #1f4a71; font-size: 12px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; }
     .card-edit-modal-step-name,
     .card-edit-modal-step-date { min-width: 0; width: 100%; }
     .card-edit-modal-step-date { font-variant-numeric: tabular-nums; }
+    .card-edit-modal-step-tools { display: inline-flex; align-items: center; gap: 6px; }
+    .card-edit-modal-step-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 6px 8px; font-size: 11px; font-weight: 800; cursor: pointer; line-height: 1; }
+    .card-edit-modal-step-btn:hover { background: #eef5fd; }
+    .card-edit-modal-step-btn.delete { border-color: #f1c5c5; color: #b54545; }
+    .card-edit-modal-step-btn.delete:hover { background: #fff1f1; }
+    .card-edit-modal-step-btn:disabled { opacity: 0.5; cursor: default; background: #f5f8fb; }
+    .card-edit-modal-step-add-row { display: flex; justify-content: flex-start; }
+    .card-edit-modal-add-btn { border: 1px dashed #8fb3d8; border-radius: 10px; background: #f4f9ff; color: #24547f; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .card-edit-modal-add-btn:hover { background: #e8f2ff; }
     .card-editor-field { display: grid; gap: 4px; }
     .card-editor-field label { font-size: 11px; color: #4a627d; font-weight: 700; }
     .card-editor-input, .card-editor-textarea { width: 100%; border: 1px solid #cfdced; border-radius: 12px; padding: 12px 12px; background: #fdfefe; color: #1f3d5b; font-size: 13px; outline: none; }
@@ -352,6 +361,7 @@
     @media (max-width: 760px) {
       .card-edit-modal-step-row { grid-template-columns: 40px minmax(0, 1fr); }
       .card-edit-modal-step-date { grid-column: 2; }
+      .card-edit-modal-step-tools { grid-column: 2; justify-content: flex-start; }
     }
     .history-archive-section { margin-top: 2px; border: 1px solid #d9e6f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 10px; }
     .history-archive-toggle { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #315679; font-weight: 700; font-size: 13px; }
@@ -1195,6 +1205,9 @@
               <div class="card-edit-modal-section-note">각 단계의 항목명과 마감일을 바로 수정할 수 있습니다.</div>
             </div>
             <div class="card-edit-modal-step-list" id="cardEditModalChecklistList"></div>
+            <div class="card-edit-modal-step-add-row">
+              <button type="button" class="card-edit-modal-add-btn" id="cardEditModalAddStepBtn">+ 새 단계 추가</button>
+            </div>
           </section>
         </div>
       </div>
@@ -1298,6 +1311,7 @@
     const cardEditModalSummaryInput = document.getElementById('cardEditModalSummaryInput');
     const cardEditModalGuidelinesInput = document.getElementById('cardEditModalGuidelinesInput');
     const cardEditModalChecklistList = document.getElementById('cardEditModalChecklistList');
+    const cardEditModalAddStepBtn = document.getElementById('cardEditModalAddStepBtn');
     const cardEditModalCloseBtn = document.getElementById('cardEditModalCloseBtn');
     const cardEditModalCancelBtn = document.getElementById('cardEditModalCancelBtn');
     const cardEditModalSaveBtn = document.getElementById('cardEditModalSaveBtn');
@@ -7349,27 +7363,86 @@
       document.body.classList.remove('modal-open');
     }
 
-    function renderCardEditChecklistList(stepLabels, itemState) {
-      if (!cardEditModalChecklistList) return;
+    function buildCardEditChecklistDraft(stepLabels, itemState, itemKey) {
       const safeSteps = Array.isArray(stepLabels) ? stepLabels : [];
       const safeItemSteps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      return safeSteps.map((stepText, index) => {
+        const stepState = safeItemSteps[index] || {};
+        return {
+          stepId: stepState && typeof stepState.id === 'string' && stepState.id ? stepState.id : createChecklistStepId(itemKey, index),
+          stepName: typeof stepText === 'string' ? stepText : '',
+          dueDate: stepState && typeof stepState.dueDate === 'string' ? stepState.dueDate : ''
+        };
+      });
+    }
 
-      if (!safeSteps.length) {
-        cardEditModalChecklistList.innerHTML = '<div class="card-edit-modal-section-note">체크리스트 단계가 없습니다.</div>';
+    function renderCardEditChecklistList() {
+      if (!cardEditModalChecklistList) return;
+      const draft = cardEditModalState && Array.isArray(cardEditModalState.checklistDraft)
+        ? cardEditModalState.checklistDraft
+        : [];
+
+      if (!draft.length) {
+        cardEditModalChecklistList.innerHTML = '<div class="card-edit-modal-section-note">체크리스트 단계가 없습니다. 아래 버튼으로 새 단계를 추가해 주세요.</div>';
         return;
       }
 
-      cardEditModalChecklistList.innerHTML = safeSteps.map((stepText, index) => {
-        const stepState = safeItemSteps[index] || {};
-        const dueDate = typeof stepState.dueDate === 'string' ? stepState.dueDate : '';
+      cardEditModalChecklistList.innerHTML = draft.map((entry, index) => {
+        const canMoveUp = index > 0;
+        const canMoveDown = index < draft.length - 1;
         return `
           <div class="card-edit-modal-step-row" data-step-index="${index}">
             <div class="card-edit-modal-step-index">${index + 1}</div>
-            <input type="text" class="card-editor-input card-edit-modal-step-name" data-card-edit-step-field="stepName" data-step-index="${index}" value="${escapeHtml(typeof stepText === 'string' ? stepText : '')}" placeholder="단계 이름" />
-            <input type="date" class="card-editor-input card-edit-modal-step-date" data-card-edit-step-field="dueDate" data-step-index="${index}" value="${escapeHtml(dueDate)}" placeholder="YYYY-MM-DD" />
+            <input type="text" class="card-editor-input card-edit-modal-step-name" data-card-edit-step-field="stepName" data-step-index="${index}" value="${escapeHtml(entry && typeof entry.stepName === 'string' ? entry.stepName : '')}" placeholder="단계 이름" />
+            <input type="date" class="card-editor-input card-edit-modal-step-date" data-card-edit-step-field="dueDate" data-step-index="${index}" value="${escapeHtml(entry && typeof entry.dueDate === 'string' ? entry.dueDate : '')}" placeholder="YYYY-MM-DD" />
+            <div class="card-edit-modal-step-tools">
+              <button type="button" class="card-edit-modal-step-btn" data-card-edit-step-action="move-up" data-step-index="${index}" ${canMoveUp ? '' : 'disabled'} aria-label="단계 위로 이동">▲</button>
+              <button type="button" class="card-edit-modal-step-btn" data-card-edit-step-action="move-down" data-step-index="${index}" ${canMoveDown ? '' : 'disabled'} aria-label="단계 아래로 이동">▼</button>
+              <button type="button" class="card-edit-modal-step-btn delete" data-card-edit-step-action="delete" data-step-index="${index}" aria-label="단계 삭제">🗑️</button>
+            </div>
           </div>
         `;
       }).join('');
+    }
+
+    function reorderCardEditChecklistStep(index, direction) {
+      if (!cardEditModalState || !Array.isArray(cardEditModalState.checklistDraft)) return;
+      const draft = cardEditModalState.checklistDraft;
+      const nextIndex = index + direction;
+      if (index < 0 || index >= draft.length) return;
+      if (nextIndex < 0 || nextIndex >= draft.length) return;
+      const [moved] = draft.splice(index, 1);
+      draft.splice(nextIndex, 0, moved);
+      renderCardEditChecklistList();
+    }
+
+    function addCardEditChecklistStep() {
+      if (!cardEditModalState || !Array.isArray(cardEditModalState.checklistDraft)) return;
+      cardEditModalState.checklistDraft.push({
+        stepId: createChecklistStepId(cardEditModalState.itemKey),
+        stepName: '',
+        dueDate: ''
+      });
+      renderCardEditChecklistList();
+    }
+
+    function deleteCardEditChecklistStep(index) {
+      if (!cardEditModalState || !Array.isArray(cardEditModalState.checklistDraft)) return;
+      if (index < 0 || index >= cardEditModalState.checklistDraft.length) return;
+      cardEditModalState.checklistDraft.splice(index, 1);
+      renderCardEditChecklistList();
+    }
+
+    function syncCardEditChecklistDraftField(index, field, value) {
+      if (!cardEditModalState || !Array.isArray(cardEditModalState.checklistDraft)) return;
+      const entry = cardEditModalState.checklistDraft[index];
+      if (!entry) return;
+      if (field === 'stepName') {
+        entry.stepName = value;
+      }
+      if (field === 'dueDate') {
+        entry.dueDate = value;
+      }
     }
 
     function openCardEditModal(itemKey) {
@@ -7387,6 +7460,7 @@
         goalKey,
         itemIndex,
         checklistSteps,
+        checklistDraft: buildCardEditChecklistDraft(checklistSteps, itemState, itemKey),
         title: getCardTitleText(itemState, item),
         summary: getCardSummaryText(itemState, item),
         guidelines: getCardGuidelines(latestState, goalKey, item, goalTemplate, itemKey).join('\n')
@@ -7407,7 +7481,7 @@
       if (cardEditModalTitleInput) cardEditModalTitleInput.value = cardEditModalState.title;
       if (cardEditModalSummaryInput) cardEditModalSummaryInput.value = cardEditModalState.summary;
       if (cardEditModalGuidelinesInput) cardEditModalGuidelinesInput.value = cardEditModalState.guidelines;
-      renderCardEditChecklistList(checklistSteps, itemState);
+      renderCardEditChecklistList();
       if (cardEditModal) {
         cardEditModal.hidden = false;
         document.body.classList.add('modal-open');
@@ -7433,17 +7507,13 @@
       const nextGuidelines = cardEditModalGuidelinesInput
         ? cardEditModalGuidelinesInput.value.split('\n').map((line) => line.trim()).filter((line) => line)
         : [];
-      const checklistRows = cardEditModalChecklistList
-        ? Array.from(cardEditModalChecklistList.querySelectorAll('.card-edit-modal-step-row'))
+      const nextChecklistSteps = cardEditModalState && Array.isArray(cardEditModalState.checklistDraft)
+        ? cardEditModalState.checklistDraft.map((entry) => ({
+            stepId: entry && typeof entry.stepId === 'string' ? entry.stepId : '',
+            stepName: entry && typeof entry.stepName === 'string' ? entry.stepName.trim() : '',
+            dueDate: entry && typeof entry.dueDate === 'string' ? entry.dueDate : ''
+          }))
         : [];
-      const nextChecklistSteps = checklistRows.map((row) => {
-        const nameInput = row.querySelector('[data-card-edit-step-field="stepName"]');
-        const dueDateInput = row.querySelector('[data-card-edit-step-field="dueDate"]');
-        return {
-          stepName: nameInput ? nameInput.value.trim() : '',
-          dueDate: dueDateInput ? dueDateInput.value || '' : ''
-        };
-      });
 
       if (nextTitle) itemState.customTitle = nextTitle;
       else delete itemState.customTitle;
@@ -7455,10 +7525,17 @@
       else delete itemState.customGuidelines;
 
       itemState.customSteps = nextChecklistSteps.map((entry) => entry.stepName);
+      const previousStepById = new Map(
+        (Array.isArray(itemState.steps) ? itemState.steps : [])
+          .map((step) => [step && typeof step.id === 'string' ? step.id : '', step])
+          .filter(([id]) => Boolean(id))
+      );
       itemState.steps = nextChecklistSteps.map((entry, index) => {
-        const previousStep = Array.isArray(itemState.steps) ? itemState.steps[index] : null;
+        const previousStep = entry.stepId && previousStepById.has(entry.stepId)
+          ? previousStepById.get(entry.stepId)
+          : null;
         return {
-          id: previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index),
+          id: entry.stepId || (previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index)),
           checked: Boolean(previousStep && previousStep.checked),
           dueDate: entry.dueDate || '',
           completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : ''
@@ -10739,6 +10816,18 @@
 
       if (cardEditModal) {
         cardEditModal.addEventListener('click', async (event) => {
+          const stepActionButton = event.target.closest('[data-card-edit-step-action]');
+          if (stepActionButton) {
+            const stepIndex = Number(stepActionButton.dataset.stepIndex);
+            const stepAction = stepActionButton.dataset.cardEditStepAction || '';
+            if (!Number.isNaN(stepIndex)) {
+              if (stepAction === 'move-up') reorderCardEditChecklistStep(stepIndex, -1);
+              if (stepAction === 'move-down') reorderCardEditChecklistStep(stepIndex, 1);
+              if (stepAction === 'delete') deleteCardEditChecklistStep(stepIndex);
+            }
+            return;
+          }
+
           const actionButton = event.target.closest('[data-card-edit-action]');
           if (actionButton) {
             closeCardEditModal();
@@ -10756,6 +10845,21 @@
             closeCardEditModal();
           }
         });
+
+        cardEditModal.addEventListener('input', (event) => {
+          const fieldInput = event.target.closest('[data-card-edit-step-field]');
+          if (!fieldInput) return;
+          const stepIndex = Number(fieldInput.dataset.stepIndex);
+          const field = fieldInput.dataset.cardEditStepField || '';
+          if (Number.isNaN(stepIndex)) return;
+          syncCardEditChecklistDraftField(stepIndex, field, fieldInput.value || '');
+        });
+
+        if (cardEditModalAddStepBtn) {
+          cardEditModalAddStepBtn.addEventListener('click', () => {
+            addCardEditChecklistStep();
+          });
+        }
 
         if (cardEditModalSaveBtn) {
           cardEditModalSaveBtn.addEventListener('click', async () => {
