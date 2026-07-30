@@ -5050,10 +5050,21 @@
 
     function getLatestCommentPreview(itemState) {
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
-      if (!comments.length) return '아직 등록된 코멘트가 없습니다.';
-      const text = computeLatestCommentSummary(comments);
-      if (!text) return '아직 등록된 코멘트가 없습니다.';
-      return text;
+      if (comments.length) {
+        const text = computeLatestCommentSummary(comments);
+        if (text) return text;
+      }
+
+      const checklistLogs = Array.isArray(itemState && itemState.activityLog) ? itemState.activityLog : [];
+      const latestStepLog = checklistLogs
+        .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.stepComment === 'string' && entry.stepComment.trim())
+        .sort((left, right) => new Date(right.timestamp || 0).getTime() - new Date(left.timestamp || 0).getTime())[0];
+      if (latestStepLog && typeof latestStepLog.stepComment === 'string' && latestStepLog.stepComment.trim()) {
+        const normalized = latestStepLog.stepComment.replace(/\s+/g, ' ').trim();
+        return normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized;
+      }
+
+      return '아직 등록된 코멘트가 없습니다.';
     }
 
     async function cleanupOrphanComments(options = {}) {
@@ -8035,6 +8046,27 @@
       return next;
     }
 
+    function readLocalNewsConfig() {
+      try {
+        const raw = window.localStorage.getItem(NEWS_CONFIG_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        return normalizeNewsConfig(parsed);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function persistLocalNewsConfig(config) {
+      try {
+        const normalized = normalizeNewsConfig(config);
+        window.localStorage.setItem(NEWS_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
+      } catch (error) {
+        console.warn('[news] 로컬 설정 저장 실패', error);
+      }
+    }
+
     function getNewsConfigDocRef() {
       const bridge = window.__plannerFirebase;
       if (!bridge || !bridge.firestore || typeof bridge.getNewsConfigDocRef !== 'function') return null;
@@ -8043,7 +8075,7 @@
 
     function getNewsConfigState() {
       if (!newsConfigState) {
-        newsConfigState = buildDefaultNewsConfig();
+        newsConfigState = readLocalNewsConfig() || buildDefaultNewsConfig();
       }
       return newsConfigState;
     }
@@ -8301,9 +8333,15 @@
       const nextSignature = buildNewsQuerySignature(draft);
       const queryChanged = previousSignature !== nextSignature;
       newsConfigState = draft;
+      persistLocalNewsConfig(newsConfigState);
       setNewsSettingsStatus('저장 중...', 'pending');
-      await saveNewsConfig('settings-modal-save');
       renderNewsSettingsLists();
+      try {
+        await saveNewsConfig('settings-modal-save');
+      } catch (error) {
+        console.warn('[news] 원격 저장 실패, 로컬 설정으로 계속 진행합니다.', error);
+      }
+
       if (queryChanged) {
         setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
         await refreshNewsDataset(true);
@@ -8318,24 +8356,44 @@
       }, 1800);
     }
 
-    async function addNewsExcludeWords(rawText) {
-      const words = String(rawText || '').split(/[,\n]/g).map(sanitizeNewsWord).filter(Boolean);
-      if (!words.length) return;
+    function addNewsExcludeWords(rawText) {
+      const words = String(rawText || '').split(/[\s,\n]+/g).map(sanitizeNewsWord).filter(Boolean);
+      if (!words.length) return false;
       const config = getNewsConfigState();
-      config.excludeWords = Array.from(new Set([...(config.excludeWords || []), ...words]));
+      const existingSet = new Set((config.excludeWords || []).map((word) => sanitizeNewsWord(word).toLowerCase()).filter(Boolean));
+      const additions = [];
+      words.forEach((word) => {
+        const key = sanitizeNewsWord(word).toLowerCase();
+        if (!key || existingSet.has(key)) return;
+        existingSet.add(key);
+        additions.push(word);
+      });
+      if (!additions.length) return false;
+
+      config.excludeWords = [...(config.excludeWords || []), ...additions];
       newsConfigState = config;
-      await saveNewsConfig('add-exclude-word');
+      persistLocalNewsConfig(newsConfigState);
       renderNewsSettingsLists();
       renderNewsWidgetFromCache();
+
+      void saveNewsConfig('add-exclude-word').catch((error) => {
+        console.warn('[news] 제외어 원격 저장 실패, 로컬 상태 유지', error);
+      });
+      return true;
     }
 
     async function removeNewsExcludeWord(index) {
       const config = getNewsConfigState();
       config.excludeWords = (config.excludeWords || []).filter((_, itemIndex) => itemIndex !== index);
       newsConfigState = config;
-      await saveNewsConfig('remove-exclude-word');
+      persistLocalNewsConfig(newsConfigState);
       renderNewsSettingsLists();
       renderNewsWidgetFromCache();
+      try {
+        await saveNewsConfig('remove-exclude-word');
+      } catch (error) {
+        console.warn('[news] 제외어 삭제 원격 저장 실패, 로컬 상태 유지', error);
+      }
     }
 
     async function removeNewsQuery(index) {
@@ -8458,8 +8516,18 @@
         newsExcludeWordAddBtn.dataset.bound = 'true';
         newsExcludeWordAddBtn.addEventListener('click', async () => {
           if (!newsExcludeWordInput) return;
-          await addNewsExcludeWords(newsExcludeWordInput.value);
-          newsExcludeWordInput.value = '';
+          const added = addNewsExcludeWords(newsExcludeWordInput.value);
+          if (added) newsExcludeWordInput.value = '';
+        });
+      }
+
+      if (newsExcludeWordInput && !newsExcludeWordInput.dataset.bound) {
+        newsExcludeWordInput.dataset.bound = 'true';
+        newsExcludeWordInput.addEventListener('keydown', async (event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          const added = addNewsExcludeWords(newsExcludeWordInput.value);
+          if (added) newsExcludeWordInput.value = '';
         });
       }
 
@@ -8507,6 +8575,7 @@
 
       await bridge.setDoc(docRef, payload, { merge: true });
       newsConfigState = normalizeNewsConfig(payload);
+      persistLocalNewsConfig(newsConfigState);
       newsConfigLoaded = true;
       updateNewsUpdatedText();
       if (reason) console.log('[news] 설정 저장 완료', { reason });
@@ -9297,16 +9366,6 @@
                 <div class="directive-history-list"></div>
               </div>
             </div>
-            <div class="journal-section">
-              <div class="journal-top">
-                <strong>🧾 전체 종합 총평</strong>
-                <span class="journal-saved">저장됨</span>
-              </div>
-              <textarea class="journal-input" rows="3" placeholder="카드 전체에 대한 종합 총평을 기록하세요."></textarea>
-              <div class="journal-controls">
-                <button type="button" class="journal-save-btn">저장</button>
-              </div>
-            </div>
           </div>
           <div class="detail-item-progress">
             <div class="latest-activity-panel"></div>
@@ -9346,13 +9405,9 @@
         const cardEditButton = card.querySelector('.card-edit-btn');
         const prioritySelect = card.querySelector('.card-priority-select');
         const directiveSection = card.querySelector('.directive-section');
-        const journalSection = card.querySelector('.journal-section');
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
         const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
         const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
-        const journalInput = journalSection ? journalSection.querySelector('.journal-input') : null;
-        const journalSaveButton = journalSection ? journalSection.querySelector('.journal-save-btn') : null;
-        const journalSaved = journalSection ? journalSection.querySelector('.journal-saved') : null;
         const historyCountLabel = card.querySelector('.history-archive-count');
         const historyListElement = card.querySelector('.history-archive-list');
         const manualHistoryInput = card.querySelector('.history-manual-input');
@@ -9527,9 +9582,6 @@
         if (directiveInput) {
           directiveInput.value = itemState.directive || readDirectiveDraft(itemKey) || '';
         }
-        if (journalInput) {
-          journalInput.value = itemState.note || '';
-        }
         let historyEditIndex = -1;
         const rerenderHistoryArchive = () => {
           renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
@@ -9639,9 +9691,6 @@
             dueDateInputs.forEach((input) => {
               input.value = '';
             });
-            if (journalInput) {
-              journalInput.value = '';
-            }
             if (directiveInput) {
               directiveInput.value = '';
               syncDirectiveDraft(itemKey, '');
@@ -9654,8 +9703,6 @@
             rerenderHistoryArchive();
             savePlannerState(plannerState);
             updateLatestActivityPanel();
-            journalSaved.classList.add('visible');
-            setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           });
         }
 
@@ -9873,16 +9920,6 @@
           });
         }
 
-        if (journalInput) {
-          journalInput.addEventListener('input', () => {
-            itemState.note = journalInput.value || '';
-            itemState.noteUpdatedAt = new Date().toISOString();
-            markItemUpdated(itemState);
-            renderLatestActivityPanel(latestActivityPanel, itemState);
-            savePlannerState(plannerState, { debounceMs: 800, reason: 'note-input' });
-          });
-        }
-
         if (archiveCompleteButton) {
           archiveCompleteButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -9946,8 +9983,6 @@
             rerenderHistoryArchive();
             savePlannerState(plannerState);
             updateLatestActivityPanel();
-            journalSaved.classList.add('visible');
-            setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           });
         }
 
@@ -9976,28 +10011,55 @@
         });
 
         stepCommentSaveButtons.forEach((button) => {
-          button.addEventListener('click', () => {
+          button.addEventListener('click', async () => {
             const stepIndex = Number(button.getAttribute('data-step-comment-save-index'));
             if (Number.isNaN(stepIndex) || !itemState.steps[stepIndex]) return;
             const commentInput = stepCommentInputs[stepIndex];
             const nextComment = commentInput ? commentInput.value.trim() : '';
-            itemState.steps[stepIndex].comment = nextComment;
             const stepText = stepTextInputs[stepIndex] ? (stepTextInputs[stepIndex].value || '') : '';
-            upsertChecklistActivityLog(itemState, {
-              itemKey,
-              goalKey: currentGoal,
-              stepIndex,
-              checklistId: typeof itemState.steps[stepIndex].id === 'string' ? itemState.steps[stepIndex].id : '',
-              stepText,
-              stepComment: nextComment
-            });
-            markItemUpdated(itemState);
-            savePlannerState(plannerState, { reason: 'step-comment-save' });
-            updateLatestActivityPanel(true);
-            button.textContent = '저장됨';
-            setTimeout(() => {
-              button.textContent = '코멘트 저장';
-            }, 900);
+
+            const beforeText = button.textContent;
+            button.disabled = true;
+            button.textContent = '저장 중...';
+
+            try {
+              itemState.steps[stepIndex].comment = nextComment;
+              upsertChecklistActivityLog(itemState, {
+                itemKey,
+                goalKey: currentGoal,
+                stepIndex,
+                checklistId: typeof itemState.steps[stepIndex].id === 'string' ? itemState.steps[stepIndex].id : '',
+                stepText,
+                stepComment: nextComment
+              });
+
+              if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+              itemState.historyList.push({
+                projectName: stepText ? `단계 수행: ${stepText}` : `단계 수행: ${stepIndex + 1}단계`,
+                completedAt: new Date().toISOString(),
+                commentSummary: nextComment || '코멘트 없음'
+              });
+
+              markItemUpdated(itemState);
+              savePlannerState(plannerState, { reason: 'step-comment-save', skipFirebaseSync: true });
+              await flushFirebaseSnapshot('step-comment-save');
+
+              if (commentInput) commentInput.value = '';
+              rerenderHistoryArchive();
+              updateLatestActivityPanel(true);
+              button.textContent = '저장됨';
+            } catch (error) {
+              console.error('[STEP COMMENT] 저장 실패', error);
+              window.alert('단계 코멘트 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+              button.textContent = beforeText || '코멘트 저장';
+            } finally {
+              setTimeout(() => {
+                button.disabled = false;
+                if (button.textContent === '저장됨') {
+                  button.textContent = beforeText || '코멘트 저장';
+                }
+              }, 900);
+            }
           });
         });
 
@@ -10027,90 +10089,7 @@
           });
         });
 
-        if (journalSaveButton && journalInput) {
-          journalSaveButton.addEventListener('click', () => {
-            itemState.note = journalInput.value.trim();
-            itemState.noteUpdatedAt = itemState.note ? new Date().toISOString() : '';
-            markItemUpdated(itemState);
-            savePlannerState(plannerState, { reason: 'overall-summary-save' });
-            renderLatestActivityPanel(latestActivityPanel, itemState);
-            syncOverviewWidgets(plannerState);
-            if (journalSaved) {
-              journalSaved.classList.add('visible');
-              setTimeout(() => journalSaved.classList.remove('visible'), 1200);
-            }
-          });
-        }
-
-        /* legacy comment timeline handlers kept only when timeline element exists in older saved markup */
-        const journalTimeline = journalSection ? journalSection.querySelector('.journal-timeline') : null;
-        if (journalTimeline) {
-          journalTimeline.addEventListener('click', (event) => {
-          const actionButton = event.target.closest('[data-action]');
-          if (!actionButton) return;
-
-          const action = actionButton.dataset.action;
-          const targetIndex = Number(actionButton.dataset.index);
-          if (Number.isNaN(targetIndex) || !itemState.comments[targetIndex]) return;
-
-          if (action === 'delete') {
-            const isConfirmed = window.confirm('정말 삭제하시겠습니까?');
-            if (!isConfirmed) return;
-            itemState.comments.splice(targetIndex, 1);
-            syncCommentDerivedFields(itemState);
-            recalculateItemActivityTimestamp(itemState);
-            markItemUpdated(itemState);
-            savePlannerState(plannerState);
-            renderTimeline(journalTimeline, itemState.comments);
-            renderLatestActivityPanel(latestActivityPanel, itemState);
-            syncOverviewWidgets(plannerState);
-            return;
-          }
-
-          if (action === 'edit') {
-            const entryCard = actionButton.closest('.journal-entry');
-            if (!entryCard) return;
-
-            entryCard.innerHTML = `
-              <div class="journal-entry-meta">작성 ${escapeHtml(formatEntryDateTime(itemState.comments[targetIndex].timestamp))}</div>
-              <div class="journal-edit">
-                <textarea class="journal-edit-input">${escapeHtml(itemState.comments[targetIndex].text)}</textarea>
-                <div class="journal-edit-actions">
-                  <button type="button" class="journal-edit-btn save" data-action="save-edit" data-index="${targetIndex}">저장</button>
-                  <button type="button" class="journal-edit-btn" data-action="cancel-edit">취소</button>
-                </div>
-              </div>
-            `;
-            return;
-          }
-
-          if (action === 'cancel-edit') {
-            renderTimeline(journalTimeline, itemState.comments);
-            return;
-          }
-
-          if (action === 'save-edit') {
-            const editCard = actionButton.closest('.journal-entry');
-            if (!editCard) return;
-            const editInput = editCard.querySelector('.journal-edit-input');
-            if (!editInput) return;
-            const editedText = editInput.value.trim();
-            if (!editedText) return;
-
-            itemState.comments[targetIndex].text = editedText;
-            itemState.comments[targetIndex].updatedAt = new Date().toISOString();
-            syncCommentDerivedFields(itemState);
-            recalculateItemActivityTimestamp(itemState);
-            markItemUpdated(itemState);
-            savePlannerState(plannerState);
-            renderTimeline(journalTimeline, itemState.comments);
-            renderLatestActivityPanel(latestActivityPanel, itemState);
-            syncOverviewWidgets(plannerState);
-            journalSaved.classList.add('visible');
-            setTimeout(() => journalSaved.classList.remove('visible'), 1200);
-          }
-          });
-        }
+        // Removed per-card freeform journal section; step-level comments are now the primary activity input.
 
         updateDueDateBadges();
         updateStepExecutionBadges();
