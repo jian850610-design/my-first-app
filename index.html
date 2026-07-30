@@ -141,7 +141,7 @@
     .summary-card .value { font-size: clamp(22px, 2vw, 30px); }
     .summary-card .note { margin-top: 4px; font-size: 11px; line-height: 1.4; }
 
-    .today-activity-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 18px 20px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 14px; }
+    .today-activity-section { margin-top: 12px; background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%); border: 1px solid #d7e3f0; border-radius: 20px; padding: 12px 14px; box-shadow: 0 10px 20px rgba(14, 27, 45, 0.06); display: grid; gap: 10px; }
     .today-activity-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
     .today-activity-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
@@ -150,20 +150,27 @@
     .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
     .today-activity-clear-btn:hover { background: #ffecec; }
     .today-activity-meta { font-size: 12px; color: #688099; }
-    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+    .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
     .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
-    .today-activity-row { position: relative; display: block; }
-    .today-activity-item { width: 100%; border: 1px solid #d7e5f1; border-radius: 12px; background: #ffffff; padding: 8px 38px 8px 10px; display: grid; gap: 3px; text-align: left; cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease; }
-    .today-activity-item:hover { transform: translateY(-1px); border-color: #9cc3e5; box-shadow: 0 10px 22px rgba(19, 73, 122, 0.12); }
-    .today-activity-item-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
-    .today-activity-item-bottom { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; }
-    .today-activity-delete-btn { display: none; position: absolute; top: 7px; right: 7px; border: 1px solid #efc6c6; border-radius: 8px; background: #fff6f6; color: #af4545; width: 24px; height: 24px; padding: 0; font-size: 12px; font-weight: 800; cursor: pointer; z-index: 2; }
+    .today-activity-list > li { margin: 0; border-bottom: 1px solid #eef2f6; }
+    .today-activity-list > li:last-child { border-bottom: none; }
+    .today-activity-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 0; }
+    .today-activity-item { width: 100%; border: none; border-radius: 0; background: transparent; padding: 0; display: flex; align-items: center; gap: 8px; min-width: 0; text-align: left; cursor: pointer; }
+    .today-activity-item:hover .today-activity-item-title { color: #0f5f9d; text-decoration: underline; }
+    .today-activity-delete-btn { display: none; border: 1px solid #efc6c6; border-radius: 8px; background: #fff6f6; color: #af4545; width: 22px; height: 22px; padding: 0; font-size: 11px; font-weight: 800; cursor: pointer; }
     .today-activity-delete-btn.visible { display: inline-flex; align-items: center; justify-content: center; }
     .today-activity-delete-btn:hover { background: #ffecec; }
-    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; background: #eef5ff; color: #24547f; white-space: nowrap; }
-    .today-activity-item-title { font-size: 12px; font-weight: 800; color: #183b5f; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .today-activity-item-detail { font-size: 11px; color: #4e657f; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .today-activity-item-meta { font-size: 10px; color: #70859c; white-space: nowrap; }
+    .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; background: #eef5ff; color: #24547f; white-space: nowrap; flex-shrink: 0; }
+    .today-activity-item-title { font-size: 12px; font-weight: 800; color: #183b5f; line-height: 1.2; white-space: nowrap; flex-shrink: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; }
+    .today-activity-item-detail { font-size: 11px; color: #4e657f; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+    .today-activity-item-meta { font-size: 10px; color: #70859c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    @media (max-width: 760px) {
+      .today-activity-row { grid-template-columns: minmax(0, 1fr) auto; }
+      .today-activity-item { flex-wrap: wrap; row-gap: 4px; }
+      .today-activity-item-title { max-width: 100%; }
+      .today-activity-item-detail { flex: 1 1 100%; white-space: normal; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; display: -webkit-box; }
+      .today-activity-item-meta { grid-column: 2; }
+    }
 
     .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
     .team-overview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -284,6 +291,11 @@
     .workflow-item-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .workflow-item-tools { grid-column: 1 / -1; display: none; justify-content: flex-end; align-items: center; gap: 6px; padding-top: 2px; }
     .detail-item-card.editing .workflow-item-tools { display: flex; }
+    .workflow-step-comment-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 2px; }
+    .workflow-step-comment-input { width: 100%; min-height: 34px; border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 6px 8px; resize: vertical; outline: none; }
+    .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .workflow-step-comment-save-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .workflow-step-comment-save-btn:hover { background: #e5f1ff; }
     .workflow-step-text-display,
     .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.35; white-space: normal; word-break: keep-all; overflow-wrap: break-word; }
     .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 140px; width: auto; min-height: 26px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 4px 6px; outline: none; }
@@ -3417,9 +3429,11 @@
             priority: normalizePriorityValue(itemState.priority),
             steps: Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({
+                  id: step && typeof step.id === 'string' ? step.id : '',
                   checked: Boolean(step && step.checked),
                   dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
-                  completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+                  completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+                  comment: step && typeof step.comment === 'string' ? step.comment : ''
                 }))
               : [],
             comments: Array.isArray(itemState.comments) ? itemState.comments : [],
@@ -3482,9 +3496,11 @@
           itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
             ? remoteItem.steps.map((step, stepIndex) => ({
+                id: step && typeof step.id === 'string' ? step.id : createChecklistStepId(itemKey, stepIndex),
                 checked: Boolean(step && step.checked),
                 dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, stepIndex),
-                completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+                completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+                comment: step && typeof step.comment === 'string' ? step.comment : ''
               }))
             : itemState.steps;
           itemState.comments = Array.isArray(remoteItem?.comments) ? remoteItem.comments : itemState.comments;
@@ -3775,7 +3791,8 @@
           ...itemState.activityLog[targetIndex],
           timestamp: new Date().toISOString(),
           stepText: payload.stepText || '',
-          checklistId: typeof payload.checklistId === 'string' ? payload.checklistId : ''
+          checklistId: typeof payload.checklistId === 'string' ? payload.checklistId : '',
+          stepComment: typeof payload.stepComment === 'string' ? payload.stepComment : ''
         };
         return;
       }
@@ -3832,6 +3849,30 @@
         const byIdIndex = context.itemState.steps.findIndex((step) => step && typeof step.id === 'string' && step.id === checklistId);
         if (byIdIndex >= 0 && byIdIndex < steps.length && typeof steps[byIdIndex] === 'string' && steps[byIdIndex].trim()) {
           return steps[byIdIndex].trim();
+        }
+      }
+
+      return fallback;
+    }
+
+    function resolveTimelineChecklistStepComment(state, itemKey, logEntry) {
+      const fallback = logEntry && typeof logEntry.stepComment === 'string' ? logEntry.stepComment : '';
+      const context = getTimelineItemContext(state, itemKey);
+      if (!context.item || !context.itemState || !Array.isArray(context.itemState.steps)) return fallback;
+
+      const stepIndex = Number.isInteger(logEntry && logEntry.stepIndex) ? logEntry.stepIndex : -1;
+      if (stepIndex >= 0 && stepIndex < context.itemState.steps.length) {
+        const byIndex = context.itemState.steps[stepIndex];
+        if (byIndex && typeof byIndex.comment === 'string' && byIndex.comment.trim()) {
+          return byIndex.comment.trim();
+        }
+      }
+
+      const checklistId = logEntry && typeof logEntry.checklistId === 'string' ? logEntry.checklistId.trim() : '';
+      if (checklistId) {
+        const byIdStep = context.itemState.steps.find((step) => step && typeof step.id === 'string' && step.id === checklistId);
+        if (byIdStep && typeof byIdStep.comment === 'string' && byIdStep.comment.trim()) {
+          return byIdStep.comment.trim();
         }
       }
 
@@ -4446,7 +4487,8 @@
         const splitSteps = sourceSteps.slice(stepStart, stepStart + 4).map((step, stepIndex) => ({
           checked: Boolean(step && step.checked),
           dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : getDefaultDueDate(config.key, stepIndex),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
 
         items[config.key] = {
@@ -4632,7 +4674,8 @@
         const steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Array.isArray(defaultChecks) ? Boolean(defaultChecks[index]) : false,
           dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: ''
+          completedAt: '',
+          comment: ''
         }));
         state.items[itemKey] = {
           steps,
@@ -4668,7 +4711,8 @@
         itemState.steps = Array.from({ length: stepCount }, (_, index) => ({
           checked: Boolean(legacyChecks[index]),
           dueDate: typeof legacyDueDates[index] === 'string' && legacyDueDates[index] ? legacyDueDates[index] : getDefaultDueDate(itemKey, index),
-          completedAt: ''
+          completedAt: '',
+          comment: ''
         }));
       }
       if (itemState.steps.length !== stepCount) {
@@ -4677,7 +4721,8 @@
           return {
             checked: step ? Boolean(step.checked) : false,
             dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
-            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+            comment: step && typeof step.comment === 'string' ? step.comment : ''
           };
         });
         itemState.steps = resized;
@@ -4687,12 +4732,14 @@
         itemState.steps[0] = {
           checked: true,
           dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0),
-          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : ''
+          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : '',
+          comment: itemState.steps[0] && typeof itemState.steps[0].comment === 'string' ? itemState.steps[0].comment : ''
         };
         itemState.steps[1] = {
           checked: true,
           dueDate: itemState.steps[1] && typeof itemState.steps[1].dueDate === 'string' ? itemState.steps[1].dueDate : getDefaultDueDate(itemKey, 1),
-          completedAt: itemState.steps[1] && typeof itemState.steps[1].completedAt === 'string' ? itemState.steps[1].completedAt : ''
+          completedAt: itemState.steps[1] && typeof itemState.steps[1].completedAt === 'string' ? itemState.steps[1].completedAt : '',
+          comment: itemState.steps[1] && typeof itemState.steps[1].comment === 'string' ? itemState.steps[1].comment : ''
         };
       }
 
@@ -4700,7 +4747,8 @@
         itemState.steps[0] = {
           checked: true,
           dueDate: itemState.steps[0] && typeof itemState.steps[0].dueDate === 'string' ? itemState.steps[0].dueDate : getDefaultDueDate(itemKey, 0),
-          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : ''
+          completedAt: itemState.steps[0] && typeof itemState.steps[0].completedAt === 'string' ? itemState.steps[0].completedAt : '',
+          comment: itemState.steps[0] && typeof itemState.steps[0].comment === 'string' ? itemState.steps[0].comment : ''
         };
       }
 
@@ -4708,7 +4756,8 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: typeof step?.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4716,7 +4765,8 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: typeof step?.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4724,7 +4774,8 @@
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
           dueDate: '',
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4732,7 +4783,8 @@
         itemState.steps = itemState.steps.map((step) => ({
           checked: Boolean(step && step.checked),
           dueDate: '',
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4740,7 +4792,8 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4748,7 +4801,8 @@
         itemState.steps = itemState.steps.map((step, index) => ({
           checked: Boolean(step && step.checked),
           dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       }
 
@@ -4756,7 +4810,8 @@
         id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, index),
         checked: Boolean(step && step.checked),
         dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
-        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
       if (!Array.isArray(itemState.comments)) itemState.comments = [];
       syncCommentDerivedFields(itemState);
@@ -5229,6 +5284,7 @@
 
           if (logEntry.type === 'checklist-complete') {
             const latestStepText = resolveTimelineChecklistStepText(state, itemKey, logEntry);
+            const latestStepComment = resolveTimelineChecklistStepComment(state, itemKey, logEntry);
             entries.push({
               type: 'checklist',
               timestamp: new Date(logEntry.timestamp).getTime(),
@@ -5237,7 +5293,9 @@
               cardTitle,
               title: cardTitle,
               timeText: formatEntryDateTime(logEntry.timestamp),
-              detail: latestStepText ? `완료 단계: ${latestStepText}` : '체크리스트 항목 완료',
+              detail: latestStepText
+                ? `완료 단계: ${latestStepText}${latestStepComment ? ` | 💬 ${latestStepComment}` : ''}`
+                : (latestStepComment ? `💬 ${latestStepComment}` : '체크리스트 항목 완료'),
               stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1,
               sourceType: 'activity',
               sourceIndex: logIndex
@@ -5286,7 +5344,7 @@
         const typeLabel = entry.type === 'comment'
           ? '오늘의 업무 코멘트'
           : entry.type === 'checklist'
-            ? '체크리스트 완료'
+            ? '업무 수행 완료'
             : '히스토리 추가';
         const focusStep = Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex : '';
         const canDeleteRow = canManageTimeline && (entry.sourceType === 'comment' || entry.sourceType === 'activity') && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0;
@@ -5294,15 +5352,11 @@
           <li>
             <div class="today-activity-row">
               <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
-                <div class="today-activity-item-top">
-                  <span class="today-activity-item-type">${typeLabel}</span>
-                  <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
-                  <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
-                </div>
-                <div class="today-activity-item-bottom">
-                  <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
-                </div>
+                <span class="today-activity-item-type">${typeLabel}</span>
+                <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
+                <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
               </button>
+              <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
               <button
                 type="button"
                 class="today-activity-delete-btn${canDeleteRow ? ' visible' : ''}"
@@ -5665,15 +5719,21 @@
       const facebookSteps = customWorkflowByItemKey[FACEBOOK_PAGE_ITEM_KEY] || [];
       const itemState = getItemState(state, FACEBOOK_PAGE_ITEM_KEY, facebookSteps.length);
       itemState.steps = itemState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(FACEBOOK_PAGE_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(FACEBOOK_PAGE_ITEM_KEY, index),
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
 
       const videoSteps = customWorkflowByItemKey[VIDEO_SERIES_ITEM_KEY] || [];
       const videoItemState = getItemState(state, VIDEO_SERIES_ITEM_KEY, videoSteps.length);
       videoItemState.steps = videoItemState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(VIDEO_SERIES_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(VIDEO_SERIES_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(VIDEO_SERIES_ITEM_KEY, index),
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
       if (!Array.isArray(videoItemState.historyList) || !videoItemState.historyList.length) {
         videoItemState.historyList = getDefaultHistoryList(VIDEO_SERIES_ITEM_KEY);
@@ -5681,9 +5741,12 @@
 
       const naverTvSteps = customWorkflowByItemKey[NAVER_TV_ITEM_KEY] || [];
       const naverTvState = getItemState(state, NAVER_TV_ITEM_KEY, naverTvSteps.length);
-      naverTvState.steps = naverTvState.steps.map((step) => ({
+      naverTvState.steps = naverTvState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(NAVER_TV_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
       if (!Array.isArray(naverTvState.historyList) || !naverTvState.historyList.length) {
         naverTvState.historyList = getDefaultHistoryList(NAVER_TV_ITEM_KEY);
@@ -5693,30 +5756,42 @@
         const fieldEventSteps = customWorkflowByItemKey[itemKey] || [];
         const fieldEventState = getItemState(state, itemKey, fieldEventSteps.length);
         fieldEventState.steps = fieldEventState.steps.map((step, index) => ({
+          id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, index),
           checked: Boolean(step && step.checked),
-          dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index)
+          dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
+          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+          comment: step && typeof step.comment === 'string' ? step.comment : ''
         }));
       });
 
       const aiWeeklySteps = customWorkflowByItemKey[AI_WEEKLY_ITEM_KEY] || [];
       const aiWeeklyState = getItemState(state, AI_WEEKLY_ITEM_KEY, aiWeeklySteps.length);
-      aiWeeklyState.steps = aiWeeklyState.steps.map((step) => ({
+      aiWeeklyState.steps = aiWeeklyState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(AI_WEEKLY_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : ''
+        dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
 
       const offlinePopKitSteps = customWorkflowByItemKey[OFFLINE_POPKIT_ITEM_KEY] || [];
       const offlinePopKitState = getItemState(state, OFFLINE_POPKIT_ITEM_KEY, offlinePopKitSteps.length);
       offlinePopKitState.steps = offlinePopKitState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(OFFLINE_POPKIT_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_POPKIT_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_POPKIT_ITEM_KEY, index),
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
 
       const offlineSignboardSteps = customWorkflowByItemKey[OFFLINE_SIGNBOARD_ITEM_KEY] || [];
       const offlineSignboardState = getItemState(state, OFFLINE_SIGNBOARD_ITEM_KEY, offlineSignboardSteps.length);
       offlineSignboardState.steps = offlineSignboardState.steps.map((step, index) => ({
+        id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(OFFLINE_SIGNBOARD_ITEM_KEY, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_SIGNBOARD_ITEM_KEY, index)
+        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(OFFLINE_SIGNBOARD_ITEM_KEY, index),
+        completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+        comment: step && typeof step.comment === 'string' ? step.comment : ''
       }));
     }
 
@@ -6997,10 +7072,11 @@
       return filterPrincipleLikeSteps(getWorkflowSteps(goalKey, item, itemKey), principles);
     }
 
-    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount) {
+    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, itemState = null) {
       const workflowLines = [];
       let currentStage = '';
       const safeCycleCount = Number.isFinite(cycleCompletedCount) ? Number(cycleCompletedCount) : 0;
+      const safeItemSteps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
 
       steps.forEach((step, stepIndex) => {
         const stageMatch = /^\[(\d탄)(?:\/[^\]]+)?\]/.exec(step);
@@ -7020,6 +7096,10 @@
                 <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                 <span class="workflow-dday-badge dday-badge unset" data-step-index="${stepIndex}">미설정</span>
                 <span class="workflow-completed-at-badge status-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
+                <div class="workflow-step-comment-row">
+                  <textarea class="workflow-step-comment-input" data-step-comment-index="${stepIndex}" rows="1" placeholder="이 단계 수행 코멘트를 입력하세요">${escapeHtml(safeItemSteps[stepIndex] && typeof safeItemSteps[stepIndex].comment === 'string' ? safeItemSteps[stepIndex].comment : '')}</textarea>
+                  <button type="button" class="workflow-step-comment-save-btn" data-step-comment-save-index="${stepIndex}">코멘트 저장</button>
+                </div>
                 <div class="workflow-item-tools">
                   <div class="task-order-controls" aria-label="단계 순서 조정">
                     <button type="button" class="task-order-btn task-order-up" data-step-move="up" data-step-index="${stepIndex}" ${stepIndex === 0 ? 'data-order-boundary-disabled="1" disabled' : ''} aria-label="단계 위로 이동">↑</button>
@@ -7544,7 +7624,8 @@
           id: entry.stepId || (previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index)),
           checked: Boolean(previousStep && previousStep.checked),
           dueDate: entry.dueDate || '',
-          completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : ''
+          completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : '',
+          comment: previousStep && typeof previousStep.comment === 'string' ? previousStep.comment : ''
         };
       });
 
@@ -9172,7 +9253,8 @@
         const workflowHtml = createWorkflowChecklistHtml(
           checklistSteps,
           index,
-          getCycleCompletedCount(itemState)
+          getCycleCompletedCount(itemState),
+          itemState
         );
         const historyArchiveHtml = createHistoryArchiveHtml();
         return `
@@ -9217,14 +9299,13 @@
             </div>
             <div class="journal-section">
               <div class="journal-top">
-                <strong>✅ 오늘 수행한 내용</strong>
+                <strong>🧾 전체 종합 총평</strong>
                 <span class="journal-saved">저장됨</span>
               </div>
-              <textarea class="journal-input" rows="3" placeholder="오늘 진행한 내용, 이슈, 다음 액션을 기록하세요."></textarea>
+              <textarea class="journal-input" rows="3" placeholder="카드 전체에 대한 종합 총평을 기록하세요."></textarea>
               <div class="journal-controls">
                 <button type="button" class="journal-save-btn">저장</button>
               </div>
-              <div class="journal-timeline"></div>
             </div>
           </div>
           <div class="detail-item-progress">
@@ -9257,6 +9338,8 @@
         const moveStepButtons = Array.from(card.querySelectorAll('.task-order-btn'));
         const addStepButton = card.querySelector('.workflow-add-step-btn');
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
+        const stepCommentInputs = Array.from(card.querySelectorAll('.workflow-step-comment-input'));
+        const stepCommentSaveButtons = Array.from(card.querySelectorAll('.workflow-step-comment-save-btn'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
         const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
@@ -9269,7 +9352,6 @@
         const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
         const journalInput = journalSection ? journalSection.querySelector('.journal-input') : null;
         const journalSaveButton = journalSection ? journalSection.querySelector('.journal-save-btn') : null;
-        const journalTimeline = journalSection ? journalSection.querySelector('.journal-timeline') : null;
         const journalSaved = journalSection ? journalSection.querySelector('.journal-saved') : null;
         const historyCountLabel = card.querySelector('.history-archive-count');
         const historyListElement = card.querySelector('.history-archive-list');
@@ -9421,7 +9503,7 @@
           addStepButton.addEventListener('click', () => {
             ensureCustomSteps();
             itemState.customSteps.push('새 단계 입력');
-            itemState.steps.push({ id: createChecklistStepId(itemKey, itemState.steps.length), checked: false, dueDate: '', completedAt: '' });
+            itemState.steps.push({ id: createChecklistStepId(itemKey, itemState.steps.length), checked: false, dueDate: '', completedAt: '', comment: '' });
             preserveWindowScroll(() => {
               savePlannerState(plannerState);
               syncOverviewWidgets(plannerState);
@@ -9435,6 +9517,9 @@
         });
         dueDateInputs.forEach((input, idx) => {
           input.value = (itemState.steps[idx] && itemState.steps[idx].dueDate) || '';
+        });
+        stepCommentInputs.forEach((input, idx) => {
+          input.value = (itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string') ? itemState.steps[idx].comment : '';
         });
         if (archiveProjectInput) {
           archiveProjectInput.value = itemState.seriesDraftName || '';
@@ -9451,7 +9536,6 @@
           updateCycleCountLabel();
         };
 
-        renderTimeline(journalTimeline, itemState.comments);
         rerenderHistoryArchive();
         renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
 
@@ -9537,7 +9621,8 @@
               id: createChecklistStepId(itemKey),
               checked: false,
               dueDate: '',
-              completedAt: ''
+              completedAt: '',
+              comment: ''
             }));
             itemState.comments = [];
             syncCommentDerivedFields(itemState);
@@ -9567,7 +9652,6 @@
 
             historyEditIndex = -1;
             rerenderHistoryArchive();
-            renderTimeline(journalTimeline, itemState.comments);
             savePlannerState(plannerState);
             updateLatestActivityPanel();
             journalSaved.classList.add('visible');
@@ -9712,7 +9796,8 @@
             id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, idx),
             checked: Boolean(checkboxes[idx] && checkboxes[idx].checked),
             dueDate: step && typeof step.dueDate === 'string' ? step.dueDate : '',
-            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : ''
+            completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
+            comment: step && typeof step.comment === 'string' ? step.comment : ''
           }));
           recalculateItemActivityTimestamp(itemState);
           updateStepExecutionBadges();
@@ -9832,7 +9917,8 @@
               id: createChecklistStepId(itemKey),
               checked: false,
               dueDate: '',
-              completedAt: ''
+              completedAt: '',
+              comment: ''
             }));
             itemState.comments = [];
             syncCommentDerivedFields(itemState);
@@ -9856,7 +9942,6 @@
               directiveInput.value = '';
               syncDirectiveDraft(itemKey, '');
             }
-            renderTimeline(journalTimeline, itemState.comments);
             historyEditIndex = -1;
             rerenderHistoryArchive();
             savePlannerState(plannerState);
@@ -9880,12 +9965,39 @@
                   goalKey: currentGoal,
                   stepIndex: idx,
                   checklistId: typeof itemState.steps[idx].id === 'string' ? itemState.steps[idx].id : '',
-                  stepText
+                  stepText,
+                  stepComment: itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string' ? itemState.steps[idx].comment : ''
                 });
               }
             }
             markItemUpdated(itemState);
             updateLatestActivityPanel(false);
+          });
+        });
+
+        stepCommentSaveButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const stepIndex = Number(button.getAttribute('data-step-comment-save-index'));
+            if (Number.isNaN(stepIndex) || !itemState.steps[stepIndex]) return;
+            const commentInput = stepCommentInputs[stepIndex];
+            const nextComment = commentInput ? commentInput.value.trim() : '';
+            itemState.steps[stepIndex].comment = nextComment;
+            const stepText = stepTextInputs[stepIndex] ? (stepTextInputs[stepIndex].value || '') : '';
+            upsertChecklistActivityLog(itemState, {
+              itemKey,
+              goalKey: currentGoal,
+              stepIndex,
+              checklistId: typeof itemState.steps[stepIndex].id === 'string' ? itemState.steps[stepIndex].id : '',
+              stepText,
+              stepComment: nextComment
+            });
+            markItemUpdated(itemState);
+            savePlannerState(plannerState, { reason: 'step-comment-save' });
+            updateLatestActivityPanel(true);
+            button.textContent = '저장됨';
+            setTimeout(() => {
+              button.textContent = '코멘트 저장';
+            }, 900);
           });
         });
 
@@ -9915,54 +10027,25 @@
           });
         });
 
-        journalSaveButton.addEventListener('click', () => {
-          const text = journalInput.value.trim();
-          if (!text) return;
-
-          console.log('[COMMENT] 저장 시작', { itemKey, goalKey: currentGoal, dateKey: currentPlannerDateKey || '' });
-
-          itemState.comments.push({
-            timestamp: new Date().toISOString(),
-            text
+        if (journalSaveButton && journalInput) {
+          journalSaveButton.addEventListener('click', () => {
+            itemState.note = journalInput.value.trim();
+            itemState.noteUpdatedAt = itemState.note ? new Date().toISOString() : '';
+            markItemUpdated(itemState);
+            savePlannerState(plannerState, { reason: 'overall-summary-save' });
+            renderLatestActivityPanel(latestActivityPanel, itemState);
+            syncOverviewWidgets(plannerState);
+            if (journalSaved) {
+              journalSaved.classList.add('visible');
+              setTimeout(() => journalSaved.classList.remove('visible'), 1200);
+            }
           });
+        }
 
-          if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
-          itemState.historyList.push({
-            projectName: '오늘 수행 내용 저장',
-            completedAt: new Date().toISOString(),
-            commentSummary: text
-          });
-          itemState.cycleCompletedCount = getCycleCompletedCount(itemState);
-          itemState.totalCycles = getCycleCompletedCount(itemState);
-          console.log('[COMMENT] 히스토리 저장 성공', { historyCount: itemState.historyList.length });
-
-          syncCommentDerivedFields(itemState);
-          recalculateItemActivityTimestamp(itemState);
-          // Reset the draft state so re-rendered UI keeps the input empty after save.
-          itemState.note = '';
-          itemState.noteUpdatedAt = '';
-          markItemUpdated(itemState);
-
-          savePlannerState(plannerState, { reason: 'comment-save' });
-          console.log('[COMMENT] Firestore 저장 성공', {
-            note: '코멘트는 플래너 스냅샷 저장 경로를 사용합니다.',
-            rtdbPath: `plans/skf-daily/${currentPlannerDateKey || ''}`
-          });
-          renderTimeline(journalTimeline, itemState.comments);
-          rerenderHistoryArchive();
-          renderLatestActivityPanel(latestActivityPanel, itemState);
-          console.log('[COMMENT] 최근 수행 내용 갱신', {
-            latestComment: itemState.latestCommentSummary || '',
-            historyCount: Array.isArray(itemState.historyList) ? itemState.historyList.length : 0
-          });
-          syncOverviewWidgets(plannerState);
-          journalInput.value = '';
-          journalSaved.classList.add('visible');
-          setTimeout(() => journalSaved.classList.remove('visible'), 1200);
-          console.log('[COMMENT] 저장 완료', { itemKey });
-        });
-
-        journalTimeline.addEventListener('click', (event) => {
+        /* legacy comment timeline handlers kept only when timeline element exists in older saved markup */
+        const journalTimeline = journalSection ? journalSection.querySelector('.journal-timeline') : null;
+        if (journalTimeline) {
+          journalTimeline.addEventListener('click', (event) => {
           const actionButton = event.target.closest('[data-action]');
           if (!actionButton) return;
 
@@ -10026,7 +10109,8 @@
             journalSaved.classList.add('visible');
             setTimeout(() => journalSaved.classList.remove('visible'), 1200);
           }
-        });
+          });
+        }
 
         updateDueDateBadges();
         updateStepExecutionBadges();
