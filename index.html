@@ -1405,6 +1405,9 @@
     let cardEditModalState = null;
     let dashboardSearchTerm = '';
     let hasUserSelectedTimelineDate = false;
+    let dashboardUnifiedOverviewState = null;
+    let dashboardUnifiedTimelineEntries = [];
+    let dashboardUnifiedLoadPromise = null;
     let timelineHistoryEntries = [];
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
@@ -2007,6 +2010,10 @@
       const parsed = new Date(normalizedDateTime);
       if (Number.isNaN(parsed.getTime())) return '';
       return getLocalDateKey(parsed);
+    }
+
+    function formatDateToYYYYMMDD(value) {
+      return formatDateToISO(value);
     }
 
     function isValidPlannerDateKey(value) {
@@ -4276,7 +4283,10 @@
 
     function renderTeamOverviewTable(state) {
       if (!teamOverviewTableBody || !teamOverviewEmpty) return;
-      const rows = buildTeamOverviewRows(state || loadPlannerState());
+      const baseState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
+        ? dashboardUnifiedOverviewState
+        : (state || loadPlannerState());
+      const rows = buildTeamOverviewRows(baseState);
       const selectedWindow = teamUpdateWindowFilter ? teamUpdateWindowFilter.value : teamOverviewUpdateFilterMode;
       teamOverviewUpdateFilterMode = selectedWindow || 'recent15';
       if (teamOverviewFilterNotice) {
@@ -5610,6 +5620,89 @@
       return Array.from(mergedMap.values()).sort((left, right) => right.dateKey.localeCompare(left.dateKey));
     }
 
+    function cloneJsonSafe(value) {
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function buildUnifiedOverviewStateFromSnapshots(snapshots) {
+      const byItemKey = new Map();
+      const mergedItems = {};
+
+      (Array.isArray(snapshots) ? snapshots : []).forEach((snapshotEntry) => {
+        const snapshotState = snapshotEntry && snapshotEntry.state ? snapshotEntry.state : null;
+        const snapshotMetaTs = parseIsoTimestamp(snapshotState && snapshotState.meta ? snapshotState.meta.lastUpdatedAt : '');
+        Object.entries((snapshotState && snapshotState.items) || {}).forEach(([itemKey, itemState]) => {
+          const itemTs = Math.max(
+            parseIsoTimestamp(itemState && itemState.lastUpdatedAt),
+            parseIsoTimestamp(itemState && itemState.activityUpdatedAt),
+            snapshotMetaTs,
+            0
+          );
+          const existing = byItemKey.get(itemKey);
+          if (!existing || itemTs >= existing.ts) {
+            byItemKey.set(itemKey, { ts: itemTs, itemState });
+          }
+        });
+      });
+
+      byItemKey.forEach((entry, itemKey) => {
+        const cloned = cloneJsonSafe(entry && entry.itemState ? entry.itemState : {});
+        mergedItems[itemKey] = cloned && typeof cloned === 'object' ? cloned : {};
+      });
+
+      return normalizePlannerState({
+        items: mergedItems,
+        meta: {
+          lastUpdatedAt: new Date().toISOString(),
+          updatedByName: '',
+          updatedByEmail: '',
+          updatedByUid: ''
+        }
+      });
+    }
+
+    async function refreshDashboardUnifiedData(reason = '') {
+      if (dashboardUnifiedLoadPromise) return dashboardUnifiedLoadPromise;
+      dashboardUnifiedLoadPromise = (async () => {
+        const remoteByDate = await loadTimelineSnapshotsFromRemote();
+        const snapshots = getMergedTimelineSnapshots(remoteByDate);
+        const dedupe = new Map();
+
+        snapshots.forEach((snapshotEntry) => {
+          const dateKey = snapshotEntry && snapshotEntry.dateKey ? snapshotEntry.dateKey : '';
+          const rows = collectTimelineEntriesFromState(snapshotEntry && snapshotEntry.state ? snapshotEntry.state : { items: {}, meta: {} }, dateKey);
+          rows.forEach((entry) => {
+            const dedupeKey = `${entry.type}|${entry.itemKey}|${entry.timestamp}|${entry.detail}`;
+            if (!dedupe.has(dedupeKey)) {
+              dedupe.set(dedupeKey, entry);
+            }
+          });
+        });
+
+        dashboardUnifiedTimelineEntries = Array.from(dedupe.values()).sort((a, b) => b.timestamp - a.timestamp);
+        dashboardUnifiedOverviewState = buildUnifiedOverviewStateFromSnapshots(snapshots);
+
+        if (!timelineHistoryEntries.length || reason === 'history-modal-open' || reason === 'initialize' || reason === 'date-change') {
+          timelineHistoryEntries = dashboardUnifiedTimelineEntries.slice();
+        }
+
+        const selectedDate = formatDateToYYYYMMDD(getTimelineSelectedDateKey()) || getLocalDateKey();
+        renderTodayActivityWidget(loadPlannerState(), selectedDate);
+        renderTeamOverviewTable(dashboardUnifiedOverviewState || loadPlannerState());
+
+        if (reason) {
+          console.log('[timeline] 통합 데이터 새로고침 완료', { reason, totalEntries: dashboardUnifiedTimelineEntries.length });
+        }
+      })().finally(() => {
+        dashboardUnifiedLoadPromise = null;
+      });
+      return dashboardUnifiedLoadPromise;
+    }
+
     function renderTimelineHistoryModalBody() {
       if (!timelineHistoryModalBody) return;
       const monthFilter = timelineHistoryMonthFilterValue || 'all';
@@ -5699,21 +5792,8 @@
         timelineHistoryModalSubtitle.textContent = '전체 기간의 업무 수행 기록을 날짜별로 확인합니다.';
       }
 
-      const remoteByDate = await loadTimelineSnapshotsFromRemote();
-      const snapshots = getMergedTimelineSnapshots(remoteByDate);
-      const dedupe = new Map();
-      snapshots.forEach((snapshotEntry) => {
-        const dateKey = snapshotEntry && snapshotEntry.dateKey ? snapshotEntry.dateKey : '';
-        const rows = collectTimelineEntriesFromState(snapshotEntry && snapshotEntry.state ? snapshotEntry.state : { items: {}, meta: {} }, dateKey);
-        rows.forEach((entry) => {
-          const dedupeKey = `${entry.type}|${entry.itemKey}|${entry.timestamp}|${entry.detail}`;
-          if (!dedupe.has(dedupeKey)) {
-            dedupe.set(dedupeKey, entry);
-          }
-        });
-      });
-
-      timelineHistoryEntries = Array.from(dedupe.values()).sort((a, b) => b.timestamp - a.timestamp);
+      await refreshDashboardUnifiedData('history-modal-open');
+      timelineHistoryEntries = dashboardUnifiedTimelineEntries.slice();
       setTimelineHistoryMonthFilterOptions(timelineHistoryEntries);
       renderTimelineHistoryModalBody();
       if (timelineHistoryModalSubtitle) {
@@ -5728,7 +5808,7 @@
     }
 
     function renderTodayActivityWidget(state, targetDateKey = getTimelineSelectedDateKey()) {
-      const selectedDateKey = isValidPlannerDateKey(targetDateKey) ? targetDateKey : getLocalDateKey();
+      const selectedDateKey = formatDateToYYYYMMDD(targetDateKey) || getLocalDateKey();
       if (todayActivityDate) {
         todayActivityDate.textContent = formatTimelineDateBadge(selectedDateKey);
       }
@@ -5738,7 +5818,12 @@
         todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
       }
 
-      const entries = collectTodayActivityEntries(state, selectedDateKey);
+      const unifiedEntries = Array.isArray(dashboardUnifiedTimelineEntries)
+        ? dashboardUnifiedTimelineEntries
+            .filter((entry) => formatDateToYYYYMMDD(entry && entry.dateKey) === selectedDateKey)
+            .sort((left, right) => right.timestamp - left.timestamp)
+        : [];
+      const entries = unifiedEntries.length ? unifiedEntries : collectTodayActivityEntries(state, selectedDateKey);
       if (!entries.length) {
         todayActivityList.innerHTML = '';
         todayActivityEmpty.textContent = `${selectedDateKey} 기준으로 등록된 업무 코멘트/활동 내역이 없습니다.`;
@@ -10920,12 +11005,14 @@
           hasUserSelectedTimelineDate = true;
           const nextDate = formatDateToISO(plannerDatePicker.value) || getLocalDateKey(new Date());
           switchPlannerDate(nextDate);
+          void refreshDashboardUnifiedData('date-change');
         });
       }
 
       if (timelineTodayBtn) {
         timelineTodayBtn.addEventListener('click', () => {
           resetTimelineDateToToday({ fromUser: true });
+          void refreshDashboardUnifiedData('today-button');
         });
       }
 
@@ -11622,6 +11709,7 @@
       initializeGoalSelect();
       await initializeFirebaseIntegration();
       resetTimelineDateToToday();
+      await refreshDashboardUnifiedData('initialize');
       await loadNewsConfigOnce();
       attachNewsWidgetInteractionHandlers();
       void loadKpiCatalogOnce();
