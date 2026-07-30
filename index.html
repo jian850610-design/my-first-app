@@ -53,9 +53,12 @@
     .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.45); background: rgba(255, 112, 112, 0.16); }
     .firebase-update-text { font-size: 12px; color: #6e5500; font-weight: 800; }
     .firebase-date-field { display: grid; gap: 5px; min-width: 210px; }
+    .firebase-date-input-row { display: inline-flex; align-items: center; gap: 6px; }
     .firebase-date-label { font-size: 12px; color: #6e5500; font-weight: 800; letter-spacing: 0.04em; }
     .firebase-date-picker { border: 1px solid rgba(125, 95, 0, 0.22); border-radius: 12px; background: rgba(255,255,255,0.85); color: #2f2300; padding: 10px 12px; font-size: 13px; font-weight: 800; outline: none; }
     .firebase-date-picker:focus { border-color: rgba(125, 95, 0, 0.5); box-shadow: 0 0 0 3px rgba(125, 95, 0, 0.14); }
+    .firebase-today-btn { border: 1px solid rgba(125, 95, 0, 0.24); border-radius: 10px; background: rgba(255,255,255,0.84); color: #5c4300; padding: 9px 10px; font-size: 12px; font-weight: 900; cursor: pointer; white-space: nowrap; }
+    .firebase-today-btn:hover { background: rgba(255,255,255,0.98); }
     .firebase-mode-chip { border-radius: 999px; padding: 9px 12px; border: 1px solid rgba(255, 183, 0, 0.50); background: rgba(255, 244, 196, 0.9); color: #7a4d00; font-size: 12px; font-weight: 900; line-height: 1; }
     .firebase-mode-chip.read { border-color: rgba(148, 171, 198, 0.5); background: rgba(233, 239, 247, 0.95); color: #50637a; }
     .firebase-mode-chip.edit { border-color: rgba(255, 200, 58, 0.7); background: rgba(255, 245, 196, 0.98); color: #7a4d00; }
@@ -149,6 +152,8 @@
     .today-activity-clear-btn { display: none; border: 1px solid #d9a8a8; border-radius: 10px; background: #fff7f7; color: #9a3737; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
     .today-activity-clear-btn:hover { background: #ffecec; }
+    .today-activity-history-btn { border: 1px solid #95b8db; border-radius: 10px; background: #f3f8ff; color: #1f507a; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .today-activity-history-btn:hover { background: #e7f1ff; }
     .today-activity-meta { font-size: 12px; color: #688099; }
     .today-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
     .today-activity-empty { border: 1px dashed #cad9e8; border-radius: 16px; padding: 18px; background: #fbfdff; color: #6c8097; font-size: 13px; line-height: 1.6; }
@@ -170,6 +175,38 @@
       .today-activity-item-title { max-width: 100%; }
       .today-activity-item-detail { flex: 1 1 100%; white-space: normal; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; display: -webkit-box; }
       .today-activity-item-meta { grid-column: 2; }
+    }
+
+    .timeline-history-modal { position: fixed; inset: 0; z-index: 2500; display: grid; place-items: center; }
+    .timeline-history-modal[hidden] { display: none; }
+    .timeline-history-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 20, 37, 0.42); backdrop-filter: blur(2px); }
+    .timeline-history-modal-panel { position: relative; width: min(980px, calc(100vw - 28px)); max-height: min(86vh, 820px); border-radius: 16px; border: 1px solid #d4e2f0; background: #ffffff; box-shadow: 0 22px 42px rgba(8, 23, 49, 0.24); display: grid; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; }
+    .timeline-history-modal-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid #e6eef7; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); }
+    .timeline-history-modal-title { font-size: 18px; font-weight: 900; color: #183b5f; }
+    .timeline-history-modal-subtitle { font-size: 12px; color: #647f98; margin-top: 4px; }
+    .timeline-history-modal-close-btn { border: 1px solid #c2d6ea; border-radius: 10px; background: #ffffff; color: #36536f; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
+    .timeline-history-modal-close-btn:hover { background: #f0f6fd; }
+    .timeline-history-modal-filters { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #edf3f9; background: #fbfdff; }
+    .timeline-history-filter,
+    .timeline-history-search { width: 100%; border: 1px solid #c8d8ea; border-radius: 10px; background: #ffffff; color: #24405d; padding: 9px 10px; font-size: 12px; font-weight: 700; outline: none; }
+    .timeline-history-filter:focus,
+    .timeline-history-search:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .timeline-history-modal-body { min-height: 0; overflow: auto; padding: 12px 16px 16px; display: grid; gap: 10px; }
+    .timeline-history-group { border: 1px solid #dce8f4; border-radius: 12px; background: #ffffff; overflow: hidden; }
+    .timeline-history-group-title { margin: 0; padding: 9px 11px; font-size: 13px; font-weight: 900; color: #1f476d; border-bottom: 1px solid #e9f1f8; background: #f5f9ff; }
+    .timeline-history-group-list { list-style: none; margin: 0; padding: 0; }
+    .timeline-history-group-list > li { border-bottom: 1px solid #edf3f9; }
+    .timeline-history-group-list > li:last-child { border-bottom: none; }
+    .timeline-history-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; }
+    .timeline-history-type { display: inline-flex; align-items: center; border-radius: 999px; background: #edf4fd; color: #24547f; padding: 2px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .timeline-history-detail { min-width: 0; font-size: 12px; color: #2f4a66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .timeline-history-meta { font-size: 10px; color: #6e859c; white-space: nowrap; }
+    .timeline-history-empty { border: 1px dashed #cad9e8; border-radius: 12px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.6; padding: 16px; }
+    @media (max-width: 760px) {
+      .timeline-history-modal-panel { width: min(980px, calc(100vw - 16px)); max-height: 90vh; }
+      .timeline-history-modal-filters { grid-template-columns: 1fr; }
+      .timeline-history-row { grid-template-columns: auto minmax(0, 1fr); }
+      .timeline-history-meta { grid-column: 1 / -1; }
     }
 
     .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
@@ -936,7 +973,10 @@
         <div class="firebase-status-group">
           <div class="firebase-date-field">
             <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
-            <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
+            <div class="firebase-date-input-row">
+              <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
+              <button type="button" class="firebase-today-btn" id="timelineTodayBtn">Today</button>
+            </div>
           </div>
         </div>
       </section>
@@ -997,6 +1037,7 @@
             <div class="today-activity-meta">오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.</div>
           </div>
           <div class="today-activity-header-tools">
+            <button type="button" class="today-activity-history-btn" id="allTimelineHistoryBtn">📅 전체 히스토리 모아보기</button>
             <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
             <div class="today-activity-date" id="todayActivityDate">오늘</div>
           </div>
@@ -1235,12 +1276,41 @@
     </section>
   </div>
 
+  <div class="timeline-history-modal" id="timelineHistoryModal" hidden>
+    <div class="timeline-history-modal-backdrop" data-timeline-history-action="close"></div>
+    <section class="timeline-history-modal-panel" role="dialog" aria-modal="true" aria-labelledby="timelineHistoryModalTitle">
+      <div class="timeline-history-modal-header">
+        <div>
+          <div class="timeline-history-modal-title" id="timelineHistoryModalTitle">📚 전체 히스토리 모아보기</div>
+          <div class="timeline-history-modal-subtitle" id="timelineHistoryModalSubtitle">전체 기간의 업무 수행 기록을 날짜별로 확인합니다.</div>
+        </div>
+        <button type="button" class="timeline-history-modal-close-btn" data-timeline-history-action="close" aria-label="닫기">×</button>
+      </div>
+      <div class="timeline-history-modal-filters">
+        <select class="timeline-history-filter" id="timelineHistoryMonthFilter" aria-label="연도/월 필터">
+          <option value="all">전체 기간</option>
+        </select>
+        <input type="search" class="timeline-history-search" id="timelineHistoryKeywordInput" placeholder="키워드 검색 (카드명, 코멘트, 히스토리 내용)" aria-label="키워드 검색" />
+      </div>
+      <div class="timeline-history-modal-body" id="timelineHistoryModalBody">
+        <div class="timeline-history-empty">히스토리 데이터를 불러오는 중입니다...</div>
+      </div>
+    </section>
+  </div>
+
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
     const todayActivityDate = document.getElementById('todayActivityDate');
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
+    const allTimelineHistoryBtn = document.getElementById('allTimelineHistoryBtn');
+    const timelineTodayBtn = document.getElementById('timelineTodayBtn');
+    const timelineHistoryModal = document.getElementById('timelineHistoryModal');
+    const timelineHistoryModalBody = document.getElementById('timelineHistoryModalBody');
+    const timelineHistoryModalSubtitle = document.getElementById('timelineHistoryModalSubtitle');
+    const timelineHistoryMonthFilter = document.getElementById('timelineHistoryMonthFilter');
+    const timelineHistoryKeywordInput = document.getElementById('timelineHistoryKeywordInput');
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
     const goalGuidelineBadgeBox = document.getElementById('goalGuidelineBadgeBox');
@@ -1334,6 +1404,9 @@
     let currentGoalKey = '';
     let cardEditModalState = null;
     let dashboardSearchTerm = '';
+    let timelineHistoryEntries = [];
+    let timelineHistoryMonthFilterValue = 'all';
+    let timelineHistoryKeywordValue = '';
     let newsRequestSerial = 0;
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
@@ -1887,6 +1960,19 @@
 
     function getPlannerStorageKey(dateKey = currentPlannerDateKey) {
       return `${STORAGE_KEY}::${dateKey}`;
+    }
+
+    function isValidPlannerDateKey(value) {
+      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    }
+
+    function getTimelineSelectedDateKey() {
+      return isValidPlannerDateKey(currentPlannerDateKey) ? currentPlannerDateKey : getLocalDateKey();
+    }
+
+    function formatTimelineDateBadge(dateKey) {
+      const safeDate = isValidPlannerDateKey(dateKey) ? dateKey : getLocalDateKey();
+      return safeDate === getLocalDateKey() ? `${safeDate} Today` : safeDate;
     }
 
     function normalizePriorityValue(value) {
@@ -5260,9 +5346,9 @@
         }).join('');
     }
 
-    function collectTodayActivityEntries(state) {
+    function collectTodayActivityEntries(state, targetDateKey = getTimelineSelectedDateKey()) {
       const entries = [];
-      const todayKey = getLocalDateKey();
+      const dateKey = isValidPlannerDateKey(targetDateKey) ? targetDateKey : getLocalDateKey();
 
       Object.entries((state && state.items) || {}).forEach(([itemKey, itemState]) => {
         const context = getTimelineItemContext(state, itemKey);
@@ -5273,7 +5359,7 @@
 
         (itemState.comments || []).forEach((comment, commentIndex) => {
           const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
-          if (!rawTimestamp || getLocalDateKey(new Date(rawTimestamp)) !== todayKey) return;
+          if (!rawTimestamp || getLocalDateKey(new Date(rawTimestamp)) !== dateKey) return;
           entries.push({
             type: 'comment',
             timestamp: new Date(rawTimestamp).getTime(),
@@ -5283,6 +5369,7 @@
             title: cardTitle,
             timeText: formatEntryDateTime(rawTimestamp),
             detail: comment.text || '',
+            dateKey,
             stepIndex: -1,
             sourceType: 'comment',
             sourceIndex: commentIndex
@@ -5291,7 +5378,7 @@
 
         (itemState.activityLog || []).forEach((logEntry, logIndex) => {
           if (!logEntry || typeof logEntry.timestamp !== 'string') return;
-          if (getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey) return;
+          if (getLocalDateKey(new Date(logEntry.timestamp)) !== dateKey) return;
 
           if (logEntry.type === 'checklist-complete') {
             const latestStepText = resolveTimelineChecklistStepText(state, itemKey, logEntry);
@@ -5307,6 +5394,7 @@
               detail: latestStepText
                 ? `완료 단계: ${latestStepText}${latestStepComment ? ` | 💬 ${latestStepComment}` : ''}`
                 : (latestStepComment ? `💬 ${latestStepComment}` : '체크리스트 항목 완료'),
+              dateKey,
               stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1,
               sourceType: 'activity',
               sourceIndex: logIndex
@@ -5323,6 +5411,7 @@
               title: cardTitle,
               timeText: formatEntryDateTime(logEntry.timestamp),
               detail: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 아카이브 등록',
+              dateKey,
               stepIndex: -1,
               sourceType: 'activity',
               sourceIndex: logIndex
@@ -5334,9 +5423,251 @@
       return entries.sort((left, right) => right.timestamp - left.timestamp);
     }
 
-    function renderTodayActivityWidget(state) {
+    function collectTimelineEntriesFromState(state, sourceDateKey = '') {
+      const rows = [];
+      Object.entries((state && state.items) || {}).forEach(([itemKey, itemState]) => {
+        const context = getTimelineItemContext(state, itemKey);
+        if (!context.item) return;
+        const goalKey = context.goalKey;
+        const cardTitle = getCardActivityTitle(state, itemKey);
+
+        (itemState.comments || []).forEach((comment) => {
+          const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
+          const ts = parseIsoTimestamp(rawTimestamp);
+          if (!ts) return;
+          const entryDateKey = getLocalDateKey(new Date(ts));
+          rows.push({
+            type: 'comment',
+            timestamp: ts,
+            itemKey,
+            goalKey,
+            cardTitle,
+            detail: comment && typeof comment.text === 'string' ? comment.text : '',
+            timeText: formatEntryDateTime(ts),
+            dateKey: entryDateKey || sourceDateKey,
+            stepIndex: -1
+          });
+        });
+
+        (itemState.activityLog || []).forEach((logEntry) => {
+          const ts = parseIsoTimestamp(logEntry && logEntry.timestamp);
+          if (!ts) return;
+          const entryDateKey = getLocalDateKey(new Date(ts));
+          if (logEntry.type === 'checklist-complete') {
+            const latestStepText = resolveTimelineChecklistStepText(state, itemKey, logEntry);
+            const latestStepComment = resolveTimelineChecklistStepComment(state, itemKey, logEntry);
+            rows.push({
+              type: 'checklist',
+              timestamp: ts,
+              itemKey,
+              goalKey,
+              cardTitle,
+              detail: latestStepText
+                ? `완료 단계: ${latestStepText}${latestStepComment ? ` | 💬 ${latestStepComment}` : ''}`
+                : (latestStepComment ? `💬 ${latestStepComment}` : '체크리스트 항목 완료'),
+              timeText: formatEntryDateTime(ts),
+              dateKey: entryDateKey || sourceDateKey,
+              stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1
+            });
+          }
+
+          if (logEntry.type === 'history-add') {
+            rows.push({
+              type: 'history',
+              timestamp: ts,
+              itemKey,
+              goalKey,
+              cardTitle,
+              detail: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 아카이브 등록',
+              timeText: formatEntryDateTime(ts),
+              dateKey: entryDateKey || sourceDateKey,
+              stepIndex: -1
+            });
+          }
+        });
+      });
+      return rows;
+    }
+
+    async function loadTimelineSnapshotsFromRemote() {
+      try {
+        const bridge = await waitForFirebaseBridge();
+        if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.onValue !== 'function') return {};
+        return await new Promise((resolve) => {
+          let settled = false;
+          const settle = (payload) => {
+            if (settled) return;
+            settled = true;
+            resolve(payload && typeof payload === 'object' ? payload : {});
+          };
+
+          const rootRef = bridge.ref(bridge.db, 'plans/skf-daily');
+          bridge.onValue(rootRef, (snapshot) => {
+            const rawRoot = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
+            const byDate = {};
+            if (rawRoot && typeof rawRoot === 'object') {
+              Object.entries(rawRoot).forEach(([dateKey, value]) => {
+                if (!isValidPlannerDateKey(dateKey) || !value || typeof value !== 'object') return;
+                byDate[dateKey] = value;
+              });
+            }
+            settle(byDate);
+          }, () => settle({}), { onlyOnce: true });
+
+          window.setTimeout(() => settle({}), 3500);
+        });
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function getMergedTimelineSnapshots(remoteByDate = {}) {
+      const mergedMap = new Map();
+
+      getStoredPlannerSnapshotEntries().forEach((entry) => {
+        if (!entry || !isValidPlannerDateKey(entry.dateKey)) return;
+        mergedMap.set(entry.dateKey, {
+          dateKey: entry.dateKey,
+          state: normalizePlannerState(entry.state)
+        });
+      });
+
+      Object.entries(remoteByDate).forEach(([dateKey, remoteState]) => {
+        if (!isValidPlannerDateKey(dateKey) || !remoteState || typeof remoteState !== 'object') return;
+        const existing = mergedMap.get(dateKey);
+        const localSeed = existing && existing.state ? existing.state : loadStateFromStorageForDate(dateKey);
+        const merged = applyFirebaseSnapshotToState(localSeed, remoteState);
+        const preferred = preferMoreRecentPlannerState(localSeed, merged);
+        mergedMap.set(dateKey, {
+          dateKey,
+          state: preferred
+        });
+      });
+
+      return Array.from(mergedMap.values()).sort((left, right) => right.dateKey.localeCompare(left.dateKey));
+    }
+
+    function renderTimelineHistoryModalBody() {
+      if (!timelineHistoryModalBody) return;
+      const monthFilter = timelineHistoryMonthFilterValue || 'all';
+      const keyword = (timelineHistoryKeywordValue || '').trim().toLowerCase();
+      const filtered = timelineHistoryEntries.filter((entry) => {
+        if (!entry || !isValidPlannerDateKey(entry.dateKey)) return false;
+        if (monthFilter !== 'all' && !entry.dateKey.startsWith(`${monthFilter}-`)) return false;
+        if (!keyword) return true;
+        const haystack = `${entry.cardTitle || ''} ${entry.detail || ''} ${entry.type || ''}`.toLowerCase();
+        return haystack.includes(keyword);
+      });
+
+      if (!filtered.length) {
+        timelineHistoryModalBody.innerHTML = '<div class="timeline-history-empty">조건에 맞는 히스토리가 없습니다.</div>';
+        return;
+      }
+
+      const grouped = filtered.reduce((acc, entry) => {
+        const key = entry.dateKey;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(entry);
+        return acc;
+      }, {});
+
+      const dateKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+      timelineHistoryModalBody.innerHTML = dateKeys.map((dateKey) => {
+        const rows = grouped[dateKey].slice().sort((a, b) => b.timestamp - a.timestamp);
+        return `
+          <section class="timeline-history-group">
+            <h4 class="timeline-history-group-title">${escapeHtml(dateKey)} (${rows.length}건)</h4>
+            <ul class="timeline-history-group-list">
+              ${rows.map((entry) => {
+                const typeLabel = entry.type === 'comment'
+                  ? '업무 코멘트'
+                  : entry.type === 'checklist'
+                    ? '업무 수행 완료'
+                    : '히스토리 추가';
+                return `
+                  <li>
+                    <div class="timeline-history-row">
+                      <span class="timeline-history-type">${escapeHtml(typeLabel)}</span>
+                      <div class="timeline-history-detail">${escapeHtml(entry.cardTitle || '-')} | ${escapeHtml(entry.detail || '')}</div>
+                      <div class="timeline-history-meta">${escapeHtml(entry.timeText || '')}</div>
+                    </div>
+                  </li>
+                `;
+              }).join('')}
+            </ul>
+          </section>
+        `;
+      }).join('');
+    }
+
+    function setTimelineHistoryMonthFilterOptions(entries) {
+      if (!timelineHistoryMonthFilter) return;
+      const months = Array.from(new Set(
+        (Array.isArray(entries) ? entries : [])
+          .map((entry) => (entry && isValidPlannerDateKey(entry.dateKey) ? entry.dateKey.slice(0, 7) : ''))
+          .filter(Boolean)
+      )).sort((a, b) => b.localeCompare(a));
+
+      timelineHistoryMonthFilter.innerHTML = [
+        '<option value="all">전체 기간</option>',
+        ...months.map((month) => `<option value="${escapeHtml(month)}">${escapeHtml(month)}</option>`)
+      ].join('');
+
+      if (timelineHistoryMonthFilterValue !== 'all' && months.includes(timelineHistoryMonthFilterValue)) {
+        timelineHistoryMonthFilter.value = timelineHistoryMonthFilterValue;
+      } else {
+        timelineHistoryMonthFilterValue = 'all';
+        timelineHistoryMonthFilter.value = 'all';
+      }
+    }
+
+    async function openTimelineHistoryModal() {
+      if (!timelineHistoryModal || !timelineHistoryModalBody) return;
+      timelineHistoryModal.hidden = false;
+      document.body.classList.add('modal-open');
+      timelineHistoryModalBody.innerHTML = '<div class="timeline-history-empty">히스토리 데이터를 불러오는 중입니다...</div>';
+      if (timelineHistoryKeywordInput) {
+        timelineHistoryKeywordInput.value = timelineHistoryKeywordValue;
+      }
+      if (timelineHistoryMonthFilter) {
+        timelineHistoryMonthFilter.value = timelineHistoryMonthFilterValue || 'all';
+      }
+      if (timelineHistoryModalSubtitle) {
+        timelineHistoryModalSubtitle.textContent = '전체 기간의 업무 수행 기록을 날짜별로 확인합니다.';
+      }
+
+      const remoteByDate = await loadTimelineSnapshotsFromRemote();
+      const snapshots = getMergedTimelineSnapshots(remoteByDate);
+      const dedupe = new Map();
+      snapshots.forEach((snapshotEntry) => {
+        const dateKey = snapshotEntry && snapshotEntry.dateKey ? snapshotEntry.dateKey : '';
+        const rows = collectTimelineEntriesFromState(snapshotEntry && snapshotEntry.state ? snapshotEntry.state : { items: {}, meta: {} }, dateKey);
+        rows.forEach((entry) => {
+          const dedupeKey = `${entry.type}|${entry.itemKey}|${entry.timestamp}|${entry.detail}`;
+          if (!dedupe.has(dedupeKey)) {
+            dedupe.set(dedupeKey, entry);
+          }
+        });
+      });
+
+      timelineHistoryEntries = Array.from(dedupe.values()).sort((a, b) => b.timestamp - a.timestamp);
+      setTimelineHistoryMonthFilterOptions(timelineHistoryEntries);
+      renderTimelineHistoryModalBody();
+      if (timelineHistoryModalSubtitle) {
+        timelineHistoryModalSubtitle.textContent = `전체 기간 ${timelineHistoryEntries.length}건을 표시 중입니다.`;
+      }
+    }
+
+    function closeTimelineHistoryModal() {
+      if (!timelineHistoryModal) return;
+      timelineHistoryModal.hidden = true;
+      document.body.classList.remove('modal-open');
+    }
+
+    function renderTodayActivityWidget(state, targetDateKey = getTimelineSelectedDateKey()) {
+      const selectedDateKey = isValidPlannerDateKey(targetDateKey) ? targetDateKey : getLocalDateKey();
       if (todayActivityDate) {
-        todayActivityDate.textContent = `${getLocalDateKey()} Today`;
+        todayActivityDate.textContent = formatTimelineDateBadge(selectedDateKey);
       }
       if (!todayActivityList || !todayActivityEmpty) return;
       const canManageTimeline = EDIT_MODE_REQUESTED;
@@ -5344,9 +5675,10 @@
         todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
       }
 
-      const entries = collectTodayActivityEntries(state);
+      const entries = collectTodayActivityEntries(state, selectedDateKey);
       if (!entries.length) {
         todayActivityList.innerHTML = '';
+        todayActivityEmpty.textContent = `${selectedDateKey} 기준으로 등록된 업무 코멘트/활동 내역이 없습니다.`;
         todayActivityEmpty.style.display = 'block';
         return;
       }
@@ -10483,6 +10815,16 @@
         });
       }
 
+      if (timelineTodayBtn) {
+        timelineTodayBtn.addEventListener('click', () => {
+          const todayKey = getLocalDateKey();
+          if (plannerDatePicker) {
+            plannerDatePicker.value = todayKey;
+          }
+          switchPlannerDate(todayKey);
+        });
+      }
+
       if (dashboardSearchInput) {
         dashboardSearchInput.addEventListener('input', () => {
           dashboardSearchTerm = dashboardSearchInput.value || '';
@@ -10982,6 +11324,41 @@
         }
       }
 
+      if (timelineHistoryModal) {
+        timelineHistoryModal.addEventListener('click', (event) => {
+          const actionButton = event.target.closest('[data-timeline-history-action]');
+          if (actionButton || event.target === timelineHistoryModal) {
+            closeTimelineHistoryModal();
+          }
+        });
+
+        timelineHistoryModal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeTimelineHistoryModal();
+          }
+        });
+      }
+
+      if (allTimelineHistoryBtn) {
+        allTimelineHistoryBtn.addEventListener('click', () => {
+          void openTimelineHistoryModal();
+        });
+      }
+
+      if (timelineHistoryMonthFilter) {
+        timelineHistoryMonthFilter.addEventListener('change', () => {
+          timelineHistoryMonthFilterValue = timelineHistoryMonthFilter.value || 'all';
+          renderTimelineHistoryModalBody();
+        });
+      }
+
+      if (timelineHistoryKeywordInput) {
+        timelineHistoryKeywordInput.addEventListener('input', () => {
+          timelineHistoryKeywordValue = timelineHistoryKeywordInput.value || '';
+          renderTimelineHistoryModalBody();
+        });
+      }
+
       if (todayActivityList) {
         todayActivityList.addEventListener('click', (event) => {
           const deleteButton = event.target.closest('[data-timeline-action="delete"]');
@@ -11044,10 +11421,15 @@
             return;
           }
 
-          const confirmed = window.confirm('오늘 타임라인 기록을 모두 삭제하시겠습니까? (오늘 코멘트/활동 로그가 삭제됩니다)');
+          const selectedDateKey = getTimelineSelectedDateKey();
+          if (!isValidPlannerDateKey(selectedDateKey)) {
+            window.alert('초기화할 날짜를 확인할 수 없습니다.');
+            return;
+          }
+
+          const confirmed = window.confirm(`${selectedDateKey} 타임라인 기록을 모두 삭제하시겠습니까? (선택 날짜 코멘트/활동 로그가 삭제됩니다)`);
           if (!confirmed) return;
 
-          const todayKey = getLocalDateKey();
           const plannerState = loadPlannerState();
           let changedCount = 0;
 
@@ -11061,7 +11443,7 @@
               itemState.comments = itemState.comments.filter((comment) => {
                 const rawTimestamp = comment && (comment.updatedAt || comment.timestamp);
                 if (!rawTimestamp) return true;
-                return getLocalDateKey(new Date(rawTimestamp)) !== todayKey;
+                return getLocalDateKey(new Date(rawTimestamp)) !== selectedDateKey;
               });
               syncCommentDerivedFields(itemState);
               recalculateItemActivityTimestamp(itemState);
@@ -11070,7 +11452,7 @@
             if (Array.isArray(itemState.activityLog)) {
               itemState.activityLog = itemState.activityLog.filter((logEntry) => {
                 if (!logEntry || typeof logEntry.timestamp !== 'string') return true;
-                return getLocalDateKey(new Date(logEntry.timestamp)) !== todayKey;
+                return getLocalDateKey(new Date(logEntry.timestamp)) !== selectedDateKey;
               });
             }
 
@@ -11083,7 +11465,7 @@
           });
 
           if (changedCount === 0) {
-            window.alert('삭제할 오늘 타임라인 기록이 없습니다.');
+            window.alert('삭제할 타임라인 기록이 없습니다.');
             return;
           }
 
