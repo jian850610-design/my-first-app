@@ -7542,6 +7542,23 @@
       }
     }
 
+    function syncCardEditChecklistDraftFromDom() {
+      if (!cardEditModalChecklistList || !cardEditModalState || !Array.isArray(cardEditModalState.checklistDraft)) return;
+      const fieldInputs = Array.from(cardEditModalChecklistList.querySelectorAll('[data-card-edit-step-field]'));
+      fieldInputs.forEach((input) => {
+        const stepIndex = Number(input.dataset.stepIndex);
+        const field = input.dataset.cardEditStepField || '';
+        if (Number.isNaN(stepIndex)) return;
+        if (field === 'dueDate') {
+          const raw = String(input.value || '').trim();
+          const normalized = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+          syncCardEditChecklistDraftField(stepIndex, field, normalized);
+          return;
+        }
+        syncCardEditChecklistDraftField(stepIndex, field, input.value || '');
+      });
+    }
+
     function openCardEditModal(itemKey) {
       const latestState = loadPlannerState();
       const [goalKey, indexText] = String(itemKey || '').split('::');
@@ -7591,6 +7608,7 @@
 
     async function saveCardEditModal() {
       if (!cardEditModalState) return;
+      syncCardEditChecklistDraftFromDom();
       const latestState = loadPlannerState();
       const { itemKey, goalKey, itemIndex } = cardEditModalState;
       const goalTemplate = goalTemplates[goalKey];
@@ -7647,6 +7665,7 @@
       updateGoalCard(goalKey);
       syncOverviewWidgets(savedState);
       updateStats();
+      setToastMessage('카드 내용 및 마감일이 성공적으로 수정되었습니다.', 'ok');
     }
 
     function renderKpiModal() {
