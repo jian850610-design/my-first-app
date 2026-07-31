@@ -2341,12 +2341,59 @@
     ].join('\n');
 
     function buildBenchmarkPromptText() {
-      return BENCHMARK_PROMPT_TEMPLATE;
+      const catalog = getBenchmarkCardCatalog();
+      const cardCount = catalog.length;
+      const goalGroups = new Map();
+      catalog.forEach((entry) => {
+        if (!goalGroups.has(entry.goalNumber)) {
+          goalGroups.set(entry.goalNumber, []);
+        }
+        goalGroups.get(entry.goalNumber).push(entry);
+      });
+
+      const lines = [
+        '오늘 날짜 기준, SKF 본사 및 주요 경쟁사(셰플러, 한국NSK, 팀켄)의 최신 마케팅 실행 동향을 아래 카드별로 조사해 주세요.',
+        '※ 중요: 아래 목록에 있는 카드만 출력하세요. 목록에 없는 항목을 추가하지 마세요.',
+        '※ [ID]와 그 뒤에 이어지는 카드명은 한 글자도 바꾸지 말고 그대로 복사하세요. 요약하거나 다듬지 마세요.',
+        '※ 각 회사별 1~2문장으로 작성하세요.',
+        `※ 아래 목록은 총 ${cardCount}개입니다.`,
+        `※ 정확히 ${cardCount}개를 출력하세요.`,
+        ''
+      ];
+
+      Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).forEach(([goalNumberText, goalKey]) => {
+        const goalNumber = Number(goalNumberText);
+        const goalTemplate = goalTemplates[goalKey];
+        if (!goalTemplate) return;
+        const rows = goalGroups.get(goalNumber) || [];
+        lines.push(`@목표: ${goalNumber}. ${goalTemplate.label} (${rows.length}개)`);
+        rows
+          .slice()
+          .sort((left, right) => left.index - right.index)
+          .forEach((entry) => {
+            lines.push(`- [${entry.id}] ${entry.title}:`);
+            lines.push('  * SKF 본사:');
+            lines.push('  * 셰플러:');
+            lines.push('  * 한국NSK:');
+            lines.push('  * 팀켄:');
+          });
+        lines.push('');
+      });
+
+      const promptText = lines.join('\n').trim();
+      const insertedCountMatch = promptText.match(/총\s*(\d+)개/);
+      const insertedCount = insertedCountMatch ? Number(insertedCountMatch[1]) : -1;
+      console.log('[Benchmark Prompt] 카드 수 검증', {
+        actualCardCount: cardCount,
+        insertedCount,
+        isMatch: insertedCount === cardCount
+      });
+      return promptText;
     }
 
-    // 상태 메시지에 표시할 실제 카드 개수 (프롬프트/카탈로그의 카드 수는 항상 동일해야 함)
+    // 상태 메시지에 표시할 실제 카드 개수 (프롬프트 생성 시점 카탈로그 길이와 동일)
     function countBenchmarkPromptCards() {
-      return 51;
+      return getBenchmarkCardCatalog().length;
     }
 
     const PROMPT_GOAL_NUMBER_TO_KEY = {
@@ -2648,22 +2695,23 @@
       return entry ? Number(entry[0]) : null;
     }
 
-    let benchmarkCardCatalogCache = null;
-
-    // 카드마다 안정적인 ID를 부여한다. 카드 데이터에 별도 id 필드가 없으므로
-    // "목표번호-해당 목표 내 순번"(예: G3-02) 규칙으로 생성한다. 카드 순서가 바뀌지 않는 한
-    // 다른 카드가 추가/삭제되어도 기존 카드의 ID는 유지된다.
+    // 카드마다 ID를 부여한다. 현재 카드 데이터에는 고정 id 필드가 없어
+    // "목표번호-해당 목표 내 순번"(예: G3-02) 규칙을 사용한다.
+    // 주의: 카드 순서 변경 시 ID가 바뀔 수 있으므로 파싱/매핑은 최신 카탈로그 기준으로 수행한다.
     function getBenchmarkCardCatalog() {
-      if (Array.isArray(benchmarkCardCatalogCache)) return benchmarkCardCatalogCache;
-
-      benchmarkCardCatalogCache = [];
+      const plannerState = normalizePlannerState(loadPlannerState());
+      const catalog = [];
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
         if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
         const goalNumber = getGoalNumberFromGoalKey(goalKey);
         goalTemplate.items.forEach((item, index) => {
-          const title = typeof item.title === 'string' ? item.title.trim() : '';
+          const itemKey = `${goalKey}::${index}`;
+          const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
+          const fallbackTitle = typeof item.title === 'string' ? item.title : '';
+          const displayTitle = getCardTitleText(itemState, { title: fallbackTitle });
+          const title = normalizeBenchmarkFieldText(typeof displayTitle === 'string' ? displayTitle : fallbackTitle);
           if (!title) return;
-          benchmarkCardCatalogCache.push({
+          catalog.push({
             goalKey,
             goalNumber,
             index,
@@ -2674,7 +2722,7 @@
           });
         });
       });
-      return benchmarkCardCatalogCache;
+      return catalog;
     }
 
     function getBenchmarkCatalogEntryByItemKey(itemKey) {
@@ -2962,6 +3010,25 @@
         let bestMatch = null;
         let matchSource = '';
 
+        // 안전장치: [ID]가 주어졌는데 현재 프롬프트 카탈로그에 없는 ID면
+        // 제목 유사도 매칭으로 우회하지 않고 반영 대상에서 제외한다.
+        if (card.id && !catalogById.has(card.id)) {
+          unmatched.push({
+            title: card.title,
+            normalizedTitle,
+            goalNumber: card.goalNumber,
+            cardId: card.id,
+            failureReason: 'unknown-id',
+            benchmarking: card.benchmarking,
+            candidates: []
+          });
+          console.warn('[Benchmark Parser] 알 수 없는 카드 ID', {
+            cardId: card.id,
+            title: card.title
+          });
+          return;
+        }
+
         // 1) [ID] 완전 일치
         if (card.id && catalogById.has(card.id)) {
           bestMatch = catalogById.get(card.id);
@@ -3031,6 +3098,8 @@
             title: card.title,
             normalizedTitle,
             goalNumber: card.goalNumber,
+            cardId: card.id,
+            failureReason: 'not-in-list',
             benchmarking: card.benchmarking,
             candidates: rankedCandidates
           });
@@ -3808,6 +3877,13 @@
       const list = Array.isArray(unmatchedList) ? unmatchedList : [];
       console.log('[Benchmark Manual Map] 배너 렌더 요청, 실패 카드 수 =', list.length);
 
+      const titleNode = benchmarkManualMappingSection.querySelector('.benchmark-manual-mapping-title');
+      if (titleNode) {
+        titleNode.textContent = list.length
+          ? `⚠️ 자동 매핑 실패 ${list.length}건 — 후보 중에서 직접 연결해 주세요`
+          : '⚠️ 자동 매칭 실패 카드 — 후보 중에서 직접 연결해 주세요';
+      }
+
       if (!list.length) {
         return;
       }
@@ -3817,6 +3893,12 @@
         try {
           const candidates = Array.isArray(entry && entry.candidates) ? entry.candidates : [];
           const title = entry && typeof entry.title === 'string' && entry.title ? entry.title : '(제목 없음)';
+          const failureReason = entry && typeof entry.failureReason === 'string' ? entry.failureReason : '';
+          const cardId = entry && typeof entry.cardId === 'string' ? entry.cardId : '';
+          const reasonText = failureReason === 'unknown-id'
+            ? `알 수 없는 ID: ${cardId || '-'}`
+            : (failureReason === 'not-in-list' ? '프롬프트 목록에 없는 카드명' : '매핑 실패');
+          const titleBlock = `<span class="benchmark-manual-mapping-title-text">${escapeHtml(title)}</span><span class="benchmark-manual-mapping-empty">${escapeHtml(reasonText)}</span>`;
 
           const pickerHtml = candidates.length
             ? [
@@ -3834,7 +3916,7 @@
 
           rowsHtml.push(`
             <div class="benchmark-manual-mapping-row" data-manual-row-index="${index}">
-              <span class="benchmark-manual-mapping-title-text">${escapeHtml(title)}</span>
+              ${titleBlock}
               ${pickerHtml}
             </div>
           `);
@@ -13675,7 +13757,8 @@
               renderBenchmarkApplyActions({ showRetry: true });
             }
 
-            const successMessage = `[Benchmark Apply] Realtime Database 전체 반영 완료 — 성공 ${result.count}개 / 실패 ${result.failedCards.length}개 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${formatBenchmarkResultSummary(result)}`;
+            const mappingFailedCount = Array.isArray(result.unmatched) ? result.unmatched.length : 0;
+            const successMessage = `[Benchmark Apply] Realtime Database 전체 반영 완료 — 성공 ${result.count}개 / 저장 실패 ${result.failedCards.length}개 / 매핑 실패 ${mappingFailedCount}건 / 소요 ${((result.durationMs || 0) / 1000).toFixed(1)}초\n${formatBenchmarkResultSummary(result)}`;
             if (benchmarkAutoStatus) {
               benchmarkAutoStatus.textContent = successMessage;
               benchmarkAutoStatus.classList.remove('warn');
@@ -13683,7 +13766,7 @@
             }
             const fullCardCount = countBenchmarkPromptCards();
             if ((result.count || 0) === fullCardCount) {
-              window.alert('Realtime Database에 총 51개 카드가 성공적으로 업데이트되었습니다!');
+              window.alert(`Realtime Database에 총 ${fullCardCount}개 카드가 성공적으로 업데이트되었습니다!`);
             } else {
               window.alert(`Realtime Database에 총 ${result.attemptedCount || 0}개 카드 중 ${result.count || 0}개 카드가 성공적으로 업데이트되었습니다!`);
             }
