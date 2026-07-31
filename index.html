@@ -2560,8 +2560,21 @@
       return safeDate === getLocalDateKey() ? `${safeDate} Today` : safeDate;
     }
 
+    function normalizeBooleanFlag(value) {
+      if (value === true || value === 1) return true;
+      if (typeof value !== 'string') return false;
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'y';
+    }
+
     function normalizePriorityValue(value) {
       if (value === PRIORITY_URGENT || value === PRIORITY_IMPORTANT || value === PRIORITY_NORMAL) return value;
+      if (typeof value !== 'string') return PRIORITY_NORMAL;
+      const normalized = value.trim().toLowerCase();
+      if (!normalized) return PRIORITY_NORMAL;
+      if (normalized.includes('urgent') || normalized.includes('긴급') || normalized.includes('최우선')) return PRIORITY_URGENT;
+      if (normalized.includes('important') || normalized.includes('중요')) return PRIORITY_IMPORTANT;
+      if (normalized.includes('normal') || normalized.includes('일반')) return PRIORITY_NORMAL;
       return PRIORITY_NORMAL;
     }
 
@@ -2585,7 +2598,10 @@
     }
 
     function isTeamLeaderRequested(itemState) {
-      return Boolean(itemState && (itemState.isLeaderRequested === true || itemState.bossRequest === true || itemState.isBossRequested === true));
+      if (!itemState) return false;
+      return normalizeBooleanFlag(itemState.isLeaderRequested)
+        || normalizeBooleanFlag(itemState.bossRequest)
+        || normalizeBooleanFlag(itemState.isBossRequested);
     }
 
     async function copyTextToClipboard(text) {
@@ -5847,9 +5863,9 @@
           <td>
             <div class="team-overview-cell-title-wrap">
               <div class="team-overview-badge-stack">
-                ${row.priority === PRIORITY_URGENT ? '<span class="team-overview-priority-badge urgent">🔴 [긴급]</span>' : ''}
-                ${row.priority === PRIORITY_IMPORTANT ? '<span class="team-overview-priority-badge important">🟡 [중요]</span>' : ''}
-                ${row.leaderPinned ? '<span class="team-overview-priority-badge leader">📌 [팀장지시]</span>' : ''}
+                ${row.priority === PRIORITY_URGENT ? '<span class="team-overview-priority-badge urgent">🔴긴급</span>' : ''}
+                ${row.priority === PRIORITY_IMPORTANT ? '<span class="team-overview-priority-badge important">🟡중요</span>' : ''}
+                ${row.leaderPinned ? '<span class="team-overview-priority-badge leader">📌팀장지시</span>' : ''}
               </div>
               <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}</button>
             </div>
@@ -6365,10 +6381,10 @@
       normalizeSalesSupportItemIndexes(items);
       Object.values(items).forEach((itemState) => {
         if (!itemState || typeof itemState !== 'object') return;
-        itemState.isLeaderRequested = itemState.isLeaderRequested === true;
-        itemState.isUrgent = itemState.isUrgent === true || itemState.urgent === true;
-        itemState.isImportant = itemState.isImportant === true || itemState.important === true;
-        itemState.isBossRequested = itemState.isBossRequested === true || itemState.bossRequest === true;
+        itemState.isLeaderRequested = isTeamLeaderRequested(itemState);
+        itemState.isUrgent = normalizeBooleanFlag(itemState.isUrgent) || normalizeBooleanFlag(itemState.urgent);
+        itemState.isImportant = normalizeBooleanFlag(itemState.isImportant) || normalizeBooleanFlag(itemState.important);
+        itemState.isBossRequested = normalizeBooleanFlag(itemState.isBossRequested) || normalizeBooleanFlag(itemState.bossRequest);
         itemState.note = typeof itemState.note === 'string' ? itemState.note : '';
         itemState.noteUpdatedAt = typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '';
         itemState.activityUpdatedAt = typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '';
@@ -6626,7 +6642,7 @@
       if (!Number.isFinite(itemState.totalCycles)) itemState.totalCycles = itemState.cycleCompletedCount;
       if (!Array.isArray(itemState.principles)) itemState.principles = [];
       itemState.principles = Array.isArray(principles) ? [...principles] : itemState.principles;
-      if (typeof itemState.isLeaderRequested !== 'boolean') itemState.isLeaderRequested = false;
+      itemState.isLeaderRequested = isTeamLeaderRequested(itemState);
       return itemState;
     }
 
@@ -8292,9 +8308,9 @@
         totalSteps += steps.length;
         checkedSteps += steps.filter((step) => step && step.checked).length;
         const priority = normalizePriorityValue(itemState && itemState.priority);
-        const isUrgent = priority === PRIORITY_URGENT || itemState?.isUrgent === true || itemState?.urgent === true;
-        const isImportant = priority === PRIORITY_IMPORTANT || itemState?.isImportant === true || itemState?.important === true;
-        const isLeaderRequested = itemState?.isLeaderRequested === true || itemState?.bossRequest === true || itemState?.isBossRequested === true;
+        const isUrgent = priority === PRIORITY_URGENT || normalizeBooleanFlag(itemState?.isUrgent) || normalizeBooleanFlag(itemState?.urgent);
+        const isImportant = priority === PRIORITY_IMPORTANT || normalizeBooleanFlag(itemState?.isImportant) || normalizeBooleanFlag(itemState?.important);
+        const isLeaderRequested = isTeamLeaderRequested(itemState);
         if (isUrgent) urgentCount += 1;
         if (isImportant) importantCount += 1;
         if (isLeaderRequested) leaderRequestedCount += 1;
@@ -8357,12 +8373,12 @@
       const badgeConfigs = [
         { className: 'urgent', emoji: '🔴', label: '긴급', count: stats.urgentCount },
         { className: 'important', emoji: '🟡', label: '중요', count: stats.importantCount },
-        { className: 'leader', emoji: '📌', label: '지시', count: stats.leaderRequestedCount }
+        { className: 'leader', emoji: '📌', label: '팀장지시', count: stats.leaderRequestedCount }
       ];
 
       return badgeConfigs
         .filter((badge) => badge.count > 0)
-        .map((badge) => `<span class="mandalart-mini-badge ${badge.className}">${badge.emoji} ${badge.label} ${badge.count}건</span>`)
+        .map((badge) => `<span class="mandalart-mini-badge ${badge.className}">${badge.emoji}${badge.label} ${badge.count}건</span>`)
         .join('');
     }
 
