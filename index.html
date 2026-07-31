@@ -1584,7 +1584,6 @@
     </section>
   </div>
 
-  <script src="holidays.js"></script>
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
     const todayActivityDate = document.getElementById('todayActivityDate');
@@ -1738,6 +1737,7 @@
     let timelineActivityLoading = true;
     let timelineActivityLoadError = '';
     let timelineActivityRealtimeUnsubscribe = null;
+    let todayActivityRenderSignature = '';
     const ACTIVITY_LOGS_MIGRATED_KEY = 'skfActivityLogsMigratedToFirebaseV1';
     const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
     const MINI_CALENDAR_MIGRATED_KEY = 'skfMiniCalendarMigratedToFirebaseV1';
@@ -1745,9 +1745,31 @@
     const MINI_CALENDAR_VIEW_MODE_KEY = 'skfMiniCalendarViewModeV1';
     const MINI_CALENDAR_WEEK_START_KEY = 'skfMiniCalendarWeekStartV1';
     const MINI_CALENDAR_COLOR_LABELS = ['pink', 'yellow', 'blue', 'green', 'purple', 'red'];
-    const miniCalendarHolidaysByYear = window.KR_HOLIDAYS_BY_YEAR && typeof window.KR_HOLIDAYS_BY_YEAR === 'object'
-      ? window.KR_HOLIDAYS_BY_YEAR
-      : {};
+    const miniCalendarHolidaysByYear = {
+      "2026": {
+        "2026-01-01": "신정",
+        "2026-02-16": "설날 연휴",
+        "2026-02-17": "설날",
+        "2026-02-18": "설날 연휴",
+        "2026-03-01": "삼일절",
+        "2026-03-02": "대체공휴일(삼일절)",
+        "2026-05-05": "어린이날",
+        "2026-05-24": "부처님오신날",
+        "2026-05-25": "대체공휴일(부처님오신날)",
+        "2026-06-03": "지방선거일",
+        "2026-06-06": "현충일",
+        "2026-08-15": "광복절",
+        "2026-08-17": "대체공휴일(광복절)",
+        "2026-09-24": "추석 연휴",
+        "2026-09-25": "추석",
+        "2026-09-26": "추석 연휴",
+        "2026-09-28": "대체공휴일(추석)",
+        "2026-10-03": "개천절",
+        "2026-10-05": "대체공휴일(개천절)",
+        "2026-10-09": "한글날",
+        "2026-12-25": "성탄절"
+      }
+    };
     let miniCalendarEvents = [];
     let miniCalendarViewDate = getInitialMiniCalendarViewDate();
     let miniCalendarModalState = null;
@@ -1764,6 +1786,7 @@
     let miniCalendarRealtimeStartRequested = false;
     let miniCalendarRealtimeStartStarted = false;
     let miniCalendarAuthWaitTimer = null;
+    let miniCalendarInitialized = false;
     let newsRequestSerial = 0;
     const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
     const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
@@ -1875,7 +1898,11 @@
     const PRIORITY_IMPORTANT = 'important';
     const PRIORITY_NORMAL = 'normal';
     const editingChecklistKeys = new Set();
-    const EDIT_MODE_REQUESTED = new URLSearchParams(window.location.search).get('edit') === '1';
+    const APP_QUERY_PARAMS = new URLSearchParams(window.location.search);
+    const EDIT_MODE_REQUESTED = APP_QUERY_PARAMS.get('edit') === '1';
+    const DEVELOPMENT_MODE = APP_QUERY_PARAMS.get('debug') === '1'
+      || window.location.hostname === 'localhost'
+      || window.location.hostname === '127.0.0.1';
     const EDITOR_NAME_LABEL = '관리자';
     let currentPlannerDateKey = '';
     let currentPlannerState = { items: {}, meta: {} };
@@ -1892,6 +1919,7 @@
     let firebaseAuthInitializing = true;
     let firebaseAuthReady = false;
     let firebaseAuthStateResolved = false;
+    let firebaseAuthUnsubscribe = null;
     let resolveFirebaseAuthStateReady = () => {};
     const firebaseAuthStateReadyPromise = new Promise((resolve) => {
       resolveFirebaseAuthStateReady = resolve;
@@ -6078,23 +6106,23 @@
         });
         return;
       }
-      if (miniCalendarRealtimeUnsubscribe) {
-        miniCalendarRealtimeUnsubscribe();
-        miniCalendarRealtimeUnsubscribe = null;
-      }
-      if (miniCalendarSubscriptionStartedAt) return;
+      if (miniCalendarRealtimeUnsubscribe || miniCalendarSubscriptionStartedAt) return;
 
       miniCalendarAuthConfirmedAt = Date.now();
-      console.log('[miniCalendar] 인증 확정 시각', new Date(miniCalendarAuthConfirmedAt).toISOString(), {
-        hasUser: Boolean(currentFirebaseUser),
-        uid: currentFirebaseUser && currentFirebaseUser.uid ? currentFirebaseUser.uid : ''
-      });
+      if (DEVELOPMENT_MODE) {
+        console.log('[miniCalendar] 인증 확정 시각', new Date(miniCalendarAuthConfirmedAt).toISOString(), {
+          hasUser: Boolean(currentFirebaseUser),
+          uid: currentFirebaseUser && currentFirebaseUser.uid ? currentFirebaseUser.uid : ''
+        });
+      }
 
       setMiniCalendarLoadingState(true);
       miniCalendarSubscriptionStartedAt = Date.now();
-      console.log('[miniCalendar] 구독 시작 시각', new Date(miniCalendarSubscriptionStartedAt).toISOString(), {
-        path: 'calendarEvents'
-      });
+      if (DEVELOPMENT_MODE) {
+        console.log('[miniCalendar] 구독 시작 시각', new Date(miniCalendarSubscriptionStartedAt).toISOString(), {
+          path: 'calendarEvents'
+        });
+      }
 
       miniCalendarRealtimeUnsubscribe = bridge.onValue(collectionRef, (snapshot) => {
         try {
@@ -6103,10 +6131,12 @@
           updateMiniCalendarRemoteEvents(nextEvents);
           if (!miniCalendarFirstSnapshotLogged) {
             miniCalendarFirstSnapshotLogged = true;
-            console.log('[miniCalendar] 첫 스냅샷 수신 시각·건수', {
-              receivedAt: new Date().toISOString(),
-              count: nextEvents.length
-            });
+            if (DEVELOPMENT_MODE) {
+              console.log('[miniCalendar] 첫 스냅샷 수신 시각·건수', {
+                receivedAt: new Date().toISOString(),
+                count: nextEvents.length
+              });
+            }
           }
           clearMiniCalendarLoadingState();
         } catch (error) {
@@ -6573,6 +6603,8 @@
     }
 
     async function initializeMiniCalendar() {
+      if (miniCalendarInitialized) return;
+      miniCalendarInitialized = true;
       miniCalendarEvents = [];
       miniCalendarLoading = true;
       miniCalendarLoadError = '';
@@ -7405,13 +7437,35 @@
       const filteredSharedEntries = filterActivityTimelineEntriesByAuthor(sharedEntries, timelineActivityFilterMode);
       const fallbackEntries = collectTodayActivityEntries(state, selectedDateKey);
       const entries = filteredSharedEntries.length ? filteredSharedEntries : filterActivityTimelineEntriesByAuthor(fallbackEntries, timelineActivityFilterMode);
-      console.log('[timeline] today entries', {
+      const renderSignature = JSON.stringify({
         selectedDateKey,
-        totalCount: sharedEntries.length,
-        filteredCount: filteredSharedEntries.length,
-        fallbackCount: fallbackEntries.length,
-        filterMode: timelineActivityFilterMode
+        canManageTimeline,
+        filterMode: timelineActivityFilterMode,
+        loading: timelineActivityLoading,
+        error: timelineActivityLoadError,
+        entries: entries.map((entry) => [
+          entry.type,
+          entry.itemKey,
+          entry.stepIndex,
+          entry.cardTitle,
+          entry.detail,
+          entry.timeText,
+          entry.logId,
+          entry.sourceType,
+          entry.sourceIndex
+        ])
       });
+      if (renderSignature === todayActivityRenderSignature) return;
+      todayActivityRenderSignature = renderSignature;
+      if (DEVELOPMENT_MODE) {
+        console.log('[timeline] today entries', {
+          selectedDateKey,
+          totalCount: sharedEntries.length,
+          filteredCount: filteredSharedEntries.length,
+          fallbackCount: fallbackEntries.length,
+          filterMode: timelineActivityFilterMode
+        });
+      }
 
       if (!entries.length) {
         todayActivityList.innerHTML = '';
@@ -12537,6 +12591,7 @@
     }
 
     async function attachFirebaseAuthListener() {
+      if (firebaseAuthUnsubscribe) return;
       const bridge = await ensureFirebaseAuthBridge();
       if (!bridge || !bridge.auth || !bridge.onAuthStateChanged) {
         firebaseAuthReady = false;
@@ -12559,7 +12614,7 @@
           console.error('Google 리디렉션 결과 확인 실패', error);
         }
       }
-      bridge.onAuthStateChanged(bridge.auth, (user) => {
+      firebaseAuthUnsubscribe = bridge.onAuthStateChanged(bridge.auth, (user) => {
         currentFirebaseUser = user || null;
         markFirebaseAuthStateResolved();
         updateFirebaseModeChip();
@@ -13578,8 +13633,8 @@
       setCurrentPlannerState(todayState, { skipFirebaseSync: true });
 
       initializeGoalSelect();
-      await initializeFirebaseIntegration();
       initializeMiniCalendar();
+      await initializeFirebaseIntegration();
       void startMiniCalendarRealtimeSync();
       attachActivityTimelineRealtimeListener();
       await migrateActivityLogsIfNeeded();
