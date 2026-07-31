@@ -88,6 +88,10 @@
     .firebase-status-strip .firebase-chip.disconnected { border-color: rgba(255, 112, 112, 0.34); background: rgba(255, 112, 112, 0.14); }
     .firebase-status-strip .firebase-update-text,
     .firebase-status-strip .firebase-date-label { color: #50637a; }
+    .firebase-read-status { font-size: 12px; font-weight: 800; color: #6b7f95; }
+    .firebase-read-status.warn { color: #a13b3b; }
+    .firebase-retry-btn { border: 1px solid #d4a0a0; border-radius: 10px; background: #fff5f5; color: #a13b3b; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .firebase-retry-btn:hover { background: #ffecec; }
     .firebase-status-strip .firebase-date-picker { border-color: #d6e2ec; background: #ffffff; color: #24405d; }
     .firebase-status-strip .firebase-date-picker:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
@@ -1167,6 +1171,8 @@
         <div class="firebase-status-group">
           <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
           <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
+          <span class="firebase-read-status" id="firebaseReadStatusText" hidden></span>
+          <button type="button" class="firebase-retry-btn" id="firebaseRetryBtn" hidden>다시 시도</button>
         </div>
       </section>
       <div class="dashboard-search-section" id="searchSection">
@@ -1668,6 +1674,8 @@
     const firebaseConnectionChip = document.getElementById('firebaseConnectionChip');
     const firebaseModeChip = document.getElementById('firebaseModeChip');
     const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
+    const firebaseReadStatusText = document.getElementById('firebaseReadStatusText');
+    const firebaseRetryBtn = document.getElementById('firebaseRetryBtn');
     const yellowBanner = document.getElementById('yellowBanner');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
@@ -1927,6 +1935,9 @@
     let firebaseDateUnsubscribe = null;
     let firebaseConnectionUnsubscribe = null;
     let firebaseLastUpdatedMeta = { lastUpdatedAt: '', updatedByName: '', updatedByEmail: '', updatedByUid: '' };
+    let firebaseCardsFirstSnapshotReceived = false;
+    let firebaseCardsFirstSnapshotTimer = null;
+    let firebaseCardsReadError = '';
     let firebaseBridgeReady = false;
     let firebaseAuthInitializing = true;
     let firebaseAuthReady = false;
@@ -1971,6 +1982,45 @@
     function markFirebaseSnapshotReceived() {
       firebaseLastSnapshotAt = Date.now();
       updateFirebaseConnectionChip();
+    }
+
+    function clearFirebaseCardsFirstSnapshotTimer() {
+      if (!firebaseCardsFirstSnapshotTimer) return;
+      window.clearTimeout(firebaseCardsFirstSnapshotTimer);
+      firebaseCardsFirstSnapshotTimer = null;
+    }
+
+    function setFirebaseReadStatus(message = '', tone = '') {
+      if (!firebaseReadStatusText) return;
+      const text = typeof message === 'string' ? message.trim() : '';
+      firebaseReadStatusText.hidden = !text;
+      firebaseReadStatusText.textContent = text;
+      firebaseReadStatusText.classList.toggle('warn', tone === 'warn');
+      if (firebaseRetryBtn) {
+        firebaseRetryBtn.hidden = !text || tone !== 'warn';
+      }
+    }
+
+    function startFirebaseFirstSnapshotTimeoutWatch() {
+      clearFirebaseCardsFirstSnapshotTimer();
+      firebaseCardsFirstSnapshotTimer = window.setTimeout(() => {
+        if (firebaseCardsFirstSnapshotReceived) return;
+        firebaseCardsReadError = 'first-snapshot-timeout';
+        setFirebaseReadStatus('데이터를 불러오지 못했습니다', 'warn');
+        console.error('[cards] 첫 응답 8초 초과', {
+          at: new Date().toISOString()
+        });
+      }, 8000);
+    }
+
+    function countRemoteCardRecords(remoteCards) {
+      if (!remoteCards || typeof remoteCards !== 'object') return 0;
+      let count = 0;
+      Object.entries(remoteCards).forEach(([goalKey, indexedItems]) => {
+        if (!goalTemplates[goalKey] || !indexedItems || typeof indexedItems !== 'object') return;
+        count += Object.keys(indexedItems).length;
+      });
+      return count;
     }
 
     function benchmarkDebugLog(...args) {
@@ -12905,18 +12955,57 @@
       });
     }
 
-    function attachFirebaseCardsListener() {
+    function attachFirebaseCardsListener(options = {}) {
       const bridge = getFirebaseBridge();
-      if (!currentFirebaseUser || !bridge || typeof bridge.getCardsRef !== 'function') return;
+      if (!bridge || typeof bridge.getCardsRef !== 'function' || typeof bridge.getCardsMetaRef !== 'function' || typeof bridge.getHiddenLogsRef !== 'function') return;
       if (firebaseDateUnsubscribe) {
         firebaseDateUnsubscribe();
         firebaseDateUnsubscribe = null;
       }
-      let remoteCards = null;
+      firebaseCardsFirstSnapshotReceived = false;
+      firebaseCardsReadError = '';
+      setFirebaseReadStatus('데이터를 불러오는 중입니다...');
+      startFirebaseFirstSnapshotTimeoutWatch();
+      const startedAt = new Date().toISOString();
+      const subscribedPaths = ['/cards', '/cardsMeta', '/hiddenLogs'];
+      console.log('[cards] 구독시작 경로/시각', {
+        startedAt,
+        paths: subscribedPaths,
+        requestedBy: options && options.reason ? options.reason : 'unknown',
+        editMode: EDIT_MODE_REQUESTED,
+        authenticated: Boolean(currentFirebaseUser)
+      });
+      console.log('[cards] 마이그레이션 단일 구조 경로 확인', {
+        cardsPath: '/cards',
+        cardsMetaPath: '/cardsMeta',
+        hiddenLogsPath: '/hiddenLogs',
+        legacyPlansPath: '/plans/skf-daily/* (legacy)'
+      });
+
+      let remoteCards = {};
+      let remoteCardsLoaded = false;
       let remoteHiddenLogs = {};
       let remoteMeta = {};
+
+      const handleFirstSnapshot = (sourcePath, value) => {
+        if (firebaseCardsFirstSnapshotReceived) return;
+        firebaseCardsFirstSnapshotReceived = true;
+        clearFirebaseCardsFirstSnapshotTimer();
+        firebaseCardsReadError = '';
+        setFirebaseReadStatus('');
+        markFirebaseSnapshotReceived();
+        const count = sourcePath === '/cards'
+          ? countRemoteCardRecords(value)
+          : (value && typeof value === 'object' ? Object.keys(value).length : 0);
+        console.log('[cards] 첫 스냅샷 수신 시각/건수', {
+          receivedAt: new Date().toISOString(),
+          sourcePath,
+          count
+        });
+      };
+
       const applyRemoteState = () => {
-        if (!remoteCards || isChecklistTextInputFocused()) return;
+        if (!remoteCardsLoaded || isChecklistTextInputFocused()) return;
         markFirebaseSnapshotReceived();
         try {
           const remoteSnapshot = {
@@ -12924,7 +13013,7 @@
             hiddenLogs: remoteHiddenLogs,
             meta: remoteMeta
           };
-          const mergedState = applyFirebaseSnapshotToState(loadPlannerState(), remoteSnapshot);
+          const mergedState = applyFirebaseSnapshotToState({ items: {}, hiddenLogs: {}, meta: {} }, remoteSnapshot);
           setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
           updateFirebaseLastUpdatedText(mergedState.meta || firebaseLastUpdatedMeta);
           preserveWindowScroll(() => rerenderCurrentView());
@@ -12932,27 +13021,50 @@
           console.error('[cards] 공통 카드 데이터 결합 실패', error);
         }
       };
-      const handleSubscriptionError = (error) => {
-        firebaseConnectionOnline = false;
-        updateFirebaseConnectionChip();
-        console.error('[cards] 실시간 구독 실패', error);
+
+      const handleSubscriptionError = (sourcePath) => (error) => {
+        const isCriticalPath = sourcePath === '/cards';
+        if (isCriticalPath) {
+          clearFirebaseCardsFirstSnapshotTimer();
+          firebaseConnectionOnline = false;
+          updateFirebaseConnectionChip();
+        }
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const errorMessage = error && error.message ? error.message : String(error || '');
+        if (isCriticalPath) {
+          firebaseCardsReadError = `${errorCode}: ${errorMessage}`;
+          setFirebaseReadStatus(`데이터를 불러오지 못했습니다 (${errorCode})`, 'warn');
+        }
+        const logFn = isCriticalPath ? console.error : console.warn;
+        logFn(isCriticalPath ? '[cards] 실시간 구독 실패' : '[cards] 보조 경로 구독 실패(치명 아님)', {
+          sourcePath,
+          errorCode,
+          errorMessage,
+          isCriticalPath,
+          error
+        });
       };
+
       const unsubscribers = [
         bridge.onValue(bridge.getCardsRef(), (snapshot) => {
           const value = snapshot.val();
-          remoteCards = value && typeof value === 'object' ? value : null;
+          handleFirstSnapshot('/cards', value);
+          remoteCards = value && typeof value === 'object' ? value : {};
+          remoteCardsLoaded = true;
           applyRemoteState();
-        }, handleSubscriptionError),
+        }, handleSubscriptionError('/cards')),
         bridge.onValue(bridge.getCardsMetaRef(), (snapshot) => {
           const value = snapshot.val();
+          handleFirstSnapshot('/cardsMeta', value);
           remoteMeta = value && typeof value === 'object' ? value : {};
           applyRemoteState();
-        }, handleSubscriptionError),
+        }, handleSubscriptionError('/cardsMeta')),
         bridge.onValue(bridge.getHiddenLogsRef(), (snapshot) => {
           const value = snapshot.val();
+          handleFirstSnapshot('/hiddenLogs', value);
           remoteHiddenLogs = value && typeof value === 'object' ? value : {};
           applyRemoteState();
-        }, handleSubscriptionError)
+        }, handleSubscriptionError('/hiddenLogs'))
       ];
       firebaseDateUnsubscribe = () => unsubscribers.forEach((unsubscribe) => {
         if (typeof unsubscribe === 'function') unsubscribe();
@@ -13062,12 +13174,10 @@
         applyEditabilityState();
         updateFirebaseConnectionChip();
         void startMiniCalendarRealtimeSync();
+        attachFirebaseCardsListener({ reason: 'auth-state-change' });
         if (currentFirebaseUser) {
-          void migrateCardsToSingleStructureOnce().then(() => attachFirebaseCardsListener());
+          void migrateCardsToSingleStructureOnce();
           void backfillActivityLogTitlesOnce();
-        } else if (firebaseDateUnsubscribe) {
-          firebaseDateUnsubscribe();
-          firebaseDateUnsubscribe = null;
         }
       });
     }
@@ -13095,6 +13205,7 @@
       }
 
       attachFirebaseConnectionListener();
+      attachFirebaseCardsListener({ reason: 'initialize' });
 
       firebaseAuthInitializing = false;
       updateFirebaseModeChip();
@@ -14072,25 +14183,40 @@
         });
       }
 
+      if (firebaseRetryBtn) {
+        firebaseRetryBtn.addEventListener('click', () => {
+          firebaseCardsReadError = '';
+          setFirebaseReadStatus('데이터를 불러오는 중입니다...');
+          attachFirebaseCardsListener({ reason: 'manual-retry' });
+          void refreshDashboardUnifiedData('firebase-retry');
+        });
+      }
+
       syncOverviewWidgets(loadPlannerState());
       showView('dashboard');
     }
 
     async function initializeApp() {
       const todayKey = getLocalDateKey();
-
-      if (!hasAnyPersistedPlannerState()) {
-        await hydrateStateFromDataFile();
-      }
+      const hasPersistedState = hasAnyPersistedPlannerState();
+      const shouldWaitRemoteSnapshot = !EDIT_MODE_REQUESTED;
 
       currentPlannerDateKey = todayKey;
       timelineSelectedDateKey = todayKey;
       if (plannerDatePicker) {
         plannerDatePicker.value = todayKey;
       }
-      const initialState = normalizePlannerState(loadStateFromStorageForDate());
+
+      const initialState = (!shouldWaitRemoteSnapshot && hasPersistedState)
+        ? normalizePlannerState(loadStateFromStorageForDate())
+        : normalizePlannerState({ items: {}, hiddenLogs: {}, meta: {} });
+
+      if (shouldWaitRemoteSnapshot || !hasPersistedState) {
+        setFirebaseReadStatus('데이터를 불러오는 중입니다...');
+      }
+
       syncPinnedChecklistState(initialState);
-      setCurrentPlannerState(initialState, { skipFirebaseSync: true });
+      setCurrentPlannerState(initialState, { skipFirebaseSync: true, skipLocalStorage: shouldWaitRemoteSnapshot || !hasPersistedState });
 
       initializeGoalSelect();
       initializeMiniCalendar();
