@@ -1001,8 +1001,6 @@
 
     @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } }
 
-    @media (min-width: 1280px) { .goal-card-summary-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
     @media (max-width: 620px) {
       .header-bar { padding: 22px 20px; }
       .quick-nav-wrap { width: 100%; }
@@ -1110,6 +1108,14 @@
       getBenchmarkItemRef(itemKey) {
         if (!db || !itemKey) return null;
         return ref(db, `plans/skf-daily/benchmarks/${itemKey}`);
+      },
+      getNewsCacheRef() {
+        if (!db) return null;
+        return ref(db, 'newsCache');
+      },
+      getNewsCacheGoalRef(goalId) {
+        if (!db || !goalId) return null;
+        return ref(db, `newsCache/${goalId}`);
       },
       getCardsRef() {
         if (!db) return null;
@@ -1832,12 +1838,15 @@
     let miniCalendarAuthWaitTimer = null;
     let miniCalendarInitialized = false;
     let newsRequestSerial = 0;
-    const NEWS_REQUEST_INTERVAL_MS = 500;
+    const NEWS_REQUEST_INTERVAL_MS = 1000;
     const NEWS_QUERY_TIMEOUT_MS = 8000;
+    const NEWS_KEYWORD_LIMIT_PER_FETCH = 3;
+    const NEWS_RETRY_DELAYS_MS = [2000, 4000];
     const NEWS_TOP_ITEMS_PER_KEYWORD = 2;
     const NEWS_MAX_ITEMS_PER_GOAL = 8;
     const NEWS_MAX_AGE_DAYS = 30;
-    const NEWS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+    const NEWS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+    const NEWS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
     const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
     const NEWS_LEGACY_CACHE_KEYS = ['skfMarketingNewsCache', 'skfMarketingNewsCacheV1', 'skfMarketingNewsCacheV2'];
     let sharedNewsPromise = null;
@@ -1915,6 +1924,9 @@
     let newsFilterStats = { rawCount: 0, excludeRemoved: 0, industryRemoved: 0, finalCount: 0 };
     let newsCardPopoverState = { key: '', candidateWords: [], selectedWords: [] };
     let newsSettingsActiveTab = 'exclude';
+    const newsKeywordRotationOffsetByGoal = Object.create(null);
+    const newsRefreshCooldownByGoal = Object.create(null);
+    let newsRefreshCooldownTimer = null;
     migrateNewsCache();
     const FACEBOOK_PAGE_ITEM_KEY = 'global-sns::0';
     const VIDEO_SERIES_ITEM_KEY = 'global-sns::2';
@@ -4398,6 +4410,7 @@
 
       if (newsRefreshBtn) newsRefreshBtn.hidden = !isEditable;
       if (newsSettingsBtn) newsSettingsBtn.hidden = !isEditable;
+      syncNewsRefreshButtonState();
       if (!isEditable && newsSettingsModal) {
         newsSettingsModal.hidden = true;
       }
@@ -11260,6 +11273,152 @@
       newsUpdatedText.textContent = `뉴스 갱신: ${mm}-${dd} ${hh}:${min}`;
     }
 
+    function getNewsGoalCooldownRemainingMs(goalId) {
+      if (!goalId) return 0;
+      const until = Number(newsRefreshCooldownByGoal[goalId]);
+      if (!Number.isFinite(until) || until <= 0) return 0;
+      return Math.max(0, until - Date.now());
+    }
+
+    function formatNewsCooldownRemaining(ms) {
+      const safeMs = Math.max(0, Number(ms) || 0);
+      const totalSeconds = Math.ceil(safeMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function syncNewsRefreshButtonState(goalId = '') {
+      if (!newsRefreshBtn) return;
+      const activeGoalId = goalId && goalTemplates[goalId]
+        ? goalId
+        : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
+      const remainingMs = getNewsGoalCooldownRemainingMs(activeGoalId);
+      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      newsRefreshBtn.disabled = !isEditable || remainingMs > 0;
+      newsRefreshBtn.textContent = remainingMs > 0
+        ? `🔄 새로고침 (${formatNewsCooldownRemaining(remainingMs)})`
+        : '🔄 새로고침';
+    }
+
+    function scheduleNewsRefreshCooldownTicker() {
+      const hasActiveCooldown = Object.keys(newsRefreshCooldownByGoal).some((goalId) => getNewsGoalCooldownRemainingMs(goalId) > 0);
+      if (!hasActiveCooldown) {
+        if (newsRefreshCooldownTimer) {
+          window.clearInterval(newsRefreshCooldownTimer);
+          newsRefreshCooldownTimer = null;
+        }
+        return;
+      }
+      if (newsRefreshCooldownTimer) return;
+      newsRefreshCooldownTimer = window.setInterval(() => {
+        syncNewsRefreshButtonState();
+        const stillActive = Object.keys(newsRefreshCooldownByGoal).some((goalId) => getNewsGoalCooldownRemainingMs(goalId) > 0);
+        if (!stillActive && newsRefreshCooldownTimer) {
+          window.clearInterval(newsRefreshCooldownTimer);
+          newsRefreshCooldownTimer = null;
+        }
+      }, 1000);
+    }
+
+    function setNewsGoalRefreshCooldown(goalId) {
+      if (!goalId) return;
+      newsRefreshCooldownByGoal[goalId] = Date.now() + NEWS_REFRESH_COOLDOWN_MS;
+      syncNewsRefreshButtonState(goalId);
+      scheduleNewsRefreshCooldownTicker();
+    }
+
+    function buildNewsCacheKeywordList(activeQueries) {
+      return (Array.isArray(activeQueries) ? activeQueries : [])
+        .map((row) => sanitizeNewsWord(row && row.query).toLowerCase())
+        .filter(Boolean)
+        .slice(0, 24);
+    }
+
+    function keywordListsEqual(left, right) {
+      if (!Array.isArray(left) || !Array.isArray(right)) return false;
+      if (left.length !== right.length) return false;
+      for (let i = 0; i < left.length; i += 1) {
+        if (left[i] !== right[i]) return false;
+      }
+      return true;
+    }
+
+    function pickRotatedNewsQueries(goalId, activeQueries) {
+      const source = Array.isArray(activeQueries) ? activeQueries.filter((row) => sanitizeNewsWord(row && row.query)) : [];
+      if (source.length <= NEWS_KEYWORD_LIMIT_PER_FETCH) {
+        newsKeywordRotationOffsetByGoal[goalId] = 0;
+        return source;
+      }
+      const size = NEWS_KEYWORD_LIMIT_PER_FETCH;
+      const offset = Number.isFinite(newsKeywordRotationOffsetByGoal[goalId]) ? Number(newsKeywordRotationOffsetByGoal[goalId]) : 0;
+      const picked = [];
+      for (let i = 0; i < size; i += 1) {
+        picked.push(source[(offset + i) % source.length]);
+      }
+      newsKeywordRotationOffsetByGoal[goalId] = (offset + size) % source.length;
+      return picked;
+    }
+
+    function normalizeGoalNewsCacheEntry(rawEntry) {
+      if (!rawEntry || typeof rawEntry !== 'object') return null;
+      const fetchedAt = Number(rawEntry.fetchedAt);
+      const keywords = Array.isArray(rawEntry.keywords)
+        ? rawEntry.keywords.map((item) => sanitizeNewsWord(item).toLowerCase()).filter(Boolean).slice(0, 24)
+        : [];
+      const items = Array.isArray(rawEntry.items) ? dedupeNewsArticles(rawEntry.items) : [];
+      if (!Number.isFinite(fetchedAt) || !items.length) return null;
+      return {
+        fetchedAt,
+        keywords,
+        items,
+        totalCount: Number.isFinite(rawEntry.totalCount) ? Number(rawEntry.totalCount) : items.length,
+        queryLogs: Array.isArray(rawEntry.queryLogs) ? rawEntry.queryLogs : []
+      };
+    }
+
+    async function loadGoalNewsCacheFromFirebase(goalId) {
+      if (!goalId) return null;
+      const bridge = getFirebaseBridge();
+      const goalRef = bridge && typeof bridge.getNewsCacheGoalRef === 'function' ? bridge.getNewsCacheGoalRef(goalId) : null;
+      if (!bridge || !goalRef) return null;
+      try {
+        const value = await readFirebaseValueOnce(goalRef);
+        return normalizeGoalNewsCacheEntry(value);
+      } catch (error) {
+        console.warn('[news] /newsCache 읽기 실패', { goalId, error: error && error.message ? error.message : error });
+        return null;
+      }
+    }
+
+    async function persistGoalNewsCacheToFirebase(goalId, payload) {
+      if (!goalId || !payload || typeof payload !== 'object') return;
+      const bridge = getFirebaseBridge();
+      const cacheRef = bridge && typeof bridge.getNewsCacheRef === 'function' ? bridge.getNewsCacheRef() : null;
+      if (!bridge || !cacheRef || typeof bridge.update !== 'function') return;
+      const entry = {
+        fetchedAt: Number(payload.fetchedAt) || Date.now(),
+        keywords: Array.isArray(payload.keywords) ? payload.keywords.slice(0, 24) : [],
+        items: Array.isArray(payload.items) ? payload.items : [],
+        totalCount: Number.isFinite(payload.totalCount) ? Number(payload.totalCount) : (Array.isArray(payload.items) ? payload.items.length : 0),
+        queryLogs: Array.isArray(payload.queryLogs) ? payload.queryLogs : []
+      };
+      try {
+        await bridge.update(cacheRef, { [goalId]: entry });
+      } catch (error) {
+        console.warn('[news] /newsCache 저장 실패(비차단)', { goalId, error: error && error.message ? error.message : error });
+      }
+    }
+
+    function formatNewsRateLimitFallbackMessage(goalId, cacheEntry) {
+      const fetchedAtDate = cacheEntry && Number.isFinite(cacheEntry.fetchedAt) ? new Date(cacheEntry.fetchedAt) : null;
+      const month = fetchedAtDate ? String(fetchedAtDate.getMonth() + 1).padStart(2, '0') : '--';
+      const day = fetchedAtDate ? String(fetchedAtDate.getDate()).padStart(2, '0') : '--';
+      const hh = fetchedAtDate ? String(fetchedAtDate.getHours()).padStart(2, '0') : '--';
+      const mm = fetchedAtDate ? String(fetchedAtDate.getMinutes()).padStart(2, '0') : '--';
+      return `마지막 갱신: ${month}-${day} ${hh}:${mm} (한도 초과로 갱신 실패)`;
+    }
+
     function setNewsSettingsStatus(message, tone = '') {
       if (!newsSettingsStatus) return;
       newsSettingsStatus.textContent = message || '';
@@ -11610,7 +11769,10 @@
 
       if (newsRefreshBtn && !newsRefreshBtn.dataset.bound) {
         newsRefreshBtn.dataset.bound = 'true';
-        newsRefreshBtn.addEventListener('click', () => refreshNewsDataset(true));
+        newsRefreshBtn.addEventListener('click', () => {
+          const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+          void refreshNewsDataset(true, activeGoalId);
+        });
       }
 
       if (newsSettingsBtn && !newsSettingsBtn.dataset.bound) {
@@ -11740,57 +11902,82 @@
       const startedAt = performance.now();
       let statusCode = 0;
       let count = 0;
-      try {
-        const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, NEWS_QUERY_TIMEOUT_MS);
-        statusCode = response.status;
-        if (!response.ok) {
-          const error = new Error(`http-${response.status}`);
-          error.statusCode = response.status;
-          throw error;
+      let attempts = 0;
+      let retried = false;
+      let lastReason = 'request-failed';
+
+      for (let attempt = 0; attempt <= NEWS_RETRY_DELAYS_MS.length; attempt += 1) {
+        attempts = attempt + 1;
+        try {
+          const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, NEWS_QUERY_TIMEOUT_MS);
+          statusCode = response.status;
+          if (!response.ok) {
+            const error = new Error(`http-${response.status}`);
+            error.statusCode = response.status;
+            throw error;
+          }
+          const payload = await response.json();
+          const items = Array.isArray(payload && payload.items) ? payload.items : [];
+          count = items.length;
+          if (!payload || payload.status !== 'ok') {
+            const reason = payload && payload.message ? String(payload.message) : `rss2json-status-${payload && payload.status ? payload.status : 'unknown'}`;
+            throw new Error(reason);
+          }
+          return {
+            ok: true,
+            items,
+            keyword,
+            goalId,
+            feedUrl,
+            apiUrl,
+            statusCode,
+            count,
+            attempts,
+            retried,
+            elapsedMs: Math.round(performance.now() - startedAt)
+          };
+        } catch (error) {
+          const reason = error && error.name === 'AbortError'
+            ? 'timeout-8s'
+            : (error && error.message ? String(error.message) : 'request-failed');
+          lastReason = reason;
+          const shouldRetry429 = reason === 'http-429' && attempt < NEWS_RETRY_DELAYS_MS.length;
+          if (shouldRetry429) {
+            retried = true;
+            await waitNewsInterval(NEWS_RETRY_DELAYS_MS[attempt]);
+            continue;
+          }
+          return {
+            ok: false,
+            items: [],
+            keyword,
+            goalId,
+            feedUrl,
+            apiUrl,
+            statusCode,
+            count,
+            reason,
+            attempts,
+            retried,
+            elapsedMs: Math.round(performance.now() - startedAt)
+          };
         }
-        const payload = await response.json();
-        const items = Array.isArray(payload && payload.items) ? payload.items : [];
-        count = items.length;
-        if (!payload || payload.status !== 'ok') {
-          const reason = payload && payload.message ? String(payload.message) : `rss2json-status-${payload && payload.status ? payload.status : 'unknown'}`;
-          throw new Error(reason);
-        }
-        return {
-          ok: true,
-          items,
-          keyword,
-          goalId,
-          feedUrl,
-          apiUrl,
-          statusCode,
-          count,
-          elapsedMs: Math.round(performance.now() - startedAt)
-        };
-      } catch (error) {
-        const reason = error && error.name === 'AbortError'
-          ? 'timeout-8s'
-          : (error && error.message ? String(error.message) : 'request-failed');
-        return {
-          ok: false,
-          items: [],
-          keyword,
-          goalId,
-          feedUrl,
-          apiUrl,
-          statusCode,
-          count,
-          reason,
-          elapsedMs: Math.round(performance.now() - startedAt)
-        };
-      } finally {
-        console.log('[news][request]', {
-          goalKey: goalId,
-          keyword,
-          url: apiUrl,
-          statusCode,
-          receivedCount: count
-        });
       }
+
+      return {
+        ok: false,
+        items: [],
+        keyword,
+        goalId,
+        feedUrl,
+        apiUrl,
+        statusCode,
+        count,
+        reason: lastReason,
+        attempts,
+        retried,
+        elapsedMs: Math.round(performance.now() - startedAt)
+      };
     }
 
     function normalizeNewsArticleForGoal(item, goalId, keyword, queryId) {
@@ -11851,12 +12038,20 @@
           }
           const config = getNewsConfigState();
           const activeQueries = getNewsQueriesForGoal(activeGoalId, config);
+          const activeKeywords = buildNewsCacheKeywordList(activeQueries);
           const signature = buildNewsQuerySignatureForGoal(activeGoalId, config);
-          const cachedEntry = !options.forceFetch && isGoalNewsCacheFresh(activeGoalId, signature, config)
-            ? getGoalNewsCacheEntry(activeGoalId, config)
+          const localCacheEntry = getGoalNewsCacheEntry(activeGoalId, config);
+          const remoteCacheEntry = await loadGoalNewsCacheFromFirebase(activeGoalId);
+          const remoteCacheMatchesKeywords = remoteCacheEntry && keywordListsEqual(remoteCacheEntry.keywords || [], activeKeywords);
+          const remoteCacheFresh = remoteCacheMatchesKeywords
+            && Number.isFinite(remoteCacheEntry.fetchedAt)
+            && Date.now() - Number(remoteCacheEntry.fetchedAt) <= NEWS_CACHE_TTL_MS;
+          const localCacheFresh = isGoalNewsCacheFresh(activeGoalId, signature, config);
+          const cachedEntry = !options.forceFetch
+            ? (remoteCacheFresh ? remoteCacheEntry : (localCacheFresh ? localCacheEntry : null))
             : null;
 
-          if (cachedEntry && Array.isArray(cachedEntry.items)) {
+          if (cachedEntry && Array.isArray(cachedEntry.items) && cachedEntry.items.length) {
             newsRawItemsCache = cachedEntry.items;
             newsQueryResultCounts = Object.fromEntries((cachedEntry.queryLogs || []).map((entry) => [entry.queryId, entry.rawCount]));
             newsFilterStats = applyNewsFilters(newsRawItemsCache, config, activeGoalId);
@@ -11869,8 +12064,36 @@
               lastFinalCount: newsFilterStats.finalCount
             };
             updateNewsUpdatedText();
-            console.log(`[news] Firebase 캐시 사용: goal=${activeGoalId}, count=${cachedEntry.items.length}`);
+            console.log(`[news] 캐시 사용: goal=${activeGoalId}, count=${cachedEntry.items.length}`);
             return { items: newsVisibleItems, totalCount: cachedEntry.totalCount || cachedEntry.items.length, error: null, goalId: activeGoalId, reason: 'cache-hit' };
+          }
+
+          const cooldownRemainingMs = options.forceFetch ? getNewsGoalCooldownRemainingMs(activeGoalId) : 0;
+          if (options.forceFetch && cooldownRemainingMs > 0) {
+            const fallbackEntry = remoteCacheEntry || localCacheEntry;
+            if (fallbackEntry && Array.isArray(fallbackEntry.items) && fallbackEntry.items.length) {
+              newsRawItemsCache = fallbackEntry.items;
+              newsQueryResultCounts = Object.fromEntries((fallbackEntry.queryLogs || []).map((entry) => [entry.queryId, entry.rawCount]));
+              newsFilterStats = applyNewsFilters(newsRawItemsCache, config, activeGoalId);
+              newsVisibleItems = toSortedLatestNews(newsFilterStats.items)
+                .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+                .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
+              return {
+                items: newsVisibleItems,
+                totalCount: fallbackEntry.totalCount || fallbackEntry.items.length,
+                error: null,
+                warning: `새로고침 대기 중입니다 (${formatNewsCooldownRemaining(cooldownRemainingMs)})`,
+                goalId: activeGoalId,
+                reason: 'cooldown-cache'
+              };
+            }
+            return {
+              items: [],
+              totalCount: 0,
+              error: `cooldown-${Math.ceil(cooldownRemainingMs / 1000)}`,
+              goalId: activeGoalId,
+              reason: 'cooldown-blocked'
+            };
           }
 
           if (!activeQueries.length) {
@@ -11883,10 +12106,15 @@
             return { items: [], totalCount: 0, error: '키워드 없음', goalId: activeGoalId, reason: 'no-keywords' };
           }
 
+          if (options.forceFetch) {
+            setNewsGoalRefreshCooldown(activeGoalId);
+          }
+
+          const targetQueries = pickRotatedNewsQueries(activeGoalId, activeQueries);
           const queryLogs = [];
           const collected = [];
-          for (let index = 0; index < activeQueries.length; index += 1) {
-            const row = activeQueries[index];
+          for (let index = 0; index < targetQueries.length; index += 1) {
+            const row = targetQueries[index];
             const queryId = row && row.id ? row.id : `${activeGoalId}-keyword-${index + 1}`;
             const keyword = sanitizeNewsWord(row && row.query);
             if (!keyword) continue;
@@ -11903,17 +12131,45 @@
               statusCode: result.statusCode || 0,
               rawCount: Array.isArray(result.items) ? result.items.length : 0,
               usedCount: topItems.length,
+              attempts: Number.isFinite(result.attempts) ? result.attempts : 1,
+              retried: Boolean(result.retried),
               reason: result.ok ? '' : (result.reason || 'request-failed')
             });
             collected.push(...topItems);
 
-            if (index < activeQueries.length - 1) {
+            if (index < targetQueries.length - 1) {
               await waitNewsInterval(NEWS_REQUEST_INTERVAL_MS);
             }
           }
 
           const queryCounts = Object.fromEntries(queryLogs.map((entry) => [entry.queryId, entry.rawCount]));
           const dedupedByKeyword = dedupeNewsArticles(collected);
+          const has429 = queryLogs.some((entry) => Number(entry.statusCode) === 429 || String(entry.reason || '').toLowerCase().includes('http-429'));
+          const staleFallbackEntry = remoteCacheEntry || localCacheEntry;
+
+          if (!dedupedByKeyword.length && has429 && staleFallbackEntry && Array.isArray(staleFallbackEntry.items) && staleFallbackEntry.items.length) {
+            newsRawItemsCache = staleFallbackEntry.items;
+            newsQueryResultCounts = Object.fromEntries((staleFallbackEntry.queryLogs || []).map((entry) => [entry.queryId, entry.rawCount]));
+            newsFilterStats = applyNewsFilters(newsRawItemsCache, config, activeGoalId);
+            newsVisibleItems = toSortedLatestNews(newsFilterStats.items)
+              .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+              .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
+            config.stats = {
+              lastFetchedAt: staleFallbackEntry.fetchedAt ? new Date(staleFallbackEntry.fetchedAt).toISOString() : new Date().toISOString(),
+              lastRawCount: staleFallbackEntry.totalCount || staleFallbackEntry.items.length,
+              lastFinalCount: newsFilterStats.finalCount
+            };
+            updateNewsUpdatedText();
+            return {
+              items: newsVisibleItems,
+              totalCount: staleFallbackEntry.totalCount || staleFallbackEntry.items.length,
+              error: null,
+              warning: formatNewsRateLimitFallbackMessage(activeGoalId, staleFallbackEntry),
+              rateLimitFallback: true,
+              goalId: activeGoalId,
+              reason: 'rate-limit-stale-cache'
+            };
+          }
 
           newsRawItemsCache = dedupedByKeyword;
           newsQueryResultCounts = queryCounts;
@@ -11925,9 +12181,19 @@
           if (!config.goalNewsCache || typeof config.goalNewsCache !== 'object') {
             config.goalNewsCache = {};
           }
+          const fetchedAt = Date.now();
           config.goalNewsCache[activeGoalId] = {
-            fetchedAt: Date.now(),
+            fetchedAt,
             signature,
+            keywords: activeKeywords,
+            items: newsVisibleItems,
+            totalCount: dedupedByKeyword.length,
+            queryLogs
+          };
+
+          const rtdbCachePayload = {
+            fetchedAt,
+            keywords: activeKeywords,
             items: newsVisibleItems,
             totalCount: dedupedByKeyword.length,
             queryLogs
@@ -11938,6 +12204,7 @@
             lastRawCount: dedupedByKeyword.length,
             lastFinalCount: newsFilterStats.finalCount
           };
+          void persistGoalNewsCacheToFirebase(activeGoalId, rtdbCachePayload);
           const cachePersistPromise = saveNewsConfig('news-dataset-refresh').catch((persistError) => {
             console.warn('[news] Firebase 캐시 저장 실패(비차단)', persistError && persistError.message ? persistError.message : persistError);
             return null;
@@ -11947,11 +12214,27 @@
           if (!newsVisibleItems.length) {
             const firstFail = queryLogs.find((entry) => entry.reason);
             if (firstFail) {
-              return { items: [], totalCount: dedupedByKeyword.length, error: firstFail.reason, goalId: activeGoalId, reason: 'request-failed' };
+              return {
+                items: [],
+                totalCount: dedupedByKeyword.length,
+                error: firstFail.reason,
+                warning: has429 ? formatNewsRateLimitFallbackMessage(activeGoalId, staleFallbackEntry) : '',
+                rateLimitFallback: has429,
+                goalId: activeGoalId,
+                reason: 'request-failed'
+              };
             }
             return { items: [], totalCount: dedupedByKeyword.length, error: null, goalId: activeGoalId, reason: 'no-matching-news' };
           }
-          return { items: newsVisibleItems, totalCount: dedupedByKeyword.length, error: null, goalId: activeGoalId, reason: 'fetched' };
+          return {
+            items: newsVisibleItems,
+            totalCount: dedupedByKeyword.length,
+            error: null,
+            warning: has429 ? formatNewsRateLimitFallbackMessage(activeGoalId, staleFallbackEntry || { fetchedAt }) : '',
+            rateLimitFallback: has429,
+            goalId: activeGoalId,
+            reason: 'fetched'
+          };
         } catch (error) {
           console.error('[news] 목표별 조회 실패', { goalId: activeGoalId, error });
           return {
@@ -12025,10 +12308,11 @@
       newsWidgetLoading.hidden = true;
     }
 
-    function setNewsWidgetEmptyState(message, showSettingsButton = false, showRetryButton = false) {
+    function setNewsWidgetEmptyState(message, showSettingsButton = false, showRetryButton = false, tone = '') {
       if (!newsWidgetEmpty) return;
       newsWidgetEmpty.hidden = false;
       newsWidgetEmpty.innerHTML = '';
+      newsWidgetEmpty.dataset.tone = tone || '';
       const text = document.createElement('div');
       text.className = 'news-widget-empty-text';
       text.textContent = message;
@@ -12059,6 +12343,7 @@
       if (!newsWidgetEmpty) return;
       newsWidgetEmpty.hidden = true;
       newsWidgetEmpty.innerHTML = '';
+      newsWidgetEmpty.dataset.tone = '';
     }
 
     function renderNewsSettingsLists() {
@@ -12121,6 +12406,8 @@
     function getNewsFailureReasonLabel(reason) {
       const text = sanitizeNewsWord(reason || '').toLowerCase();
       if (!text) return '알 수 없는 오류';
+      if (text.includes('http-429')) return '요청 제한(429)';
+      if (text.startsWith('cooldown-')) return '새로고침 대기 시간 중';
       if (text.includes('timeout') || text.includes('8s')) return '요청 시간 초과(8초)';
       if (text.includes('http-')) return `HTTP 오류(${text.replace('http-', '')})`;
       if (text.includes('firestore')) return '설정 저장소 연결 실패';
@@ -12133,6 +12420,7 @@
       try {
         const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
         const result = await loadNewsForGoal(activeGoalId, { forceFetch });
+        syncNewsRefreshButtonState(activeGoalId);
         if (result && result.error) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = true;
@@ -12149,16 +12437,28 @@
           setNewsWidgetEmptyState('조건에 맞는 최신 뉴스가 없습니다', true);
           return { ...result, items: [], reason: result.reason || 'no-matching-news' };
         }
-        clearNewsWidgetEmptyState();
+        if (result && result.rateLimitFallback && result.warning && newsUpdatedText) {
+          newsUpdatedText.textContent = result.warning;
+        }
+        if (result && result.warning) {
+          setNewsWidgetEmptyState(result.warning, false, false, 'warning');
+        } else {
+          clearNewsWidgetEmptyState();
+        }
         renderNewsItemsIntoWidget(sorted);
         return { ...result, items: sorted, reason: result.reason || 'ok' };
       } catch (error) {
         console.error('[news] refreshNewsDataset 실패', error);
+        const fallbackGoalId = goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+        syncNewsRefreshButtonState(fallbackGoalId);
+        if (newsWidgetList) newsWidgetList.innerHTML = '';
+        if (newsWidgetLoading) newsWidgetLoading.hidden = true;
+        setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(error && error.message ? error.message : String(error))})`, false, true);
         return {
           items: [],
           totalCount: 0,
           error: error && error.message ? error.message : String(error),
-          goalId: goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '',
+          goalId: fallbackGoalId,
           reason: 'request-failed'
         };
       }
@@ -12177,8 +12477,8 @@
 
         const requestId = ++newsRequestSerial;
         newsSelectedGoalKey = goalKey;
+        syncNewsRefreshButtonState(goalKey);
         const activeConfig = getNewsConfigState();
-        const activeQueries = getNewsQueriesForGoal(goalKey, activeConfig);
         logGoalKeywordMappings(activeConfig);
 
         newsWidget.hidden = false;
@@ -12210,11 +12510,19 @@
             return;
           }
 
-          clearNewsWidgetEmptyState();
+          if (result && result.rateLimitFallback && result.warning && newsUpdatedText) {
+            newsUpdatedText.textContent = result.warning;
+          }
+          if (result && result.warning) {
+            setNewsWidgetEmptyState(result.warning, false, false, 'warning');
+          } else {
+            clearNewsWidgetEmptyState();
+          }
           renderNewsItemsIntoWidget(items);
           console.log(`[news] 단계 ms · 캐시확인 0 / RSS호출 0 / 파싱 0 / 렌더 ${renderMs}`);
         }).catch((error) => {
           if (requestId !== newsRequestSerial) return;
+          syncNewsRefreshButtonState(goalKey);
           newsWidgetList.innerHTML = '';
           setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(error && error.message ? error.message : String(error))})`, false, true);
         }).finally(() => {
@@ -13467,7 +13775,6 @@
         void startMiniCalendarRealtimeSync();
         attachFirebaseCardsListener({ reason: 'auth-state-change' });
         if (currentFirebaseUser) {
-          void migrateCardsToSingleStructureOnce();
           void backfillActivityLogTitlesOnce();
         }
       });
