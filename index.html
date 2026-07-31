@@ -162,11 +162,6 @@
     .today-activity-header-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .today-activity-title { font-size: 16px; font-weight: 800; color: #173b5f; }
     .today-activity-date { font-size: 12px; font-weight: 800; color: #5a748f; background: #eef5ff; border: 1px solid #d8e6f5; border-radius: 999px; padding: 6px 10px; }
-    .today-activity-filter-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid #cfe0ef; border-radius: 999px; background: #ffffff; }
-    .today-activity-filter-btn { border: none; border-radius: 999px; background: transparent; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
-    .today-activity-filter-btn.active { background: #0f5f9d; color: #ffffff; }
-    .today-activity-filter-btn:hover { background: #e7f1ff; }
-    .today-activity-filter-btn.active:hover { background: #0b73bc; }
     .today-activity-clear-btn { display: none; border: 1px solid #d9a8a8; border-radius: 10px; background: #fff7f7; color: #9a3737; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .today-activity-clear-btn.visible { display: inline-flex; align-items: center; }
     .today-activity-clear-btn:hover { background: #ffecec; }
@@ -1304,10 +1299,6 @@
                 <button type="button" class="firebase-today-btn" id="timelineTodayBtn" hidden>[오늘로]</button>
               </div>
             </div>
-            <div class="today-activity-filter-toggle" aria-label="오늘 활동 필터">
-              <button type="button" class="today-activity-filter-btn active" id="todayActivityAllBtn">전체</button>
-              <button type="button" class="today-activity-filter-btn" id="todayActivityMineBtn">내 활동</button>
-            </div>
             <button type="button" class="today-activity-history-btn" id="allTimelineHistoryBtn">📅 전체 히스토리 모아보기</button>
             <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
           </div>
@@ -1632,8 +1623,6 @@
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
-    const todayActivityAllBtn = document.getElementById('todayActivityAllBtn');
-    const todayActivityMineBtn = document.getElementById('todayActivityMineBtn');
     const allTimelineHistoryBtn = document.getElementById('allTimelineHistoryBtn');
     const timelineTodayBtn = document.getElementById('timelineTodayBtn');
     const miniCalendarSection = document.getElementById('miniCalendarSection');
@@ -1779,7 +1768,6 @@
     let timelineHistoryEntries = [];
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
-    let timelineActivityFilterMode = 'all';
     let timelineActivityLoading = true;
     let timelineActivityLoadError = '';
     let timelineActivityRealtimeUnsubscribe = null;
@@ -5386,18 +5374,6 @@
         .sort((left, right) => right.timestamp - left.timestamp);
     }
 
-    function filterActivityTimelineEntriesByAuthor(entries, filterMode = 'all') {
-      if (filterMode !== 'mine') return Array.isArray(entries) ? entries.slice() : [];
-      const author = getActivityLogAuthorInfo();
-      return (Array.isArray(entries) ? entries : []).filter((entry) => {
-        if (!entry) return false;
-        if (!entry.authorId && !entry.authorName) return true;
-        if (author.authorId && entry.authorId && entry.authorId === author.authorId) return true;
-        if (author.authorName && entry.authorName && entry.authorName === author.authorName) return true;
-        return false;
-      });
-    }
-
     async function recordSharedActivityLog(type, details = {}) {
       const bridge = getActivityTimelineBridge();
       const rootRef = getActivityTimelineRef();
@@ -8059,15 +8035,6 @@
       return rows;
     }
 
-    function setTodayActivityFilterButtons() {
-      if (todayActivityAllBtn) {
-        todayActivityAllBtn.classList.toggle('active', timelineActivityFilterMode === 'all');
-      }
-      if (todayActivityMineBtn) {
-        todayActivityMineBtn.classList.toggle('active', timelineActivityFilterMode === 'mine');
-      }
-    }
-
     async function refreshDashboardUnifiedData(reason = '') {
       if (dashboardUnifiedLoadPromise) return dashboardUnifiedLoadPromise;
       dashboardUnifiedLoadPromise = (async () => {
@@ -8218,16 +8185,12 @@
       if (todayTimelineClearBtn) {
         todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
       }
-      setTodayActivityFilterButtons();
-
       const sharedEntries = getActivityTimelineEntriesForDate(selectedDateKey);
-      const filteredSharedEntries = filterActivityTimelineEntriesByAuthor(sharedEntries, timelineActivityFilterMode);
       const fallbackEntries = collectTodayActivityEntries(state, selectedDateKey);
-      const entries = filteredSharedEntries.length ? filteredSharedEntries : filterActivityTimelineEntriesByAuthor(fallbackEntries, timelineActivityFilterMode);
+      const entries = sharedEntries.length ? sharedEntries : fallbackEntries;
       const renderSignature = JSON.stringify({
         selectedDateKey,
         canManageTimeline,
-        filterMode: timelineActivityFilterMode,
         loading: timelineActivityLoading,
         error: timelineActivityLoadError,
         entries: entries.map((entry) => [
@@ -8249,9 +8212,7 @@
         console.log('[timeline] today entries', {
           selectedDateKey,
           totalCount: sharedEntries.length,
-          filteredCount: filteredSharedEntries.length,
-          fallbackCount: fallbackEntries.length,
-          filterMode: timelineActivityFilterMode
+          fallbackCount: fallbackEntries.length
         });
       }
 
@@ -14581,20 +14542,6 @@
         timelineHistoryKeywordInput.addEventListener('input', () => {
           timelineHistoryKeywordValue = timelineHistoryKeywordInput.value || '';
           renderTimelineHistoryModalBody();
-        });
-      }
-
-      if (todayActivityAllBtn) {
-        todayActivityAllBtn.addEventListener('click', () => {
-          timelineActivityFilterMode = 'all';
-          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
-        });
-      }
-
-      if (todayActivityMineBtn) {
-        todayActivityMineBtn.addEventListener('click', () => {
-          timelineActivityFilterMode = 'mine';
-          renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
         });
       }
 
