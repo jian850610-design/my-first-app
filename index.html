@@ -598,6 +598,8 @@
     .history-archive-item { border: 1px solid #dce8f4; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 5px; }
     .history-archive-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .history-archive-item-heading { display: grid; gap: 3px; }
+    .history-archive-source { width: fit-content; border-radius: 4px; padding: 2px 5px; background: #edf6ef; color: #28733b; font-size: 10px; font-weight: 700; }
+    .history-archive-source.manual { background: #eef3f8; color: #48647f; }
     .history-archive-actions { display: inline-flex; align-items: center; gap: 6px; }
     .history-archive-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .history-archive-action-btn:hover { background: #eef5fd; }
@@ -605,6 +607,7 @@
     .history-archive-action-btn.delete:hover { background: #fff1f1; }
     .history-archive-item-title { font-size: 12px; font-weight: 700; color: #1f476d; }
     .history-archive-item-date { font-size: 11px; color: #68819b; }
+    .history-archive-item-author { font-size: 11px; color: #68819b; }
     .history-archive-item-summary { font-size: 12px; color: #2f4a66; line-height: 1.55; white-space: pre-wrap; }
     .history-archive-edit { display: grid; gap: 7px; margin-top: 2px; }
     .history-archive-edit-input,
@@ -4321,6 +4324,59 @@
       return `${baseKey}-step-${indexPart}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     }
 
+    function getHistoryAuthorName() {
+      return currentFirebaseUser
+        ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL)
+        : EDITOR_NAME_LABEL;
+    }
+
+    async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      const bridge = getFirebaseBridge();
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getDateRef !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
+
+      const updates = {};
+      Object.entries(fieldValues || {}).forEach(([fieldPath, value]) => {
+        updates[`${goalKey}/${indexText}/${fieldPath}`] = value;
+      });
+
+      firebaseSaving = true;
+      updateFirebaseConnectionChip();
+      try {
+        await bridge.update(bridge.getDateRef(currentPlannerDateKey), updates);
+        return { ok: true };
+      } catch (error) {
+        console.error('Firebase 카드 부분 저장 실패', reason, error);
+        return { ok: false, reason: 'firebase-update-failed' };
+      } finally {
+        firebaseSaving = false;
+        updateFirebaseConnectionChip();
+      }
+    }
+
+    function upsertChecklistHistory(itemState, entry) {
+      if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
+      const targetIndex = itemState.historyList.findIndex((historyEntry) => historyEntry
+        && historyEntry.source === 'checklist'
+        && historyEntry.checklistItemId === entry.checklistItemId);
+      if (targetIndex >= 0) {
+        itemState.historyList[targetIndex] = { ...itemState.historyList[targetIndex], ...entry };
+      } else {
+        itemState.historyList.push(entry);
+      }
+    }
+
+    function removeChecklistHistory(itemState, checklistItemId) {
+      if (!Array.isArray(itemState.historyList)) return;
+      itemState.historyList = itemState.historyList.filter((entry) => !(entry
+        && entry.source === 'checklist'
+        && entry.checklistItemId === checklistItemId));
+    }
+
     function upsertChecklistActivityLog(itemState, payload = {}) {
       if (!itemState || typeof itemState !== 'object') return;
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
@@ -6783,7 +6839,9 @@
 
     function getCycleCompletedCount(itemState) {
       if (!itemState || typeof itemState !== 'object') return 0;
-      const historyCount = Array.isArray(itemState.historyList) ? itemState.historyList.length : 0;
+      const historyCount = Array.isArray(itemState.historyList)
+        ? itemState.historyList.filter((entry) => !entry || entry.source !== 'checklist').length
+        : 0;
       const totalCycles = Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0;
       const explicitCount = Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0;
       return Math.max(totalCycles, explicitCount, historyCount);
@@ -6812,7 +6870,18 @@
 
     function getLatestCommentPreview(itemState) {
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
-      if (comments.length) {
+      const latestComment = getLatestCommentEntry(comments);
+      const historyEntries = Array.isArray(itemState && itemState.historyList) ? itemState.historyList : [];
+      const latestHistory = historyEntries.slice().sort((left, right) => parseIsoTimestamp(right && right.completedAt) - parseIsoTimestamp(left && left.completedAt))[0];
+      const latestCommentTimestamp = parseIsoTimestamp(latestComment && (latestComment.updatedAt || latestComment.timestamp));
+      const latestHistoryTimestamp = parseIsoTimestamp(latestHistory && latestHistory.completedAt);
+
+      if (latestHistory && latestHistoryTimestamp >= latestCommentTimestamp) {
+        const title = typeof latestHistory.projectName === 'string' ? latestHistory.projectName.replace(/\s+/g, ' ').trim() : '';
+        if (title) return title.length > 110 ? `${title.slice(0, 107)}...` : title;
+      }
+
+      if (latestComment) {
         const text = computeLatestCommentSummary(comments);
         if (text) return text;
       }
@@ -6978,14 +7047,16 @@
       }
 
       historyListElement.innerHTML = entries
-        .slice()
-        .reverse()
-        .map((entry, reversedIndex) => {
-          const sourceIndex = entries.length - 1 - reversedIndex;
+        .map((entry, sourceIndex) => ({ entry, sourceIndex }))
+        .sort((left, right) => parseIsoTimestamp(right.entry && right.entry.completedAt) - parseIsoTimestamp(left.entry && left.entry.completedAt))
+        .map(({ entry, sourceIndex }) => {
           const projectName = entry && typeof entry.projectName === 'string' && entry.projectName ? entry.projectName : '제목 없음';
           const completedAt = entry && typeof entry.completedAt === 'string' ? entry.completedAt : '';
           const completedDate = formatDateOnly(completedAt) || '날짜 미상';
           const commentSummary = entry && typeof entry.commentSummary === 'string' && entry.commentSummary ? entry.commentSummary : '코멘트 기록 없음';
+          const isChecklistSource = entry && entry.source === 'checklist';
+          const sourceLabel = isChecklistSource ? '✅ 체크리스트' : '✍️ 직접입력';
+          const authorName = entry && typeof entry.authorName === 'string' && entry.authorName.trim() ? entry.authorName.trim() : EDITOR_NAME_LABEL;
           if (sourceIndex === editIndex) {
             return `
               <li class="history-archive-item" data-index="${sourceIndex}">
@@ -7008,12 +7079,14 @@
             <li class="history-archive-item" data-index="${sourceIndex}">
               <div class="history-archive-item-top">
                 <div class="history-archive-item-heading">
+                  <span class="history-archive-source${isChecklistSource ? '' : ' manual'}">${sourceLabel}</span>
                   <span class="history-archive-item-title">${escapeHtml(projectName)}</span>
                   <span class="history-archive-item-date">완료일: ${escapeHtml(completedDate)}</span>
+                  <span class="history-archive-item-author">작성자: ${escapeHtml(authorName)}</span>
                 </div>
                 <div class="history-archive-actions">
                   <button type="button" class="history-archive-action-btn" data-action="edit-history" data-index="${sourceIndex}">수정</button>
-                  <button type="button" class="history-archive-action-btn delete" data-action="delete-history" data-index="${sourceIndex}">삭제</button>
+                  <button type="button" class="history-archive-action-btn delete" data-action="delete-history" data-index="${sourceIndex}" title="히스토리 삭제" aria-label="히스토리 삭제">🗑</button>
                 </div>
               </div>
               <div class="history-archive-item-summary">${escapeHtml(commentSummary)}</div>
@@ -11836,6 +11909,8 @@
             itemState.historyList.push({
               projectName: `${roundDate} 회차 수행 완료`,
               completedAt: nowIso,
+              source: 'manual',
+              authorName: getHistoryAuthorName(),
               commentSummary: mergedCommentSummary,
               completedStepCount: completedSteps,
               totalStepCount: totalSteps,
@@ -11899,7 +11974,7 @@
         }
 
         if (manualHistorySaveButton) {
-          manualHistorySaveButton.addEventListener('click', () => {
+          manualHistorySaveButton.addEventListener('click', async () => {
             const text = manualHistoryInput ? manualHistoryInput.value.trim() : '';
             const dateText = manualHistoryDateInput ? manualHistoryDateInput.value : '';
             if (!text) {
@@ -11917,6 +11992,8 @@
             itemState.historyList.push({
               projectName: text,
               completedAt: `${dateText}T00:00:00.000Z`,
+              source: 'manual',
+              authorName: getHistoryAuthorName(),
               commentSummary: text
             });
             itemState.activityLog.push(createActivityLogEntry('history-add', {
@@ -11926,9 +12003,11 @@
               completedAt: `${dateText}T00:00:00.000Z`
             }));
 
-            savePlannerState(plannerState);
+            savePlannerState(plannerState, { reason: 'manual-history-add', skipFirebaseSync: true });
+            await updateItemFieldsInFirebase(itemKey, { historyList: itemState.historyList }, 'manual-history-add');
             historyEditIndex = -1;
             rerenderHistoryArchive();
+            renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
             if (manualHistoryInput) manualHistoryInput.value = '';
             if (manualHistoryDateInput) manualHistoryDateInput.value = '';
@@ -11936,7 +12015,7 @@
         }
 
         if (historyListElement) {
-          historyListElement.addEventListener('click', (event) => {
+          historyListElement.addEventListener('click', async (event) => {
             const actionButton = event.target.closest('[data-action]');
             if (!actionButton) return;
 
@@ -11962,8 +12041,10 @@
               if (!isConfirmed) return;
               itemState.historyList.splice(index, 1);
               historyEditIndex = -1;
-              savePlannerState(plannerState);
+              savePlannerState(plannerState, { reason: 'history-delete', skipFirebaseSync: true });
+              await updateItemFieldsInFirebase(itemKey, { historyList: itemState.historyList }, 'history-delete');
               rerenderHistoryArchive();
+              renderLatestActivityPanel(latestActivityPanel, itemState);
               syncOverviewWidgets(plannerState);
               return;
             }
@@ -12005,8 +12086,10 @@
               });
 
               historyEditIndex = -1;
-              savePlannerState(plannerState);
+              savePlannerState(plannerState, { reason: 'history-edit', skipFirebaseSync: true });
+              await updateItemFieldsInFirebase(itemKey, { historyList: itemState.historyList }, 'history-edit');
               rerenderHistoryArchive();
+              renderLatestActivityPanel(latestActivityPanel, itemState);
               syncOverviewWidgets(plannerState);
             }
           });
@@ -12139,6 +12222,8 @@
             itemState.historyList.push({
               projectName,
               completedAt: new Date().toISOString(),
+              source: 'manual',
+              authorName: getHistoryAuthorName(),
               commentSummary: createCommentSummary(itemState.comments)
             });
 
@@ -12194,15 +12279,37 @@
         }
 
         checkboxes.forEach((checkbox, idx) => {
-          checkbox.addEventListener('change', (event) => {
+          checkbox.addEventListener('change', async (event) => {
             event.preventDefault();
             event.stopPropagation();
             if (itemState.steps[idx]) {
+              const stepState = itemState.steps[idx];
+              const checklistItemId = typeof stepState.id === 'string' && stepState.id
+                ? stepState.id
+                : createChecklistStepId(itemKey, idx);
+              const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
+
+              if (!checkbox.checked) {
+                const isConfirmed = window.confirm('이 단계의 수행 기록도 함께 삭제됩니다. 계속할까요?');
+                if (!isConfirmed) {
+                  checkbox.checked = true;
+                  return;
+                }
+              }
+
+              stepState.id = checklistItemId;
               itemState.steps[idx].checked = checkbox.checked;
               itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
               if (checkbox.checked) {
-                const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
                 const stepComment = itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string' ? itemState.steps[idx].comment : '';
+                upsertChecklistHistory(itemState, {
+                  projectName: stepText || `${idx + 1}단계`,
+                  completedAt: itemState.steps[idx].completedAt,
+                  authorName: getHistoryAuthorName(),
+                  source: 'checklist',
+                  checklistItemId,
+                  commentSummary: stepComment || '체크리스트 단계 완료'
+                });
                 upsertChecklistActivityLog(itemState, {
                   itemKey,
                   goalKey: currentGoal,
@@ -12216,10 +12323,25 @@
                   cardTitle: getCardActivityTitle(plannerState, itemKey),
                   content: stepText ? `완료 단계: ${stepText}${stepComment ? ` | 💬 ${stepComment}` : ''}` : `완료 단계: ${idx + 1}단계`
                 });
+              } else {
+                removeChecklistHistory(itemState, checklistItemId);
+                itemState.activityLog = itemState.activityLog.filter((entry) => !(entry
+                  && entry.type === 'checklist-complete'
+                  && entry.checklistId === checklistItemId));
               }
             }
             markItemUpdated(itemState);
-            updateLatestActivityPanel(false);
+            updateLatestActivityPanel(true);
+            rerenderHistoryArchive();
+            savePlannerState(plannerState, { reason: 'checklist-history-sync', skipFirebaseSync: true });
+            const partialSaveResult = await updateItemFieldsInFirebase(itemKey, {
+              [`steps/${idx}/checked`]: itemState.steps[idx].checked,
+              [`steps/${idx}/completedAt`]: itemState.steps[idx].completedAt,
+              historyList: itemState.historyList
+            }, 'checklist-history-sync');
+            if (!partialSaveResult.ok && partialSaveResult.reason !== 'write-unavailable') {
+              window.alert('체크리스트 히스토리 저장에 실패했습니다. 네트워크 연결을 확인해 주세요.');
+            }
           });
         });
 
@@ -12249,6 +12371,8 @@
               itemState.historyList.push({
                 projectName: stepText ? `단계 수행: ${stepText}` : `단계 수행: ${stepIndex + 1}단계`,
                 completedAt: new Date().toISOString(),
+                source: 'manual',
+                authorName: getHistoryAuthorName(),
                 commentSummary: nextComment || '코멘트 없음'
               });
 
