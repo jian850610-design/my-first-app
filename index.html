@@ -2709,6 +2709,34 @@
       return PROMPT_GOAL_NUMBER_TO_KEY[Number(goalNumber)] || '';
     }
 
+    function normalizeBenchmarkCardId(rawId) {
+      if (typeof rawId !== 'string') return '';
+      const normalized = rawId
+        .normalize('NFKC')
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .replace(/[._]/g, '-');
+      const match = normalized.match(/^G(\d+)-(\d+)$/);
+      if (!match) return normalized;
+      const goalNumber = Number(match[1]);
+      const cardIndex = Number(match[2]);
+      if (!Number.isFinite(goalNumber) || !Number.isFinite(cardIndex)) return normalized;
+      return `G${goalNumber}-${String(cardIndex).padStart(2, '0')}`;
+    }
+
+    function buildBenchmarkCardIdVariants(rawId) {
+      const canonical = normalizeBenchmarkCardId(rawId);
+      if (!canonical) return [];
+      const variants = new Set([canonical]);
+      const match = canonical.match(/^G(\d+)-(\d+)$/);
+      if (match) {
+        const goalNumber = Number(match[1]);
+        const cardIndex = Number(match[2]);
+        variants.add(`G${goalNumber}-${cardIndex}`);
+      }
+      return Array.from(variants);
+    }
+
     function getBenchmarkFieldKey(label) {
       const normalized = normalizeBenchmarkCardTitle(label);
       if (normalized.includes('본사') || normalized.includes('skf')) return 'skf';
@@ -2763,7 +2791,8 @@
 
     function getBenchmarkCatalogEntryByCardId(cardId) {
       if (!cardId) return null;
-      return getBenchmarkCardCatalog().find((entry) => entry.id === String(cardId)) || null;
+      const normalized = normalizeBenchmarkCardId(String(cardId));
+      return getBenchmarkCardCatalog().find((entry) => normalizeBenchmarkCardId(entry.id) === normalized) || null;
     }
 
     function getBenchmarkFallbackCompetitorValues(goalKey, index) {
@@ -2881,7 +2910,7 @@
       const lines = rawText.split(/\r?\n/);
       const parsedCards = [];
       const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
-      const idCardLineRegex = /^\s*[-•*]?\s*\[\s*([A-Za-z0-9\-]+)\s*\]\s*(.+?)\s*:\s*(.*)$/;
+      const idCardLineRegex = /^\s*[-•*]?\s*(?:\*\*)?\[\s*([A-Za-z0-9\-._\s]+)\s*\](?:\*\*)?\s*(.+?)\s*[:：]\s*(.*)$/;
       const plainCardLineRegex = /^\s*[-•*]?\s*\[?(.+?)\]?\s*:\s*(.*)$/;
       const companyLineRegex = /^\s*[-•*]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
 
@@ -2928,7 +2957,7 @@
         if (idCardMatch) {
           pushCurrentCard();
           currentCard = {
-            id: idCardMatch[1].trim(),
+            id: normalizeBenchmarkCardId(idCardMatch[1]),
             title: normalizeBenchmarkFieldText(idCardMatch[2] || ''),
             goalNumber: currentGoalNumber,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
@@ -3023,7 +3052,12 @@
       if (!parsedCards.length) return null;
 
       const catalog = getBenchmarkCardCatalog();
-      const catalogById = new Map(catalog.map((entry) => [entry.id, entry]));
+      const catalogById = new Map();
+      catalog.forEach((entry) => {
+        buildBenchmarkCardIdVariants(entry.id).forEach((variant) => {
+          catalogById.set(variant, entry);
+        });
+      });
       const catalogByItemKey = new Map(catalog.map((entry) => [`${entry.goalKey}::${entry.index}`, entry]));
       const catalogByNormalizedKey = new Map(catalog.map((entry) => [entry.normalizedKey, entry]));
       const aliasMap = getBenchmarkAliasMap();
@@ -3032,15 +3066,16 @@
       const matchedItemKeys = new Set();
 
       parsedCards.forEach((card) => {
+        const normalizedCardId = normalizeBenchmarkCardId(card.id || '');
         const normalizedTitle = normalizeKey(card.title);
-        if (!normalizedTitle && !card.id) return;
+        if (!normalizedTitle && !normalizedCardId) return;
 
         let bestMatch = null;
         let matchSource = '';
 
         // 안전장치: [ID]가 주어졌는데 현재 프롬프트 카탈로그에 없는 ID면
         // 제목 유사도 매칭으로 우회하지 않고 반영 대상에서 제외한다.
-        if (card.id && !catalogById.has(card.id)) {
+        if (normalizedCardId && !catalogById.has(normalizedCardId)) {
           unmatched.push({
             title: card.title,
             normalizedTitle,
@@ -3052,14 +3087,15 @@
           });
           console.warn('[Benchmark Parser] 알 수 없는 카드 ID', {
             cardId: card.id,
+            normalizedCardId,
             title: card.title
           });
           return;
         }
 
         // 1) [ID] 완전 일치
-        if (card.id && catalogById.has(card.id)) {
-          bestMatch = catalogById.get(card.id);
+        if (normalizedCardId && catalogById.has(normalizedCardId)) {
+          bestMatch = catalogById.get(normalizedCardId);
           matchSource = 'id';
         }
 
@@ -5832,6 +5868,9 @@
         isLeaderRequested: row.leaderPinned === true
       }));
       console.log('[현황표] 렌더링 직전 카드 priority/leader', overviewLogRows);
+      overviewLogRows.forEach((entry) => {
+        console.log(`[현황표] ${entry.cardName} | priority=${entry.priority} | leader=${entry.isLeaderRequested}`);
+      });
       const selectedWindow = teamUpdateWindowFilter ? teamUpdateWindowFilter.value : teamOverviewUpdateFilterMode;
       teamOverviewUpdateFilterMode = selectedWindow || 'recent15';
       if (teamOverviewFilterNotice) {
@@ -8527,6 +8566,9 @@
       });
 
       console.log('[만다라트] 렌더링 직전 카드 priority/leader', mandalartLogRows);
+      mandalartLogRows.forEach((entry) => {
+        console.log(`[만다라트] ${entry.cardName} | priority=${entry.priority} | leader=${entry.isLeaderRequested}`);
+      });
       mandalartGrid.innerHTML = cells.join('');
       console.table(countReport);
       console.log('[mandalart] 목표별 카드 수 검증', countReport);
