@@ -313,10 +313,17 @@
     .mini-calendar-day.outside-month.weekend-sat .mini-calendar-day-number { color: #3b82f6; }
     .mini-calendar-day.is-today { border-color: #0f5f9d; box-shadow: inset 0 0 0 1px rgba(15, 95, 157, 0.08); }
     .mini-calendar-day.is-selected { border-color: #0f5f9d; background: #eef7ff; }
+    .mini-calendar-day.holiday,
+    .mini-calendar-day.outside-month.holiday { background: #fef2f2; border-color: #fecaca; }
+    .mini-calendar-day.is-selected.holiday { background: #fee2e2; }
     .mini-calendar-day-number { font-size: 12px; font-weight: 900; color: #21486f; }
+    .mini-calendar-day.holiday .mini-calendar-day-number,
+    .mini-calendar-day.outside-month.holiday .mini-calendar-day-number { color: #ef4444; }
     .mini-calendar-day.outside-month .mini-calendar-day-number { color: #94a4b5; }
     .mini-calendar-day.outside-month.weekend-sun .mini-calendar-day-number { color: #ef4444; }
     .mini-calendar-day.outside-month.weekend-sat .mini-calendar-day-number { color: #3b82f6; }
+    .mini-calendar-holiday-name { min-height: 12px; font-size: 10px; line-height: 1.2; font-weight: 800; color: #ef4444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mini-calendar-day.outside-month .mini-calendar-holiday-name { color: #f87171; }
     .mini-calendar-section.is-expanded .mini-calendar-day { min-height: 90px; padding: 6px; }
     .mini-calendar-section.is-expanded .mini-calendar-day-number { font-size: 13px; }
     .mini-calendar-section.is-expanded .mini-calendar-day-event,
@@ -336,6 +343,7 @@
     .mini-calendar-day-event.blue { background: linear-gradient(90deg, #d9ecff 0%, #b9dcff 100%); border-color: #9fc8f0; }
     .mini-calendar-day-event.green { background: linear-gradient(90deg, #dff6e9 0%, #bceecd 100%); border-color: #9dd9b2; }
     .mini-calendar-day-event.purple { background: linear-gradient(90deg, #ece2ff 0%, #d9c6ff 100%); border-color: #c2a9f2; }
+    .mini-calendar-day-event.red { background: linear-gradient(90deg, #fee2e2 0%, #fecaca 100%); border-color: #fca5a5; color: #7f1d1d; }
     .mini-calendar-day-event:hover { filter: brightness(0.985); box-shadow: 0 6px 14px rgba(15, 95, 157, 0.12); }
     .mini-calendar-setting-toggle { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #d1e0ed; border-radius: 12px; background: #f7fbff; }
     .mini-calendar-setting-btn { height: 32px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #55738f; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -1533,6 +1541,7 @@
                 <option value="blue">파랑 - 외근</option>
                 <option value="green">초록 - 개인</option>
                 <option value="purple">보라 - 기타</option>
+                <option value="red">공휴일(빨강)</option>
               </select>
             </div>
             <div class="mini-calendar-field full">
@@ -1575,6 +1584,7 @@
     </section>
   </div>
 
+  <script src="holidays.js"></script>
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
     const todayActivityDate = document.getElementById('todayActivityDate');
@@ -1734,6 +1744,10 @@
     const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
     const MINI_CALENDAR_VIEW_MODE_KEY = 'skfMiniCalendarViewModeV1';
     const MINI_CALENDAR_WEEK_START_KEY = 'skfMiniCalendarWeekStartV1';
+    const MINI_CALENDAR_COLOR_LABELS = ['pink', 'yellow', 'blue', 'green', 'purple', 'red'];
+    const miniCalendarHolidaysByYear = window.KR_HOLIDAYS_BY_YEAR && typeof window.KR_HOLIDAYS_BY_YEAR === 'object'
+      ? window.KR_HOLIDAYS_BY_YEAR
+      : {};
     let miniCalendarEvents = [];
     let miniCalendarViewDate = getInitialMiniCalendarViewDate();
     let miniCalendarModalState = null;
@@ -5877,9 +5891,9 @@
 
       const normalizedStart = startDate <= endDate ? startDate : endDate;
       const normalizedEnd = startDate <= endDate ? endDate : startDate;
-      const colorLabel = ['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.colorLabel)
+      const colorLabel = MINI_CALENDAR_COLOR_LABELS.includes(rawEvent.colorLabel)
         ? rawEvent.colorLabel
-        : (['pink', 'yellow', 'blue', 'green', 'purple'].includes(rawEvent.color) ? rawEvent.color : 'blue');
+        : (MINI_CALENDAR_COLOR_LABELS.includes(rawEvent.color) ? rawEvent.color : 'blue');
       const createdBy = typeof rawEvent.createdBy === 'string' && rawEvent.createdBy.trim()
         ? rawEvent.createdBy.trim()
         : fallbackCreatedBy;
@@ -6208,7 +6222,25 @@
       if (color === 'yellow') return '⭐';
       if (color === 'green') return '✅';
       if (color === 'purple') return '📝';
+      if (color === 'red') return '📛';
       return '📌';
+    }
+
+    function getMiniCalendarHolidayName(dateKey) {
+      if (!dateKey) return '';
+      const [year] = dateKey.split('-');
+      const holidaysForYear = year && miniCalendarHolidaysByYear && typeof miniCalendarHolidaysByYear === 'object'
+        ? miniCalendarHolidaysByYear[year]
+        : null;
+      if (!holidaysForYear || typeof holidaysForYear !== 'object') return '';
+      const holidayName = holidaysForYear[dateKey];
+      return typeof holidayName === 'string' ? holidayName : '';
+    }
+
+    function formatMiniCalendarHolidayName(holidayName) {
+      if (!holidayName) return '';
+      if (miniCalendarViewMode !== 'compact') return holidayName;
+      return Array.from(holidayName).slice(0, 4).join('');
     }
 
     function truncateMiniCalendarTitle(title) {
@@ -6317,10 +6349,13 @@
       const isOutsideMonth = cellDate.getMonth() !== miniCalendarViewDate.getMonth();
       const dayOfWeek = cellDate.getDay();
       const weekendClass = dayOfWeek === 0 ? ' weekend-sun' : (dayOfWeek === 6 ? ' weekend-sat' : '');
+      const holidayName = getMiniCalendarHolidayName(dateKey);
+      const holidayDisplayName = formatMiniCalendarHolidayName(holidayName);
       const eventsForDay = getMiniCalendarEventsForDate(dateKey);
       return `
-        <div class="mini-calendar-day${isOutsideMonth ? ' outside-month' : ''}${weekendClass}${dateKey === todayDateKey ? ' is-today' : ''}${dateKey === selectedDateKey ? ' is-selected' : ''}" data-mini-calendar-date="${dateKey}" role="button" tabindex="0" aria-label="${escapeHtml(formatMiniCalendarMonthLabel(cellDate))} ${cellDate.getDate()}일">
+        <div class="mini-calendar-day${isOutsideMonth ? ' outside-month' : ''}${weekendClass}${holidayName ? ' holiday' : ''}${dateKey === todayDateKey ? ' is-today' : ''}${dateKey === selectedDateKey ? ' is-selected' : ''}" data-mini-calendar-date="${dateKey}" role="button" tabindex="0" aria-label="${escapeHtml(formatMiniCalendarMonthLabel(cellDate))} ${cellDate.getDate()}일${holidayName ? ` ${holidayName}` : ''}">
           <div class="mini-calendar-day-number">${cellDate.getDate()}</div>
+          ${holidayName ? `<div class="mini-calendar-holiday-name" title="${escapeHtml(holidayName)}">${escapeHtml(holidayDisplayName)}</div>` : ''}
           ${buildMiniCalendarDayEvents(dateKey, eventsForDay)}
         </div>
       `;
@@ -6485,7 +6520,7 @@
         title,
         startDate: normalizedStart,
         endDate: normalizedEnd,
-        colorLabel: ['pink', 'yellow', 'blue', 'green', 'purple'].includes(color) ? color : 'blue',
+        colorLabel: MINI_CALENDAR_COLOR_LABELS.includes(color) ? color : 'blue',
         memo,
         isPrivate: false,
         createdAt: miniCalendarModalState.mode === 'edit' && miniCalendarModalState.eventId
