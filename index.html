@@ -5638,6 +5638,37 @@
       return singleLine.length > 90 ? `${singleLine.slice(0, 87)}...` : singleLine;
     }
 
+    function loadPriorityLeaderOverridesFromStorage() {
+      try {
+        const raw = localStorage.getItem(getPlannerStorageKey());
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        const items = parsed && parsed.items && typeof parsed.items === 'object' ? parsed.items : {};
+        const overrides = {};
+        Object.entries(items).forEach(([itemKey, itemState]) => {
+          if (!itemState || typeof itemState !== 'object') return;
+          const priority = normalizePriorityValue(itemState.priority);
+          const leader = isTeamLeaderRequested(itemState);
+          if (priority !== PRIORITY_NORMAL || leader) {
+            overrides[itemKey] = { priority, isLeaderRequested: leader };
+          }
+        });
+        return overrides;
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function mergePriorityLeaderOverride(itemState, override) {
+      if (!override) return itemState;
+      const base = itemState && typeof itemState === 'object' ? itemState : {};
+      return {
+        ...base,
+        priority: override.priority || base.priority,
+        isLeaderRequested: override.isLeaderRequested === true || isTeamLeaderRequested(base)
+      };
+    }
+
     function syncDirectiveDraft(itemKey, value) {
       const storageKey = `skfDirectiveDraft:${itemKey}`;
       try {
@@ -5703,6 +5734,7 @@
 
     function buildTeamOverviewRows(state) {
       const rows = [];
+      const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
         const items = Array.isArray(goalTemplate && goalTemplate.items) ? goalTemplate.items : [];
         items.forEach((item, index) => {
@@ -5710,7 +5742,8 @@
           const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
           const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
-          const priorityValue = resolveTeamOverviewPriority(itemState);
+          const effectiveState = mergePriorityLeaderOverride(itemState, priorityOverrides[itemKey]);
+          const priorityValue = resolveTeamOverviewPriority(effectiveState);
           const priorityMeta = getPriorityMeta(priorityValue);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
@@ -5754,7 +5787,7 @@
           const lastUpdateDays = lastUpdateTs > 0 ? Math.floor((Date.now() - lastUpdateTs) / 86400000) : Number.POSITIVE_INFINITY;
           const hasActivityEvidence = hasRecentActivityEvidence(itemState);
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
-          const isLeaderPinned = isTeamLeaderRequested(itemState);
+          const isLeaderPinned = isTeamLeaderRequested(effectiveState);
 
           rows.push({
             itemKey,
@@ -5793,6 +5826,12 @@
         ? dashboardUnifiedOverviewState
         : (state || loadPlannerState());
       const rows = buildTeamOverviewRows(baseState);
+      const overviewLogRows = rows.map((row) => ({
+        cardName: row.agenda,
+        priority: row.priority,
+        isLeaderRequested: row.leaderPinned === true
+      }));
+      console.log('[현황표] 렌더링 직전 카드 priority/leader', overviewLogRows);
       const selectedWindow = teamUpdateWindowFilter ? teamUpdateWindowFilter.value : teamOverviewUpdateFilterMode;
       teamOverviewUpdateFilterMode = selectedWindow || 'recent15';
       if (teamOverviewFilterNotice) {
@@ -8340,6 +8379,50 @@
         .map((title) => title);
     }
 
+    function buildItemBadgeTokens(itemState) {
+      const priority = resolveTeamOverviewPriority(itemState);
+      const badges = [];
+      if (priority === PRIORITY_URGENT) badges.push({ className: 'urgent', text: '🔴긴급' });
+      if (priority === PRIORITY_IMPORTANT) badges.push({ className: 'important', text: '🟡중요' });
+      if (isTeamLeaderRequested(itemState)) badges.push({ className: 'leader', text: '📌팀장지시' });
+      return badges;
+    }
+
+    function getGoalPreviewCards(goalKey, state) {
+      const goal = goalTemplates[goalKey];
+      if (!goal || !Array.isArray(goal.items)) return [];
+      const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
+
+      return goal.items.map((item, index) => {
+        const itemKey = `${goalKey}::${index}`;
+        const itemPrinciples = getCardGuidelines(state, goalKey, item, goal, itemKey);
+        const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
+        const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
+        const effectiveState = mergePriorityLeaderOverride(itemState, priorityOverrides[itemKey]);
+        const title = (item && typeof item.title === 'string' ? item.title : '')
+          .replace(/^SKF\s*/i, '')
+          .replace(/^신규\s*/i, '')
+          .replace(/^주요\s*/i, '')
+          .replace(/\s+지속\s+.*$/i, '')
+          .trim();
+        return {
+          title,
+          priority: resolveTeamOverviewPriority(effectiveState),
+          isLeaderRequested: isTeamLeaderRequested(effectiveState),
+          badges: buildItemBadgeTokens(effectiveState)
+        };
+      });
+    }
+
+    function renderGoalPreviewCardHtml(card) {
+      const badgeHtml = (Array.isArray(card.badges) ? card.badges : [])
+        .map((badge) => `<span class="mandalart-mini-badge ${badge.className}">${badge.text}</span>`)
+        .join('');
+      return `
+        <span class="mandalart-keyword-tag">${badgeHtml ? `${badgeHtml} ` : ''}${escapeHtml(card.title || '')}</span>
+      `;
+    }
+
     function goalMatchesSearch(goalKey, searchTerm) {
       const keyword = (searchTerm || '').trim().toLowerCase();
       if (!keyword) return false;
@@ -8388,6 +8471,7 @@
         ? dashboardUnifiedOverviewState
         : state;
       const countReport = [];
+      const mandalartLogRows = [];
       const goalKeys = Object.keys(goalTemplates);
       const slotMap = {
         0: goalKeys[0],
@@ -8412,9 +8496,16 @@
 
         const goal = goalTemplates[goalKey];
         const stats = getGoalStats(goalKey, sourceState);
-        const previewTags = getGoalPreviewTags(goalKey);
-        const cardCount = Array.isArray(goal.items) ? goal.items.length : previewTags.length;
-        countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewTags.length });
+        const previewCards = getGoalPreviewCards(goalKey, sourceState);
+        const cardCount = Array.isArray(goal.items) ? goal.items.length : previewCards.length;
+        countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewCards.length });
+        previewCards.forEach((card) => {
+          mandalartLogRows.push({
+            cardName: card.title,
+            priority: card.priority,
+            isLeaderRequested: card.isLeaderRequested === true
+          });
+        });
         const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
         const goalFlagBadges = renderGoalFlagBadges(stats);
         return `
@@ -8428,13 +8519,14 @@
                 <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}% · ${cardCount}건</span>
               </div>
               <div class="mandalart-keyword-list">
-                ${previewTags.map((tag) => `<span class="mandalart-keyword-tag">${escapeHtml(tag)}</span>`).join('')}
+                ${previewCards.map((card) => renderGoalPreviewCardHtml(card)).join('')}
               </div>
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
           </div>`;
       });
 
+      console.log('[만다라트] 렌더링 직전 카드 priority/leader', mandalartLogRows);
       mandalartGrid.innerHTML = cells.join('');
       console.table(countReport);
       console.log('[mandalart] 목표별 카드 수 검증', countReport);
