@@ -1024,7 +1024,7 @@
   </style>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-    import { getDatabase, onValue, push, ref, remove, set, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+    import { getDatabase, onValue, push, ref, remove, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
     import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -1073,7 +1073,6 @@
       signOut,
       onValue,
       ref,
-      set,
       update,
       push,
       remove,
@@ -1743,6 +1742,10 @@
     let timelineActivityRealtimeUnsubscribe = null;
     let todayActivityRenderSignature = '';
     const ACTIVITY_LOGS_MIGRATED_KEY = 'skfActivityLogsMigratedToFirebaseV1';
+    const ACTIVITY_LOG_TITLES_GUARD_PATH = 'maintenanceMigrations/activityLogTitleSnapshotsV1';
+    const PRIORITY_RECOVERY_SOURCE_DATE = '2026-07-30';
+    const PRIORITY_RECOVERY_TARGET_DATE = '2026-07-31';
+    const PRIORITY_RECOVERY_GUARD_PATH = 'maintenanceMigrations/skfDailyPriorityLeaderRecovery20260731';
     const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
     const MINI_CALENDAR_MIGRATED_KEY = 'skfMiniCalendarMigratedToFirebaseV1';
     const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
@@ -1929,6 +1932,8 @@
       resolveFirebaseAuthStateReady = resolve;
     });
     let firebaseLoginInProgress = false;
+    const dateCarryoverInProgress = new Set();
+    let priorityRecoveryInProgress = false;
     let firebaseInitErrorReason = typeof window.__plannerFirebaseInitError === 'string' ? window.__plannerFirebaseInitError : '';
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
@@ -3467,7 +3472,7 @@
           benchmarkRtdbPathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
           plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
           apiBenchmark: 'Realtime Database update',
-          apiPlanner: 'Realtime Database set'
+          apiPlanner: 'Realtime Database update'
         });
 
         Object.entries(matched).forEach(([itemKey, card]) => {
@@ -4248,6 +4253,185 @@
       localStorage.setItem(storageKey, JSON.stringify(state));
     }
 
+    function readFirebaseValueOnce(targetRef) {
+      const bridge = getFirebaseBridge();
+      if (!bridge || !targetRef || typeof bridge.onValue !== 'function') return Promise.resolve(null);
+      return new Promise((resolve, reject) => {
+        bridge.onValue(targetRef, (snapshot) => {
+          resolve(snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null);
+        }, reject, { onlyOnce: true });
+      });
+    }
+
+    function clonePlannerSnapshot(value) {
+      if (!value || typeof value !== 'object') return null;
+      try {
+        return JSON.parse(JSON.stringify(value));
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function buildDateSnapshotFieldUpdates(snapshot) {
+      const updates = {};
+      if (!snapshot || typeof snapshot !== 'object') return updates;
+      Object.entries(snapshot).forEach(([categoryKey, categoryValue]) => {
+        if (categoryKey === 'meta' || categoryKey === '_meta' || categoryKey === 'hiddenLogs') {
+          if (categoryValue && typeof categoryValue === 'object') {
+            Object.entries(categoryValue).forEach(([fieldKey, fieldValue]) => {
+              updates[`${categoryKey}/${fieldKey}`] = fieldValue;
+            });
+          }
+          return;
+        }
+        if (!categoryValue || typeof categoryValue !== 'object') return;
+        Object.entries(categoryValue).forEach(([indexKey, cardValue]) => {
+          if (!cardValue || typeof cardValue !== 'object') return;
+          Object.entries(cardValue).forEach(([fieldKey, fieldValue]) => {
+            updates[`${categoryKey}/${indexKey}/${fieldKey}`] = fieldValue;
+          });
+        });
+      });
+      return updates;
+    }
+
+    function findLatestPriorDateEntry(remoteRoot, targetDateKey) {
+      return Object.entries(remoteRoot && typeof remoteRoot === 'object' ? remoteRoot : {})
+        .filter(([dateKey, value]) => isValidPlannerDateKey(dateKey) && dateKey < targetDateKey && value && typeof value === 'object')
+        .sort(([leftDate], [rightDate]) => rightDate.localeCompare(leftDate))[0] || null;
+    }
+
+    async function initializeMissingDateFromLatest(targetDateKey) {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady || !isValidPlannerDateKey(targetDateKey)) {
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      if (dateCarryoverInProgress.has(targetDateKey)) return { ok: false, reason: 'already-in-progress' };
+      dateCarryoverInProgress.add(targetDateKey);
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        dateCarryoverInProgress.delete(targetDateKey);
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      try {
+        const targetRef = bridge.getDateRef(targetDateKey);
+        const existingTarget = await readFirebaseValueOnce(targetRef);
+        if (existingTarget && typeof existingTarget === 'object') {
+          console.log('[date-carryover] 기존 날짜 노드 유지', { targetDateKey });
+          return { ok: true, skipped: true, reason: 'target-exists' };
+        }
+
+        const plannerRoot = await readFirebaseValueOnce(bridge.ref(bridge.db, 'plans/skf-daily'));
+        const latestEntry = findLatestPriorDateEntry(plannerRoot, targetDateKey);
+        if (!latestEntry) return { ok: false, reason: 'no-prior-date' };
+        const [sourceDateKey, sourceSnapshot] = latestEntry;
+        const clonedSnapshot = clonePlannerSnapshot(sourceSnapshot);
+        if (!clonedSnapshot) return { ok: false, reason: 'clone-failed' };
+        clonedSnapshot.meta = {
+          ...(clonedSnapshot.meta && typeof clonedSnapshot.meta === 'object' ? clonedSnapshot.meta : {}),
+          lastUpdatedAt: new Date().toISOString(),
+          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
+          updatedByEmail: currentFirebaseUser.email || '',
+          updatedByUid: currentFirebaseUser.uid || '',
+          carriedOverFrom: sourceDateKey
+        };
+
+        const targetRecheck = await readFirebaseValueOnce(targetRef);
+        if (targetRecheck && typeof targetRecheck === 'object') {
+          console.log('[date-carryover] 생성 직전 기존 노드 감지, 이월 중단', { targetDateKey });
+          return { ok: true, skipped: true, reason: 'target-created-concurrently' };
+        }
+
+        const updates = buildDateSnapshotFieldUpdates(clonedSnapshot);
+        await bridge.update(targetRef, updates);
+        console.log('[date-carryover] 새 날짜 이월 생성 성공', {
+          sourceDateKey,
+          targetDateKey,
+          fieldCount: Object.keys(updates).length
+        });
+        return { ok: true, sourceDateKey, targetDateKey, snapshot: clonedSnapshot };
+      } catch (error) {
+        console.error('[date-carryover] 이월 생성 실패', { targetDateKey, error });
+        return { ok: false, reason: 'firebase-read-or-update-failed', error };
+      } finally {
+        dateCarryoverInProgress.delete(targetDateKey);
+      }
+    }
+
+    async function recoverPriorityAndLeaderRequestOnce() {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      if (priorityRecoveryInProgress) return { ok: false, reason: 'already-in-progress' };
+      priorityRecoveryInProgress = true;
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        priorityRecoveryInProgress = false;
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      try {
+        const guardRef = bridge.ref(bridge.db, PRIORITY_RECOVERY_GUARD_PATH);
+        const existingGuard = await readFirebaseValueOnce(guardRef);
+        if (existingGuard && existingGuard.completed === true) {
+          console.log('[priority-recovery] 이미 완료되어 건너뜀', existingGuard);
+          return { ok: true, skipped: true };
+        }
+
+        const sourceSnapshot = await readFirebaseValueOnce(bridge.getDateRef(PRIORITY_RECOVERY_SOURCE_DATE));
+        const targetSnapshot = await readFirebaseValueOnce(bridge.getDateRef(PRIORITY_RECOVERY_TARGET_DATE));
+        if (!sourceSnapshot || !targetSnapshot) return { ok: false, reason: 'source-or-target-missing' };
+
+        const updates = {};
+        const changes = [];
+        Object.entries(sourceSnapshot).forEach(([categoryKey, sourceCategory]) => {
+          if (!goalTemplates[categoryKey] || !sourceCategory || typeof sourceCategory !== 'object') return;
+          const targetCategory = targetSnapshot[categoryKey];
+          if (!targetCategory || typeof targetCategory !== 'object') return;
+          Object.entries(sourceCategory).forEach(([indexKey, sourceCard]) => {
+            const targetCard = targetCategory[indexKey];
+            if (!sourceCard || typeof sourceCard !== 'object' || !targetCard || typeof targetCard !== 'object') return;
+            const nextPriority = normalizePriorityValue(sourceCard.priority);
+            const nextLeaderRequested = sourceCard.isLeaderRequested === true;
+            const beforePriority = normalizePriorityValue(targetCard.priority);
+            const beforeLeaderRequested = targetCard.isLeaderRequested === true;
+            updates[`plans/skf-daily/${PRIORITY_RECOVERY_TARGET_DATE}/${categoryKey}/${indexKey}/priority`] = nextPriority;
+            updates[`plans/skf-daily/${PRIORITY_RECOVERY_TARGET_DATE}/${categoryKey}/${indexKey}/isLeaderRequested`] = nextLeaderRequested;
+            changes.push({
+              card: `${categoryKey}/${indexKey}`,
+              priorityBefore: beforePriority,
+              priorityAfter: nextPriority,
+              leaderBefore: beforeLeaderRequested,
+              leaderAfter: nextLeaderRequested
+            });
+          });
+        });
+
+        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/completed`] = true;
+        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/completedAt`] = new Date().toISOString();
+        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/sourceDate`] = PRIORITY_RECOVERY_SOURCE_DATE;
+        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/targetDate`] = PRIORITY_RECOVERY_TARGET_DATE;
+        console.log('[priority-recovery] 복구 대상 및 변경 전후');
+        console.table(changes);
+        await bridge.update(bridge.ref(bridge.db), updates);
+        if (currentPlannerDateKey === PRIORITY_RECOVERY_TARGET_DATE) {
+          const plannerState = loadPlannerState();
+          changes.forEach((change) => {
+            const [categoryKey, indexKey] = change.card.split('/');
+            const itemState = plannerState.items && plannerState.items[`${categoryKey}::${indexKey}`];
+            if (!itemState) return;
+            itemState.priority = change.priorityAfter;
+            itemState.isLeaderRequested = change.leaderAfter;
+          });
+          setCurrentPlannerState(plannerState, { skipFirebaseSync: true });
+          preserveWindowScroll(() => rerenderCurrentView());
+        }
+        console.log('[priority-recovery] 부분 갱신 성공', { cardCount: changes.length, guardPath: PRIORITY_RECOVERY_GUARD_PATH });
+        return { ok: true, cardCount: changes.length, changes };
+      } catch (error) {
+        console.error('[priority-recovery] 복구 실패', error);
+        return { ok: false, reason: 'firebase-read-or-update-failed', error };
+      } finally {
+        priorityRecoveryInProgress = false;
+      }
+    }
+
     async function flushFirebaseSnapshot(reason = '') {
       if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
@@ -4261,7 +4445,7 @@
       firebaseSaving = true;
       updateFirebaseConnectionChip();
       try {
-        await bridge.set(bridge.getDateRef(currentPlannerDateKey), snapshot);
+        await bridge.update(bridge.getDateRef(currentPlannerDateKey), buildDateSnapshotFieldUpdates(snapshot));
         firebaseLastUpdatedMeta = snapshot.meta;
         updateFirebaseLastUpdatedText(snapshot.meta);
       } catch (error) {
@@ -4627,6 +4811,7 @@
       const cardId = typeof rawEntry.cardId === 'string' && rawEntry.cardId.trim() ? rawEntry.cardId.trim() : (typeof fallback.cardId === 'string' ? fallback.cardId.trim() : '');
       const cardTitle = typeof rawEntry.cardTitle === 'string' && rawEntry.cardTitle.trim() ? rawEntry.cardTitle.trim() : (typeof fallback.cardTitle === 'string' ? fallback.cardTitle.trim() : cardId);
       const content = typeof rawEntry.content === 'string' ? rawEntry.content.trim() : (typeof fallback.content === 'string' ? fallback.content.trim() : '');
+      const stepTitle = typeof rawEntry.stepTitle === 'string' && rawEntry.stepTitle.trim() ? rawEntry.stepTitle.trim() : (typeof fallback.stepTitle === 'string' ? fallback.stepTitle.trim() : '');
       const authorId = typeof rawEntry.authorId === 'string' && rawEntry.authorId.trim() ? rawEntry.authorId.trim() : (typeof fallback.authorId === 'string' ? fallback.authorId.trim() : '');
       const authorName = typeof rawEntry.authorName === 'string' && rawEntry.authorName.trim() ? rawEntry.authorName.trim() : (typeof fallback.authorName === 'string' ? fallback.authorName.trim() : EDITOR_NAME_LABEL);
       const createdAtRaw = rawEntry.createdAt || fallback.createdAt || rawEntry.timestamp || fallback.timestamp || new Date().toISOString();
@@ -4639,6 +4824,7 @@
         cardId,
         cardTitle,
         content,
+        stepTitle,
         authorId,
         authorName,
         createdAt,
@@ -4653,11 +4839,13 @@
       const cardId = typeof details.cardId === 'string' ? details.cardId : '';
       const cardTitle = typeof details.cardTitle === 'string' && details.cardTitle.trim() ? details.cardTitle.trim() : cardId;
       const content = typeof details.content === 'string' ? details.content.trim() : '';
+      const stepTitle = typeof details.stepTitle === 'string' ? details.stepTitle.trim() : '';
       return {
         type: ['comment', 'checklist', 'card'].includes(type) ? type : 'card',
         cardId,
         cardTitle,
         content,
+        ...(stepTitle ? { stepTitle } : {}),
         authorId: typeof details.authorId === 'string' ? details.authorId : author.authorId,
         authorName: typeof details.authorName === 'string' && details.authorName.trim() ? details.authorName.trim() : author.authorName,
         createdAt: timestamp
@@ -4850,6 +5038,7 @@
         cardId: typeof details.cardId === 'string' ? details.cardId : '',
         cardTitle: typeof details.cardTitle === 'string' ? details.cardTitle : '',
         content: formatActivityLogContent(type, details),
+        stepTitle: typeof details.stepTitle === 'string' ? details.stepTitle : '',
         createdAt: typeof details.createdAt === 'string' ? details.createdAt : '',
         authorId: typeof details.authorId === 'string' ? details.authorId : '',
         authorName: typeof details.authorName === 'string' ? details.authorName : ''
@@ -4866,6 +5055,86 @@
       } catch (error) {
         console.error('활동 로그 저장 실패', error);
         return null;
+      }
+    }
+
+    function extractChecklistStepTitleFromActivityLog(rawLog) {
+      if (!rawLog || typeof rawLog !== 'object') return '';
+      const explicitTitle = typeof rawLog.stepTitle === 'string' ? rawLog.stepTitle.trim() : '';
+      if (explicitTitle) return explicitTitle;
+      const content = typeof rawLog.content === 'string' ? rawLog.content.trim() : '';
+      if (!content || /^(체크리스트 완료|체크리스트 항목 완료)$/.test(content)) return '';
+      return content
+        .replace(/^완료 단계:\s*/, '')
+        .split(/\s*\|\s*💬\s*/)[0]
+        .trim();
+    }
+
+    function resolveCurrentChecklistStepTitle(rawLog, plannerState) {
+      const itemKey = rawLog && typeof rawLog.cardId === 'string' ? rawLog.cardId : '';
+      const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
+      if (!itemState || !Array.isArray(itemState.activityLog)) return '';
+      const targetTimestamp = parseActivityTimestamp(rawLog.createdAt || rawLog.timestamp);
+      const nearestLog = itemState.activityLog
+        .filter((entry) => entry && entry.type === 'checklist-complete')
+        .map((entry) => ({ entry, distance: Math.abs(parseActivityTimestamp(entry.timestamp) - targetTimestamp) }))
+        .sort((left, right) => left.distance - right.distance)[0];
+      if (!nearestLog) return '';
+      return resolveTimelineChecklistStepText(plannerState, itemKey, nearestLog.entry) || '';
+    }
+
+    async function backfillActivityLogTitlesOnce() {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      try {
+        const existingGuard = await readFirebaseValueOnce(bridge.ref(bridge.db, ACTIVITY_LOG_TITLES_GUARD_PATH));
+        if (existingGuard && existingGuard.completed === true) {
+          console.log('[activity-log-title-backfill] 이미 완료되어 건너뜀', existingGuard);
+          return { ok: true, skipped: true };
+        }
+
+        const rawLogs = await readFirebaseValueOnce(bridge.getActivityLogsRef());
+        const plannerState = loadPlannerState();
+        const updates = {};
+        const changes = [];
+        Object.entries(rawLogs && typeof rawLogs === 'object' ? rawLogs : {}).forEach(([logId, rawLog]) => {
+          if (!rawLog || typeof rawLog !== 'object') return;
+          const itemKey = typeof rawLog.cardId === 'string' ? rawLog.cardId.trim() : '';
+          const currentCardTitle = itemKey ? getCardActivityTitle(plannerState, itemKey) : '';
+          const existingCardTitle = typeof rawLog.cardTitle === 'string' ? rawLog.cardTitle.trim() : '';
+          const nextCardTitle = existingCardTitle && existingCardTitle !== itemKey ? existingCardTitle : currentCardTitle;
+          if (nextCardTitle && nextCardTitle !== existingCardTitle) {
+            updates[`activityLogs/${logId}/cardTitle`] = nextCardTitle;
+          }
+
+          let stepTitle = '';
+          if (rawLog.type === 'checklist') {
+            stepTitle = extractChecklistStepTitleFromActivityLog(rawLog)
+              || resolveCurrentChecklistStepTitle(rawLog, plannerState);
+            if (stepTitle && stepTitle !== rawLog.stepTitle) {
+              updates[`activityLogs/${logId}/stepTitle`] = stepTitle;
+            }
+          }
+
+          if ((nextCardTitle && nextCardTitle !== existingCardTitle) || (stepTitle && stepTitle !== rawLog.stepTitle)) {
+            changes.push({ logId, type: rawLog.type || '', cardId: itemKey, cardTitle: nextCardTitle, stepTitle });
+          }
+        });
+
+        updates[`${ACTIVITY_LOG_TITLES_GUARD_PATH}/completed`] = true;
+        updates[`${ACTIVITY_LOG_TITLES_GUARD_PATH}/completedAt`] = new Date().toISOString();
+        updates[`${ACTIVITY_LOG_TITLES_GUARD_PATH}/updatedLogCount`] = changes.length;
+        console.log('[activity-log-title-backfill] 보강 대상');
+        console.table(changes);
+        await bridge.update(bridge.ref(bridge.db), updates);
+        console.log('[activity-log-title-backfill] 부분 갱신 성공', { updatedLogCount: changes.length });
+        return { ok: true, updatedLogCount: changes.length, changes };
+      } catch (error) {
+        console.error('[activity-log-title-backfill] 실패', error);
+        return { ok: false, reason: 'firebase-read-or-update-failed', error };
       }
     }
 
@@ -6856,14 +7125,14 @@
 
     async function archiveRoundHistoryToFirebase(archiveData) {
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.set !== 'function') {
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
       }
       const selectedDate = currentPlannerDateKey || getLocalDateKey();
       const archiveId = `${selectedDate}_${Date.now()}`;
       const path = `plans/skf-daily/history/${archiveId}`;
       try {
-        await bridge.set(bridge.ref(bridge.db, path), {
+        await bridge.update(bridge.ref(bridge.db, path), {
           ...archiveData,
           selectedDate,
           archiveId,
@@ -11979,13 +12248,6 @@
               firebaseArchiveId: archiveResult.archiveId
             });
 
-            void recordSharedActivityLog('card', {
-              cardId: itemKey,
-              cardTitle: getCardActivityTitle(plannerState, itemKey),
-              content: `${roundDate} 회차 수행 완료`,
-              createdAt: nowIso
-            });
-
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
@@ -12137,13 +12399,6 @@
                 commentSummary: nextSummary || '코멘트 기록 없음'
               };
 
-              void recordSharedActivityLog('card', {
-                cardId: itemKey,
-                cardTitle: getCardActivityTitle(plannerState, itemKey),
-                content: nextTitle,
-                createdAt: `${nextDate}T00:00:00.000Z`
-              });
-
               historyEditIndex = -1;
               savePlannerState(plannerState, { reason: 'history-edit', skipFirebaseSync: true });
               await updateItemFieldsInFirebase(itemKey, { historyList: itemState.historyList }, 'history-edit');
@@ -12286,13 +12541,6 @@
               commentSummary: createCommentSummary(itemState.comments)
             });
 
-            void recordSharedActivityLog('card', {
-              cardId: itemKey,
-              cardTitle: getCardActivityTitle(plannerState, itemKey),
-              content: projectName,
-              createdAt: new Date().toISOString()
-            });
-
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
             itemState.activityLog.push(createActivityLogEntry('history-add', {
@@ -12380,6 +12628,7 @@
                 void recordSharedActivityLog('checklist', {
                   cardId: itemKey,
                   cardTitle: getCardActivityTitle(plannerState, itemKey),
+                  stepTitle: stepText || `${idx + 1}단계`,
                   content: stepText ? `완료 단계: ${stepText}${stepComment ? ` | 💬 ${stepComment}` : ''}` : `완료 단계: ${idx + 1}단계`
                 });
               } else {
@@ -12434,6 +12683,15 @@
                 authorName: getHistoryAuthorName(),
                 commentSummary: nextComment || '코멘트 없음'
               });
+
+              if (nextComment) {
+                void recordSharedActivityLog('comment', {
+                  cardId: itemKey,
+                  cardTitle: getCardActivityTitle(plannerState, itemKey),
+                  stepTitle: stepText || `${stepIndex + 1}단계`,
+                  content: nextComment
+                });
+              }
 
               markItemUpdated(itemState);
               savePlannerState(plannerState, { reason: 'step-comment-save', skipFirebaseSync: true });
@@ -12657,6 +12915,7 @@
         setCurrentPlannerState(localState, { skipFirebaseSync: true });
         updateFirebaseLastUpdatedText(localState.meta || firebaseLastUpdatedMeta);
         preserveWindowScroll(() => rerenderCurrentView());
+        void initializeMissingDateFromLatest(dateKey);
       }, () => {
         firebaseConnectionOnline = false;
         updateFirebaseConnectionChip();
@@ -12805,6 +13064,11 @@
         applyEditabilityState();
         updateFirebaseConnectionChip();
         void startMiniCalendarRealtimeSync();
+        if (currentFirebaseUser) {
+          void initializeMissingDateFromLatest(currentPlannerDateKey);
+          void recoverPriorityAndLeaderRequestOnce();
+          void backfillActivityLogTitlesOnce();
+        }
       });
     }
 
