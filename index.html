@@ -4835,6 +4835,7 @@
     function setCurrentPlannerState(nextState, options = {}) {
       const normalizedState = normalizePlannerState(nextState);
       currentPlannerState = normalizedState;
+      dashboardUnifiedOverviewState = normalizedState;
       if (!options.skipLocalStorage) {
         persistPlannerStateToLocalStorage(normalizedState);
       }
@@ -6225,6 +6226,7 @@
         updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
       };
       currentPlannerState = normalizedState;
+      dashboardUnifiedOverviewState = normalizedState;
       persistPlannerStateToLocalStorage(normalizedState);
       updateFirebaseLastUpdatedText(normalizedState.meta);
       if (!options.skipFirebaseSync) {
