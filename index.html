@@ -1076,6 +1076,7 @@
       set,
       update,
       push,
+      remove,
       getDoc,
       onSnapshot,
       updateDoc,
@@ -3949,6 +3950,7 @@
     function buildFirebaseSnapshot(state, metaOverrides = {}) {
       const normalizedState = normalizePlannerState(state);
       const snapshot = {
+        hiddenLogs: normalizedState.hiddenLogs || {},
         meta: {
           lastUpdatedAt: metaOverrides.lastUpdatedAt || new Date().toISOString(),
           updatedByName: metaOverrides.updatedByName || EDITOR_NAME_LABEL,
@@ -4016,6 +4018,9 @@
 
     function applyFirebaseSnapshotToState(state, remoteSnapshot) {
       const nextState = normalizePlannerState(state);
+      nextState.hiddenLogs = remoteSnapshot && remoteSnapshot.hiddenLogs && typeof remoteSnapshot.hiddenLogs === 'object'
+        ? remoteSnapshot.hiddenLogs
+        : nextState.hiddenLogs;
       const remoteItems = remoteSnapshot && typeof remoteSnapshot === 'object'
         ? (remoteSnapshot.items && typeof remoteSnapshot.items === 'object' ? remoteSnapshot.items : remoteSnapshot)
         : {};
@@ -5644,6 +5649,7 @@
       const base = rawState && typeof rawState === 'object' ? rawState : {};
       const items = base.items && typeof base.items === 'object' ? base.items : {};
       const meta = base.meta && typeof base.meta === 'object' ? base.meta : {};
+      const hiddenLogs = base.hiddenLogs && typeof base.hiddenLogs === 'object' ? base.hiddenLogs : {};
       normalizeRemovedCardIndexes(items);
       normalizeSalesSupportItemIndexes(items);
       Object.values(items).forEach((itemState) => {
@@ -5692,6 +5698,7 @@
       });
       return {
         items,
+        hiddenLogs,
         meta: {
           lastUpdatedAt: typeof meta.lastUpdatedAt === 'string' ? meta.lastUpdatedAt : '',
           updatedByName: typeof meta.updatedByName === 'string' ? meta.updatedByName : '',
@@ -7120,7 +7127,8 @@
             detail: comment.text || '',
             dateKey,
             stepIndex: -1,
-            sourceType: 'comment',
+            sourceType: 'local',
+            localSourceType: 'comment',
             sourceIndex: commentIndex
           });
         });
@@ -7145,7 +7153,8 @@
                 : (latestStepComment ? `💬 ${latestStepComment}` : '체크리스트 항목 완료'),
               dateKey,
               stepIndex: Number.isInteger(logEntry.stepIndex) ? logEntry.stepIndex : -1,
-              sourceType: 'activity',
+              sourceType: 'local',
+              localSourceType: 'activity',
               sourceIndex: logIndex
             });
           }
@@ -7162,14 +7171,19 @@
               detail: logEntry.projectName ? `히스토리 등록: ${logEntry.projectName}` : '히스토리 아카이브 등록',
               dateKey,
               stepIndex: -1,
-              sourceType: 'activity',
+              sourceType: 'local',
+              localSourceType: 'activity',
               sourceIndex: logIndex
             });
           }
         });
       });
 
-      return entries.sort((left, right) => right.timestamp - left.timestamp);
+      const hiddenLogs = state && state.hiddenLogs && typeof state.hiddenLogs === 'object' ? state.hiddenLogs : {};
+      return entries
+        .map((entry) => ({ ...entry, hiddenLogKey: createTimelineHiddenLogKey(entry) }))
+        .filter((entry) => !hiddenLogs[entry.hiddenLogKey])
+        .sort((left, right) => right.timestamp - left.timestamp);
     }
 
     function collectTimelineEntriesFromState(state, sourceDateKey = '') {
@@ -7525,7 +7539,8 @@
           entry.timeText,
           entry.logId,
           entry.sourceType,
-          entry.sourceIndex
+          entry.sourceIndex,
+          entry.hiddenLogKey
         ])
       });
       if (renderSignature === todayActivityRenderSignature) return;
@@ -7556,7 +7571,10 @@
             ? '업무 수행 완료'
             : '카드 히스토리';
         const focusStep = Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex : '';
-        const canDeleteRow = canManageTimeline && Boolean(entry.logId || (entry.sourceType === 'comment' || entry.sourceType === 'activity') && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0);
+        const canDeleteRow = canManageTimeline && Boolean(
+          (entry.sourceType === 'remote' && entry.logId)
+          || (entry.sourceType === 'local' && Number.isInteger(entry.sourceIndex) && entry.sourceIndex >= 0)
+        );
         return `
           <li>
             <div class="today-activity-row">
@@ -7571,8 +7589,12 @@
                 class="today-activity-delete-btn${canDeleteRow ? ' visible' : ''}"
                 data-timeline-action="delete"
                 data-timeline-log-id="${escapeHtml(entry.logId || '')}"
+                data-timeline-entry-type="${escapeHtml(entry.type || '')}"
+                data-timeline-detail="${escapeHtml(entry.detail || '')}"
                 data-source-type="${escapeHtml(entry.sourceType || '')}"
+                data-local-source-type="${escapeHtml(entry.localSourceType || '')}"
                 data-source-index="${Number.isInteger(entry.sourceIndex) ? entry.sourceIndex : -1}"
+                data-hidden-log-key="${escapeHtml(entry.hiddenLogKey || '')}"
                 data-key="${escapeHtml(entry.itemKey)}"
                 aria-label="타임라인 항목 삭제"
               >🗑️</button>
@@ -7581,6 +7603,43 @@
         `;
       }).join('');
       todayActivityEmpty.style.display = 'none';
+    }
+
+    function createTimelineHiddenLogKey(entry) {
+      const fingerprint = [
+        entry && entry.itemKey ? entry.itemKey : '',
+        entry && entry.localSourceType ? entry.localSourceType : '',
+        Number.isInteger(entry && entry.sourceIndex) ? entry.sourceIndex : -1,
+        entry && entry.timestamp ? entry.timestamp : '',
+        entry && entry.detail ? entry.detail : ''
+      ].join('|');
+      let hash = 2166136261;
+      for (let index = 0; index < fingerprint.length; index += 1) {
+        hash ^= fingerprint.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return `timeline-${(hash >>> 0).toString(36)}`;
+    }
+
+    async function hideLocalTimelineLog(plannerState, hiddenLogKey) {
+      if (!hiddenLogKey) return { ok: false, reason: 'missing-hidden-key' };
+      if (!plannerState.hiddenLogs || typeof plannerState.hiddenLogs !== 'object') plannerState.hiddenLogs = {};
+      plannerState.hiddenLogs[hiddenLogKey] = true;
+      savePlannerState(plannerState, { reason: 'timeline-local-hide', skipFirebaseSync: true });
+
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getDateRef !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      const hiddenPath = `plans/skf-daily/${currentPlannerDateKey}/hiddenLogs/${hiddenLogKey}`;
+      console.log('[timeline] local 숨김 저장 경로', hiddenPath);
+      try {
+        await bridge.update(bridge.getDateRef(currentPlannerDateKey), { [`hiddenLogs/${hiddenLogKey}`]: true });
+        return { ok: true, path: hiddenPath };
+      } catch (error) {
+        console.error('[timeline] local 숨김 저장 실패', { hiddenPath, error });
+        return { ok: false, reason: 'firebase-update-failed', error };
+      }
     }
 
     function createHistoryArchiveHtml() {
@@ -13576,11 +13635,12 @@
               return;
             }
 
+            const sourceType = deleteButton.dataset.sourceType || '';
             const logId = deleteButton.dataset.timelineLogId || '';
-            if (logId) {
+            if (sourceType === 'remote') {
               const bridge = getActivityTimelineBridge();
-              const logRef = bridge && typeof bridge.getActivityLogRef === 'function' ? bridge.getActivityLogRef(logId) : null;
-              if (!bridge || !logRef || typeof bridge.remove !== 'function') {
+              if (!logId || !bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.remove !== 'function') {
+                console.error('[timeline] remote 삭제 준비 실패', { sourceType, logId, hasBridge: Boolean(bridge) });
                 window.alert('공용 타임라인 로그를 삭제할 수 없습니다. Firebase 연결을 확인해 주세요.');
                 return;
               }
@@ -13588,44 +13648,65 @@
               const confirmed = window.confirm('이 타임라인 기록을 삭제하시겠습니까?');
               if (!confirmed) return;
 
+              const finalPath = `activityLogs/${logId}`;
+              console.log('[timeline] remote 삭제 최종 경로', finalPath);
               try {
-                await bridge.remove(logRef);
+                await bridge.remove(bridge.ref(bridge.db, finalPath));
+                const plannerState = loadPlannerState();
+                const itemKey = deleteButton.dataset.key || '';
+                const entryType = deleteButton.dataset.timelineEntryType || '';
+                const entryDetail = deleteButton.dataset.timelineDetail || '';
+                const fallbackMatch = collectTodayActivityEntries(plannerState, getTimelineSelectedDateKey())
+                  .find((entry) => entry.itemKey === itemKey && entry.type === entryType && entry.detail === entryDetail);
+                if (fallbackMatch && fallbackMatch.hiddenLogKey) {
+                  const hideResult = await hideLocalTimelineLog(plannerState, fallbackMatch.hiddenLogKey);
+                  if (!hideResult.ok) {
+                    console.error('[timeline] remote 대응 fallback 숨김 실패', {
+                      finalPath,
+                      hiddenLogKey: fallbackMatch.hiddenLogKey,
+                      reason: hideResult.reason
+                    });
+                  }
+                }
+                activityTimelineEntries = activityTimelineEntries.filter((entry) => entry && entry.logId !== logId);
+                timelineHistoryEntries = timelineHistoryEntries.filter((entry) => entry && entry.logId !== logId);
+                todayActivityRenderSignature = '';
+                renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
+                renderTimelineHistoryModalBody();
+                console.log('[timeline] remote 삭제 성공', { finalPath, logId });
               } catch (error) {
-                console.error('공용 타임라인 로그 삭제 실패', error);
+                console.error('[timeline] remote 삭제 실패', { finalPath, logId, error });
                 window.alert('타임라인 기록 삭제에 실패했습니다.');
               }
               return;
             }
 
+            if (sourceType !== 'local') {
+              console.error('[timeline] 지원하지 않는 삭제 출처', { sourceType, logId });
+              return;
+            }
+
             const itemKey = deleteButton.dataset.key || '';
-            const sourceType = deleteButton.dataset.sourceType || '';
+            const localSourceType = deleteButton.dataset.localSourceType || '';
             const sourceIndex = Number(deleteButton.dataset.sourceIndex);
+            const hiddenLogKey = deleteButton.dataset.hiddenLogKey || '';
             const plannerState = loadPlannerState();
             const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
-            if (!itemState || !sourceType || Number.isNaN(sourceIndex) || sourceIndex < 0) return;
+            if (!itemState || !localSourceType || Number.isNaN(sourceIndex) || sourceIndex < 0 || !hiddenLogKey) return;
+            const sourceCollection = localSourceType === 'comment' ? itemState.comments : itemState.activityLog;
+            if (!Array.isArray(sourceCollection) || !sourceCollection[sourceIndex]) return;
 
             const confirmed = window.confirm('이 타임라인 기록을 삭제하시겠습니까?');
             if (!confirmed) return;
 
-            let changed = false;
-            if (sourceType === 'comment' && Array.isArray(itemState.comments) && itemState.comments[sourceIndex]) {
-              itemState.comments.splice(sourceIndex, 1);
-              syncCommentDerivedFields(itemState);
-              recalculateItemActivityTimestamp(itemState);
-              changed = true;
-            }
-            if (sourceType === 'activity' && Array.isArray(itemState.activityLog) && itemState.activityLog[sourceIndex]) {
-              itemState.activityLog.splice(sourceIndex, 1);
-              changed = true;
-            }
-            if (!changed) return;
-
-            markItemUpdated(itemState);
-            savePlannerState(plannerState);
-            syncOverviewWidgets(plannerState);
-            if (!detailView.classList.contains('hidden-view') && currentGoalKey && goalTemplates[currentGoalKey]) {
-              renderGoalSummaryWidget(currentGoalKey, plannerState);
-              updateStats();
+            const hideResult = await hideLocalTimelineLog(plannerState, hiddenLogKey);
+            todayActivityRenderSignature = '';
+            renderTodayActivityWidget(plannerState, getTimelineSelectedDateKey());
+            if (hideResult.ok) {
+              console.log('[timeline] local 숨김 성공', { hiddenLogKey, itemKey, localSourceType, sourceIndex });
+            } else {
+              console.error('[timeline] local 숨김 실패', { hiddenLogKey, itemKey, localSourceType, sourceIndex, reason: hideResult.reason });
+              window.alert('타임라인 기록 숨김 저장에 실패했습니다.');
             }
             return;
           }
