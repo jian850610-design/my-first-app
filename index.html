@@ -1369,7 +1369,7 @@
         <div class="news-widget-header">
           <div>
             <div class="news-widget-title" id="newsWidgetTitle">📰 실시간 관련 B2B &amp; 시장 동향</div>
-            <div class="news-widget-meta" id="newsWidgetMeta">선택된 핵심목표와 관련된 최신 기사 3~4개를 불러옵니다.</div>
+            <div class="news-widget-meta" id="newsWidgetMeta">선택된 핵심목표와 관련된 최신 기사 최대 8개를 불러옵니다.</div>
           </div>
           <div class="news-widget-header-actions">
             <div class="news-widget-updated" id="newsUpdatedText">뉴스 갱신: -</div>
@@ -1810,8 +1810,10 @@
     let miniCalendarAuthWaitTimer = null;
     let miniCalendarInitialized = false;
     let newsRequestSerial = 0;
-    const NEWS_CORE_KEYWORDS = ['SKF', '셰플러', 'Schaeffler', 'NSK', '팀켄', 'Timken', '베어링', '예지보전', '스마트팩토리'];
-    const NEWS_SEARCH_QUERY = `(${NEWS_CORE_KEYWORDS.join(' OR ')})`;
+    const NEWS_REQUEST_INTERVAL_MS = 500;
+    const NEWS_QUERY_TIMEOUT_MS = 8000;
+    const NEWS_TOP_ITEMS_PER_KEYWORD = 2;
+    const NEWS_MAX_ITEMS_PER_GOAL = 8;
     const NEWS_MAX_AGE_DAYS = 30;
     const NEWS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
     const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
@@ -1821,71 +1823,59 @@
     const NEWS_CONFIG_STORAGE_KEY = 'skfMarketingNewsConfigV1';
     const NEWS_RAW_CACHE_META_KEY = 'skfMarketingNewsRawMetaV1';
     const NEWS_DEFAULT_EXCLUDE_WORDS = ['골프', 'PGA', 'LPGA', '투어', '우승', '랭킹', '스코티', '마스터스'];
-    const NEWS_DEFAULT_QUERIES = [
-      { id: 'default-news-query', label: '기본 B2B 뉴스', query: `(${NEWS_CORE_KEYWORDS.join(' OR ')})`, enabled: true }
-    ];
-    const NEWS_QUERIES_BY_GOAL = {
-      "1": [
-        "B2B 마케팅 (유튜브 OR 링크드인 OR 영상 콘텐츠)",
-        "제조업 OR 산업재 SNS 마케팅"
+    const NEWS_DEFAULT_KEYWORDS_BY_GOAL = {
+      'global-sns': [
+        '링크드인 B2B 마케팅',
+        '기업 유튜브 채널 운영',
+        '숏폼 마케팅 사례',
+        '제조업 SNS 마케팅',
+        '글로벌 소셜미디어 트렌드'
       ],
-      "2": [
-        "네이버 SEO 성과",
-        "네이버 검색 알고리즘 업데이트",
-        "네이버 블로그 유입",
-        "네이버 기업 마케팅 사례",
-        "네이버 검색 노출 전략",
-        "네이버 AI 검색"
+      'naver-platform': [
+        '네이버 검색 알고리즘',
+        '네이버 블로그 상위노출',
+        '네이버 SEO',
+        '네이버 스마트블록',
+        '네이버 AI 검색',
+        '네이버TV 숏폼'
       ],
-      "3": [
-        "B2B 고객 경험",
-        "VOC 분석",
-        "고객 만족도 지표",
-        "고객 성공 사례",
-        "세미나 마케팅 성과",
-        "고객 초청 행사",
-        "채널 파트너 전략"
+      'field-communication': [
+        'B2B 고객 세미나',
+        '산업 전시회',
+        '기술 간담회',
+        '제조업 고객 커뮤니케이션'
       ],
-      "4": [
-        "B2B 웹사이트 전환율",
-        "이커머스 리드 전환",
-        "인트라넷 도입 사례",
-        "웹사이트 UX 개선",
-        "온라인 견적 전환",
-        "산업재 홈페이지 최적화"
+      'ai-culture': [
+        '생성형 AI 업무 활용',
+        '기업 AI 도입 사례',
+        '업무 자동화',
+        'Microsoft Copilot 활용',
+        '사내 AI 교육'
       ],
-      "5": [
-        "생성형 AI 업무 적용",
-        "업무 자동화 사례",
-        "기업 AI 도입 전략",
-        "AI 생산성 지표",
-        "Microsoft Copilot 업무 활용",
-        "마케팅 AI 활용 사례",
-        "AI 업무 혁신"
+      'web-ecosystem': [
+        'B2B 웹사이트 전환율',
+        '산업재 이커머스',
+        '온라인 견적 시스템',
+        '기업 인트라넷 구축',
+        '웹사이트 UX 개선'
       ],
-      "6": [
-        "B2B 전시회 마케팅",
-        "오프라인 브랜드 캠페인",
-        "고객 세미나 운영",
-        "현장 이벤트 성과",
-        "박람회 리드 수집",
-        "브랜드 인지도 조사"
+      'offline-brand': [
+        '산업 박람회',
+        '전시 부스 디자인',
+        '브랜드 사이니지',
+        'B2B 행사 마케팅'
       ],
-      "7": [
-        "B2B 프로모션",
-        "세일즈 인에이블먼트",
-        "채널 마케팅",
-        "리드 생성",
-        "고객 확보 전략",
-        "영업 마케팅 협업"
+      'sales-support': [
+        'B2B 프로모션',
+        '세일즈 인에이블먼트',
+        '리드 생성',
+        '채널 마케팅'
       ],
-      "8": [
-        "B2B 마케팅 교육",
-        "디지털 마케팅 역량",
-        "마케팅 조직 역량 강화",
-        "마케팅 성과 분석",
-        "마케팅 트렌드 리포트",
-        "실무 마케팅 케이스 스터디"
+      'marketing-skill': [
+        'B2B 마케팅 트렌드',
+        '디지털 마케팅 역량',
+        '마케팅 성과 분석',
+        '마케팅 조직 운영'
       ]
     };
     const newsPromiseByGoal = Object.create(null);
@@ -10592,15 +10582,63 @@
     }
 
     function normalizeNewsConfigItem(rawItem, index) {
-      const id = typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `query-${index + 1}`;
+      const id = typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `keyword-${index + 1}`;
       return {
         id,
-        label: sanitizeNewsWord(rawItem && rawItem.label) || `쿼리 ${index + 1}`,
+        label: sanitizeNewsWord(rawItem && rawItem.label) || `키워드 ${index + 1}`,
         query: sanitizeNewsWord(rawItem && rawItem.query),
         enabled: rawItem && rawItem.enabled !== false,
         sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
         resultCount: Number.isFinite(rawItem?.resultCount) ? Number(rawItem.resultCount) : 0
       };
+    }
+
+    function buildDefaultGoalKeywordRows(goalKey) {
+      const list = Array.isArray(NEWS_DEFAULT_KEYWORDS_BY_GOAL[goalKey]) ? NEWS_DEFAULT_KEYWORDS_BY_GOAL[goalKey] : [];
+      return list.map((queryText, index) => normalizeNewsConfigItem({
+        id: `${goalKey}-keyword-${index + 1}`,
+        label: `키워드 ${index + 1}`,
+        query: queryText,
+        enabled: true,
+        sortOrder: index
+      }, index)).filter((item) => sanitizeNewsWord(item.query));
+    }
+
+    function normalizeGoalKeywordMap(sourceMap) {
+      const next = {};
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        const sourceRows = sourceMap && Array.isArray(sourceMap[goalKey]) ? sourceMap[goalKey] : null;
+        const normalizedRows = sourceRows && sourceRows.length
+          ? sourceRows.map((row, index) => normalizeNewsConfigItem(row, index))
+          : buildDefaultGoalKeywordRows(goalKey);
+        next[goalKey] = normalizedRows
+          .map((item, index) => ({ ...item, sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index }))
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+          .filter((item) => item.enabled !== false && sanitizeNewsWord(item.query))
+          .slice(0, 12);
+      });
+      return next;
+    }
+
+    function normalizeGoalNewsCache(sourceCache) {
+      const next = {};
+      const source = sourceCache && typeof sourceCache === 'object' ? sourceCache : {};
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        const entry = source[goalKey] && typeof source[goalKey] === 'object' ? source[goalKey] : null;
+        if (!entry) return;
+        const fetchedAt = Number.isFinite(entry.fetchedAt) ? Number(entry.fetchedAt) : 0;
+        const signature = typeof entry.signature === 'string' ? entry.signature : '';
+        const items = Array.isArray(entry.items) ? dedupeNewsArticles(entry.items) : [];
+        const queryLogs = Array.isArray(entry.queryLogs) ? entry.queryLogs : [];
+        next[goalKey] = {
+          fetchedAt,
+          signature,
+          items,
+          queryLogs,
+          totalCount: Number.isFinite(entry.totalCount) ? Number(entry.totalCount) : items.length
+        };
+      });
+      return next;
     }
 
     function buildDefaultNewsConfig() {
@@ -10614,7 +10652,8 @@
           updatedByUid: ''
         },
         excludeWords: NEWS_DEFAULT_EXCLUDE_WORDS.slice(),
-        searchQueries: NEWS_DEFAULT_QUERIES.map((item, index) => normalizeNewsConfigItem({ ...item, sortOrder: index }, index)),
+        goalKeywordsByGoal: normalizeGoalKeywordMap({}),
+        goalNewsCache: {},
         hiddenArticles: [],
         stats: {
           lastFetchedAt: '',
@@ -10627,15 +10666,20 @@
     function normalizeNewsConfig(rawConfig) {
       const seed = buildDefaultNewsConfig();
       const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+
+      const legacyGoalKeywordMap = {};
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        legacyGoalKeywordMap[goalKey] = buildDefaultGoalKeywordRows(goalKey);
+      });
+
       const next = {
         ...seed,
         meta: { ...seed.meta },
         excludeWords: Array.isArray(source.excludeWords) && source.excludeWords.length
           ? Array.from(new Set(source.excludeWords.map(sanitizeNewsWord).filter(Boolean))).slice(0, 100)
           : seed.excludeWords.slice(),
-        searchQueries: Array.isArray(source.searchQueries) && source.searchQueries.length
-          ? source.searchQueries.map((item, index) => normalizeNewsConfigItem(item, index)).slice(0, 10)
-          : seed.searchQueries.slice(),
+        goalKeywordsByGoal: normalizeGoalKeywordMap(source.goalKeywordsByGoal || legacyGoalKeywordMap),
+        goalNewsCache: normalizeGoalNewsCache(source.goalNewsCache),
         hiddenArticles: Array.isArray(source.hiddenArticles)
           ? source.hiddenArticles.map((item, index) => ({
               id: typeof item?.id === 'string' && item.id ? item.id : `hidden-${index + 1}`,
@@ -10654,10 +10698,6 @@
         }
       };
 
-      next.searchQueries = next.searchQueries
-        .map((item, index) => ({ ...item, sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index }))
-        .sort((left, right) => left.sortOrder - right.sortOrder)
-        .slice(0, 10);
       next.excludeWords = next.excludeWords.filter(Boolean);
       next.hiddenArticles = next.hiddenArticles.filter((item) => getNewsArticleId(item));
 
@@ -10702,59 +10742,67 @@
       return newsConfigState;
     }
 
-    function getActiveNewsQueries(config = getNewsConfigState()) {
-      return Array.isArray(config.searchQueries)
-        ? config.searchQueries.filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query))
-        : [];
-    }
-
     function getNewsQueriesForGoal(goalId, config = getNewsConfigState()) {
-      const goalNumber = String(getGoalNumberFromGoalKey(goalId) || '');
-      const overrideQueries = Array.isArray(NEWS_QUERIES_BY_GOAL[goalNumber]) ? NEWS_QUERIES_BY_GOAL[goalNumber] : null;
-      if (overrideQueries && overrideQueries.length) {
-        const goalSpecificQueries = overrideQueries
-          .map((queryText, index) => normalizeNewsConfigItem({
-            id: `goal-${goalNumber}-query-${index + 1}`,
-            label: `목표 ${goalNumber} 쿼리 ${index + 1}`,
-            query: queryText,
-            enabled: true,
-            sortOrder: index
-          }, index))
-          .filter((item) => item && item.enabled !== false && sanitizeNewsWord(item.query));
-
-        const baseQueries = getActiveNewsQueries(config);
-        const merged = [...baseQueries];
-        const existingNormalized = new Set(
-          baseQueries
-            .map((item) => sanitizeNewsWord(item && item.query ? item.query : '').toLowerCase())
-            .filter(Boolean)
-        );
-
-        goalSpecificQueries.forEach((item) => {
-          const normalized = sanitizeNewsWord(item && item.query ? item.query : '').toLowerCase();
-          if (!normalized || existingNormalized.has(normalized)) return;
-          existingNormalized.add(normalized);
-          merged.push(item);
-        });
-
-        return merged;
-      }
-      return getActiveNewsQueries(config);
-    }
-
-    function buildNewsQuerySignature(config = getNewsConfigState()) {
-      return getActiveNewsQueries(config).map((item) => item.query.trim()).join(' || ');
+      const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (Object.keys(goalTemplates)[0] || '');
+      const rows = config && config.goalKeywordsByGoal && Array.isArray(config.goalKeywordsByGoal[activeGoalId])
+        ? config.goalKeywordsByGoal[activeGoalId]
+        : buildDefaultGoalKeywordRows(activeGoalId);
+      return rows
+        .map((item, index) => normalizeNewsConfigItem(item, index))
+        .filter((item) => item.enabled !== false && sanitizeNewsWord(item.query));
     }
 
     function buildNewsQuerySignatureForGoal(goalId, config = getNewsConfigState()) {
-      return getNewsQueriesForGoal(goalId, config).map((item) => item.query.trim()).join(' || ');
+      return getNewsQueriesForGoal(goalId, config)
+        .map((item) => sanitizeNewsWord(item.query).toLowerCase())
+        .filter(Boolean)
+        .join('||');
     }
 
-    function getNewsSearchQueryLabel(config = getNewsConfigState()) {
-      const activeQueries = getActiveNewsQueries(config);
-      return activeQueries.length
-        ? activeQueries.map((item) => item.query).join(' · ')
-        : NEWS_SEARCH_QUERY;
+    function getNewsSearchQueryLabel(goalId, config = getNewsConfigState()) {
+      const rows = getNewsQueriesForGoal(goalId, config);
+      return rows.length ? rows.map((item) => item.query).join(', ') : '-';
+    }
+
+    function getGoalCoreKeywordTokens(goalId, config = getNewsConfigState()) {
+      const rows = getNewsQueriesForGoal(goalId, config);
+      const tokenSet = new Set();
+      rows.forEach((row) => {
+        const keyword = sanitizeNewsWord(row.query).toLowerCase();
+        if (!keyword) return;
+        tokenSet.add(keyword);
+        keyword
+          .split(/[\s/,&()+.-]+/g)
+          .map((part) => part.trim())
+          .filter((part) => part.length >= 2)
+          .forEach((part) => tokenSet.add(part));
+      });
+      return Array.from(tokenSet);
+    }
+
+    function articleMatchesGoalCoreKeyword(article, goalId, config = getNewsConfigState()) {
+      const tokens = getGoalCoreKeywordTokens(goalId, config);
+      if (!tokens.length) return true;
+      const haystack = `${sanitizeNewsWord(article && article.title)} ${sanitizeNewsWord(article && article.description)} ${sanitizeNewsWord(article && article.summary)}`.toLowerCase();
+      if (!haystack) return false;
+      return tokens.some((token) => token && haystack.includes(token));
+    }
+
+    function logGoalKeywordMappings(config = getNewsConfigState()) {
+      const rows = Object.keys(goalTemplates).map((goalKey) => {
+        const goal = goalTemplates[goalKey];
+        const goalNo = getGoalNumberFromGoalKey(goalKey);
+        const keywords = getNewsQueriesForGoal(goalKey, config).map((item) => item.query);
+        return {
+          goalNo,
+          goalKey,
+          goalLabel: goal ? goal.label : goalKey,
+          keywordCount: keywords.length,
+          keywords: keywords.join(' | ')
+        };
+      });
+      console.table(rows);
+      console.log('[news] goal-keyword mapping (8 goals)', rows);
     }
 
     function extractNewsWordCandidates(title, excludeWords = []) {
@@ -10807,8 +10855,11 @@
     }
 
     function getNewsItemIndustryMatchCount(article, config = getNewsConfigState()) {
-      const activeQueries = getActiveNewsQueries(config);
-      return activeQueries.reduce((count, query) => count + (matchNewsArticleQuery(article, query.query) ? 1 : 0), 0);
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const tokens = getGoalCoreKeywordTokens(activeGoalId, config);
+      const haystack = `${sanitizeNewsWord(article && article.title)} ${sanitizeNewsWord(article && article.summary)} ${sanitizeNewsWord(article && article.description)}`.toLowerCase();
+      if (!haystack || !tokens.length) return 0;
+      return tokens.reduce((count, token) => count + (token && haystack.includes(token) ? 1 : 0), 0);
     }
 
     function dedupeNewsArticles(items) {
@@ -10825,7 +10876,11 @@
     }
 
     function getNewsRawCacheKey(config = getNewsConfigState()) {
-      const signature = buildNewsQuerySignature(config).replace(/[^a-z0-9]+/gi, '_').slice(0, 120) || 'default';
+      const signature = Object.keys(goalTemplates)
+        .map((goalKey) => `${goalKey}:${buildNewsQuerySignatureForGoal(goalKey, config)}`)
+        .join('|')
+        .replace(/[^a-z0-9]+/gi, '_')
+        .slice(0, 120) || 'default';
       return `${NEWS_CACHE_KEY}::${signature}`;
     }
 
@@ -10871,9 +10926,23 @@
       newsSettingsStatus.dataset.tone = tone || '';
     }
 
-    function logNewsFilterPipeline(goalId, queryCount, rawCount, excludeRemoved, industryRemoved, finalCount) {
-      console.log(`목표 ${goalId || 'unknown'} · 쿼리 ${queryCount}개 · 수집 ${rawCount}건 → 필터 후 ${finalCount}건`);
-      console.log(`[news] 제외어 ${excludeRemoved}건 제거 · 업종어 ${industryRemoved}건 제거`);
+    function logNewsFilterPipeline(goalId, queryCount, rawCount, coreRemoved, excludeRemoved, hiddenRemoved, crossGoalRemoved, finalCount) {
+      console.log(`목표 ${goalId || 'unknown'} · 키워드 ${queryCount}개 · 수집 ${rawCount}건 → 필터 후 ${finalCount}건`);
+      console.log(`[news] 핵심어 미일치 ${coreRemoved}건 · 제외어 ${excludeRemoved}건 · 숨김 ${hiddenRemoved}건 · 타목표중복 ${crossGoalRemoved}건`);
+    }
+
+    function getCrossGoalSeenArticleIds(currentGoalId, config = getNewsConfigState()) {
+      const seen = new Set();
+      const cacheMap = config && config.goalNewsCache && typeof config.goalNewsCache === 'object' ? config.goalNewsCache : {};
+      Object.keys(cacheMap).forEach((goalKey) => {
+        if (!goalKey || goalKey === currentGoalId) return;
+        const items = Array.isArray(cacheMap[goalKey] && cacheMap[goalKey].items) ? cacheMap[goalKey].items : [];
+        items.forEach((item) => {
+          const id = getNewsArticleId(item);
+          if (id) seen.add(id);
+        });
+      });
+      return seen;
     }
 
     function applyNewsFilters(items, config = getNewsConfigState(), goalId = '') {
@@ -10881,20 +10950,29 @@
       const excludeWords = Array.isArray(config.excludeWords) ? config.excludeWords : [];
       const activeGoalId = goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
       const goalQueries = getNewsQueriesForGoal(activeGoalId, config);
-      const goalQuerySignature = buildNewsQuerySignatureForGoal(activeGoalId, config);
-      const industryItems = rawItems.filter((item) => matchNewsArticleQuery(item, goalQuerySignature));
-      const excludeFiltered = industryItems.filter((item) => !isNewsWordExcluded(item, excludeWords));
+      const coreMatched = rawItems.filter((item) => articleMatchesGoalCoreKeyword(item, activeGoalId, config));
+      const excludeFiltered = coreMatched.filter((item) => !isNewsWordExcluded(item, excludeWords));
       const hiddenFiltered = excludeFiltered.filter((item) => !isNewsHiddenArticle(item));
-      const excludeRemoved = industryItems.length - excludeFiltered.length;
-      const industryRemoved = rawItems.length - industryItems.length;
+      const crossGoalSeen = getCrossGoalSeenArticleIds(activeGoalId, config);
+      const crossGoalFiltered = hiddenFiltered.filter((item) => {
+        const id = getNewsArticleId(item);
+        return !id || !crossGoalSeen.has(id);
+      });
+      const coreRemoved = rawItems.length - coreMatched.length;
+      const excludeRemoved = coreMatched.length - excludeFiltered.length;
+      const hiddenRemoved = excludeFiltered.length - hiddenFiltered.length;
+      const crossGoalRemoved = hiddenFiltered.length - crossGoalFiltered.length;
       const unique = dedupeNewsArticles(hiddenFiltered);
-      const finalCount = unique.length;
-      logNewsFilterPipeline(activeGoalId, goalQueries.length, rawItems.length, excludeRemoved, industryRemoved, finalCount);
+      const finalUnique = dedupeNewsArticles(crossGoalFiltered);
+      const finalCount = finalUnique.length;
+      logNewsFilterPipeline(activeGoalId, goalQueries.length, rawItems.length, coreRemoved, excludeRemoved, hiddenRemoved, crossGoalRemoved, finalCount);
       return {
-        items: unique,
+        items: finalUnique,
         rawCount: rawItems.length,
+        coreRemoved,
         excludeRemoved,
-        industryRemoved,
+        hiddenRemoved,
+        crossGoalRemoved,
         finalCount
       };
     }
@@ -10906,21 +10984,25 @@
         if (words.length) draft.excludeWords = words;
       }
       if (newsQueryList) {
+        const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+        const currentRows = getNewsQueriesForGoal(activeGoalId, draft);
         const queryRows = Array.from(newsQueryList.querySelectorAll('[data-news-query-index]'));
-        const nextQueries = queryRows.map((row) => {
+        const nextRows = queryRows.map((row) => {
           const index = Number(row.dataset.newsQueryIndex);
-          const labelInput = row.querySelector('[data-news-query-field="label"]');
           const queryInput = row.querySelector('[data-news-query-field="query"]');
-          const enabledInput = row.querySelector('[data-news-query-field="enabled"]');
+          const base = currentRows[index] || { id: `${activeGoalId}-keyword-${index + 1}`, label: `키워드 ${index + 1}` };
           return normalizeNewsConfigItem({
-            id: newsConfigState.searchQueries[index] && newsConfigState.searchQueries[index].id ? newsConfigState.searchQueries[index].id : `query-${index + 1}`,
-            label: labelInput ? labelInput.value : '',
+            id: base.id,
+            label: base.label,
             query: queryInput ? queryInput.value : '',
-            enabled: enabledInput ? enabledInput.checked : true,
+            enabled: true,
             sortOrder: index
           }, index);
         }).filter((item) => sanitizeNewsWord(item.query));
-        if (nextQueries.length) draft.searchQueries = nextQueries;
+        if (!draft.goalKeywordsByGoal || typeof draft.goalKeywordsByGoal !== 'object') {
+          draft.goalKeywordsByGoal = normalizeGoalKeywordMap({});
+        }
+        draft.goalKeywordsByGoal[activeGoalId] = nextRows.length ? nextRows : buildDefaultGoalKeywordRows(activeGoalId);
       }
       return draft;
     }
@@ -10932,12 +11014,12 @@
       newsFilterStats = filtered;
       newsVisibleItems = filtered.items;
       if (!newsSelectedGoalKey) return filtered;
-      const goalWeightKeywords = getNewsCategoryWeightKeywords(newsSelectedGoalKey);
       const sorted = newsVisibleItems
         .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
-        .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
-        .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
-        .map((entry) => entry.item);
+        .map((item) => ({ item, time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
+        .sort((a, b) => b.time - a.time)
+        .map((entry) => entry.item)
+        .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
       if (sorted.length) {
         clearNewsWidgetEmptyState();
         renderNewsItemsIntoWidget(sorted);
@@ -10951,8 +11033,9 @@
 
     async function saveNewsSettingsFromModal() {
       const draft = getNewsSettingsDraft();
-      const previousSignature = buildNewsQuerySignature(newsConfigState || buildDefaultNewsConfig());
-      const nextSignature = buildNewsQuerySignature(draft);
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const previousSignature = buildNewsQuerySignatureForGoal(activeGoalId, newsConfigState || buildDefaultNewsConfig());
+      const nextSignature = buildNewsQuerySignatureForGoal(activeGoalId, draft);
       const queryChanged = previousSignature !== nextSignature;
       newsConfigState = draft;
       persistLocalNewsConfig(newsConfigState);
@@ -10965,8 +11048,8 @@
       }
 
       if (queryChanged) {
-        setNewsSettingsStatus('검색 쿼리 변경을 반영해 다시 수집합니다.', 'success');
-        await refreshNewsDataset(true);
+        setNewsSettingsStatus('현재 목표 키워드 변경을 반영해 다시 수집합니다.', 'success');
+        await refreshNewsDataset(true, activeGoalId);
       } else {
         setNewsSettingsStatus('제외어/숨김 항목을 즉시 다시 적용했습니다.', 'success');
         renderNewsWidgetFromCache();
@@ -11020,18 +11103,35 @@
 
     async function removeNewsQuery(index) {
       const config = getNewsConfigState();
-      config.searchQueries = (config.searchQueries || []).filter((_, itemIndex) => itemIndex !== index);
-      if (!config.searchQueries.length) config.searchQueries = buildDefaultNewsConfig().searchQueries;
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const currentRows = getNewsQueriesForGoal(activeGoalId, config);
+      const nextRows = currentRows.filter((_, itemIndex) => itemIndex !== index);
+      if (!config.goalKeywordsByGoal || typeof config.goalKeywordsByGoal !== 'object') {
+        config.goalKeywordsByGoal = normalizeGoalKeywordMap({});
+      }
+      config.goalKeywordsByGoal[activeGoalId] = nextRows.length ? nextRows : buildDefaultGoalKeywordRows(activeGoalId);
       newsConfigState = config;
       await saveNewsConfig('remove-query');
       renderNewsSettingsLists();
-      await refreshNewsDataset(true);
+      await refreshNewsDataset(true, activeGoalId);
     }
 
     async function addNewsQuery() {
       const config = getNewsConfigState();
-      const nextIndex = (config.searchQueries || []).length + 1;
-      config.searchQueries = [...(config.searchQueries || []), normalizeNewsConfigItem({ id: `query-${Date.now()}`, label: `쿼리 ${nextIndex}`, query: NEWS_SEARCH_QUERY, enabled: true, sortOrder: nextIndex - 1 }, nextIndex - 1)];
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const currentRows = getNewsQueriesForGoal(activeGoalId, config);
+      const nextIndex = currentRows.length + 1;
+      const nextRow = normalizeNewsConfigItem({
+        id: `${activeGoalId}-keyword-${Date.now()}`,
+        label: `키워드 ${nextIndex}`,
+        query: '',
+        enabled: true,
+        sortOrder: nextIndex - 1
+      }, nextIndex - 1);
+      if (!config.goalKeywordsByGoal || typeof config.goalKeywordsByGoal !== 'object') {
+        config.goalKeywordsByGoal = normalizeGoalKeywordMap({});
+      }
+      config.goalKeywordsByGoal[activeGoalId] = [...currentRows, nextRow];
       newsConfigState = config;
       await saveNewsConfig('add-query');
       renderNewsSettingsLists();
@@ -11289,99 +11389,108 @@
       return fetch(url, { ...options, signal: controller.signal }).finally(() => window.clearTimeout(timer));
     }
 
-    async function fetchNewsViaRss2Json(query) {
-      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
-      const rssStart = performance.now();
-      const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, 8000);
-      const rssMs = Math.round(performance.now() - rssStart);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const parseStart = performance.now();
-      const data = await response.json();
-      const parseMs = Math.round(performance.now() - parseStart);
-      const count = data && Array.isArray(data.items) ? data.items.length : 0;
-      console.log('[news] rss2json 응답: status=', data && data.status, ', 건수=', count);
-      if (!data || data.status !== 'ok') {
-        throw new Error((data && data.message) || `rss2json status=${data && data.status}`);
-      }
-      return { items: Array.isArray(data.items) ? data.items : [], rssMs, parseMs };
+    function waitNewsInterval(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
     }
 
-    // rss2json이 실패(429, 네트워크 오류 등)할 때 쓰는 대체 경로: CORS 프록시로 원본 RSS XML을 받아 직접 파싱한다.
-    async function fetchNewsViaAllOrigins(query) {
-      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
-      const rssStart = performance.now();
-      const response = await fetchWithTimeout(proxyUrl, { cache: 'no-store' }, 8000);
-      const rssMs = Math.round(performance.now() - rssStart);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const parseStart = performance.now();
-      const xmlText = await response.text();
-      const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
-      if (xmlDoc.querySelector('parsererror')) throw new Error('XML 파싱 실패');
-      const entries = Array.from(xmlDoc.querySelectorAll('item'));
-      const parseMs = Math.round(performance.now() - parseStart);
-      console.log('[news] allorigins 파싱 완료: 건수=', entries.length);
+    async function fetchNewsViaRss2Json(query, goalId = '') {
+      const keyword = sanitizeNewsWord(query);
+      const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=ko&gl=KR&ceid=KR:ko`;
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+      const startedAt = performance.now();
+      let statusCode = 0;
+      let count = 0;
+      try {
+        const response = await fetchWithTimeout(apiUrl, { cache: 'no-store' }, NEWS_QUERY_TIMEOUT_MS);
+        statusCode = response.status;
+        if (!response.ok) {
+          const error = new Error(`http-${response.status}`);
+          error.statusCode = response.status;
+          throw error;
+        }
+        const payload = await response.json();
+        const items = Array.isArray(payload && payload.items) ? payload.items : [];
+        count = items.length;
+        if (!payload || payload.status !== 'ok') {
+          const reason = payload && payload.message ? String(payload.message) : `rss2json-status-${payload && payload.status ? payload.status : 'unknown'}`;
+          throw new Error(reason);
+        }
+        return {
+          ok: true,
+          items,
+          keyword,
+          goalId,
+          feedUrl,
+          apiUrl,
+          statusCode,
+          count,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        };
+      } catch (error) {
+        const reason = error && error.name === 'AbortError'
+          ? 'timeout-8s'
+          : (error && error.message ? String(error.message) : 'request-failed');
+        return {
+          ok: false,
+          items: [],
+          keyword,
+          goalId,
+          feedUrl,
+          apiUrl,
+          statusCode,
+          count,
+          reason,
+          elapsedMs: Math.round(performance.now() - startedAt)
+        };
+      } finally {
+        console.log('[news][request]', {
+          goalKey: goalId,
+          keyword,
+          url: apiUrl,
+          statusCode,
+          receivedCount: count
+        });
+      }
+    }
+
+    function normalizeNewsArticleForGoal(item, goalId, keyword, queryId) {
       return {
-        items: entries.map((entry) => {
-          const getText = (selector) => {
-            const el = entry.querySelector(selector);
-            return el ? el.textContent : '';
-          };
-          return {
-            title: getText('title'),
-            link: getText('link'),
-            pubDate: getText('pubDate'),
-            source: { title: getText('source') || 'Google News' }
-          };
-        }),
-        rssMs,
-        parseMs
+        ...item,
+        goalId,
+        queryId,
+        queryText: keyword,
+        title: typeof item?.title === 'string' ? item.title : '',
+        description: typeof item?.description === 'string' ? item.description : (typeof item?.content === 'string' ? item.content : ''),
+        summary: typeof item?.description === 'string' ? item.description : (typeof item?.content === 'string' ? item.content : ''),
+        link: typeof item?.link === 'string' ? item.link : '',
+        pubDate: typeof item?.pubDate === 'string' ? item.pubDate : '',
+        source: item && item.source && typeof item.source === 'object' ? item.source : { title: 'Google News' }
       };
     }
 
-    async function fetchNewsForQuery(queryItem) {
-      const queryText = sanitizeNewsWord(queryItem && queryItem.query) || '';
-      const queryId = queryItem && queryItem.id ? queryItem.id : 'unknown';
-      if (!queryText) return { items: [], rssMs: 0, parseMs: 0, totalMs: 0, queryId };
-      const startedAt = performance.now();
-      try {
-        const fetched = await fetchNewsViaRss2Json(queryText);
-        const totalMs = Math.round(performance.now() - startedAt);
-        console.log(`[news][query:${queryId}] rss2json 완료 ${totalMs} ms`);
-        return {
-          items: Array.isArray(fetched.items) ? fetched.items : [],
-          rssMs: Number.isFinite(fetched.rssMs) ? fetched.rssMs : 0,
-          parseMs: Number.isFinite(fetched.parseMs) ? fetched.parseMs : 0,
-          totalMs,
-          queryId
-        };
-      } catch (primaryError) {
-        console.warn(`[news][query:${queryId}] rss2json 실패:`, primaryError && primaryError.message);
-        try {
-          const fallback = await fetchNewsViaAllOrigins(queryText);
-          const totalMs = Math.round(performance.now() - startedAt);
-          console.log(`[news][query:${queryId}] fallback 완료 ${totalMs} ms`);
-          return {
-            items: Array.isArray(fallback.items) ? fallback.items : [],
-            rssMs: Number.isFinite(fallback.rssMs) ? fallback.rssMs : 0,
-            parseMs: Number.isFinite(fallback.parseMs) ? fallback.parseMs : 0,
-            totalMs,
-            queryId
-          };
-        } catch (fallbackError) {
-          const totalMs = Math.round(performance.now() - startedAt);
-          console.error(`[news][query:${queryId}] fallback(allorigins)도 실패:`, fallbackError && fallbackError.message);
-          return {
-            items: [],
-            rssMs: 0,
-            parseMs: 0,
-            totalMs,
-            queryId,
-            error: fallbackError && fallbackError.message ? fallbackError.message : String(fallbackError)
-          };
-        }
-      }
+    function toSortedLatestNews(items) {
+      return (Array.isArray(items) ? items : [])
+        .map((item) => ({
+          item,
+          time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime()
+        }))
+        .sort((left, right) => right.time - left.time)
+        .map((entry) => entry.item);
+    }
+
+    function getGoalNewsCacheEntry(goalId, config = getNewsConfigState()) {
+      if (!config || !config.goalNewsCache || typeof config.goalNewsCache !== 'object') return null;
+      const entry = config.goalNewsCache[goalId];
+      if (!entry || typeof entry !== 'object') return null;
+      return entry;
+    }
+
+    function isGoalNewsCacheFresh(goalId, signature, config = getNewsConfigState()) {
+      const entry = getGoalNewsCacheEntry(goalId, config);
+      if (!entry || !Array.isArray(entry.items) || !entry.items.length) return false;
+      if (entry.signature !== signature) return false;
+      if (!Number.isFinite(entry.fetchedAt)) return false;
+      return Date.now() - Number(entry.fetchedAt) <= NEWS_CACHE_TTL_MS;
     }
 
     function loadNewsForGoal(goalId, options = {}) {
@@ -11403,46 +11512,25 @@
           const config = getNewsConfigState();
           const activeQueries = getNewsQueriesForGoal(activeGoalId, config);
           const signature = buildNewsQuerySignatureForGoal(activeGoalId, config);
-          const cacheStorageKey = `newsCache_${activeGoalId}`;
-          const tCacheStart = performance.now();
+          const cachedEntry = !options.forceFetch && isGoalNewsCacheFresh(activeGoalId, signature, config)
+            ? getGoalNewsCacheEntry(activeGoalId, config)
+            : null;
 
-          let cached = null;
-          if (!options.forceFetch) {
-            try {
-              const raw = window.localStorage.getItem(cacheStorageKey);
-              if (raw) {
-                const parsed = JSON.parse(raw);
-                if (
-                  parsed
-                  && parsed.signature === signature
-                  && Array.isArray(parsed.items)
-                  && typeof parsed.fetchedAt === 'number'
-                  && Date.now() - parsed.fetchedAt <= NEWS_CACHE_TTL_MS
-                ) {
-                  cached = parsed;
-                }
-              }
-            } catch (cacheError) {
-              cached = null;
-            }
-          }
-          const cacheMs = Math.round(performance.now() - tCacheStart);
-
-          if (cached && Array.isArray(cached.items)) {
-            newsRawItemsCache = cached.items;
-            newsQueryResultCounts = cached.queryCounts || {};
+          if (cachedEntry && Array.isArray(cachedEntry.items)) {
+            newsRawItemsCache = cachedEntry.items;
+            newsQueryResultCounts = Object.fromEntries((cachedEntry.queryLogs || []).map((entry) => [entry.queryId, entry.rawCount]));
             newsFilterStats = applyNewsFilters(newsRawItemsCache, config, activeGoalId);
-            newsVisibleItems = newsFilterStats.items;
+            newsVisibleItems = toSortedLatestNews(newsFilterStats.items)
+              .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+              .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
             config.stats = {
-              lastFetchedAt: cached.fetchedAt ? new Date(cached.fetchedAt).toISOString() : new Date().toISOString(),
-              lastRawCount: cached.items.length,
+              lastFetchedAt: cachedEntry.fetchedAt ? new Date(cachedEntry.fetchedAt).toISOString() : new Date().toISOString(),
+              lastRawCount: cachedEntry.totalCount || cachedEntry.items.length,
               lastFinalCount: newsFilterStats.finalCount
             };
             updateNewsUpdatedText();
-            console.log(`[news] 캐시 사용: ${cacheStorageKey} (${cacheMs} ms)`);
-            console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 0 / 파싱 0 / 렌더 0`);
-            console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${cached.items.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
-            return { items: newsVisibleItems, totalCount: cached.items.length, error: null, goalId: activeGoalId };
+            console.log(`[news] Firebase 캐시 사용: goal=${activeGoalId}, count=${cachedEntry.items.length}`);
+            return { items: newsVisibleItems, totalCount: cachedEntry.totalCount || cachedEntry.items.length, error: null, goalId: activeGoalId, reason: 'cache-hit' };
           }
 
           if (!activeQueries.length) {
@@ -11452,106 +11540,78 @@
             newsVisibleItems = newsFilterStats.items;
             config.stats = { lastFetchedAt: new Date().toISOString(), lastRawCount: 0, lastFinalCount: 0 };
             updateNewsUpdatedText();
-            console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 0 / 파싱 0 / 렌더 0`);
-            console.log(`목표 ${activeGoalId} · 쿼리 0개 · 수집 0건 → 필터 후 0건`);
-            return { items: [], totalCount: 0, error: null, goalId: activeGoalId };
+            return { items: [], totalCount: 0, error: '키워드 없음', goalId: activeGoalId, reason: 'no-keywords' };
           }
 
-          const queryResults = [];
-          const tRssStart = performance.now();
-          const queryPromises = activeQueries.map((queryItem) => {
-            const queryTimerStart = performance.now();
-            const perQueryTimeout = new Promise((_, reject) => {
-              window.setTimeout(() => reject(new Error('query-timeout-8s')), 8000);
+          const queryLogs = [];
+          const collected = [];
+          for (let index = 0; index < activeQueries.length; index += 1) {
+            const row = activeQueries[index];
+            const queryId = row && row.id ? row.id : `${activeGoalId}-keyword-${index + 1}`;
+            const keyword = sanitizeNewsWord(row && row.query);
+            if (!keyword) continue;
+            const result = await fetchNewsViaRss2Json(keyword, activeGoalId);
+            const sortedByLatest = toSortedLatestNews(result.items);
+            const topItems = sortedByLatest
+              .slice(0, NEWS_TOP_ITEMS_PER_KEYWORD)
+              .map((item) => normalizeNewsArticleForGoal(item, activeGoalId, keyword, queryId));
+
+            queryLogs.push({
+              queryId,
+              keyword,
+              requestUrl: result.apiUrl,
+              statusCode: result.statusCode || 0,
+              rawCount: Array.isArray(result.items) ? result.items.length : 0,
+              usedCount: topItems.length,
+              reason: result.ok ? '' : (result.reason || 'request-failed')
             });
-            const queryWork = (async () => {
-              const result = await fetchNewsForQuery(queryItem);
-              return {
-                id: queryItem.id,
-                query: queryItem.query,
-                items: Array.isArray(result.items) ? result.items : [],
-                rssMs: Number.isFinite(result.rssMs) ? result.rssMs : 0,
-                parseMs: Number.isFinite(result.parseMs) ? result.parseMs : 0,
-                totalMs: Number.isFinite(result.totalMs) ? result.totalMs : Math.round(performance.now() - queryTimerStart),
-                error: result.error || ''
-              };
-            })();
+            collected.push(...topItems);
 
-            return Promise.race([queryWork, perQueryTimeout])
-              .then((entry) => {
-                const elapsedMs = Math.round(performance.now() - queryTimerStart);
-                console.log(`[news][query:${entry.id}] 총 ${elapsedMs} ms (rss ${entry.rssMs} / parse ${entry.parseMs})`);
-                queryResults.push(entry);
-                return entry;
-              })
-              .catch((error) => {
-                const elapsedMs = Math.round(performance.now() - queryTimerStart);
-                const failEntry = {
-                  id: queryItem.id,
-                  query: queryItem.query,
-                  items: [],
-                  rssMs: 0,
-                  parseMs: 0,
-                  totalMs: elapsedMs,
-                  error: error && error.message ? error.message : String(error)
-                };
-                console.warn(`[news][query:${queryItem.id}] 실패 ${elapsedMs} ms`, failEntry.error);
-                queryResults.push(failEntry);
-                throw error;
-              });
-          });
-
-          let overallTimedOut = false;
-          const allSettledPromise = Promise.allSettled(queryPromises);
-          const overallTimeoutPromise = new Promise((resolve) => {
-            window.setTimeout(() => {
-              overallTimedOut = true;
-              resolve();
-            }, 15000);
-          });
-          await Promise.race([allSettledPromise, overallTimeoutPromise]);
-          const rssMsTotal = Math.round(performance.now() - tRssStart);
-          if (overallTimedOut) {
-            console.warn('[news] 전체 뉴스 조회 15초 제한 초과, 완료된 쿼리만 사용합니다.');
+            if (index < activeQueries.length - 1) {
+              await waitNewsInterval(NEWS_REQUEST_INTERVAL_MS);
+            }
           }
 
-          const queryCounts = Object.fromEntries(queryResults.map((entry) => [entry.id, Array.isArray(entry.items) ? entry.items.length : 0]));
-          const flattened = queryResults.flatMap((entry) => (Array.isArray(entry.items) ? entry.items.map((item) => ({ ...item, queryId: entry.id, queryText: entry.query })) : []));
-          const uniqueItems = dedupeNewsArticles(flattened);
-          const parseMsTotal = queryResults.reduce((sum, entry) => sum + (Number.isFinite(entry.parseMs) ? entry.parseMs : 0), 0);
+          const queryCounts = Object.fromEntries(queryLogs.map((entry) => [entry.queryId, entry.rawCount]));
+          const dedupedByKeyword = dedupeNewsArticles(collected);
 
-          newsRawItemsCache = uniqueItems;
+          newsRawItemsCache = dedupedByKeyword;
           newsQueryResultCounts = queryCounts;
-          newsFilterStats = applyNewsFilters(uniqueItems, config, activeGoalId);
-          newsVisibleItems = newsFilterStats.items;
+          newsFilterStats = applyNewsFilters(dedupedByKeyword, config, activeGoalId);
+          newsVisibleItems = toSortedLatestNews(newsFilterStats.items)
+            .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+            .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
 
-          try {
-            window.localStorage.setItem(cacheStorageKey, JSON.stringify({
-              fetchedAt: Date.now(),
-              signature,
-              queryCounts,
-              items: uniqueItems
-            }));
-          } catch (cacheWriteError) {
-            console.warn('[news] 목표별 캐시 저장 실패', cacheWriteError);
+          if (!config.goalNewsCache || typeof config.goalNewsCache !== 'object') {
+            config.goalNewsCache = {};
           }
+          config.goalNewsCache[activeGoalId] = {
+            fetchedAt: Date.now(),
+            signature,
+            items: newsVisibleItems,
+            totalCount: dedupedByKeyword.length,
+            queryLogs
+          };
 
           config.stats = {
             lastFetchedAt: new Date().toISOString(),
-            lastRawCount: uniqueItems.length,
+            lastRawCount: dedupedByKeyword.length,
             lastFinalCount: newsFilterStats.finalCount
           };
-          await saveNewsConfig('news-dataset-refresh');
+          const cachePersistPromise = saveNewsConfig('news-dataset-refresh').catch((persistError) => {
+            console.warn('[news] Firebase 캐시 저장 실패(비차단)', persistError && persistError.message ? persistError.message : persistError);
+            return null;
+          });
+          await Promise.race([cachePersistPromise, waitNewsInterval(2500)]);
           updateNewsUpdatedText();
-          console.log(`[news] 단계 ms · 캐시확인 ${cacheMs} / RSS호출 ${rssMsTotal} / 파싱 ${parseMsTotal} / 렌더 0`);
-          console.log(`목표 ${activeGoalId} · 쿼리 ${activeQueries.length}개 · 수집 ${uniqueItems.length}건 → 필터 후 ${newsFilterStats.finalCount}건`);
-          if (!uniqueItems.length) {
-            const firstError = queryResults.find((entry) => entry.error);
-            if (firstError && firstError.error) {
-              return { items: [], totalCount: 0, error: firstError.error, goalId: activeGoalId };
+          if (!newsVisibleItems.length) {
+            const firstFail = queryLogs.find((entry) => entry.reason);
+            if (firstFail) {
+              return { items: [], totalCount: dedupedByKeyword.length, error: firstFail.reason, goalId: activeGoalId, reason: 'request-failed' };
             }
+            return { items: [], totalCount: dedupedByKeyword.length, error: null, goalId: activeGoalId, reason: 'no-matching-news' };
           }
-          return { items: newsVisibleItems, totalCount: uniqueItems.length, error: null, goalId: activeGoalId };
+          return { items: newsVisibleItems, totalCount: dedupedByKeyword.length, error: null, goalId: activeGoalId, reason: 'fetched' };
         } catch (error) {
           console.error('[news] 목표별 조회 실패', { goalId: activeGoalId, error });
           return {
@@ -11586,7 +11646,7 @@
     function renderNewsItemsIntoWidget(items) {
       const canEditNews = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
       const activeConfig = getNewsConfigState();
-      const visibleItems = Array.isArray(items) ? items.slice(0, 4) : [];
+      const visibleItems = Array.isArray(items) ? items.slice(0, NEWS_MAX_ITEMS_PER_GOAL) : [];
       newsVisibleItems = visibleItems.slice();
       if (!newsWidgetList) return;
       newsWidgetList.innerHTML = visibleItems.map((item, index) => {
@@ -11637,7 +11697,7 @@
         const retryButton = document.createElement('button');
         retryButton.type = 'button';
         retryButton.className = 'news-widget-empty-btn';
-        retryButton.textContent = '재시도';
+        retryButton.textContent = '다시 시도';
         retryButton.addEventListener('click', () => {
           newsConfigLoadError = '';
           newsConfigLoadPromise = null;
@@ -11663,6 +11723,8 @@
 
     function renderNewsSettingsLists() {
       const config = getNewsConfigState();
+      const activeGoalId = newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '';
+      const activeGoal = goalTemplates[activeGoalId];
       if (newsExcludeWordList) {
         newsExcludeWordList.innerHTML = (config.excludeWords || []).map((word, index) => `
           <span class="news-chip" data-news-exclude-word-item="${escapeHtml(word)}">
@@ -11672,14 +11734,14 @@
         `).join('') || '<div class="news-settings-empty">제외어가 없습니다.</div>';
       }
       if (newsQueryList) {
-        newsQueryList.innerHTML = (config.searchQueries || []).map((item, index) => `
+        const goalRows = getNewsQueriesForGoal(activeGoalId, config);
+        newsQueryList.innerHTML = `${activeGoal ? `<div class="news-settings-panel-note">현재 편집 목표: ${escapeHtml(activeGoal.label)} (${escapeHtml(activeGoalId)})</div>` : ''}` + (goalRows || []).map((item, index) => `
           <div class="news-query-row" data-news-query-index="${index}">
-            <input type="text" class="news-query-input" data-news-query-field="label" value="${escapeHtml(item.label || '')}" placeholder="표시 이름" />
-            <input type="text" class="news-query-input" data-news-query-field="query" value="${escapeHtml(item.query || '')}" placeholder="검색 쿼리" />
-            <label class="news-query-toggle"><input type="checkbox" data-news-query-field="enabled" ${item.enabled !== false ? 'checked' : ''} /> 활성</label>
+            <div class="news-query-row-title">키워드 ${index + 1}</div>
+            <input type="text" class="news-query-input" data-news-query-field="query" value="${escapeHtml(item.query || '')}" placeholder="키워드 입력" />
             <button type="button" class="news-chip-remove" data-news-remove-query="${index}">×</button>
           </div>
-        `).join('') || '<div class="news-settings-empty">검색 쿼리가 없습니다.</div>';
+        `).join('') || '<div class="news-settings-empty">검색 키워드가 없습니다.</div>';
       }
       if (newsHiddenList) {
         newsHiddenList.innerHTML = (config.hiddenArticles || []).map((item, index) => `
@@ -11716,33 +11778,48 @@
       newsSettingsModal.hidden = true;
     }
 
+    function getNewsFailureReasonLabel(reason) {
+      const text = sanitizeNewsWord(reason || '').toLowerCase();
+      if (!text) return '알 수 없는 오류';
+      if (text.includes('timeout') || text.includes('8s')) return '요청 시간 초과(8초)';
+      if (text.includes('http-')) return `HTTP 오류(${text.replace('http-', '')})`;
+      if (text.includes('firestore')) return '설정 저장소 연결 실패';
+      if (text.includes('network')) return '네트워크 오류';
+      if (text.includes('request-failed')) return '요청 실패';
+      return reason;
+    }
+
     async function refreshNewsDataset(forceFetch = false, goalId = '') {
       try {
         const activeGoalId = goalId && goalTemplates[goalId] ? goalId : (newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '');
         const result = await loadNewsForGoal(activeGoalId, { forceFetch });
+        if (result && result.error) {
+          newsWidgetList.innerHTML = '';
+          newsWidgetLoading.hidden = true;
+          setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(result.error)})`, false, true);
+          return { ...result, items: [] };
+        }
         const items = Array.isArray(result.items) ? result.items : [];
-        const withinWindow = items.filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS));
-        const goalWeightKeywords = getNewsCategoryWeightKeywords(activeGoalId);
-        const sorted = withinWindow
-          .map((item) => ({ item, score: scoreNewsItemForGoal(item, goalWeightKeywords), time: (parseNewsPubDate(item && item.pubDate) || new Date(0)).getTime() }))
-          .sort((a, b) => (b.score !== a.score ? b.score - a.score : b.time - a.time))
-          .map((entry) => entry.item);
+        const sorted = toSortedLatestNews(items)
+          .filter((item) => isWithinNewsWindow(item && item.pubDate, NEWS_MAX_AGE_DAYS))
+          .slice(0, NEWS_MAX_ITEMS_PER_GOAL);
         if (!sorted.length) {
           newsWidgetList.innerHTML = '';
           newsWidgetLoading.hidden = true;
-          setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 표시할 뉴스가 없습니다.`, true);
-          return result;
+          setNewsWidgetEmptyState('조건에 맞는 최신 뉴스가 없습니다', true);
+          return { ...result, items: [], reason: result.reason || 'no-matching-news' };
         }
         clearNewsWidgetEmptyState();
         renderNewsItemsIntoWidget(sorted);
-        return { ...result, items: sorted };
+        return { ...result, items: sorted, reason: result.reason || 'ok' };
       } catch (error) {
         console.error('[news] refreshNewsDataset 실패', error);
         return {
           items: [],
           totalCount: 0,
           error: error && error.message ? error.message : String(error),
-          goalId: goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || ''
+          goalId: goalId || newsSelectedGoalKey || currentGoalKey || Object.keys(goalTemplates)[0] || '',
+          reason: 'request-failed'
         };
       }
     }
@@ -11762,10 +11839,11 @@
         newsSelectedGoalKey = goalKey;
         const activeConfig = getNewsConfigState();
         const activeQueries = getNewsQueriesForGoal(goalKey, activeConfig);
+        logGoalKeywordMappings(activeConfig);
 
         newsWidget.hidden = false;
         newsWidgetTitle.textContent = `📰 실시간 ${goalTemplate.label} 관련 B2B & 시장 동향`;
-        newsWidgetMeta.textContent = `Google News RSS + rss2json · 검색어: ${activeQueries.map((item) => item.query).join(', ') || NEWS_SEARCH_QUERY} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
+        newsWidgetMeta.textContent = `Google News RSS + rss2json · 키워드: ${getNewsSearchQueryLabel(goalKey, activeConfig)} · 제외어 ${activeConfig.excludeWords.length}개 · 최근 ${NEWS_MAX_AGE_DAYS}일 이내`;
 
         newsWidgetList.innerHTML = '';
         clearNewsWidgetEmptyState();
@@ -11778,17 +11856,17 @@
           const items = Array.isArray(result.items) ? result.items : [];
           const totalCount = result.totalCount || 0;
           const renderMs = Math.round(performance.now() - renderStartMs);
-          console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}`);
+          console.log(`[news][${goalKey}] 원본 ${totalCount}건, 오류=${result.error || '없음'}, reason=${result.reason || '-'}`);
 
           if (result.error) {
             newsWidgetList.innerHTML = '';
-            setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${result.error}`, false, true);
+            setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(result.error)})`, false, true);
             return;
           }
 
           if (!items.length) {
             newsWidgetList.innerHTML = '';
-            setNewsWidgetEmptyState(`최근 ${NEWS_MAX_AGE_DAYS}일 내 신규 기사 없음 (전체 ${totalCount}건 중 0건)`, true);
+            setNewsWidgetEmptyState('조건에 맞는 최신 뉴스가 없습니다', true);
             return;
           }
 
@@ -11798,7 +11876,7 @@
         }).catch((error) => {
           if (requestId !== newsRequestSerial) return;
           newsWidgetList.innerHTML = '';
-          setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false, true);
+          setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(error && error.message ? error.message : String(error))})`, false, true);
         }).finally(() => {
           if (requestId !== newsRequestSerial) return;
           newsWidgetLoading.hidden = true;
@@ -11810,7 +11888,7 @@
           newsWidgetLoading.hidden = true;
           newsWidgetLoading.textContent = '';
         }
-        setNewsWidgetEmptyState(`데이터를 불러오지 못했습니다: ${error && error.message ? error.message : String(error)}`, false, true);
+        setNewsWidgetEmptyState(`뉴스를 불러오지 못했습니다 (${getNewsFailureReasonLabel(error && error.message ? error.message : String(error))})`, false, true);
       }
     }
 
