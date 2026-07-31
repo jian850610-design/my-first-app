@@ -5943,6 +5943,10 @@
       return user ? (user.uid || user.email || user.displayName || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
     }
 
+    function canEditMiniCalendar() {
+      return EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+    }
+
     function buildMiniCalendarEventPayload(rawEvent, overrides = {}) {
       const normalized = normalizeMiniCalendarEvent(rawEvent, overrides.createdBy || getMiniCalendarCreatedByValue());
       if (!normalized) return null;
@@ -6434,13 +6438,6 @@
         return;
       }
 
-      if (miniCalendarLoading || miniCalendarLoadError) {
-        miniCalendarGrid.innerHTML = miniCalendarLoadError
-          ? `<div class="mini-calendar-empty">${escapeHtml(miniCalendarLoadError)}</div>`
-          : '<div class="mini-calendar-empty">일정 불러오는 중...</div>';
-        return;
-      }
-
       const weeks = getMiniCalendarVisibleWeeks();
       const todayDateKey = getMiniCalendarDateKey(new Date());
       const selectedDateKey = miniCalendarModalState && miniCalendarModalState.selectedDateKey ? miniCalendarModalState.selectedDateKey : '';
@@ -6461,22 +6458,23 @@
     }
 
     function openMiniCalendarModal(options = {}) {
+      if (!canEditMiniCalendar()) return;
       if (!miniCalendarModal || !miniCalendarEventTitleInput || !miniCalendarEventStartInput || !miniCalendarEventEndInput || !miniCalendarEventColorInput || !miniCalendarEventMemoInput || !miniCalendarSaveBtn || !miniCalendarDeleteBtn) return;
       const eventId = typeof options.eventId === 'string' ? options.eventId : '';
       const selectedDateKey = getMiniCalendarDateKey(options.selectedDateKey) || getMiniCalendarDateKey(new Date());
       const existingEvent = eventId ? miniCalendarEvents.find((eventItem) => eventItem.id === eventId) || null : null;
-      const isEditMode = Boolean(existingEvent);
+      const isEditingExistingEvent = Boolean(existingEvent);
       miniCalendarModalState = {
         eventId,
         selectedDateKey,
-        mode: isEditMode ? 'edit' : 'create'
+        mode: isEditingExistingEvent ? 'edit' : 'create'
       };
 
-      miniCalendarModalKicker.textContent = isEditMode ? '일정 수정' : '일정 등록';
-      miniCalendarModalTitle.textContent = isEditMode ? '일정 수정' : '새 일정 등록';
-      miniCalendarModalNote.textContent = isEditMode ? '저장하면 선택한 일정이 갱신됩니다.' : '저장하면 달력에 즉시 반영됩니다.';
-      miniCalendarSaveBtn.textContent = isEditMode ? '수정 저장' : '저장';
-      miniCalendarDeleteBtn.hidden = !isEditMode;
+      miniCalendarModalKicker.textContent = isEditingExistingEvent ? '일정 수정' : '일정 등록';
+      miniCalendarModalTitle.textContent = isEditingExistingEvent ? '일정 수정' : '새 일정 등록';
+      miniCalendarModalNote.textContent = isEditingExistingEvent ? '저장하면 선택한 일정이 갱신됩니다.' : '저장하면 달력에 즉시 반영됩니다.';
+      miniCalendarSaveBtn.textContent = isEditingExistingEvent ? '수정 저장' : '저장';
+      miniCalendarDeleteBtn.hidden = !isEditingExistingEvent;
 
       miniCalendarEventTitleInput.value = existingEvent ? existingEvent.title : '';
       miniCalendarEventStartInput.value = existingEvent ? existingEvent.startDate : selectedDateKey;
@@ -6495,6 +6493,7 @@
     }
 
     async function saveMiniCalendarModal() {
+      if (!canEditMiniCalendar()) return;
       if (!miniCalendarModalState || !miniCalendarEventTitleInput || !miniCalendarEventStartInput || !miniCalendarEventEndInput || !miniCalendarEventColorInput || !miniCalendarEventMemoInput) return;
       const title = miniCalendarEventTitleInput.value.trim();
       const startDate = getMiniCalendarDateKey(miniCalendarEventStartInput.value);
@@ -6552,6 +6551,7 @@
     }
 
     async function deleteMiniCalendarModalEvent() {
+      if (!canEditMiniCalendar()) return;
       if (!miniCalendarModalState || !miniCalendarModalState.eventId) return;
       const confirmed = window.confirm('이 일정을 삭제하시겠습니까?');
       if (!confirmed) return;
@@ -7395,7 +7395,7 @@
         todayActivityDate.textContent = formatTimelineDateBadge(selectedDateKey);
       }
       if (!todayActivityList || !todayActivityEmpty) return;
-      const canManageTimeline = EDIT_MODE_REQUESTED;
+      const canManageTimeline = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
       if (todayTimelineClearBtn) {
         todayTimelineClearBtn.classList.toggle('visible', canManageTimeline);
       }
@@ -13249,12 +13249,17 @@
           const eventButton = event.target.closest('[data-mini-calendar-event-id]');
           if (eventButton) {
             closeMiniCalendarPopover();
-            openMiniCalendarModal({ eventId: eventButton.dataset.miniCalendarEventId || '' });
+            if (canEditMiniCalendar()) {
+              openMiniCalendarModal({ eventId: eventButton.dataset.miniCalendarEventId || '' });
+            } else {
+              const dateCell = eventButton.closest('[data-mini-calendar-date]');
+              renderMiniCalendarPopover(dateCell ? dateCell.dataset.miniCalendarDate || '' : '', eventButton);
+            }
             return;
           }
 
           const dateButton = event.target.closest('[data-mini-calendar-date]');
-          if (dateButton) {
+          if (dateButton && canEditMiniCalendar()) {
             closeMiniCalendarPopover();
             openMiniCalendarModal({ selectedDateKey: dateButton.dataset.miniCalendarDate || '' });
           }
@@ -13266,7 +13271,11 @@
           if (!dateButton) return;
           event.preventDefault();
           closeMiniCalendarPopover();
-          openMiniCalendarModal({ selectedDateKey: dateButton.dataset.miniCalendarDate || '' });
+          if (canEditMiniCalendar()) {
+            openMiniCalendarModal({ selectedDateKey: dateButton.dataset.miniCalendarDate || '' });
+          } else {
+            renderMiniCalendarPopover(dateButton.dataset.miniCalendarDate || '', dateButton);
+          }
         });
       }
 
