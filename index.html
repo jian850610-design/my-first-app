@@ -108,7 +108,7 @@
     .mandalart-section { width: 100%; box-sizing: border-box; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; box-shadow: 0 12px 28px rgba(13, 29, 52, 0.08); }
     .mandalart-section strong { display: block; margin-bottom: 12px; color: #264a6d; font-size: 13px; }
     .mandalart-grid { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .mandalart-cell { border: 1px dashed #d8e5f1; border-radius: 14px; padding: 8px; background: #fbfdff; display: flex; align-items: stretch; }
+    .mandalart-cell { border: 1px dashed #d8e5f1; border-radius: 14px; padding: 8px; background: #fbfdff; display: flex; align-items: flex-start; }
     .mandalart-center { border-style: solid; border-color: #9cb8d3; background: linear-gradient(135deg, #e8f2ff 0%, #f1f7ff 100%); display: flex; align-items: center; justify-content: center; text-align: center; font-size: 16px; font-weight: 800; color: #1d4f7f; line-height: 1.35; }
     .mandalart-goal-btn { width: 100%; min-height: 0; border: 1px solid #cfdeed; border-radius: 12px; background: white; text-align: left; padding: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; align-items: stretch; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease; }
     .mandalart-goal-btn:hover,
@@ -7954,7 +7954,7 @@
     function getGoalPreviewTags(goalKey) {
       const goal = goalTemplates[goalKey];
       if (!goal || !Array.isArray(goal.items)) return [];
-      return goal.items.slice(0, 4).map((item) => item.title
+      return goal.items.map((item) => item.title
         .replace(/^SKF\s*/i, '')
         .replace(/^신규\s*/i, '')
         .replace(/^주요\s*/i, '')
@@ -8010,6 +8010,7 @@
       const sourceState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
         ? dashboardUnifiedOverviewState
         : state;
+      const countReport = [];
       const goalKeys = Object.keys(goalTemplates);
       const slotMap = {
         0: goalKeys[0],
@@ -8035,6 +8036,8 @@
         const goal = goalTemplates[goalKey];
         const stats = getGoalStats(goalKey, sourceState);
         const previewTags = getGoalPreviewTags(goalKey);
+        const cardCount = Array.isArray(goal.items) ? goal.items.length : previewTags.length;
+        countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewTags.length });
         const isSearchHit = goalMatchesSearch(goalKey, dashboardSearchTerm);
         const goalFlagBadges = renderGoalFlagBadges(stats);
         return `
@@ -8045,7 +8048,7 @@
                 <div class="mandalart-goal-title">${getGoalDisplayLabel(goalKey)}</div>
               </div>
               <div class="mandalart-goal-meta">
-                <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}%</span>
+                <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}% · ${cardCount}건</span>
               </div>
               <div class="mandalart-keyword-list">
                 ${previewTags.map((tag) => `<span class="mandalart-keyword-tag">${escapeHtml(tag)}</span>`).join('')}
@@ -8056,6 +8059,8 @@
       });
 
       mandalartGrid.innerHTML = cells.join('');
+      console.table(countReport);
+      console.log('[mandalart] 목표별 카드 수 검증', countReport);
     }
 
     function syncOverviewWidgets(state) {
