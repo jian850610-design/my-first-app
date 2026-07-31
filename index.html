@@ -2048,13 +2048,13 @@
     function updateFirebaseFullSyncControls() {
       if (!firebaseFullSyncBtn) return;
       const canShow = EDIT_MODE_REQUESTED;
-      const canRun = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser) && firebaseBridgeReady && !fullCardsSyncInProgress;
+      const canRun = EDIT_MODE_REQUESTED && firebaseBridgeReady && !fullCardsSyncInProgress;
       firebaseFullSyncBtn.hidden = !canShow;
       firebaseFullSyncBtn.disabled = !canRun;
       if (!canRun && canShow) {
-        firebaseFullSyncBtn.title = currentFirebaseUser
-          ? (fullCardsSyncInProgress ? '전체 동기화 실행 중입니다.' : 'Firebase 연결 준비 중입니다.')
-          : '전체 동기화는 편집 모드 로그인 후 실행할 수 있습니다.';
+        firebaseFullSyncBtn.title = fullCardsSyncInProgress
+          ? '전체 동기화 실행 중입니다.'
+          : 'Firebase 연결 준비 중입니다.';
       } else {
         firebaseFullSyncBtn.title = '편집모드 로컬 최신 상태를 /cards에 전체 반영합니다.';
       }
@@ -4379,7 +4379,7 @@
     }
 
     function applyEditabilityState() {
-      const isEditable = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
+      const isEditable = EDIT_MODE_REQUESTED && firebaseBridgeReady;
 
       if (benchmarkBackupSection) {
         benchmarkBackupSection.hidden = !EDIT_MODE_REQUESTED;
@@ -4729,14 +4729,17 @@
     }
 
     async function flushFirebaseSnapshot(reason = '') {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
       if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') return;
+      const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
+      const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
+      const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
       const snapshot = buildFirebaseSnapshot(currentPlannerState, {
         lastUpdatedAt: new Date().toISOString(),
-        updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
-        updatedByEmail: currentFirebaseUser.email || '',
-        updatedByUid: currentFirebaseUser.uid || ''
+        updatedByName: actorName,
+        updatedByEmail: actorEmail,
+        updatedByUid: actorUid
       });
       const rootUpdates = buildRootUpdatesFromSnapshot(snapshot);
       firebaseSaving = true;
@@ -4760,7 +4763,7 @@
     }
 
     function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -4820,7 +4823,7 @@
     }
 
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
       const bridge = getFirebaseBridge();
       if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
@@ -4837,12 +4840,15 @@
       updateFirebaseConnectionChip();
       try {
         await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
+        const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
+        const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
+        const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
         setFirebaseSaveFailureBanner('');
         updateFirebaseLastUpdatedText({
           lastUpdatedAt: new Date().toISOString(),
-          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
-          updatedByEmail: currentFirebaseUser.email || '',
-          updatedByUid: currentFirebaseUser.uid || ''
+          updatedByName: actorName,
+          updatedByEmail: actorEmail,
+          updatedByUid: actorUid
         });
         return { ok: true };
       } catch (error) {
@@ -14808,8 +14814,7 @@
 
     async function initializeApp() {
       const todayKey = getLocalDateKey();
-      const hasPersistedState = hasAnyPersistedPlannerState();
-      const shouldWaitRemoteSnapshot = !EDIT_MODE_REQUESTED;
+      const shouldWaitRemoteSnapshot = true;
 
       currentPlannerDateKey = todayKey;
       timelineSelectedDateKey = todayKey;
@@ -14817,16 +14822,14 @@
         plannerDatePicker.value = todayKey;
       }
 
-      const initialState = (!shouldWaitRemoteSnapshot && hasPersistedState)
-        ? normalizePlannerState(loadStateFromStorageForDate())
-        : normalizePlannerState({ items: {}, hiddenLogs: {}, meta: {} });
+      const initialState = normalizePlannerState({ items: {}, hiddenLogs: {}, meta: {} });
 
-      if (shouldWaitRemoteSnapshot || !hasPersistedState) {
+      if (shouldWaitRemoteSnapshot) {
         setFirebaseReadStatus('데이터를 불러오는 중입니다...');
       }
 
       syncPinnedChecklistState(initialState);
-      setCurrentPlannerState(initialState, { skipFirebaseSync: true, skipLocalStorage: shouldWaitRemoteSnapshot || !hasPersistedState });
+      setCurrentPlannerState(initialState, { skipFirebaseSync: true, skipLocalStorage: true });
 
       initializeGoalSelect();
       initializeMiniCalendar();
