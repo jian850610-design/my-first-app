@@ -653,16 +653,20 @@
     .goal-card-summary-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     .goal-card-summary-title { font-size: 14px; font-weight: 800; color: #174064; line-height: 1.4; }
     .goal-card-summary-count { font-size: 12px; font-weight: 800; color: #5c748c; background: #ffffff; border: 1px solid #d8e7f4; border-radius: 999px; padding: 5px 9px; }
-    .goal-card-summary-list { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
-    .goal-card-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 52px; border: 1px solid #d7e5f2; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); color: #204465; padding: 11px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; box-shadow: 0 8px 18px rgba(19, 73, 122, 0.04); text-align: left; }
-    .goal-card-chip:hover { transform: translateY(-2px); border-color: #9cc3e5; box-shadow: 0 14px 28px rgba(19, 73, 122, 0.14); background: #ffffff; }
-    .goal-card-chip-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
-    .goal-card-chip-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; background: #edf5ff; color: #24547f; border: 1px solid #d2e2f2; white-space: nowrap; flex-shrink: 0; }
-    .goal-card-chip-badge.done { background: #e9f7ef; color: #0d7a4b; border-color: #c8e8d6; }
-    .goal-card-chip-badge.overdue { background: #ffe7e7; color: #b23a3a; border-color: #f1c1c1; }
-    .goal-card-chip-badge.today { background: #fff2d7; color: #a15a00; border-color: #f0d4a3; }
-    .goal-card-chip-badge.soon { background: #eef4ff; color: #24547f; border-color: #d2e2f2; }
-    .goal-card-chip-badge.unset { background: #eff3f8; color: #6b7f95; border-color: #d5e0ea; }
+    .goal-card-summary-list { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; align-items: stretch; }
+    .goal-card-chip { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; width: 100%; border: 1px solid #d7e5f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); color: #204465; padding: 10px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease; box-shadow: 0 6px 14px rgba(19, 73, 122, 0.05); text-align: left; }
+    .goal-card-chip:hover { border-color: #9cc3e5; box-shadow: 0 12px 24px rgba(19, 73, 122, 0.12); background: #f2f8ff; }
+    .goal-card-chip-left { flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-start; gap: 7px; }
+    .goal-card-chip-index { color: #6d829a; font-weight: 900; line-height: 1.45; flex-shrink: 0; }
+    .goal-card-chip-flags { display: inline-flex; align-items: center; gap: 2px; min-width: 0; flex-shrink: 0; }
+    .goal-card-chip-title { min-width: 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; color: #1f4468; }
+    .goal-card-chip-right { width: 110px; flex-shrink: 0; display: grid; justify-items: end; gap: 6px; }
+    .goal-card-chip-progress-row { display: inline-flex; align-items: center; gap: 6px; }
+    .goal-card-chip-progress-track { width: 60px; height: 4px; border-radius: 999px; background: #d8e7f6; overflow: hidden; }
+    .goal-card-chip-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0f5f9d 0%, #1f86d0 100%); }
+    .goal-card-chip-progress-value { font-size: 11px; font-weight: 800; color: #1f507a; font-variant-numeric: tabular-nums; }
+    .goal-card-chip-dday { font-size: 11px; font-weight: 800; color: #5f7590; font-variant-numeric: tabular-nums; }
+    .goal-card-chip-dday.overdue { color: #c03939; }
     .goal-card-chip.flash { animation: chipFlash 1.8s ease; }
     @keyframes chipFlash {
       0% { box-shadow: 0 0 0 0 rgba(15, 95, 157, 0.0); }
@@ -983,7 +987,9 @@
 
     .hint { color: var(--muted); font-size: 13px; }
 
-    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } .goal-card-summary-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 980px) { .form-grid { grid-template-columns: 1fr; } .mandalart-grid { grid-template-columns: 1fr; } }
+
+    @media (min-width: 1280px) { .goal-card-summary-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
     @media (max-width: 620px) {
       .header-bar { padding: 22px 20px; }
@@ -993,7 +999,6 @@
       .firebase-date-field { width: 100%; min-width: 0; }
       .firebase-status-strip { align-items: stretch; }
       .firebase-auth-group { width: 100%; }
-      .goal-card-summary-list { grid-template-columns: 1fr; }
       .workflow-item { flex-wrap: wrap; }
       .workflow-header { align-items: flex-start; }
       .workflow-header-tools { width: 100%; }
@@ -10373,19 +10378,110 @@
       goalCardSummaryTitle.textContent = `📌 ${goalTemplate.label} 세부 카드 목록 (총 ${items.length}개)`;
       goalCardSummaryCount.textContent = `총 ${items.length}개`;
 
-      goalCardSummaryList.innerHTML = items.map((item, index) => {
+      const parseDateAtMidnight = (dateText) => {
+        if (!dateText || typeof dateText !== 'string') return null;
+        const parsed = new Date(`${dateText}T00:00:00`);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      const getItemSummaryDueDate = (steps) => {
+        const list = Array.isArray(steps) ? steps : [];
+        const pendingDue = list
+          .filter((step) => step && typeof step.dueDate === 'string' && step.dueDate && !isChecklistStepCompleted(step))
+          .map((step) => step.dueDate)
+          .sort((left, right) => left.localeCompare(right));
+        if (pendingDue.length) return pendingDue[0];
+        const allDue = list
+          .filter((step) => step && typeof step.dueDate === 'string' && step.dueDate)
+          .map((step) => step.dueDate)
+          .sort((left, right) => left.localeCompare(right));
+        return allDue.length ? allDue[allDue.length - 1] : '';
+      };
+
+      const toProgressPercent = (checkedCount, totalCount) => (totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0);
+
+      const toDdayMeta = (dueDate, completed) => {
+        if (!dueDate) return { text: '-', overdue: false, diff: Number.POSITIVE_INFINITY };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = parseDateAtMidnight(dueDate);
+        if (!target) return { text: '-', overdue: false, diff: Number.POSITIVE_INFINITY };
+        const diff = Math.ceil((target.getTime() - today.getTime()) / 86400000);
+        if (diff === 0) return { text: 'D-Day', overdue: false, diff };
+        if (diff > 0) return { text: `D-${diff}`, overdue: false, diff };
+        return { text: `D+${Math.abs(diff)}`, overdue: completed !== true, diff };
+      };
+
+      const sortedItems = items.map((item, index) => {
         const itemKey = `${goalKey}::${index}`;
         const itemPrinciples = getCardGuidelines(goalState, goalKey, item, goalTemplate, itemKey);
         const checklistSteps = getChecklistStepsForItem(goalState, goalKey, item, itemKey, itemPrinciples);
         const itemState = getItemState(goalState, itemKey, checklistSteps.length, itemPrinciples);
-        const badge = getItemSummaryBadge(itemState, checklistSteps);
-        return `
-          <button type="button" class="goal-card-chip" data-key="${itemKey}">
-            <span class="goal-card-chip-title">${escapeHtml(getCardTitleText(itemState, item))}</span>
-            <span class="goal-card-chip-badge ${badge.cls}">${escapeHtml(badge.text)}</span>
+        const priorityValue = resolveTeamOverviewPriority(itemState);
+        const checkedCount = Array.isArray(itemState && itemState.steps)
+          ? itemState.steps.filter((step) => isChecklistStepCompleted(step)).length
+          : 0;
+        const totalCount = checklistSteps.length || (Array.isArray(itemState && itemState.steps) ? itemState.steps.length : 0);
+        const percent = toProgressPercent(checkedCount, totalCount);
+        const completed = totalCount > 0 && checkedCount >= totalCount;
+        const dueDate = getItemSummaryDueDate(itemState && itemState.steps);
+        const ddayMeta = toDdayMeta(dueDate, completed);
+        const flags = [
+          priorityValue === PRIORITY_URGENT ? '🔴' : '',
+          priorityValue === PRIORITY_IMPORTANT ? '🟡' : '',
+          itemState && itemState.isLeaderRequested === true ? '📌' : ''
+        ].filter(Boolean).join('');
+
+        let sortBucket = 3;
+        if (priorityValue === PRIORITY_URGENT) {
+          sortBucket = 0;
+        } else if (priorityValue === PRIORITY_IMPORTANT) {
+          sortBucket = 1;
+        } else if (dueDate && !completed) {
+          sortBucket = 2;
+        }
+
+        const dueSortTime = (() => {
+          const parsed = parseDateAtMidnight(dueDate);
+          return parsed ? parsed.getTime() : Number.POSITIVE_INFINITY;
+        })();
+
+        return {
+          index,
+          itemKey,
+          title: getCardTitleText(itemState, item),
+          flags,
+          percent,
+          ddayText: ddayMeta.text,
+          ddayOverdue: ddayMeta.overdue,
+          sortBucket,
+          dueSortTime
+        };
+      }).sort((left, right) => {
+        if (left.sortBucket !== right.sortBucket) return left.sortBucket - right.sortBucket;
+        if (left.sortBucket === 2 && left.dueSortTime !== right.dueSortTime) return left.dueSortTime - right.dueSortTime;
+        if (left.dueSortTime !== right.dueSortTime && Number.isFinite(left.dueSortTime) && Number.isFinite(right.dueSortTime)) {
+          return left.dueSortTime - right.dueSortTime;
+        }
+        return left.index - right.index;
+      });
+
+      goalCardSummaryList.innerHTML = sortedItems.map((entry) => `
+          <button type="button" class="goal-card-chip" data-key="${entry.itemKey}">
+            <span class="goal-card-chip-left">
+              <span class="goal-card-chip-index">${entry.index + 1}.</span>
+              <span class="goal-card-chip-flags" aria-hidden="true">${entry.flags || ' '}</span>
+              <span class="goal-card-chip-title">${escapeHtml(entry.title)}</span>
+            </span>
+            <span class="goal-card-chip-right">
+              <span class="goal-card-chip-progress-row">
+                <span class="goal-card-chip-progress-track"><span class="goal-card-chip-progress-fill" style="width:${entry.percent}%"></span></span>
+                <span class="goal-card-chip-progress-value">${entry.percent}%</span>
+              </span>
+              <span class="goal-card-chip-dday ${entry.ddayOverdue ? 'overdue' : ''}">${escapeHtml(entry.ddayText)}</span>
+            </span>
           </button>
-        `;
-      }).join('');
+        `).join('');
     }
 
     // 카테고리 키워드는 검색어(AND 필터)가 아니라 "정렬 가중치"로만 사용한다.
