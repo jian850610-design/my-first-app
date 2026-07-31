@@ -92,6 +92,14 @@
     .firebase-read-status.warn { color: #a13b3b; }
     .firebase-retry-btn { border: 1px solid #d4a0a0; border-radius: 10px; background: #fff5f5; color: #a13b3b; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .firebase-retry-btn:hover { background: #ffecec; }
+    .firebase-full-sync-btn { border: 1px solid #8db5dc; border-radius: 10px; background: #eef6ff; color: #1f4f7a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .firebase-full-sync-btn:hover { background: #ddefff; }
+    .firebase-full-sync-btn:disabled { opacity: 0.55; cursor: default; }
+    .firebase-sync-status { font-size: 12px; font-weight: 800; color: #44627f; }
+    .firebase-sync-status.warn { color: #a13b3b; }
+    .firebase-sync-status.ok { color: #20704a; }
+    .firebase-save-failure-banner { margin-top: 10px; border: 1px solid #e0a5a5; border-radius: 12px; background: #fff3f3; color: #9f2c2c; padding: 10px 12px; font-size: 12px; font-weight: 800; }
+    .firebase-save-failure-banner[hidden] { display: none; }
     .firebase-status-strip .firebase-date-picker { border-color: #d6e2ec; background: #ffffff; color: #24405d; }
     .firebase-status-strip .firebase-date-picker:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .dashboard-search-section { margin-top: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
@@ -1173,8 +1181,11 @@
           <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
           <span class="firebase-read-status" id="firebaseReadStatusText" hidden></span>
           <button type="button" class="firebase-retry-btn" id="firebaseRetryBtn" hidden>다시 시도</button>
+          <button type="button" class="firebase-full-sync-btn" id="firebaseFullSyncBtn" hidden>지금 전체 동기화</button>
+          <span class="firebase-sync-status" id="firebaseSyncStatusText" hidden></span>
         </div>
       </section>
+      <section class="firebase-save-failure-banner" id="firebaseSaveFailureBanner" hidden></section>
       <div class="dashboard-search-section" id="searchSection">
         <label class="dashboard-search-label" for="dashboardSearchInput">🔍 실무 업무 검색: 예) 캘린더, 텀블러, 박람회</label>
         <input class="dashboard-search-input" id="dashboardSearchInput" type="search" placeholder="캘린더, 볼펜, VIP, 박람회, VOC 등으로 검색" />
@@ -1676,6 +1687,9 @@
     const firebaseLastUpdatedText = document.getElementById('firebaseLastUpdatedText');
     const firebaseReadStatusText = document.getElementById('firebaseReadStatusText');
     const firebaseRetryBtn = document.getElementById('firebaseRetryBtn');
+    const firebaseFullSyncBtn = document.getElementById('firebaseFullSyncBtn');
+    const firebaseSyncStatusText = document.getElementById('firebaseSyncStatusText');
+    const firebaseSaveFailureBanner = document.getElementById('firebaseSaveFailureBanner');
     const yellowBanner = document.getElementById('yellowBanner');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
@@ -1949,6 +1963,8 @@
     });
     let firebaseLoginInProgress = false;
     let cardsMigrationInProgress = false;
+    let fullCardsSyncInProgress = false;
+    let enforceRemoteAsSingleSource = !EDIT_MODE_REQUESTED;
     let firebaseInitErrorReason = typeof window.__plannerFirebaseInitError === 'string' ? window.__plannerFirebaseInitError : '';
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
@@ -1998,6 +2014,37 @@
       firebaseReadStatusText.classList.toggle('warn', tone === 'warn');
       if (firebaseRetryBtn) {
         firebaseRetryBtn.hidden = !text || tone !== 'warn';
+      }
+    }
+
+    function setFirebaseSyncStatus(message = '', tone = '') {
+      if (!firebaseSyncStatusText) return;
+      const text = typeof message === 'string' ? message.trim() : '';
+      firebaseSyncStatusText.hidden = !text;
+      firebaseSyncStatusText.textContent = text;
+      firebaseSyncStatusText.classList.toggle('warn', tone === 'warn');
+      firebaseSyncStatusText.classList.toggle('ok', tone === 'ok');
+    }
+
+    function setFirebaseSaveFailureBanner(message = '') {
+      if (!firebaseSaveFailureBanner) return;
+      const text = typeof message === 'string' ? message.trim() : '';
+      firebaseSaveFailureBanner.hidden = !text;
+      firebaseSaveFailureBanner.textContent = text;
+    }
+
+    function updateFirebaseFullSyncControls() {
+      if (!firebaseFullSyncBtn) return;
+      const canShow = EDIT_MODE_REQUESTED;
+      const canRun = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser) && firebaseBridgeReady && !fullCardsSyncInProgress;
+      firebaseFullSyncBtn.hidden = !canShow;
+      firebaseFullSyncBtn.disabled = !canRun;
+      if (!canRun && canShow) {
+        firebaseFullSyncBtn.title = currentFirebaseUser
+          ? (fullCardsSyncInProgress ? '전체 동기화 실행 중입니다.' : 'Firebase 연결 준비 중입니다.')
+          : '전체 동기화는 편집 모드 로그인 후 실행할 수 있습니다.';
+      } else {
+        firebaseFullSyncBtn.title = '편집모드 로컬 최신 상태를 /cards에 전체 반영합니다.';
       }
     }
 
@@ -4218,6 +4265,7 @@
 
     function updateFirebaseAuthControls() {
       updateYellowBannerState();
+      updateFirebaseFullSyncControls();
     }
 
     function updateFirebaseLastUpdatedText(meta = {}) {
@@ -4311,6 +4359,169 @@
         });
       });
       return updates;
+    }
+
+    function buildRootUpdatesFromSnapshot(snapshot) {
+      const rootUpdates = {};
+      Object.entries(buildCardsFieldUpdates(snapshot)).forEach(([path, value]) => {
+        rootUpdates[`cards/${path}`] = value;
+      });
+      Object.entries(snapshot.hiddenLogs || {}).forEach(([hiddenKey, hiddenValue]) => {
+        rootUpdates[`hiddenLogs/${hiddenKey}`] = hiddenValue;
+      });
+      Object.entries(snapshot.meta || {}).forEach(([fieldKey, fieldValue]) => {
+        rootUpdates[`cardsMeta/${fieldKey}`] = fieldValue;
+      });
+      return rootUpdates;
+    }
+
+    function countSnapshotCards(snapshot) {
+      if (!snapshot || typeof snapshot !== 'object') return 0;
+      let count = 0;
+      Object.keys(goalTemplates).forEach((goalKey) => {
+        const indexed = snapshot[goalKey];
+        if (!indexed || typeof indexed !== 'object') return;
+        count += Object.keys(indexed).length;
+      });
+      return count;
+    }
+
+    function pickUpdatesByPrefix(rootUpdates, prefix) {
+      const selected = {};
+      Object.entries(rootUpdates).forEach(([path, value]) => {
+        if (path === prefix || path.startsWith(`${prefix}/`)) {
+          selected[path] = value;
+        }
+      });
+      return selected;
+    }
+
+    function listPrefixGroups(rootUpdates, depth = 1) {
+      const groupSet = new Set();
+      Object.keys(rootUpdates).forEach((path) => {
+        const segments = path.split('/').filter(Boolean);
+        if (!segments.length) return;
+        groupSet.add(segments.slice(0, Math.min(depth, segments.length)).join('/'));
+      });
+      return Array.from(groupSet).sort();
+    }
+
+    async function diagnoseRootUpdateFailure(rootUpdates, initialError) {
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        return [{
+          path: '/',
+          errorCode: initialError && initialError.code ? initialError.code : 'unknown',
+          errorMessage: initialError && initialError.message ? initialError.message : String(initialError || '')
+        }];
+      }
+
+      const failures = [];
+      const topGroups = listPrefixGroups(rootUpdates, 1);
+
+      for (const group of topGroups) {
+        const subset = pickUpdatesByPrefix(rootUpdates, group);
+        if (!Object.keys(subset).length) continue;
+        try {
+          await bridge.update(bridge.ref(bridge.db), subset);
+        } catch (error) {
+          failures.push({
+            path: group,
+            errorCode: error && error.code ? error.code : 'unknown',
+            errorMessage: error && error.message ? error.message : String(error || '')
+          });
+
+          if (group === 'cards') {
+            const categoryGroups = listPrefixGroups(subset, 2);
+            for (const categoryGroup of categoryGroups) {
+              const categorySubset = pickUpdatesByPrefix(subset, categoryGroup);
+              if (!Object.keys(categorySubset).length) continue;
+              try {
+                await bridge.update(bridge.ref(bridge.db), categorySubset);
+              } catch (categoryError) {
+                failures.push({
+                  path: categoryGroup,
+                  errorCode: categoryError && categoryError.code ? categoryError.code : 'unknown',
+                  errorMessage: categoryError && categoryError.message ? categoryError.message : String(categoryError || '')
+                });
+              }
+            }
+          }
+        }
+      }
+
+      if (!failures.length) {
+        failures.push({
+          path: '/',
+          errorCode: initialError && initialError.code ? initialError.code : 'unknown',
+          errorMessage: initialError && initialError.message ? initialError.message : String(initialError || '')
+        });
+      }
+      return failures;
+    }
+
+    async function runFullCardsSyncNow(trigger = 'manual') {
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) {
+        setFirebaseSyncStatus('전체 동기화 실행 조건이 충족되지 않았습니다. (?edit=1 + 로그인)', 'warn');
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        setFirebaseSyncStatus('Firebase update()를 사용할 수 없습니다.', 'warn');
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const updatedAt = new Date().toISOString();
+      const snapshot = buildFirebaseSnapshot(currentPlannerState, {
+        lastUpdatedAt: updatedAt,
+        updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser.email || '',
+        updatedByUid: currentFirebaseUser.uid || ''
+      });
+      const rootUpdates = buildRootUpdatesFromSnapshot(snapshot);
+      const cardCount = countSnapshotCards(snapshot);
+
+      fullCardsSyncInProgress = true;
+      firebaseSaving = true;
+      updateFirebaseConnectionChip();
+      updateFirebaseFullSyncControls();
+      setFirebaseSyncStatus('전체 동기화 실행 중...', '');
+
+      try {
+        await bridge.update(bridge.ref(bridge.db), rootUpdates);
+        enforceRemoteAsSingleSource = true;
+        setFirebaseSaveFailureBanner('');
+        setFirebaseSyncStatus(`전체 동기화 완료: 카드 ${cardCount}건, 실패 0건`, 'ok');
+        firebaseLastUpdatedMeta = snapshot.meta;
+        updateFirebaseLastUpdatedText(snapshot.meta);
+        console.log('[cards-sync] 전체 동기화 성공', {
+          trigger,
+          cardCount,
+          failedCount: 0,
+          updatedAt
+        });
+        return { ok: true, cardCount, failedCount: 0 };
+      } catch (error) {
+        const failedPaths = await diagnoseRootUpdateFailure(rootUpdates, error);
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const summary = failedPaths[0] ? `${failedPaths[0].path} (${failedPaths[0].errorCode})` : `/ (${errorCode})`;
+        setFirebaseSaveFailureBanner(`저장 실패: ${summary}`);
+        setFirebaseSyncStatus(`전체 동기화 실패: 카드 ${cardCount}건, 실패 ${failedPaths.length}건`, 'warn');
+        console.error('[cards-sync] 전체 동기화 실패', {
+          trigger,
+          cardCount,
+          failedCount: failedPaths.length,
+          failedPaths,
+          error
+        });
+        console.table(failedPaths);
+        return { ok: false, cardCount, failedCount: failedPaths.length, failedPaths, error };
+      } finally {
+        fullCardsSyncInProgress = false;
+        firebaseSaving = false;
+        updateFirebaseConnectionChip();
+        updateFirebaseFullSyncControls();
+      }
     }
 
     async function migrateCardsToSingleStructureOnce() {
@@ -4432,24 +4643,19 @@
         updatedByEmail: currentFirebaseUser.email || '',
         updatedByUid: currentFirebaseUser.uid || ''
       });
-      const rootUpdates = {};
-      Object.entries(buildCardsFieldUpdates(snapshot)).forEach(([path, value]) => {
-        rootUpdates[`cards/${path}`] = value;
-      });
-      Object.entries(snapshot.hiddenLogs || {}).forEach(([hiddenKey, hiddenValue]) => {
-        rootUpdates[`hiddenLogs/${hiddenKey}`] = hiddenValue;
-      });
-      Object.entries(snapshot.meta || {}).forEach(([fieldKey, fieldValue]) => {
-        rootUpdates[`cardsMeta/${fieldKey}`] = fieldValue;
-      });
+      const rootUpdates = buildRootUpdatesFromSnapshot(snapshot);
       firebaseSaving = true;
       updateFirebaseConnectionChip();
       try {
         await bridge.update(bridge.ref(bridge.db), rootUpdates);
+        setFirebaseSaveFailureBanner('');
         firebaseLastUpdatedMeta = snapshot.meta;
         updateFirebaseLastUpdatedText(snapshot.meta);
       } catch (error) {
         firebaseConnectionOnline = false;
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const firstPath = Object.keys(rootUpdates)[0] || 'cards';
+        setFirebaseSaveFailureBanner(`저장 실패: ${firstPath} (${errorCode})`);
         updateFirebaseConnectionChip();
         console.error('Firebase 저장 실패', reason, error);
       } finally {
@@ -4536,8 +4742,17 @@
       updateFirebaseConnectionChip();
       try {
         await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
+        setFirebaseSaveFailureBanner('');
+        updateFirebaseLastUpdatedText({
+          lastUpdatedAt: new Date().toISOString(),
+          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
+          updatedByEmail: currentFirebaseUser.email || '',
+          updatedByUid: currentFirebaseUser.uid || ''
+        });
         return { ok: true };
       } catch (error) {
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
         console.error('Firebase 카드 부분 저장 실패', reason, error);
         return { ok: false, reason: 'firebase-update-failed' };
       } finally {
@@ -13005,7 +13220,8 @@
       };
 
       const applyRemoteState = () => {
-        if (!remoteCardsLoaded || isChecklistTextInputFocused()) return;
+        if (!remoteCardsLoaded) return;
+        if (!enforceRemoteAsSingleSource && isChecklistTextInputFocused()) return;
         markFirebaseSnapshotReceived();
         try {
           const remoteSnapshot = {
@@ -14191,6 +14407,17 @@
           void refreshDashboardUnifiedData('firebase-retry');
         });
       }
+
+      if (firebaseFullSyncBtn) {
+        firebaseFullSyncBtn.addEventListener('click', async () => {
+          const result = await runFullCardsSyncNow('manual-full-sync');
+          if (result && result.ok) {
+            attachFirebaseCardsListener({ reason: 'full-sync-success' });
+          }
+        });
+      }
+
+      updateFirebaseFullSyncControls();
 
       syncOverviewWidgets(loadPlannerState());
       showView('dashboard');
