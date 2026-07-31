@@ -1093,9 +1093,21 @@
         if (!db || !itemKey) return null;
         return ref(db, `plans/skf-daily/benchmarks/${itemKey}`);
       },
-      getDateRef(dateKey) {
+      getCardsRef() {
         if (!db) return null;
-        return ref(db, `plans/skf-daily/${dateKey}`);
+        return ref(db, 'cards');
+      },
+      getCardRef(categoryKey, indexKey) {
+        if (!db || !categoryKey || indexKey === undefined || indexKey === null) return null;
+        return ref(db, `cards/${categoryKey}/${indexKey}`);
+      },
+      getCardsMetaRef() {
+        if (!db) return null;
+        return ref(db, 'cardsMeta');
+      },
+      getHiddenLogsRef() {
+        if (!db) return null;
+        return ref(db, 'hiddenLogs');
       },
       getCalendarEventsRef() {
         if (!db) return null;
@@ -1149,15 +1161,6 @@
         <div class="firebase-status-group">
           <span class="firebase-chip disconnected" id="firebaseConnectionChip">🔴 연결 끊김</span>
           <span class="firebase-update-text" id="firebaseLastUpdatedText">최종 수정: -</span>
-        </div>
-        <div class="firebase-status-group">
-          <div class="firebase-date-field">
-            <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
-            <div class="firebase-date-input-row">
-              <input type="date" class="firebase-date-picker" id="plannerDatePicker" />
-              <button type="button" class="firebase-today-btn" id="timelineTodayBtn">Today</button>
-            </div>
-          </div>
         </div>
       </section>
       <div class="dashboard-search-section" id="searchSection">
@@ -1261,17 +1264,23 @@
       <section class="today-activity-section" id="timelineSection">
         <div class="today-activity-header">
           <div>
-            <div class="today-activity-title">📝 오늘의 업무 수행 &amp; 히스토리 타임라인</div>
+            <div class="today-activity-title" id="todayActivityTitle">📝 오늘의 업무 수행 &amp; 히스토리 타임라인</div>
             <div class="today-activity-meta">오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.</div>
           </div>
           <div class="today-activity-header-tools">
+            <div class="firebase-date-field">
+              <label class="firebase-date-label" for="plannerDatePicker">📅 조회 날짜</label>
+              <div class="firebase-date-input-row">
+                <input type="date" class="firebase-date-picker" id="plannerDatePicker" aria-label="조회 날짜" />
+                <button type="button" class="firebase-today-btn" id="timelineTodayBtn" hidden>[오늘로]</button>
+              </div>
+            </div>
             <div class="today-activity-filter-toggle" aria-label="오늘 활동 필터">
               <button type="button" class="today-activity-filter-btn active" id="todayActivityAllBtn">전체</button>
               <button type="button" class="today-activity-filter-btn" id="todayActivityMineBtn">내 활동</button>
             </div>
             <button type="button" class="today-activity-history-btn" id="allTimelineHistoryBtn">📅 전체 히스토리 모아보기</button>
             <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
-            <div class="today-activity-date" id="todayActivityDate">오늘</div>
           </div>
         </div>
         <ul class="today-activity-list" id="todayActivityList"></ul>
@@ -1589,7 +1598,8 @@
 
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
-    const todayActivityDate = document.getElementById('todayActivityDate');
+    const todayActivityTitle = document.getElementById('todayActivityTitle');
+    const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
     const todayActivityList = document.getElementById('todayActivityList');
     const todayActivityEmpty = document.getElementById('todayActivityEmpty');
     const todayTimelineClearBtn = document.getElementById('todayTimelineClearBtn');
@@ -1727,7 +1737,6 @@
     let currentGoalKey = '';
     let cardEditModalState = null;
     let dashboardSearchTerm = '';
-    let hasUserSelectedTimelineDate = false;
     let dashboardUnifiedOverviewState = null;
     let dashboardUnifiedTimelineEntries = [];
     let dashboardUnifiedLoadPromise = null;
@@ -1743,9 +1752,9 @@
     let todayActivityRenderSignature = '';
     const ACTIVITY_LOGS_MIGRATED_KEY = 'skfActivityLogsMigratedToFirebaseV1';
     const ACTIVITY_LOG_TITLES_GUARD_PATH = 'maintenanceMigrations/activityLogTitleSnapshotsV1';
-    const PRIORITY_RECOVERY_SOURCE_DATE = '2026-07-30';
-    const PRIORITY_RECOVERY_TARGET_DATE = '2026-07-31';
-    const PRIORITY_RECOVERY_GUARD_PATH = 'maintenanceMigrations/skfDailyPriorityLeaderRecovery20260731';
+    const CARDS_MIGRATION_BASE_DATE = '2026-07-31';
+    const CARDS_MIGRATION_PRIORITY_DATE = '2026-07-30';
+    const CARDS_MIGRATION_GUARD_PATH = 'maintenanceMigrations/cardsSingleStructureV1';
     const MINI_CALENDAR_STORAGE_KEY = 'skfMiniCalendarEventsV1';
     const MINI_CALENDAR_MIGRATED_KEY = 'skfMiniCalendarMigratedToFirebaseV1';
     const MINI_CALENDAR_COLLAPSED_KEY = 'skfMiniCalendarCollapsedV1';
@@ -1912,6 +1921,7 @@
       || window.location.hostname === '127.0.0.1';
     const EDITOR_NAME_LABEL = '관리자';
     let currentPlannerDateKey = '';
+    let timelineSelectedDateKey = getLocalDateKey();
     let currentPlannerState = { items: {}, meta: {} };
     let currentFirebaseUser = null;
     let firebaseConnectionOnline = false;
@@ -1920,7 +1930,6 @@
     let firebaseSaveTimer = null;
     let firebaseDateUnsubscribe = null;
     let firebaseConnectionUnsubscribe = null;
-    let firebaseSyncSuppressed = false;
     let firebaseLastUpdatedMeta = { lastUpdatedAt: '', updatedByName: '', updatedByEmail: '', updatedByUid: '' };
     let firebaseBridgeReady = false;
     let firebaseAuthInitializing = true;
@@ -1932,8 +1941,7 @@
       resolveFirebaseAuthStateReady = resolve;
     });
     let firebaseLoginInProgress = false;
-    const dateCarryoverInProgress = new Set();
-    let priorityRecoveryInProgress = false;
+    let cardsMigrationInProgress = false;
     let firebaseInitErrorReason = typeof window.__plannerFirebaseInitError === 'string' ? window.__plannerFirebaseInitError : '';
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
@@ -2285,6 +2293,10 @@
       return `${STORAGE_KEY}::`;
     }
 
+    function getPlannerStorageKey() {
+      return `${STORAGE_KEY}::cards`;
+    }
+
     function getStoredPlannerSnapshotEntries() {
       const entries = [];
       const prefix = getPlannerStorageKeyPrefix();
@@ -2294,7 +2306,7 @@
         if (!key || !key.startsWith(prefix)) continue;
 
         const dateKey = key.slice(prefix.length);
-        if (!dateKey) continue;
+        if (!isValidPlannerDateKey(dateKey)) continue;
 
         try {
           const raw = localStorage.getItem(key);
@@ -2328,33 +2340,15 @@
       const todayKey = getLocalDateKey(new Date());
       return {
         dateKey: todayKey,
-        state: loadStateFromStorageForDate(todayKey)
+        state: { items: {}, meta: {} }
       };
     }
 
-    function getPlannerStateUpdatedAt(state) {
-      const meta = state && state.meta && typeof state.meta === 'object' ? state.meta : {};
-      const updatedAtText = typeof meta.lastUpdatedAt === 'string' ? meta.lastUpdatedAt : '';
-      const updatedAt = parseIsoTimestamp(updatedAtText);
-      return updatedAt > 0 ? updatedAt : 0;
-    }
-
-    function preferMoreRecentPlannerState(localState, remoteState) {
-      const localUpdatedAt = getPlannerStateUpdatedAt(localState);
-      const remoteUpdatedAt = getPlannerStateUpdatedAt(remoteState);
-      if (remoteUpdatedAt > localUpdatedAt) return remoteState;
-      return localState;
-    }
-
     function hasAnyPersistedPlannerState() {
-      return getStoredPlannerSnapshotEntries().length > 0;
+      return Boolean(localStorage.getItem(getPlannerStorageKey())) || getStoredPlannerSnapshotEntries().length > 0;
     }
 
     currentPlannerDateKey = getLocalDateKey();
-
-    function getPlannerStorageKey(dateKey = currentPlannerDateKey) {
-      return `${STORAGE_KEY}::${dateKey}`;
-    }
 
     function formatDateToISO(value) {
       if (value instanceof Date) {
@@ -2421,7 +2415,7 @@
     }
 
     function getTimelineSelectedDateKey() {
-      return formatDateToISO(currentPlannerDateKey) || getLocalDateKey();
+      return formatDateToISO(timelineSelectedDateKey) || getLocalDateKey();
     }
 
     function formatTimelineDateBadge(dateKey) {
@@ -3348,7 +3342,7 @@
           elapsedMs: elapsed,
           itemKey: firstItemKey,
           rtdbPath: `plans/skf-daily/benchmarks/${firstItemKey}`,
-          rtdbPathForComments: `plans/skf-daily/${currentPlannerDateKey}`
+          rtdbPathForComments: `cards/${firstItemKey.replace('::', '/')}`
         });
         return { ok: true, elapsedMs: elapsed, itemKey: firstItemKey };
       } catch (error) {
@@ -3470,7 +3464,7 @@
 
         console.log('[Benchmark Compare] 저장 경로 비교', {
           benchmarkRtdbPathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
-          plannerRealtimeDbPath: `plans/skf-daily/${currentPlannerDateKey}`,
+          plannerRealtimeDbPath: 'cards/{category}/{index}',
           apiBenchmark: 'Realtime Database update',
           apiPlanner: 'Realtime Database update'
         });
@@ -4272,18 +4266,11 @@
       }
     }
 
-    function buildDateSnapshotFieldUpdates(snapshot) {
+    function buildCardsFieldUpdates(snapshot) {
       const updates = {};
       if (!snapshot || typeof snapshot !== 'object') return updates;
       Object.entries(snapshot).forEach(([categoryKey, categoryValue]) => {
-        if (categoryKey === 'meta' || categoryKey === '_meta' || categoryKey === 'hiddenLogs') {
-          if (categoryValue && typeof categoryValue === 'object') {
-            Object.entries(categoryValue).forEach(([fieldKey, fieldValue]) => {
-              updates[`${categoryKey}/${fieldKey}`] = fieldValue;
-            });
-          }
-          return;
-        }
+        if (categoryKey === 'meta' || categoryKey === '_meta' || categoryKey === 'hiddenLogs') return;
         if (!categoryValue || typeof categoryValue !== 'object') return;
         Object.entries(categoryValue).forEach(([indexKey, cardValue]) => {
           if (!cardValue || typeof cardValue !== 'object') return;
@@ -4295,157 +4282,139 @@
       return updates;
     }
 
-    function findLatestPriorDateEntry(remoteRoot, targetDateKey) {
-      return Object.entries(remoteRoot && typeof remoteRoot === 'object' ? remoteRoot : {})
-        .filter(([dateKey, value]) => isValidPlannerDateKey(dateKey) && dateKey < targetDateKey && value && typeof value === 'object')
-        .sort(([leftDate], [rightDate]) => rightDate.localeCompare(leftDate))[0] || null;
-    }
-
-    async function initializeMissingDateFromLatest(targetDateKey) {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady || !isValidPlannerDateKey(targetDateKey)) {
-        return { ok: false, reason: 'write-unavailable' };
-      }
-      if (dateCarryoverInProgress.has(targetDateKey)) return { ok: false, reason: 'already-in-progress' };
-      dateCarryoverInProgress.add(targetDateKey);
-      const bridge = getFirebaseBridge();
-      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
-        dateCarryoverInProgress.delete(targetDateKey);
-        return { ok: false, reason: 'bridge-unavailable' };
-      }
-      try {
-        const targetRef = bridge.getDateRef(targetDateKey);
-        const existingTarget = await readFirebaseValueOnce(targetRef);
-        if (existingTarget && typeof existingTarget === 'object') {
-          console.log('[date-carryover] 기존 날짜 노드 유지', { targetDateKey });
-          return { ok: true, skipped: true, reason: 'target-exists' };
-        }
-
-        const plannerRoot = await readFirebaseValueOnce(bridge.ref(bridge.db, 'plans/skf-daily'));
-        const latestEntry = findLatestPriorDateEntry(plannerRoot, targetDateKey);
-        if (!latestEntry) return { ok: false, reason: 'no-prior-date' };
-        const [sourceDateKey, sourceSnapshot] = latestEntry;
-        const clonedSnapshot = clonePlannerSnapshot(sourceSnapshot);
-        if (!clonedSnapshot) return { ok: false, reason: 'clone-failed' };
-        clonedSnapshot.meta = {
-          ...(clonedSnapshot.meta && typeof clonedSnapshot.meta === 'object' ? clonedSnapshot.meta : {}),
-          lastUpdatedAt: new Date().toISOString(),
-          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
-          updatedByEmail: currentFirebaseUser.email || '',
-          updatedByUid: currentFirebaseUser.uid || '',
-          carriedOverFrom: sourceDateKey
-        };
-
-        const targetRecheck = await readFirebaseValueOnce(targetRef);
-        if (targetRecheck && typeof targetRecheck === 'object') {
-          console.log('[date-carryover] 생성 직전 기존 노드 감지, 이월 중단', { targetDateKey });
-          return { ok: true, skipped: true, reason: 'target-created-concurrently' };
-        }
-
-        const updates = buildDateSnapshotFieldUpdates(clonedSnapshot);
-        await bridge.update(targetRef, updates);
-        console.log('[date-carryover] 새 날짜 이월 생성 성공', {
-          sourceDateKey,
-          targetDateKey,
-          fieldCount: Object.keys(updates).length
-        });
-        return { ok: true, sourceDateKey, targetDateKey, snapshot: clonedSnapshot };
-      } catch (error) {
-        console.error('[date-carryover] 이월 생성 실패', { targetDateKey, error });
-        return { ok: false, reason: 'firebase-read-or-update-failed', error };
-      } finally {
-        dateCarryoverInProgress.delete(targetDateKey);
-      }
-    }
-
-    async function recoverPriorityAndLeaderRequestOnce() {
+    async function migrateCardsToSingleStructureOnce() {
       if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
-      if (priorityRecoveryInProgress) return { ok: false, reason: 'already-in-progress' };
-      priorityRecoveryInProgress = true;
+      if (cardsMigrationInProgress) return { ok: false, reason: 'already-in-progress' };
+      cardsMigrationInProgress = true;
       const bridge = getFirebaseBridge();
       if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
-        priorityRecoveryInProgress = false;
+        cardsMigrationInProgress = false;
         return { ok: false, reason: 'bridge-unavailable' };
       }
+
       try {
-        const guardRef = bridge.ref(bridge.db, PRIORITY_RECOVERY_GUARD_PATH);
-        const existingGuard = await readFirebaseValueOnce(guardRef);
+        const existingGuard = await readFirebaseValueOnce(bridge.ref(bridge.db, CARDS_MIGRATION_GUARD_PATH));
         if (existingGuard && existingGuard.completed === true) {
-          console.log('[priority-recovery] 이미 완료되어 건너뜀', existingGuard);
-          return { ok: true, skipped: true };
+          console.log('[cards-migration] 이미 완료되어 건너뜀', existingGuard);
+          return { ok: true, skipped: true, report: existingGuard };
         }
 
-        const sourceSnapshot = await readFirebaseValueOnce(bridge.getDateRef(PRIORITY_RECOVERY_SOURCE_DATE));
-        const targetSnapshot = await readFirebaseValueOnce(bridge.getDateRef(PRIORITY_RECOVERY_TARGET_DATE));
-        if (!sourceSnapshot || !targetSnapshot) return { ok: false, reason: 'source-or-target-missing' };
+        const existingCards = await readFirebaseValueOnce(bridge.getCardsRef());
+        if (existingCards && typeof existingCards === 'object' && Object.keys(existingCards).length) {
+          console.error('[cards-migration] /cards가 이미 존재하지만 완료 가드가 없어 덮어쓰지 않습니다.');
+          return { ok: false, reason: 'target-exists-without-guard' };
+        }
+
+        const basePath = `plans/skf-daily/${CARDS_MIGRATION_BASE_DATE}`;
+        const priorityPath = `plans/skf-daily/${CARDS_MIGRATION_PRIORITY_DATE}`;
+        const baseSnapshot = await readFirebaseValueOnce(bridge.ref(bridge.db, basePath));
+        const prioritySnapshot = await readFirebaseValueOnce(bridge.ref(bridge.db, priorityPath));
+        if (!baseSnapshot || !prioritySnapshot) return { ok: false, reason: 'source-missing' };
 
         const updates = {};
         const changes = [];
-        Object.entries(sourceSnapshot).forEach(([categoryKey, sourceCategory]) => {
-          if (!goalTemplates[categoryKey] || !sourceCategory || typeof sourceCategory !== 'object') return;
-          const targetCategory = targetSnapshot[categoryKey];
-          if (!targetCategory || typeof targetCategory !== 'object') return;
-          Object.entries(sourceCategory).forEach(([indexKey, sourceCard]) => {
-            const targetCard = targetCategory[indexKey];
-            if (!sourceCard || typeof sourceCard !== 'object' || !targetCard || typeof targetCard !== 'object') return;
-            const nextPriority = normalizePriorityValue(sourceCard.priority);
-            const nextLeaderRequested = sourceCard.isLeaderRequested === true;
-            const beforePriority = normalizePriorityValue(targetCard.priority);
-            const beforeLeaderRequested = targetCard.isLeaderRequested === true;
-            updates[`plans/skf-daily/${PRIORITY_RECOVERY_TARGET_DATE}/${categoryKey}/${indexKey}/priority`] = nextPriority;
-            updates[`plans/skf-daily/${PRIORITY_RECOVERY_TARGET_DATE}/${categoryKey}/${indexKey}/isLeaderRequested`] = nextLeaderRequested;
-            changes.push({
-              card: `${categoryKey}/${indexKey}`,
-              priorityBefore: beforePriority,
-              priorityAfter: nextPriority,
-              leaderBefore: beforeLeaderRequested,
-              leaderAfter: nextLeaderRequested
+        const missingCards = [];
+        const categoryCounts = {};
+        let cardCount = 0;
+
+        Object.keys(goalTemplates).forEach((categoryKey) => {
+          const baseCategory = baseSnapshot[categoryKey];
+          if (!baseCategory || typeof baseCategory !== 'object') {
+            missingCards.push(`${categoryKey}/*`);
+            return;
+          }
+          categoryCounts[categoryKey] = 0;
+          Object.entries(baseCategory).forEach(([indexKey, baseCard]) => {
+            if (!baseCard || typeof baseCard !== 'object') {
+              missingCards.push(`${categoryKey}/${indexKey}`);
+              return;
+            }
+            const migratedCard = clonePlannerSnapshot(baseCard);
+            const priorityCard = prioritySnapshot[categoryKey] && prioritySnapshot[categoryKey][indexKey];
+            if (!migratedCard) {
+              missingCards.push(`${categoryKey}/${indexKey}`);
+              return;
+            }
+            if (!priorityCard || typeof priorityCard !== 'object') {
+              missingCards.push(`${categoryKey}/${indexKey}:priority-source`);
+            } else {
+              const beforePriority = normalizePriorityValue(migratedCard.priority);
+              const beforeLeaderRequested = migratedCard.isLeaderRequested === true;
+              const nextPriority = normalizePriorityValue(priorityCard.priority);
+              const nextLeaderRequested = priorityCard.isLeaderRequested === true;
+              migratedCard.priority = nextPriority;
+              migratedCard.isLeaderRequested = nextLeaderRequested;
+              if (beforePriority !== nextPriority || beforeLeaderRequested !== nextLeaderRequested) {
+                changes.push({ card: `${categoryKey}/${indexKey}`, priorityBefore: beforePriority, priorityAfter: nextPriority, leaderBefore: beforeLeaderRequested, leaderAfter: nextLeaderRequested });
+              }
+            }
+            Object.entries(migratedCard).forEach(([fieldKey, fieldValue]) => {
+              updates[`cards/${categoryKey}/${indexKey}/${fieldKey}`] = fieldValue;
             });
+            categoryCounts[categoryKey] += 1;
+            cardCount += 1;
           });
         });
 
-        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/completed`] = true;
-        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/completedAt`] = new Date().toISOString();
-        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/sourceDate`] = PRIORITY_RECOVERY_SOURCE_DATE;
-        updates[`${PRIORITY_RECOVERY_GUARD_PATH}/targetDate`] = PRIORITY_RECOVERY_TARGET_DATE;
-        console.log('[priority-recovery] 복구 대상 및 변경 전후');
+        Object.entries(baseSnapshot.hiddenLogs && typeof baseSnapshot.hiddenLogs === 'object' ? baseSnapshot.hiddenLogs : {}).forEach(([hiddenKey, hiddenValue]) => {
+          updates[`hiddenLogs/${hiddenKey}`] = hiddenValue;
+        });
+
+        const completedAt = new Date().toISOString();
+        updates['cardsMeta/lastUpdatedAt'] = completedAt;
+        updates['cardsMeta/updatedByName'] = currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL;
+        updates['cardsMeta/updatedByEmail'] = currentFirebaseUser.email || '';
+        updates['cardsMeta/updatedByUid'] = currentFirebaseUser.uid || '';
+        updates['cardsMeta/migratedFrom'] = basePath;
+        updates['cardsMeta/priorityMigratedFrom'] = priorityPath;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/completed`] = true;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/completedAt`] = completedAt;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/cardCount`] = cardCount;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/categoryCounts`] = categoryCounts;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/priorityLeaderChangedCount`] = changes.length;
+        updates[`${CARDS_MIGRATION_GUARD_PATH}/missingCards`] = missingCards.length ? missingCards : ['none'];
+
+        console.log('[cards-migration] 카테고리별 이전 내역', categoryCounts);
+        console.log('[cards-migration] 07-30 우선 필드 변경 전후');
         console.table(changes);
+        if (missingCards.length) console.warn('[cards-migration] 비거나 매칭되지 않은 카드', missingCards);
         await bridge.update(bridge.ref(bridge.db), updates);
-        if (currentPlannerDateKey === PRIORITY_RECOVERY_TARGET_DATE) {
-          const plannerState = loadPlannerState();
-          changes.forEach((change) => {
-            const [categoryKey, indexKey] = change.card.split('/');
-            const itemState = plannerState.items && plannerState.items[`${categoryKey}::${indexKey}`];
-            if (!itemState) return;
-            itemState.priority = change.priorityAfter;
-            itemState.isLeaderRequested = change.leaderAfter;
-          });
-          setCurrentPlannerState(plannerState, { skipFirebaseSync: true });
-          preserveWindowScroll(() => rerenderCurrentView());
-        }
-        console.log('[priority-recovery] 부분 갱신 성공', { cardCount: changes.length, guardPath: PRIORITY_RECOVERY_GUARD_PATH });
-        return { ok: true, cardCount: changes.length, changes };
+        const report = { cardCount, categoryCounts, changes, missingCards, completedAt };
+        window.__cardsMigrationReport = report;
+        console.log('[cards-migration] 단일 구조 이전 성공', report);
+        return { ok: true, report };
       } catch (error) {
-        console.error('[priority-recovery] 복구 실패', error);
+        console.error('[cards-migration] 실패', error);
         return { ok: false, reason: 'firebase-read-or-update-failed', error };
       } finally {
-        priorityRecoveryInProgress = false;
+        cardsMigrationInProgress = false;
       }
     }
 
     async function flushFirebaseSnapshot(reason = '') {
       if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return;
       const bridge = getFirebaseBridge();
-      if (!bridge) return;
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') return;
       const snapshot = buildFirebaseSnapshot(currentPlannerState, {
         lastUpdatedAt: new Date().toISOString(),
         updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
         updatedByEmail: currentFirebaseUser.email || '',
         updatedByUid: currentFirebaseUser.uid || ''
       });
+      const rootUpdates = {};
+      Object.entries(buildCardsFieldUpdates(snapshot)).forEach(([path, value]) => {
+        rootUpdates[`cards/${path}`] = value;
+      });
+      Object.entries(snapshot.hiddenLogs || {}).forEach(([hiddenKey, hiddenValue]) => {
+        rootUpdates[`hiddenLogs/${hiddenKey}`] = hiddenValue;
+      });
+      Object.entries(snapshot.meta || {}).forEach(([fieldKey, fieldValue]) => {
+        rootUpdates[`cardsMeta/${fieldKey}`] = fieldValue;
+      });
       firebaseSaving = true;
       updateFirebaseConnectionChip();
       try {
-        await bridge.update(bridge.getDateRef(currentPlannerDateKey), buildDateSnapshotFieldUpdates(snapshot));
+        await bridge.update(bridge.ref(bridge.db), rootUpdates);
         firebaseLastUpdatedMeta = snapshot.meta;
         updateFirebaseLastUpdatedText(snapshot.meta);
       } catch (error) {
@@ -4488,12 +4457,11 @@
       return normalizedState;
     }
 
-    function loadStateFromStorageForDate(dateKey = currentPlannerDateKey) {
+    function loadStateFromStorageForDate() {
       try {
-        const raw = localStorage.getItem(getPlannerStorageKey(dateKey));
-        if (!raw) return { items: {}, meta: {} };
-        const parsed = JSON.parse(raw);
-        return normalizePlannerState(parsed);
+        const raw = localStorage.getItem(getPlannerStorageKey());
+        if (raw) return normalizePlannerState(JSON.parse(raw));
+        return normalizePlannerState(getLatestPlannerSnapshotFromStorage().state);
       } catch (error) {
         return { items: {}, meta: {} };
       }
@@ -4522,7 +4490,7 @@
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
       if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
       const bridge = getFirebaseBridge();
-      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getDateRef !== 'function') {
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
       }
       const [goalKey, indexText] = String(itemKey || '').split('::');
@@ -4530,13 +4498,13 @@
 
       const updates = {};
       Object.entries(fieldValues || {}).forEach(([fieldPath, value]) => {
-        updates[`${goalKey}/${indexText}/${fieldPath}`] = value;
+        updates[fieldPath] = value;
       });
 
       firebaseSaving = true;
       updateFirebaseConnectionChip();
       try {
-        await bridge.update(bridge.getDateRef(currentPlannerDateKey), updates);
+        await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
         return { ok: true };
       } catch (error) {
         console.error('Firebase 카드 부분 저장 실패', reason, error);
@@ -5719,14 +5687,14 @@
       if (currentPlannerState && typeof currentPlannerState === 'object' && currentPlannerState.items) {
         return currentPlannerState;
       }
-      const loadedState = loadStateFromStorageForDate(currentPlannerDateKey);
+      const loadedState = loadStateFromStorageForDate();
       currentPlannerState = loadedState;
       return loadedState;
     }
 
     function hasPersistedPlannerState() {
       try {
-        const raw = localStorage.getItem(getPlannerStorageKey(currentPlannerDateKey));
+        const raw = localStorage.getItem(getPlannerStorageKey());
         if (!raw) return false;
         const parsed = JSON.parse(raw);
         return Boolean(parsed && typeof parsed === 'object' && parsed.items && Object.keys(parsed.items).length);
@@ -7530,132 +7498,14 @@
       }
     }
 
-    async function loadTimelineSnapshotsFromRemote() {
-      try {
-        const bridge = await waitForFirebaseBridge();
-        if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.onValue !== 'function') return {};
-        return await new Promise((resolve) => {
-          let settled = false;
-          const settle = (payload) => {
-            if (settled) return;
-            settled = true;
-            resolve(payload && typeof payload === 'object' ? payload : {});
-          };
-
-          const rootRef = bridge.ref(bridge.db, 'plans/skf-daily');
-          bridge.onValue(rootRef, (snapshot) => {
-            const rawRoot = snapshot && typeof snapshot.val === 'function' ? snapshot.val() : null;
-            const byDate = {};
-            if (rawRoot && typeof rawRoot === 'object') {
-              Object.entries(rawRoot).forEach(([dateKey, value]) => {
-                if (!isValidPlannerDateKey(dateKey) || !value || typeof value !== 'object') return;
-                byDate[dateKey] = value;
-              });
-            }
-            settle(byDate);
-          }, () => settle({}), { onlyOnce: true });
-
-          window.setTimeout(() => settle({}), 3500);
-        });
-      } catch (error) {
-        return {};
-      }
-    }
-
-    function getMergedTimelineSnapshots(remoteByDate = {}) {
-      const mergedMap = new Map();
-
-      getStoredPlannerSnapshotEntries().forEach((entry) => {
-        if (!entry || !isValidPlannerDateKey(entry.dateKey)) return;
-        mergedMap.set(entry.dateKey, {
-          dateKey: entry.dateKey,
-          state: normalizePlannerState(entry.state)
-        });
-      });
-
-      Object.entries(remoteByDate).forEach(([dateKey, remoteState]) => {
-        if (!isValidPlannerDateKey(dateKey) || !remoteState || typeof remoteState !== 'object') return;
-        const existing = mergedMap.get(dateKey);
-        const localSeed = existing && existing.state ? existing.state : loadStateFromStorageForDate(dateKey);
-        const merged = applyFirebaseSnapshotToState(localSeed, remoteState);
-        const preferred = preferMoreRecentPlannerState(localSeed, merged);
-        mergedMap.set(dateKey, {
-          dateKey,
-          state: preferred
-        });
-      });
-
-      return Array.from(mergedMap.values()).sort((left, right) => right.dateKey.localeCompare(left.dateKey));
-    }
-
-    function cloneJsonSafe(value) {
-      try {
-        return JSON.parse(JSON.stringify(value));
-      } catch (error) {
-        return null;
-      }
-    }
-
-    function buildUnifiedOverviewStateFromSnapshots(snapshots) {
-      const byItemKey = new Map();
-      const mergedItems = {};
-
-      (Array.isArray(snapshots) ? snapshots : []).forEach((snapshotEntry) => {
-        const snapshotState = snapshotEntry && snapshotEntry.state ? snapshotEntry.state : null;
-        const snapshotMetaTs = parseIsoTimestamp(snapshotState && snapshotState.meta ? snapshotState.meta.lastUpdatedAt : '');
-        Object.entries((snapshotState && snapshotState.items) || {}).forEach(([itemKey, itemState]) => {
-          const itemTs = Math.max(
-            parseIsoTimestamp(itemState && itemState.lastUpdatedAt),
-            parseIsoTimestamp(itemState && itemState.activityUpdatedAt),
-            snapshotMetaTs,
-            0
-          );
-          const existing = byItemKey.get(itemKey);
-          if (!existing || itemTs >= existing.ts) {
-            byItemKey.set(itemKey, { ts: itemTs, itemState });
-          }
-        });
-      });
-
-      byItemKey.forEach((entry, itemKey) => {
-        const cloned = cloneJsonSafe(entry && entry.itemState ? entry.itemState : {});
-        mergedItems[itemKey] = cloned && typeof cloned === 'object' ? cloned : {};
-      });
-
-      return normalizePlannerState({
-        items: mergedItems,
-        meta: {
-          lastUpdatedAt: new Date().toISOString(),
-          updatedByName: '',
-          updatedByEmail: '',
-          updatedByUid: ''
-        }
-      });
-    }
-
     async function refreshDashboardUnifiedData(reason = '') {
       if (dashboardUnifiedLoadPromise) return dashboardUnifiedLoadPromise;
       dashboardUnifiedLoadPromise = (async () => {
-        const remoteByDate = await loadTimelineSnapshotsFromRemote();
-        const snapshots = getMergedTimelineSnapshots(remoteByDate);
-        const dedupe = new Map();
-
-        snapshots.forEach((snapshotEntry) => {
-          const dateKey = snapshotEntry && snapshotEntry.dateKey ? snapshotEntry.dateKey : '';
-          const rows = collectTimelineEntriesFromState(snapshotEntry && snapshotEntry.state ? snapshotEntry.state : { items: {}, meta: {} }, dateKey);
-          rows.forEach((entry) => {
-            const dedupeKey = `${entry.type}|${entry.itemKey}|${entry.timestamp}|${entry.detail}`;
-            if (!dedupe.has(dedupeKey)) {
-              dedupe.set(dedupeKey, entry);
-            }
-          });
-        });
-
-        dashboardUnifiedTimelineEntries = Array.from(dedupe.values()).sort((a, b) => b.timestamp - a.timestamp);
-        dashboardUnifiedOverviewState = buildUnifiedOverviewStateFromSnapshots(snapshots);
+        dashboardUnifiedTimelineEntries = activityTimelineEntries.slice().sort((a, b) => b.timestamp - a.timestamp);
+        dashboardUnifiedOverviewState = loadPlannerState();
 
         if (!timelineHistoryEntries.length || reason === 'history-modal-open' || reason === 'initialize' || reason === 'date-change') {
-          timelineHistoryEntries = activityTimelineEntries.length ? activityTimelineEntries.slice() : dashboardUnifiedTimelineEntries.slice();
+          timelineHistoryEntries = activityTimelineEntries.slice();
         }
 
         const selectedDate = formatDateToYYYYMMDD(getTimelineSelectedDateKey()) || getLocalDateKey();
@@ -7779,8 +7629,19 @@
 
     function renderTodayActivityWidget(state, targetDateKey = getTimelineSelectedDateKey()) {
       const selectedDateKey = formatDateToYYYYMMDD(targetDateKey) || getLocalDateKey();
-      if (todayActivityDate) {
-        todayActivityDate.textContent = formatTimelineDateBadge(selectedDateKey);
+      const isTodaySelected = selectedDateKey === getLocalDateKey();
+      if (todayActivityTitle) {
+        todayActivityTitle.textContent = isTodaySelected
+          ? '📝 오늘의 업무 수행 & 히스토리 타임라인'
+          : `${selectedDateKey} 업무 수행 기록`;
+      }
+      if (todayActivityMeta) {
+        todayActivityMeta.textContent = isTodaySelected
+          ? '오늘 작성된 코멘트, 체크리스트 완료, 새 히스토리 등록 내역을 최신순으로 모아봅니다.'
+          : `${selectedDateKey}에 기록된 activityLogs를 최신순으로 모아봅니다.`;
+      }
+      if (timelineTodayBtn) {
+        timelineTodayBtn.hidden = isTodaySelected;
       }
       if (!todayActivityList || !todayActivityEmpty) return;
       const canManageTimeline = EDIT_MODE_REQUESTED && Boolean(currentFirebaseUser);
@@ -7827,8 +7688,8 @@
       if (!entries.length) {
         todayActivityList.innerHTML = '';
         todayActivityEmpty.textContent = timelineActivityLoading
-          ? '오늘 활동 로그를 불러오는 중입니다...'
-          : (timelineActivityLoadError || `${selectedDateKey} 기준으로 등록된 업무 코멘트/활동 내역이 없습니다.`);
+          ? '활동 로그를 불러오는 중입니다...'
+          : (timelineActivityLoadError || (isTodaySelected ? '오늘 새로 등록된 업무 코멘트나 활동 내역이 없습니다.' : '이 날짜에 기록된 활동이 없습니다'));
         todayActivityEmpty.style.display = 'block';
         return;
       }
@@ -7897,13 +7758,13 @@
       savePlannerState(plannerState, { reason: 'timeline-local-hide', skipFirebaseSync: true });
 
       const bridge = getActivityTimelineBridge();
-      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getDateRef !== 'function') {
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getHiddenLogsRef !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
       }
-      const hiddenPath = `plans/skf-daily/${currentPlannerDateKey}/hiddenLogs/${hiddenLogKey}`;
+      const hiddenPath = `hiddenLogs/${hiddenLogKey}`;
       console.log('[timeline] local 숨김 저장 경로', hiddenPath);
       try {
-        await bridge.update(bridge.getDateRef(currentPlannerDateKey), { [`hiddenLogs/${hiddenLogKey}`]: true });
+        await bridge.update(bridge.getHiddenLogsRef(), { [hiddenLogKey]: true });
         return { ok: true, path: hiddenPath };
       } catch (error) {
         console.error('[timeline] local 숨김 저장 실패', { hiddenPath, error });
@@ -12791,180 +12652,64 @@
       });
     }
 
-    function attachFirebaseOverviewListener() {
+    function attachFirebaseCardsListener() {
       const bridge = getFirebaseBridge();
-      if (!bridge) return;
+      if (!currentFirebaseUser || !bridge || typeof bridge.getCardsRef !== 'function') return;
       if (firebaseDateUnsubscribe) {
         firebaseDateUnsubscribe();
         firebaseDateUnsubscribe = null;
       }
-
-      firebaseDateUnsubscribe = bridge.onValue(bridge.ref(bridge.db, 'plans/skf-daily'), (snapshot) => {
+      let remoteCards = null;
+      let remoteHiddenLogs = {};
+      let remoteMeta = {};
+      const applyRemoteState = () => {
+        if (!remoteCards || isChecklistTextInputFocused()) return;
         markFirebaseSnapshotReceived();
-        const remoteRoot = snapshot.val();
-        const todayKey = getLocalDateKey();
-        let latestEntry = null;
-        let selectedEntry = null;
-
-        if (remoteRoot && typeof remoteRoot === 'object') {
-          Object.entries(remoteRoot)
-            .filter(([dateKey, value]) => dateKey !== 'meta' && dateKey !== '_meta' && value && typeof value === 'object')
-            .forEach(([dateKey, value]) => {
-              const mergedState = applyFirebaseSnapshotToState(loadStateFromStorageForDate(dateKey), value);
-              const updatedAt = new Date(mergedState.meta && mergedState.meta.lastUpdatedAt ? mergedState.meta.lastUpdatedAt : 0).getTime();
-              if (dateKey === currentPlannerDateKey) {
-                selectedEntry = {
-                  dateKey,
-                  state: mergedState,
-                  updatedAt
-                };
-              }
-              if (!latestEntry || updatedAt > latestEntry.updatedAt || (updatedAt === latestEntry.updatedAt && dateKey > latestEntry.dateKey)) {
-                latestEntry = {
-                  dateKey,
-                  state: mergedState,
-                  updatedAt
-                };
-              }
-            });
-        }
-
-        const selectedDateKey = hasUserSelectedTimelineDate && isValidPlannerDateKey(currentPlannerDateKey)
-          ? currentPlannerDateKey
-          : todayKey;
-        const localSelectedState = loadStateFromStorageForDate(selectedDateKey);
-        let nextEntry = selectedEntry;
-
-        if (!nextEntry && latestEntry && latestEntry.dateKey === selectedDateKey) {
-          nextEntry = latestEntry;
-        }
-
-        if (!nextEntry && latestEntry) {
-          // 선택 날짜 스냅샷이 없더라도 조회 기준 날짜는 유지하고 로컬(또는 빈 상태)을 보여준다.
-          nextEntry = {
-            dateKey: selectedDateKey,
-            state: localSelectedState,
-            updatedAt: getPlannerStateUpdatedAt(localSelectedState)
-          };
-        }
-
-        if (!nextEntry) {
-          nextEntry = {
-            dateKey: selectedDateKey,
-            state: localSelectedState,
-            updatedAt: getPlannerStateUpdatedAt(localSelectedState)
-          };
-        }
-
-        nextEntry = {
-          ...nextEntry,
-          state: preferMoreRecentPlannerState(localSelectedState, nextEntry.state)
-        };
-
-        if (isChecklistTextInputFocused()) {
-          return;
-        }
-
-        firebaseSyncSuppressed = true;
         try {
-          currentPlannerDateKey = nextEntry.dateKey;
-          if (plannerDatePicker) {
-            plannerDatePicker.value = currentPlannerDateKey;
-          }
-          setCurrentPlannerState(nextEntry.state, { skipFirebaseSync: true });
-          updateFirebaseLastUpdatedText(nextEntry.state.meta || firebaseLastUpdatedMeta);
+          const remoteSnapshot = {
+            ...remoteCards,
+            hiddenLogs: remoteHiddenLogs,
+            meta: remoteMeta
+          };
+          const mergedState = applyFirebaseSnapshotToState(loadPlannerState(), remoteSnapshot);
+          setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
+          updateFirebaseLastUpdatedText(mergedState.meta || firebaseLastUpdatedMeta);
           preserveWindowScroll(() => rerenderCurrentView());
-        } finally {
-          firebaseSyncSuppressed = false;
+        } catch (error) {
+          console.error('[cards] 공통 카드 데이터 결합 실패', error);
         }
-      }, () => {
+      };
+      const handleSubscriptionError = (error) => {
         firebaseConnectionOnline = false;
         updateFirebaseConnectionChip();
+        console.error('[cards] 실시간 구독 실패', error);
+      };
+      const unsubscribers = [
+        bridge.onValue(bridge.getCardsRef(), (snapshot) => {
+          const value = snapshot.val();
+          remoteCards = value && typeof value === 'object' ? value : null;
+          applyRemoteState();
+        }, handleSubscriptionError),
+        bridge.onValue(bridge.getCardsMetaRef(), (snapshot) => {
+          const value = snapshot.val();
+          remoteMeta = value && typeof value === 'object' ? value : {};
+          applyRemoteState();
+        }, handleSubscriptionError),
+        bridge.onValue(bridge.getHiddenLogsRef(), (snapshot) => {
+          const value = snapshot.val();
+          remoteHiddenLogs = value && typeof value === 'object' ? value : {};
+          applyRemoteState();
+        }, handleSubscriptionError)
+      ];
+      firebaseDateUnsubscribe = () => unsubscribers.forEach((unsubscribe) => {
+        if (typeof unsubscribe === 'function') unsubscribe();
       });
     }
 
-    function attachFirebaseDateListener(dateKey) {
-      const bridge = getFirebaseBridge();
-      if (!bridge) return;
-      if (firebaseDateUnsubscribe) {
-        firebaseDateUnsubscribe();
-        firebaseDateUnsubscribe = null;
-      }
-      firebaseDateUnsubscribe = bridge.onValue(bridge.getDateRef(dateKey), (snapshot) => {
-        markFirebaseSnapshotReceived();
-        if (isChecklistTextInputFocused()) {
-          return;
-        }
-        const remoteSnapshot = snapshot.val();
-        if (remoteSnapshot && typeof remoteSnapshot === 'object') {
-          firebaseSyncSuppressed = true;
-          try {
-            const localState = loadStateFromStorageForDate(dateKey);
-            const mergedState = applyFirebaseSnapshotToState(localState, remoteSnapshot);
-            const preferredState = preferMoreRecentPlannerState(localState, mergedState);
-            setCurrentPlannerState(preferredState, { skipFirebaseSync: true });
-            updateFirebaseLastUpdatedText(preferredState.meta || remoteSnapshot.meta || firebaseLastUpdatedMeta);
-            preserveWindowScroll(() => rerenderCurrentView());
-          } finally {
-            firebaseSyncSuppressed = false;
-          }
-          return;
-        }
-
-        const localState = loadStateFromStorageForDate(dateKey);
-        setCurrentPlannerState(localState, { skipFirebaseSync: true });
-        updateFirebaseLastUpdatedText(localState.meta || firebaseLastUpdatedMeta);
-        preserveWindowScroll(() => rerenderCurrentView());
-        void initializeMissingDateFromLatest(dateKey);
-      }, () => {
-        firebaseConnectionOnline = false;
-        updateFirebaseConnectionChip();
-      });
-    }
-
-    function switchPlannerDate(dateKey, options = {}) {
-      const nextDateKey = formatDateToISO(dateKey);
-      if (firebaseSaveTimer) {
-        clearTimeout(firebaseSaveTimer);
-        firebaseSaveTimer = null;
-      }
-
-      if (!nextDateKey) {
-        const todayKey = getLocalDateKey();
-        currentPlannerDateKey = todayKey;
-        if (plannerDatePicker) {
-          plannerDatePicker.value = todayKey;
-        }
-        const todayState = normalizePlannerState(loadStateFromStorageForDate(todayKey));
-        setCurrentPlannerState(todayState, { skipFirebaseSync: true });
-        updateFirebaseLastUpdatedText(todayState.meta || firebaseLastUpdatedMeta);
-        if (!options.skipRender) {
-          rerenderCurrentView();
-        }
-        attachFirebaseDateListener(todayKey);
-        return;
-      }
-
-      currentPlannerDateKey = nextDateKey;
-      if (plannerDatePicker && plannerDatePicker.value !== nextDateKey) {
-        plannerDatePicker.value = nextDateKey;
-      }
-      const nextState = loadStateFromStorageForDate(nextDateKey);
-      setCurrentPlannerState(nextState, { skipFirebaseSync: true });
-      updateFirebaseLastUpdatedText(nextState.meta || firebaseLastUpdatedMeta);
-      if (!options.skipRender) {
-        rerenderCurrentView();
-      }
-      attachFirebaseDateListener(nextDateKey);
-    }
-
-    function resetTimelineDateToToday(options = {}) {
-      const todayKey = getLocalDateKey();
-      hasUserSelectedTimelineDate = options.fromUser === true;
-      if (plannerDatePicker) {
-        plannerDatePicker.value = todayKey;
-      }
-      switchPlannerDate(todayKey, options);
+    function selectTimelineDate(dateKey) {
+      timelineSelectedDateKey = formatDateToISO(dateKey) || getLocalDateKey();
+      if (plannerDatePicker) plannerDatePicker.value = timelineSelectedDateKey;
+      renderTodayActivityWidget(loadPlannerState(), timelineSelectedDateKey);
     }
 
     async function handleFirebaseLogin() {
@@ -13065,9 +12810,11 @@
         updateFirebaseConnectionChip();
         void startMiniCalendarRealtimeSync();
         if (currentFirebaseUser) {
-          void initializeMissingDateFromLatest(currentPlannerDateKey);
-          void recoverPriorityAndLeaderRequestOnce();
+          void migrateCardsToSingleStructureOnce().then(() => attachFirebaseCardsListener());
           void backfillActivityLogTitlesOnce();
+        } else if (firebaseDateUnsubscribe) {
+          firebaseDateUnsubscribe();
+          firebaseDateUnsubscribe = null;
         }
       });
     }
@@ -13095,12 +12842,6 @@
       }
 
       attachFirebaseConnectionListener();
-
-      if (plannerDatePicker && plannerDatePicker.value) {
-        attachFirebaseDateListener(currentPlannerDateKey);
-      } else {
-        attachFirebaseOverviewListener();
-      }
 
       firebaseAuthInitializing = false;
       updateFirebaseModeChip();
@@ -13165,16 +12906,15 @@
 
       if (plannerDatePicker) {
         plannerDatePicker.addEventListener('change', () => {
-          hasUserSelectedTimelineDate = true;
           const nextDate = formatDateToISO(plannerDatePicker.value) || getLocalDateKey(new Date());
-          switchPlannerDate(nextDate);
+          selectTimelineDate(nextDate);
           void refreshDashboardUnifiedData('date-change');
         });
       }
 
       if (timelineTodayBtn) {
         timelineTodayBtn.addEventListener('click', () => {
-          resetTimelineDateToToday({ fromUser: true });
+          selectTimelineDate(getLocalDateKey());
           void refreshDashboardUnifiedData('today-button');
         });
       }
@@ -13418,7 +13158,6 @@
         quickGoalSelect.addEventListener('change', () => {
           const selectedGoal = quickGoalSelect.value;
           if (selectedGoal === 'dashboard') {
-            resetTimelineDateToToday({ skipRender: true });
             showView('dashboard');
             syncOverviewWidgets(loadPlannerState());
             return;
@@ -13439,7 +13178,6 @@
 
       if (backToDashboardBtn) {
         backToDashboardBtn.addEventListener('click', () => {
-          resetTimelineDateToToday({ skipRender: true });
           showView('dashboard');
           syncOverviewWidgets(loadPlannerState());
         });
@@ -14087,19 +13825,19 @@
 
     async function initializeApp() {
       const todayKey = getLocalDateKey();
-      hasUserSelectedTimelineDate = false;
 
       if (!hasAnyPersistedPlannerState()) {
         await hydrateStateFromDataFile();
       }
 
       currentPlannerDateKey = todayKey;
+      timelineSelectedDateKey = todayKey;
       if (plannerDatePicker) {
         plannerDatePicker.value = todayKey;
       }
-      const todayState = normalizePlannerState(loadStateFromStorageForDate(todayKey));
-      syncPinnedChecklistState(todayState);
-      setCurrentPlannerState(todayState, { skipFirebaseSync: true });
+      const initialState = normalizePlannerState(loadStateFromStorageForDate());
+      syncPinnedChecklistState(initialState);
+      setCurrentPlannerState(initialState, { skipFirebaseSync: true });
 
       initializeGoalSelect();
       initializeMiniCalendar();
@@ -14107,7 +13845,6 @@
       void startMiniCalendarRealtimeSync();
       attachActivityTimelineRealtimeListener();
       await migrateActivityLogsIfNeeded();
-      resetTimelineDateToToday();
       await refreshDashboardUnifiedData('initialize');
       await loadNewsConfigOnce();
       attachNewsWidgetInteractionHandlers();
