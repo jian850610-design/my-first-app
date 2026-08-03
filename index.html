@@ -270,6 +270,7 @@
     .team-overview-row-important td { background: #fffdf0; }
     .team-overview-card-link { appearance: none; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
     .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
+    .team-overview-ref-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 12px; line-height: 1; opacity: 0.9; }
     .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
@@ -641,9 +642,33 @@
     .history-archive-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .history-archive-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
     .history-archive-empty { font-size: 12px; color: #7289a1; }
+    .card-references-section { margin-top: 2px; border: 1px solid #d9e4f2; border-radius: 14px; background: #f8fbff; padding: 10px 12px; display: grid; gap: 9px; }
+    .card-references-title { font-size: 13px; font-weight: 900; color: #21486f; }
+    .card-references-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .card-reference-row { border: 1px solid #dde8f3; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 6px; }
+    .card-reference-line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; color: #254762; font-size: 12px; line-height: 1.5; }
+    .card-reference-icon { flex-shrink: 0; }
+    .card-reference-name { font-weight: 800; color: #1f4468; }
+    .card-reference-divider { color: #7a8da3; }
+    .card-reference-path { color: #6f7c8b; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+    .card-reference-note { color: #5e748d; font-size: 11px; }
+    .card-reference-actions { display: inline-flex; align-items: center; gap: 6px; }
+    .card-reference-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #35516d; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .card-reference-action-btn:hover { background: #eef5fd; }
+    .card-reference-action-btn.delete { border-color: #efc6c6; color: #a63a3a; }
+    .card-reference-action-btn.delete:hover { background: #fff1f1; }
+    .card-reference-empty { font-size: 12px; color: #7289a1; }
+    .card-reference-form { display: grid; gap: 8px; }
+    .card-reference-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .card-reference-error { min-height: 16px; color: #b23f3f; font-size: 11px; font-weight: 700; }
+    .card-reference-submit-row { display: flex; justify-content: flex-end; }
+    .card-reference-submit-btn { border: none; border-radius: 10px; background: #0f5f9d; color: #ffffff; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .card-reference-submit-btn:hover { background: #0b73bc; }
+    .card-reference-submit-btn:disabled { opacity: 0.6; cursor: default; }
     @media (max-width: 720px) {
       .history-manual-row { grid-template-columns: 1fr; }
       .history-manual-save-btn { width: 100%; }
+      .card-reference-form-grid { grid-template-columns: 1fr; }
     }
     .button-group { display: flex; gap: 10px; }
     .card-priority-control { display: grid; gap: 4px; min-width: 170px; }
@@ -4274,6 +4299,7 @@
             totalCycles: Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0),
             seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
             quickAddMissingDue: itemState.quickAddMissingDue === true,
+            references: normalizeCardReferences(itemState.references),
             customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
             customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
@@ -4379,6 +4405,7 @@
             : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : (Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0));
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
           itemState.quickAddMissingDue = remoteItem?.quickAddMissingDue === true;
+          itemState.references = normalizeCardReferences(remoteItem?.references);
           itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
           itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
@@ -4999,6 +5026,50 @@
       };
     }
 
+    function normalizeCardReferenceEntry(rawEntry, fallbackId = '') {
+      if (!rawEntry || typeof rawEntry !== 'object') return null;
+      const id = typeof rawEntry.id === 'string' && rawEntry.id.trim()
+        ? rawEntry.id.trim()
+        : (fallbackId || `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+      const name = typeof rawEntry.name === 'string' ? rawEntry.name.trim() : '';
+      const location = typeof rawEntry.location === 'string' ? rawEntry.location.trim() : '';
+      const note = typeof rawEntry.note === 'string' ? rawEntry.note.trim() : '';
+      const createdAt = typeof rawEntry.createdAt === 'string' && rawEntry.createdAt.trim()
+        ? rawEntry.createdAt.trim()
+        : new Date().toISOString();
+      if (!location) return null;
+      return {
+        id,
+        name,
+        location,
+        note,
+        createdAt
+      };
+    }
+
+    function normalizeCardReferences(rawReferences) {
+      if (!Array.isArray(rawReferences)) return [];
+      return rawReferences
+        .map((entry, index) => normalizeCardReferenceEntry(entry, `ref-${index + 1}`))
+        .filter(Boolean);
+    }
+
+    function getCardReferenceFileName(locationText = '') {
+      const cleaned = typeof locationText === 'string' ? locationText.trim() : '';
+      if (!cleaned) return '';
+      const tokens = cleaned
+        .split(/>|\\|\//)
+        .map((token) => token.trim())
+        .filter(Boolean);
+      return tokens.length ? tokens[tokens.length - 1] : '';
+    }
+
+    function isBlockedReferenceLocation(locationText = '') {
+      const text = typeof locationText === 'string' ? locationText.trim() : '';
+      if (!text) return false;
+      return /^(https?:\/\/|file:\/\/|javascript:|data:)/i.test(text);
+    }
+
     function createQuickAddItemState(goalKey, itemKey, title, dueDate, priority, isLeaderRequested, directiveText) {
       const stepLabels = getQuickAddDefaultStepLabels();
       const nowIso = new Date().toISOString();
@@ -5026,6 +5097,7 @@
         priority: normalizePriorityValue(priority),
         comments: [],
         historyList: [],
+        references: [],
         cycleCompletedCount: 0,
         totalCycles: 0,
         activityLog: [createActivityLogEntry('card-add', {
@@ -5228,6 +5300,142 @@
       }
     }
 
+    async function recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName) {
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      const logId = `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const payload = buildActivityLogPayload('card', {
+        cardId: itemKey,
+        cardTitle,
+        content: `참고 자료 추가: ${displayName}`
+      });
+      const path = `activityLogs/${logId}`;
+      try {
+        await bridge.update(bridge.ref(bridge.db), {
+          [path]: payload
+        });
+        return { ok: true, path };
+      } catch (error) {
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: ${path} (${errorCode})`);
+        console.error('[reference] activityLogs 저장 실패', { path, errorCode, error });
+        return { ok: false, reason: 'firebase-update-failed', errorCode, path };
+      }
+    }
+
+    async function addCardReference(itemKey, payload = {}) {
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
+
+      const plannerState = loadPlannerState();
+      const goalTemplate = goalTemplates[goalKey] || {};
+      const itemIndex = Number(indexText);
+      const baseItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+      const itemPrinciples = baseItem ? getCardGuidelines(plannerState, goalKey, baseItem, goalTemplate, itemKey) : [];
+      const stepCount = baseItem ? getChecklistStepsForItem(plannerState, goalKey, baseItem, itemKey, itemPrinciples).length : 4;
+      const itemState = getItemState(plannerState, itemKey, stepCount, itemPrinciples);
+
+      const inputName = typeof payload.name === 'string' ? payload.name.trim() : '';
+      const inputLocation = typeof payload.location === 'string' ? payload.location.trim() : '';
+      const inputNote = typeof payload.note === 'string' ? payload.note.trim() : '';
+
+      if (!inputLocation) {
+        return { ok: false, reason: 'location-required', message: '위치를 입력해 주세요.' };
+      }
+      if (isBlockedReferenceLocation(inputLocation)) {
+        return { ok: false, reason: 'location-link-blocked', message: '링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요' };
+      }
+
+      const fallbackName = getCardReferenceFileName(inputLocation);
+      const displayName = inputName || fallbackName || '참고 자료';
+      const referenceEntry = normalizeCardReferenceEntry({
+        id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: displayName,
+        location: inputLocation,
+        note: inputNote,
+        createdAt: new Date().toISOString()
+      });
+      if (!referenceEntry) {
+        return { ok: false, reason: 'reference-invalid', message: '참고 자료 값을 다시 확인해 주세요.' };
+      }
+
+      const previousReferences = normalizeCardReferences(itemState.references);
+      const nextReferences = [...previousReferences, referenceEntry];
+      itemState.references = nextReferences;
+      markItemUpdated(itemState);
+      const savedState = savePlannerState(plannerState, { reason: 'reference-add-local', skipFirebaseSync: true });
+      syncOverviewWidgets(savedState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+        updateGoalCard(goalKey);
+      }
+
+      const saveResult = await updateItemFieldsInFirebase(itemKey, { references: nextReferences }, 'reference-add');
+      if (!saveResult.ok) {
+        itemState.references = previousReferences;
+        savePlannerState(plannerState, { reason: 'reference-add-rollback', skipFirebaseSync: true });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+          updateGoalCard(goalKey);
+        }
+        const errorCode = saveResult && saveResult.errorCode ? saveResult.errorCode : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText}/references (${errorCode})`);
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
+      }
+
+      const cardTitle = getCardTitleText(itemState, baseItem || { title: itemKey });
+      console.log('[reference] 저장 직후 검증', {
+        cardTitle,
+        path: `cards/${goalKey}/${indexText}/references`,
+        referenceCount: nextReferences.length
+      });
+      void recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName);
+      return {
+        ok: true,
+        reference: referenceEntry,
+        referenceCount: nextReferences.length
+      };
+    }
+
+    async function deleteCardReference(itemKey, referenceId) {
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
+      const plannerState = loadPlannerState();
+      const goalTemplate = goalTemplates[goalKey] || {};
+      const itemIndex = Number(indexText);
+      const baseItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+      const itemPrinciples = baseItem ? getCardGuidelines(plannerState, goalKey, baseItem, goalTemplate, itemKey) : [];
+      const stepCount = baseItem ? getChecklistStepsForItem(plannerState, goalKey, baseItem, itemKey, itemPrinciples).length : 4;
+      const itemState = getItemState(plannerState, itemKey, stepCount, itemPrinciples);
+      const previousReferences = normalizeCardReferences(itemState.references);
+      const nextReferences = previousReferences.filter((entry) => entry && entry.id !== referenceId);
+      if (nextReferences.length === previousReferences.length) return { ok: false, reason: 'not-found' };
+
+      itemState.references = nextReferences;
+      markItemUpdated(itemState);
+      const savedState = savePlannerState(plannerState, { reason: 'reference-delete-local', skipFirebaseSync: true });
+      syncOverviewWidgets(savedState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+        updateGoalCard(goalKey);
+      }
+
+      const saveResult = await updateItemFieldsInFirebase(itemKey, { references: nextReferences }, 'reference-delete');
+      if (!saveResult.ok) {
+        itemState.references = previousReferences;
+        savePlannerState(plannerState, { reason: 'reference-delete-rollback', skipFirebaseSync: true });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+          updateGoalCard(goalKey);
+        }
+        const errorCode = saveResult && saveResult.errorCode ? saveResult.errorCode : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText}/references (${errorCode})`);
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
+      }
+
+      return { ok: true, referenceCount: nextReferences.length };
+    }
+
     function populateQuickAddGoalSelect(defaultGoalKey = '') {
       if (!quickAddGoalSelect) return;
       quickAddGoalSelect.innerHTML = Object.entries(goalTemplates)
@@ -5298,7 +5506,7 @@
         const errorCode = error && error.code ? error.code : 'unknown';
         setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
         console.error('Firebase 카드 부분 저장 실패', reason, error);
-        return { ok: false, reason: 'firebase-update-failed' };
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
       } finally {
         firebaseSaving = false;
         updateFirebaseConnectionChip();
@@ -6260,6 +6468,7 @@
           const hasActivityEvidence = hasRecentActivityEvidence(itemState);
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
           const isLeaderPinned = isTeamLeaderRequested(effectiveState);
+          const hasReferences = normalizeCardReferences(itemState.references).length > 0;
 
           rows.push({
             itemKey,
@@ -6285,7 +6494,8 @@
             priorityBadgeClass: priorityMeta.badgeClass,
             priorityRank: priorityMeta.rank,
             priorityPinned: priorityMeta.pinned,
-            leaderPinned: isLeaderPinned
+            leaderPinned: isLeaderPinned,
+            hasReferences
           });
         });
       });
@@ -6382,7 +6592,7 @@
                 ${row.priority === PRIORITY_IMPORTANT ? '<span class="team-overview-priority-badge important">🟡중요</span>' : ''}
                 ${row.leaderPinned ? '<span class="team-overview-priority-badge leader">📌팀장지시</span>' : ''}
               </div>
-              <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}</button>
+              <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}${row.hasReferences ? '<span class="team-overview-ref-flag" aria-label="참고 자료 있음">📎</span>' : ''}</button>
             </div>
           </td>
           <td>${escapeHtml(row.actionPlan)}</td>
@@ -6920,6 +7130,7 @@
         if (!Array.isArray(itemState.steps)) itemState.steps = [];
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
+        itemState.references = normalizeCardReferences(itemState.references);
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
         itemState.quickAddMissingDue = itemState.quickAddMissingDue === true;
         const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
@@ -7013,6 +7224,7 @@
           priority: PRIORITY_NORMAL,
           comments: [],
           historyList: getDefaultHistoryList(itemKey),
+          references: [],
           cycleCompletedCount: 0,
           totalCycles: 0,
           activityLog: [],
@@ -7147,6 +7359,7 @@
         itemState.historyList = getDefaultHistoryList(itemKey);
       }
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
+      itemState.references = normalizeCardReferences(itemState.references);
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
       if (typeof itemState.noteUpdatedAt !== 'string') itemState.noteUpdatedAt = '';
       if (typeof itemState.activityUpdatedAt !== 'string') itemState.activityUpdatedAt = '';
@@ -11292,7 +11505,7 @@
       card.classList.toggle('kpi-card-editing', shouldEdit);
     }
 
-    function setToastMessage(message, tone = 'ok') {
+    function setToastMessage(message, tone = 'ok', durationMs = 2400) {
       if (!message) return;
       let toast = document.getElementById('kpiToast');
       if (!toast) {
@@ -11307,7 +11520,7 @@
       window.clearTimeout(setToastMessage._timer);
       setToastMessage._timer = window.setTimeout(() => {
         toast.classList.remove('visible');
-      }, 2400);
+      }, Number.isFinite(durationMs) ? durationMs : 2400);
     }
 
     function renderGoalSummaryWidget(goalKey, state) {
@@ -13280,6 +13493,25 @@
         const historyArchiveHtml = createHistoryArchiveHtml();
         const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
         const showQuickDueHint = itemState && itemState.quickAddMissingDue === true && !hasFinalDueDate;
+        const referenceEntries = normalizeCardReferences(itemState && itemState.references);
+        const referencesHtml = referenceEntries.length
+          ? referenceEntries.map((entry) => `
+              <li class="card-reference-row" data-reference-id="${escapeHtml(entry.id)}">
+                <div class="card-reference-line">
+                  <span class="card-reference-icon">📎</span>
+                  <span class="card-reference-name">${escapeHtml(entry.name || getCardReferenceFileName(entry.location) || '참고 자료')}</span>
+                  <span class="card-reference-divider">/</span>
+                  <span class="card-reference-path">${escapeHtml(entry.location)}</span>
+                  <span class="card-reference-divider">/</span>
+                  <span class="card-reference-actions">
+                    <button type="button" class="card-reference-action-btn" data-reference-action="copy" data-reference-id="${escapeHtml(entry.id)}">경로 복사</button>
+                    <button type="button" class="card-reference-action-btn delete" data-reference-action="delete" data-reference-id="${escapeHtml(entry.id)}">삭제</button>
+                  </span>
+                </div>
+                ${entry.note ? `<div class="card-reference-note">비고: ${escapeHtml(entry.note)}</div>` : ''}
+              </li>
+            `).join('')
+          : '<li class="card-reference-empty">등록된 참고 자료가 없습니다.</li>';
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
@@ -13322,6 +13554,30 @@
                 <div class="directive-history-list"></div>
               </div>
             </div>
+            <section class="card-references-section">
+              <div class="card-references-title">참고 자료</div>
+              <ul class="card-references-list">${referencesHtml}</ul>
+              <form class="card-reference-form" data-reference-form="${escapeHtml(itemKey)}">
+                <div class="card-reference-form-grid">
+                  <div class="card-editor-field">
+                    <label>표시 이름</label>
+                    <input type="text" class="card-editor-input" data-reference-name-input="${escapeHtml(itemKey)}" placeholder="예: 박람회 후보 조사표" />
+                  </div>
+                  <div class="card-editor-field">
+                    <label>위치</label>
+                    <input type="text" class="card-editor-input" data-reference-location-input="${escapeHtml(itemKey)}" placeholder="예: 마케팅 공유폴더 > 2027 박람회 > 후보조사_v3.xlsx" required />
+                  </div>
+                </div>
+                <div class="card-editor-field">
+                  <label>비고 (선택)</label>
+                  <input type="text" class="card-editor-input" data-reference-note-input="${escapeHtml(itemKey)}" placeholder="예: Jay 부장님 검토본" />
+                </div>
+                <div class="card-reference-error" data-reference-error="${escapeHtml(itemKey)}"></div>
+                <div class="card-reference-submit-row">
+                  <button type="submit" class="card-reference-submit-btn" data-reference-submit="${escapeHtml(itemKey)}">+ 참고 자료 추가</button>
+                </div>
+              </form>
+            </section>
           </div>
           <div class="detail-item-progress">
             <div class="latest-activity-panel"></div>
@@ -13365,6 +13621,12 @@
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
         const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
         const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
+        const referenceForm = card.querySelector('[data-reference-form]');
+        const referenceNameInput = card.querySelector('[data-reference-name-input]');
+        const referenceLocationInput = card.querySelector('[data-reference-location-input]');
+        const referenceNoteInput = card.querySelector('[data-reference-note-input]');
+        const referenceErrorText = card.querySelector('[data-reference-error]');
+        const referenceSubmitBtn = card.querySelector('[data-reference-submit]');
         const historyCountLabel = card.querySelector('.history-archive-count');
         const historyListElement = card.querySelector('.history-archive-list');
         const manualHistoryInput = card.querySelector('.history-manual-input');
@@ -13387,6 +13649,11 @@
         const updateCycleCountLabel = () => {
           if (!cycleCountLabel) return;
           cycleCountLabel.textContent = `총 ${getCycleCompletedCount(itemState)}회 수행 완료`;
+        };
+
+        const showReferenceError = (message = '') => {
+          if (!referenceErrorText) return;
+          referenceErrorText.textContent = message || '';
         };
 
         const ensureCustomSteps = () => {
@@ -13483,6 +13750,88 @@
             }
           });
         }
+
+        if (referenceForm) {
+          referenceForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            showReferenceError('');
+            const locationText = referenceLocationInput ? referenceLocationInput.value.trim() : '';
+            if (!locationText) {
+              showReferenceError('위치를 입력해 주세요.');
+              if (referenceLocationInput) referenceLocationInput.focus();
+              return;
+            }
+            if (isBlockedReferenceLocation(locationText)) {
+              showReferenceError('링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요');
+              if (referenceLocationInput) referenceLocationInput.focus();
+              return;
+            }
+            if (!EDIT_MODE_REQUESTED) {
+              showReferenceError('읽기 전용 모드에서는 저장할 수 없습니다.');
+              return;
+            }
+
+            if (referenceSubmitBtn) {
+              referenceSubmitBtn.disabled = true;
+              referenceSubmitBtn.textContent = '저장 중...';
+            }
+            try {
+              const result = await addCardReference(itemKey, {
+                name: referenceNameInput ? referenceNameInput.value : '',
+                location: locationText,
+                note: referenceNoteInput ? referenceNoteInput.value : ''
+              });
+              if (!result.ok) {
+                showReferenceError(result.message || '참고 자료 저장에 실패했습니다.');
+                return;
+              }
+              if (referenceNameInput) referenceNameInput.value = '';
+              if (referenceLocationInput) referenceLocationInput.value = '';
+              if (referenceNoteInput) referenceNoteInput.value = '';
+              showReferenceError('');
+              if (referenceNameInput) referenceNameInput.focus();
+            } finally {
+              if (referenceSubmitBtn) {
+                referenceSubmitBtn.disabled = false;
+                referenceSubmitBtn.textContent = '+ 참고 자료 추가';
+              }
+            }
+          });
+        }
+
+        card.addEventListener('click', async (event) => {
+          const copyButton = event.target.closest('[data-reference-action="copy"]');
+          if (copyButton) {
+            const referenceId = copyButton.getAttribute('data-reference-id') || '';
+            const references = normalizeCardReferences(itemState.references);
+            const target = references.find((entry) => entry && entry.id === referenceId);
+            if (!target) return;
+            try {
+              await copyTextToClipboard(target.location || '');
+              setToastMessage('복사됨', 'ok', 1000);
+            } catch (error) {
+              setToastMessage('복사 실패', 'warn', 1200);
+            }
+            return;
+          }
+
+          const deleteButton = event.target.closest('[data-reference-action="delete"]');
+          if (!deleteButton) return;
+          if (!EDIT_MODE_REQUESTED) {
+            showReferenceError('읽기 전용 모드에서는 삭제할 수 없습니다.');
+            return;
+          }
+          const referenceId = deleteButton.getAttribute('data-reference-id') || '';
+          const references = normalizeCardReferences(itemState.references);
+          const target = references.find((entry) => entry && entry.id === referenceId);
+          if (!target) return;
+          const confirmed = window.confirm(`참고 자료 삭제\n\n${target.name || getCardReferenceFileName(target.location) || '참고 자료'}\n\n삭제하시겠습니까?`);
+          if (!confirmed) return;
+          const result = await deleteCardReference(itemKey, referenceId);
+          if (!result.ok) {
+            showReferenceError('참고 자료 삭제에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
+          }
+        });
 
         stepTextInputs.forEach((input, idx) => {
           input.addEventListener('input', () => {
