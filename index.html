@@ -5558,35 +5558,24 @@
         .sort((left, right) => right - left)[0] || 0;
     }
 
-    function getLatestDirectiveActivityDetails(itemState) {
-      const directiveText = getDirectiveSummaryText(itemState);
-      const directiveTs = parseIsoTimestamp(itemState && itemState.directiveUpdatedAt);
-      const directiveCandidate = directiveText
-        ? { text: directiveText, timestamp: directiveTs > 0 ? directiveTs : 0 }
-        : { text: '', timestamp: 0 };
-
+    function getLatestDirectiveHistoryEntry(itemState) {
       const historyEntries = Array.isArray(itemState && itemState.directiveHistory) ? itemState.directiveHistory : [];
-      const latestHistory = historyEntries
+      return historyEntries
         .slice()
         .sort((left, right) => parseIsoTimestamp(right && right.createdAt) - parseIsoTimestamp(left && left.createdAt))[0] || null;
+    }
+
+    function getLatestDirectiveActivityDetails(itemState) {
+      const latestHistory = getLatestDirectiveHistoryEntry(itemState);
       const latestHistoryText = latestHistory && typeof latestHistory.text === 'string'
         ? latestHistory.text.replace(/\s+/g, ' ').trim()
         : '';
       const latestHistoryTs = parseIsoTimestamp(latestHistory && latestHistory.createdAt);
-      const historyCandidate = latestHistoryText
-        ? {
-            text: latestHistoryText.length > 110 ? `${latestHistoryText.slice(0, 107)}...` : latestHistoryText,
-            timestamp: latestHistoryTs > 0 ? latestHistoryTs : 0
-          }
-        : { text: '', timestamp: 0 };
-
-      if (historyCandidate.timestamp > directiveCandidate.timestamp) {
-        return historyCandidate;
-      }
-      if (directiveCandidate.text) {
-        return directiveCandidate;
-      }
-      return historyCandidate;
+      if (!latestHistoryText) return { text: '', timestamp: 0 };
+      return {
+        text: latestHistoryText.length > 110 ? `${latestHistoryText.slice(0, 107)}...` : latestHistoryText,
+        timestamp: latestHistoryTs > 0 ? latestHistoryTs : 0
+      };
     }
 
     function getLatestDirectiveActivityTimestamp(itemState) {
@@ -5707,14 +5696,14 @@
     }
 
     function getDirectivePreviewText(itemState) {
-      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
-      return directive || '등록된 지시사항이 없습니다';
+      const latestDirective = getLatestDirectiveActivityDetails(itemState);
+      return latestDirective.text || '등록된 지시사항이 없습니다';
     }
 
     function getDirectiveSummaryText(itemState) {
-      const directive = itemState && typeof itemState.directive === 'string' ? itemState.directive.trim() : '';
-      if (!directive) return '';
-      const singleLine = directive.replace(/\s+/g, ' ').trim();
+      const latestDirective = getLatestDirectiveActivityDetails(itemState);
+      const singleLine = latestDirective.text ? latestDirective.text.replace(/\s+/g, ' ').trim() : '';
+      if (!singleLine) return '';
       return singleLine.length > 90 ? `${singleLine.slice(0, 87)}...` : singleLine;
     }
 
@@ -8770,8 +8759,9 @@
       const requestedEntries = Object.entries((sourceState && sourceState.items) || {})
         .filter(([, value]) => {
           if (!value) return false;
-          const hasDirective = typeof value.directive === 'string' && value.directive.trim().length > 0;
-          return value.isLeaderRequested === true || value.bossRequest === true || value.isBossRequested === true || hasDirective;
+          const latestDirective = getLatestDirectiveHistoryEntry(value);
+          const hasDirectiveHistory = Boolean(latestDirective && typeof latestDirective.text === 'string' && latestDirective.text.trim());
+          return hasDirectiveHistory;
         })
         .map(([itemKey, itemState]) => {
           const detail = getItemDetailByKey(itemKey, sourceState);
@@ -13126,7 +13116,7 @@
           archiveProjectInput.value = itemState.seriesDraftName || '';
         }
         if (directiveInput) {
-          directiveInput.value = itemState.directive || readDirectiveDraft(itemKey) || '';
+          directiveInput.value = readDirectiveDraft(itemKey) || '';
         }
         let historyEditIndex = -1;
         const rerenderHistoryArchive = () => {
@@ -13436,18 +13426,26 @@
         if (directiveSaveButton) {
           directiveSaveButton.addEventListener('click', () => {
             const directiveText = directiveInput ? directiveInput.value.trim() : '';
-            itemState.directive = directiveText;
-            itemState.directiveUpdatedAt = itemState.directive ? new Date().toISOString() : '';
-            if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
-            if (directiveText) {
-              itemState.directiveHistory.push({
-                id: `directive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                text: directiveText,
-                createdAt: new Date().toISOString()
-              });
+            if (!directiveText) {
+              if (directiveInput) directiveInput.value = '';
+              syncDirectiveDraft(itemKey, '');
+              return;
             }
+
+            const savedAt = new Date().toISOString();
+            itemState.directive = directiveText;
+            itemState.directiveUpdatedAt = savedAt;
+            if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
+            itemState.directiveHistory.push({
+              id: `directive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              text: directiveText,
+              createdAt: savedAt
+            });
             markItemUpdated(itemState);
             recalculateItemActivityTimestamp(itemState);
+            if (directiveInput) {
+              directiveInput.value = '';
+            }
             syncDirectiveDraft(itemKey, '');
             savePlannerState(plannerState, { reason: 'directive-save' });
             renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
