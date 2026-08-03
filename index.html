@@ -781,6 +781,7 @@
     .news-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d6e2ec; background: #ffffff; border-radius: 999px; padding: 6px 10px; font-size: 12px; color: #1f507a; font-weight: 800; }
     .news-chip .news-chip-count { font-size: 10px; color: #6b7f95; font-weight: 700; }
     .news-chip button { border: none; background: transparent; color: #af4545; cursor: pointer; font-size: 14px; font-weight: 900; line-height: 1; }
+    .save-success-footer { position: fixed; right: 12px; bottom: 10px; z-index: 1200; color: #7f8791; font-size: 11px; font-weight: 600; background: rgba(255, 255, 255, 0.92); border: 1px solid #dde5ee; border-radius: 999px; padding: 4px 9px; backdrop-filter: blur(2px); }
     .news-query-list,
     .news-hidden-list { display: grid; gap: 10px; }
     .news-query-row,
@@ -1074,7 +1075,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
     import { getDatabase, onValue, push, ref, remove, update } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
     import { getFirestore, doc, getDoc, onSnapshot, updateDoc, setDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getAuth, GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDhGHZiaip0Hz-dlfRjXOOzpccodrrFvpg",
@@ -1116,6 +1117,7 @@
       getAuth,
       getRedirectResult,
       onAuthStateChanged,
+      signInAnonymously,
       signInWithPopup,
       signInWithRedirect,
       signOut,
@@ -1220,6 +1222,7 @@
           <span class="firebase-read-status" id="firebaseReadStatusText" hidden></span>
           <button type="button" class="firebase-retry-btn" id="firebaseRetryBtn" hidden>다시 시도</button>
           <button type="button" class="firebase-full-sync-btn" id="firebaseFullSyncBtn" hidden>지금 전체 동기화</button>
+          <button type="button" class="firebase-full-sync-btn" id="firebaseLocalOnlySyncBtn" hidden>지금 동기화</button>
           <span class="firebase-sync-status" id="firebaseSyncStatusText" hidden></span>
         </div>
       </section>
@@ -1230,6 +1233,8 @@
         <div class="dashboard-search-help">검색어가 포함된 세부 업무를 가진 만다라트 카드가 즉시 강조됩니다.</div>
       </div>
     </section>
+
+    <div class="save-success-footer" id="saveSuccessFooterText">마지막 저장 성공: -</div>
 
     <section class="view" id="dashboardView">
         <section class="mini-calendar-section" id="miniCalendarSection">
@@ -1770,8 +1775,10 @@
     const firebaseReadStatusText = document.getElementById('firebaseReadStatusText');
     const firebaseRetryBtn = document.getElementById('firebaseRetryBtn');
     const firebaseFullSyncBtn = document.getElementById('firebaseFullSyncBtn');
+    const firebaseLocalOnlySyncBtn = document.getElementById('firebaseLocalOnlySyncBtn');
     const firebaseSyncStatusText = document.getElementById('firebaseSyncStatusText');
     const firebaseSaveFailureBanner = document.getElementById('firebaseSaveFailureBanner');
+    const saveSuccessFooterText = document.getElementById('saveSuccessFooterText');
     const yellowBanner = document.getElementById('yellowBanner');
     const dashboardSearchInput = document.getElementById('dashboardSearchInput');
     const goalCardSummaryWidget = document.getElementById('goalCardSummaryWidget');
@@ -2055,11 +2062,17 @@
     let firebaseAuthReady = false;
     let firebaseAuthStateResolved = false;
     let firebaseAuthUnsubscribe = null;
+    let firebaseAnonymousSigningIn = false;
+    let firebaseAnonymousHintShown = false;
+    let firebaseAutoAuthWarned = false;
+    let firebaseWriteQueueBusy = false;
+    const pendingFirebaseWrites = [];
     let resolveFirebaseAuthStateReady = () => {};
     const firebaseAuthStateReadyPromise = new Promise((resolve) => {
       resolveFirebaseAuthStateReady = resolve;
     });
     let firebaseLoginInProgress = false;
+    let lastSaveSuccessAt = '';
     let cardsMigrationInProgress = false;
     let fullCardsSyncInProgress = false;
     let enforceRemoteAsSingleSource = !EDIT_MODE_REQUESTED;
@@ -2143,6 +2156,14 @@
           : 'Firebase 연결 준비 중입니다.';
       } else {
         firebaseFullSyncBtn.title = '편집모드 로컬 최신 상태를 /cards에 전체 반영합니다.';
+      }
+
+      if (firebaseLocalOnlySyncBtn) {
+        firebaseLocalOnlySyncBtn.hidden = !canShow;
+        firebaseLocalOnlySyncBtn.disabled = !canRun;
+        firebaseLocalOnlySyncBtn.title = canRun
+          ? '로컬에만 있는 카드를 /cards에 추가 반영합니다.'
+          : 'Firebase 연결 준비 중입니다.';
       }
     }
 
@@ -4477,11 +4498,12 @@
       if (currentFirebaseUser) {
         const email = currentFirebaseUser.email || '-';
         const uid = currentFirebaseUser.uid || '-';
+        const providerLabel = currentFirebaseUser.isAnonymous ? '익명 자동 로그인' : '로그인됨';
         yellowBanner.innerHTML = `
           <div class="yellow-banner-row">
             <div class="yellow-banner-message">
               <div class="yellow-banner-label">편집 인증 상태</div>
-              <div class="yellow-banner-text"><span>🟢 로그인됨: <b>${escapeHtml(email)}</b> | UID: <code style="user-select:all;">${escapeHtml(uid)}</code></span></div>
+              <div class="yellow-banner-text"><span>🟢 ${escapeHtml(providerLabel)}: <b>${escapeHtml(email)}</b> | UID: <code style="user-select:all;">${escapeHtml(uid)}</code></span></div>
             </div>
             <div class="yellow-banner-actions">
               <button type="button" class="firebase-logout-btn" id="logoutBtn">로그아웃</button>
@@ -4493,41 +4515,112 @@
           logoutButton.addEventListener('click', handleFirebaseLogout);
         }
       } else {
-        const loginDisabled = firebaseAuthInitializing || !firebaseAuthReady || firebaseLoginInProgress;
-        const loginLabel = firebaseAuthInitializing
-          ? 'Firebase 초기화 중...'
-          : (firebaseLoginInProgress ? '로그인 진행 중...' : 'Google 로그인');
         const loginGuideText = firebaseAuthInitializing
           ? 'Firebase 인증 모듈을 준비하고 있습니다. 잠시만 기다려 주세요.'
           : (firebaseInitErrorReason
             ? `Firebase 초기화 실패: ${firebaseInitErrorReason}`
-            : '편집을 하려면 Google 로그인이 필요합니다.');
-        const loginTitle = firebaseAuthInitializing
-          ? 'Firebase 인증 모듈 초기화 중입니다.'
-          : (firebaseInitErrorReason
-            ? `Firebase 초기화 실패: ${firebaseInitErrorReason}`
-            : (firebaseLoginInProgress ? 'Google 로그인 처리 중입니다.' : 'Google 계정으로 로그인'));
+            : '현재 보안 규칙 기준으로 로그인 없이도 저장이 가능합니다.');
         yellowBanner.innerHTML = `
           <div class="yellow-banner-row">
             <div class="yellow-banner-message">
               <div class="yellow-banner-label">편집 인증 상태</div>
               <div class="yellow-banner-text">${loginGuideText}</div>
             </div>
-            <div class="yellow-banner-actions">
-              <button type="button" class="firebase-auth-btn" id="loginBtn" title="${escapeHtml(loginTitle)}" ${loginDisabled ? 'disabled' : ''}>${loginLabel}</button>
-            </div>
           </div>
         `;
-        const loginButton = yellowBanner.querySelector('#loginBtn');
-        if (loginButton) {
-          loginButton.addEventListener('click', handleFirebaseLogin);
-        }
       }
     }
 
     function updateFirebaseAuthControls() {
       updateYellowBannerState();
       updateFirebaseFullSyncControls();
+    }
+
+    function updateSaveSuccessFooter(at = '') {
+      if (!saveSuccessFooterText) return;
+      const normalized = typeof at === 'string' ? at : '';
+      lastSaveSuccessAt = normalized || lastSaveSuccessAt || '';
+      saveSuccessFooterText.textContent = `마지막 저장 성공: ${lastSaveSuccessAt ? formatFirebaseHeaderDateTime(lastSaveSuccessAt) : '-'}`;
+    }
+
+    function markSaveSuccess(at = new Date().toISOString()) {
+      updateSaveSuccessFooter(at);
+    }
+
+    function enqueuePendingFirebaseWrite(task, pathHint = 'cards/?') {
+      return new Promise((resolve) => {
+        pendingFirebaseWrites.push({ task, resolve, pathHint });
+      });
+    }
+
+    async function flushPendingFirebaseWrites() {
+      if (firebaseWriteQueueBusy || !currentFirebaseUser) return;
+      firebaseWriteQueueBusy = true;
+      try {
+        while (pendingFirebaseWrites.length && currentFirebaseUser) {
+          const nextJob = pendingFirebaseWrites.shift();
+          if (!nextJob || typeof nextJob.task !== 'function') continue;
+          try {
+            const result = await nextJob.task();
+            nextJob.resolve(result);
+          } catch (error) {
+            const errorCode = error && error.code ? error.code : 'unknown';
+            setFirebaseSaveFailureBanner(`저장 실패: ${nextJob.pathHint || 'cards/?'} (${errorCode})`);
+            nextJob.resolve({ ok: false, reason: 'queued-write-failed', errorCode });
+          }
+        }
+      } finally {
+        firebaseWriteQueueBusy = false;
+      }
+    }
+
+    async function ensureAnonymousAuth(reason = '') {
+      if (!EDIT_MODE_REQUESTED) return { ok: false, reason: 'edit-disabled' };
+      const bridge = await ensureFirebaseAuthBridge();
+      if (!bridge || !bridge.auth || typeof bridge.signInAnonymously !== 'function') {
+        const code = 'anonymous-auth-unavailable';
+        setFirebaseSaveFailureBanner(`저장 실패: auth/anonymous (${code})`);
+        return { ok: false, reason: code };
+      }
+      if (bridge.auth.currentUser) return { ok: true, user: bridge.auth.currentUser };
+      if (firebaseAnonymousSigningIn) return { ok: false, reason: 'anonymous-signin-pending' };
+
+      firebaseAnonymousSigningIn = true;
+      firebaseAnonymousHintShown = true;
+      updateFirebaseAuthControls();
+      try {
+        const result = await bridge.signInAnonymously(bridge.auth);
+        console.log('[auth] 익명 로그인 성공', {
+          reason,
+          uid: result && result.user ? result.user.uid : ''
+        });
+        return { ok: true, user: result && result.user ? result.user : null };
+      } catch (error) {
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: auth/anonymous (${errorCode})`);
+        if (!firebaseAutoAuthWarned && errorCode === 'auth/operation-not-allowed') {
+          firebaseAutoAuthWarned = true;
+          window.alert('Firebase 콘솔 Authentication > Sign-in method에서 Anonymous를 활성화해 주세요. 활성화 후 새로고침하면 자동 로그인으로 저장이 진행됩니다.');
+        }
+        console.error('[auth] 익명 로그인 실패', { reason, errorCode, error });
+        return { ok: false, reason: 'anonymous-signin-failed', errorCode };
+      } finally {
+        firebaseAnonymousSigningIn = false;
+        updateFirebaseAuthControls();
+      }
+    }
+
+    async function runWriteWithAuth(task, pathHint = 'cards/?') {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner(`저장 실패: ${pathHint} (write-unavailable)`);
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        setFirebaseSaveFailureBanner(`저장 실패: ${pathHint} (bridge-unavailable)`);
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+      return task();
     }
 
     function updateFirebaseLastUpdatedText(meta = {}) {
@@ -4544,6 +4637,9 @@
         updatedByUid
       };
       firebaseLastUpdatedText.textContent = `최종 수정: ${formatFirebaseHeaderDateTime(updatedAt)} (수정자: ${actor})`;
+      if (updatedAt) {
+        markSaveSuccess(updatedAt);
+      }
     }
 
     function applyEditabilityState() {
@@ -4727,6 +4823,7 @@
 
     async function runFullCardsSyncNow(trigger = 'manual') {
       if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner('저장 실패: cards (write-unavailable)');
         setFirebaseSyncStatus('전체 동기화 실행 조건이 충족되지 않았습니다. (?edit=1 + 로그인)', 'warn');
         return { ok: false, reason: 'write-unavailable' };
       }
@@ -4759,6 +4856,7 @@
         setFirebaseSyncStatus(`전체 동기화 완료: 카드 ${cardCount}건, 실패 0건`, 'ok');
         firebaseLastUpdatedMeta = snapshot.meta;
         updateFirebaseLastUpdatedText(snapshot.meta);
+        markSaveSuccess(updatedAt);
         console.log('[cards-sync] 전체 동기화 성공', {
           trigger,
           cardCount,
@@ -4790,7 +4888,10 @@
     }
 
     async function migrateCardsToSingleStructureOnce() {
-      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      if (!EDIT_MODE_REQUESTED || !currentFirebaseUser || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner('저장 실패: cards (write-unavailable)');
+        return { ok: false, reason: 'write-unavailable' };
+      }
       if (cardsMigrationInProgress) return { ok: false, reason: 'already-in-progress' };
       cardsMigrationInProgress = true;
       const bridge = getFirebaseBridge();
@@ -4888,6 +4989,7 @@
         await bridge.update(bridge.ref(bridge.db), updates);
         const report = { cardCount, categoryCounts, changes, missingCards, completedAt };
         window.__cardsMigrationReport = report;
+        markSaveSuccess(completedAt);
         console.log('[cards-migration] 단일 구조 이전 성공', report);
         return { ok: true, report };
       } catch (error) {
@@ -4898,10 +5000,126 @@
       }
     }
 
-    async function flushFirebaseSnapshot(reason = '') {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
+    function buildCurrentCardsSyncPlan() {
+      const state = loadPlannerState();
+      const snapshot = buildFirebaseSnapshot(state, {
+        lastUpdatedAt: new Date().toISOString(),
+        updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
+      });
+      return snapshot;
+    }
+
+    function collectCardSyncCandidates(localSnapshot) {
+      const candidates = [];
+      Object.entries(localSnapshot || {}).forEach(([goalKey, indexedCards]) => {
+        if (goalKey === 'meta' || goalKey === 'hiddenLogs') return;
+        if (!indexedCards || typeof indexedCards !== 'object') return;
+        Object.entries(indexedCards).forEach(([indexText, cardPayload]) => {
+          if (!cardPayload || typeof cardPayload !== 'object') return;
+          const steps = Array.isArray(cardPayload.steps) ? cardPayload.steps : [];
+          const checkedCount = steps.filter((step) => step && step.checked).length;
+          const progress = `${checkedCount}/${steps.length || 0}`;
+          const step4DueDate = steps[3] && typeof steps[3].dueDate === 'string' ? steps[3].dueDate : '';
+          const title = (typeof cardPayload.customTitle === 'string' && cardPayload.customTitle.trim())
+            ? cardPayload.customTitle.trim()
+            : ((typeof cardPayload.title === 'string' && cardPayload.title.trim()) ? cardPayload.title.trim() : `${goalKey}::${indexText}`);
+          candidates.push({
+            goalKey,
+            indexText,
+            cardPayload,
+            title,
+            progress,
+            step4DueDate
+          });
+        });
+      });
+      return candidates;
+    }
+
+    async function runLocalOnlyCardsSyncNow(trigger = 'manual-local-only-sync') {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner('저장 실패: cards (write-unavailable)');
+        return { ok: false, reason: 'write-unavailable' };
+      }
       const bridge = getFirebaseBridge();
-      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') return;
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function' || typeof bridge.getCardsRef !== 'function') {
+        setFirebaseSaveFailureBanner('저장 실패: cards (bridge-unavailable)');
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const executeSync = async () => {
+        const localSnapshot = buildCurrentCardsSyncPlan();
+        const candidates = collectCardSyncCandidates(localSnapshot);
+        if (!candidates.length) {
+          setFirebaseSyncStatus('동기화할 카드가 없습니다.', 'ok');
+          return { ok: true, syncedCount: 0 };
+        }
+
+        const preview = candidates.slice(0, 3)
+          .map((entry, idx) => `${idx + 1}. ${entry.title} / 진행률 ${entry.progress} / 4단계 ${entry.step4DueDate || '-'}`)
+          .join('\n');
+        const confirmed = window.confirm(`이 화면 기준 카드 ${candidates.length}장을 반영합니다.\n\n예시 3건\n${preview}\n\n진행할까요?`);
+        if (!confirmed) return { ok: false, reason: 'cancelled' };
+
+        const updates = {};
+        candidates.forEach((entry) => {
+          updates[`cards/${entry.goalKey}/${entry.indexText}`] = entry.cardPayload;
+        });
+
+        let failedPaths = [];
+        try {
+          await bridge.update(bridge.ref(bridge.db), updates);
+        } catch (error) {
+          failedPaths = await diagnoseRootUpdateFailure(updates, error);
+          const firstFailed = failedPaths[0] || null;
+          const code = firstFailed && firstFailed.errorCode ? firstFailed.errorCode : (error && error.code ? error.code : 'unknown');
+          const path = firstFailed && firstFailed.path ? firstFailed.path : 'cards';
+          setFirebaseSaveFailureBanner(`저장 실패: ${path} (${code})`);
+          setFirebaseSyncStatus(`지금 동기화 실패: 카드 ${candidates.length}건, 실패 ${failedPaths.length || 1}건`, 'warn');
+          console.error('[cards-sync] local-only 동기화 실패', {
+            trigger,
+            cardCount: candidates.length,
+            failedCount: failedPaths.length || 1,
+            failedPaths,
+            error
+          });
+          if (failedPaths.length) {
+            console.table(failedPaths);
+          }
+          return { ok: false, syncedCount: 0, failedCount: failedPaths.length || 1, failedPaths };
+        }
+
+        const successAt = new Date().toISOString();
+        markSaveSuccess(successAt);
+        setFirebaseSaveFailureBanner('');
+        setFirebaseSyncStatus(`지금 동기화 완료: 카드 ${candidates.length}건, 실패 0건`, 'ok');
+        console.log('[cards-sync] local-only 동기화 성공', {
+          trigger,
+          syncedCount: candidates.length,
+          failedCount: 0,
+          updatedAt: successAt,
+          sample: candidates.slice(0, 3).map((entry) => ({ title: entry.title, progress: entry.progress, step4DueDate: entry.step4DueDate || '' }))
+        });
+        return { ok: true, syncedCount: candidates.length, failedCount: 0, failedPaths: [] };
+      };
+
+      return runWriteWithAuth(executeSync, 'cards');
+    }
+
+    async function flushFirebaseSnapshot(reason = '') {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner('저장 실패: cards (write-unavailable)');
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        setFirebaseSaveFailureBanner('저장 실패: cards (bridge-unavailable)');
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const executeFlush = async () => {
       const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
       const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
       const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
@@ -4915,25 +5133,45 @@
       firebaseSaving = true;
       updateFirebaseConnectionChip();
       try {
+        console.log('[cards] update 요청', { reason, pathCount: Object.keys(rootUpdates).length });
         await bridge.update(bridge.ref(bridge.db), rootUpdates);
         setFirebaseSaveFailureBanner('');
         firebaseLastUpdatedMeta = snapshot.meta;
         updateFirebaseLastUpdatedText(snapshot.meta);
+        markSaveSuccess(snapshot.meta.lastUpdatedAt || new Date().toISOString());
+        console.log('[cards] update 성공', { reason, pathCount: Object.keys(rootUpdates).length });
+        return { ok: true };
       } catch (error) {
         firebaseConnectionOnline = false;
         const errorCode = error && error.code ? error.code : 'unknown';
-        const firstPath = Object.keys(rootUpdates)[0] || 'cards';
-        setFirebaseSaveFailureBanner(`저장 실패: ${firstPath} (${errorCode})`);
+        const failedPaths = await diagnoseRootUpdateFailure(rootUpdates, error);
+        const firstFailed = failedPaths && failedPaths[0] ? failedPaths[0] : null;
+        const failedPath = firstFailed && firstFailed.path ? firstFailed.path : (Object.keys(rootUpdates)[0] || 'cards');
+        const failedCode = firstFailed && firstFailed.errorCode ? firstFailed.errorCode : errorCode;
+        setFirebaseSaveFailureBanner(`저장 실패: ${failedPath} (${failedCode})`);
         updateFirebaseConnectionChip();
-        console.error('Firebase 저장 실패', reason, error);
+        console.error('Firebase 저장 실패', reason, {
+          error,
+          failedPaths
+        });
+        if (Array.isArray(failedPaths) && failedPaths.length) {
+          console.table(failedPaths);
+        }
+        return { ok: false, reason: 'firebase-update-failed', errorCode: failedCode, failedPaths };
       } finally {
         firebaseSaving = false;
         updateFirebaseConnectionChip();
       }
+      };
+
+      return runWriteWithAuth(executeFlush, 'cards');
     }
 
     function scheduleFirebaseSnapshotSave(reason = '', debounceMs = 0) {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return;
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner('저장 실패: cards (write-unavailable)');
+        return;
+      }
       if (firebaseSaveTimer) {
         clearTimeout(firebaseSaveTimer);
         firebaseSaveTimer = null;
@@ -5129,7 +5367,7 @@
       const normalizedGoalKey = typeof goalKey === 'string' ? goalKey : '';
       if (!safeTitle) return { ok: false, reason: 'title-required' };
       if (!goalTemplates[normalizedGoalKey]) return { ok: false, reason: 'invalid-goal' };
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady || !currentFirebaseUser) {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
         const failPath = `cards/${normalizedGoalKey}/?`;
         setFirebaseSaveFailureBanner(`저장 실패: ${failPath} (write-unavailable)`);
         return { ok: false, reason: 'write-unavailable' };
@@ -5184,18 +5422,19 @@
         assignedCardId: catalogEntry ? catalogEntry.id : ''
       });
 
-      try {
+      const executeWrite = async () => {
         const actorMeta = {
           lastUpdatedAt: new Date().toISOString(),
-          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
-          updatedByEmail: currentFirebaseUser.email || '',
-          updatedByUid: currentFirebaseUser.uid || ''
+          updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+          updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+          updatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : ''
         };
         const snapshot = buildFirebaseSnapshot(plannerState, actorMeta);
         const cardPayload = snapshot && snapshot[normalizedGoalKey] ? snapshot[normalizedGoalKey][nextIndex] : null;
-        if (!cardPayload) throw Object.assign(new Error('card-payload-missing'), { code: 'card-payload-missing' });
+        if (!cardPayload) return { ok: false, reason: 'card-payload-missing', errorCode: 'card-payload-missing' };
 
         const targetPath = `cards/${normalizedGoalKey}/${nextIndex}`;
+        console.log('[cards] update 요청', { reason: 'quick-add', path: targetPath });
         await bridge.update(bridge.ref(bridge.db), {
           [targetPath]: cardPayload
         });
@@ -5210,13 +5449,21 @@
         });
         setFirebaseSaveFailureBanner('');
         updateFirebaseLastUpdatedText(actorMeta);
+        markSaveSuccess(actorMeta.lastUpdatedAt || new Date().toISOString());
+        console.log('[cards] update 성공', { reason: 'quick-add', path: targetPath });
         console.log('[quick-add] 저장 성공', {
           title: safeTitle,
           path: targetPath,
           index: nextIndex
         });
         return { ok: true, itemKey, goalKey: normalizedGoalKey, index: nextIndex };
-      } catch (error) {
+      };
+
+      const writeResult = await runWriteWithAuth(executeWrite, `cards/${normalizedGoalKey}/${nextIndex}`);
+      if (writeResult && writeResult.ok) {
+        return writeResult;
+      }
+
         delete plannerState.items[itemKey];
         if (Array.isArray(goalTemplate.items) && goalTemplate.items.length === nextIndex + 1) {
           goalTemplate.items.pop();
@@ -5229,21 +5476,20 @@
           updateGoalCard(normalizedGoalKey);
         }
 
-        const errorCode = error && error.code ? error.code : 'unknown';
+        const errorCode = writeResult && writeResult.errorCode ? writeResult.errorCode : 'unknown';
         setFirebaseSaveFailureBanner(`저장 실패: cards/${normalizedGoalKey}/${nextIndex} (${errorCode})`);
         console.error('[quick-add] 저장 실패', {
           path: `cards/${normalizedGoalKey}/${nextIndex}`,
           errorCode,
-          error
+          error: writeResult
         });
         return { ok: false, reason: 'firebase-update-failed', errorCode };
-      }
     }
 
     async function deleteCardByItemKey(itemKey) {
       const [goalKey, indexText] = String(itemKey || '').split('::');
       if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady || !currentFirebaseUser) {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
         setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (write-unavailable)`);
         return { ok: false, reason: 'write-unavailable' };
       }
@@ -5268,15 +5514,24 @@
         updateGoalCard(goalKey);
       }
 
-      try {
+      const executeDelete = async () => {
         const targetPath = `cards/${goalKey}/${indexText}`;
+        console.log('[cards] update 요청', { reason: 'card-delete', path: targetPath });
         await bridge.update(bridge.ref(bridge.db), {
           [targetPath]: null
         });
         setFirebaseSaveFailureBanner('');
+        markSaveSuccess(new Date().toISOString());
+        console.log('[cards] update 성공', { reason: 'card-delete', path: targetPath });
         console.log('[quick-add] 카드 삭제 성공', { path: targetPath, index });
         return { ok: true, goalKey, index };
-      } catch (error) {
+      };
+
+      const deleteResult = await runWriteWithAuth(executeDelete, `cards/${goalKey}/${indexText}`);
+      if (deleteResult && deleteResult.ok) {
+        return deleteResult;
+      }
+
         if (previousItemState) {
           plannerState.items[itemKey] = previousItemState;
         }
@@ -5289,15 +5544,14 @@
           updateGoalCard(goalKey);
         }
 
-        const errorCode = error && error.code ? error.code : 'unknown';
+        const errorCode = deleteResult && deleteResult.errorCode ? deleteResult.errorCode : 'unknown';
         setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
         console.error('[quick-add] 카드 삭제 실패', {
           path: `cards/${goalKey}/${indexText}`,
           errorCode,
-          error
+          error: deleteResult
         });
         return { ok: false, reason: 'firebase-update-failed', errorCode };
-      }
     }
 
     async function recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName) {
@@ -5474,9 +5728,13 @@
     }
 
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return { ok: false, reason: 'write-unavailable' };
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${itemKey || '?'} (write-unavailable)`);
+        return { ok: false, reason: 'write-unavailable' };
+      }
       const bridge = getFirebaseBridge();
       if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${itemKey || '?'} (bridge-unavailable)`);
         return { ok: false, reason: 'bridge-unavailable' };
       }
       const [goalKey, indexText] = String(itemKey || '').split('::');
@@ -5487,30 +5745,46 @@
         updates[fieldPath] = value;
       });
 
-      firebaseSaving = true;
-      updateFirebaseConnectionChip();
-      try {
-        await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
-        const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
-        const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
-        const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
-        setFirebaseSaveFailureBanner('');
-        updateFirebaseLastUpdatedText({
-          lastUpdatedAt: new Date().toISOString(),
-          updatedByName: actorName,
-          updatedByEmail: actorEmail,
-          updatedByUid: actorUid
-        });
-        return { ok: true };
-      } catch (error) {
-        const errorCode = error && error.code ? error.code : 'unknown';
-        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
-        console.error('Firebase 카드 부분 저장 실패', reason, error);
-        return { ok: false, reason: 'firebase-update-failed', errorCode };
-      } finally {
-        firebaseSaving = false;
+      const executePartialUpdate = async () => {
+        firebaseSaving = true;
         updateFirebaseConnectionChip();
-      }
+        try {
+          console.log('[cards] update 요청', {
+            reason,
+            path: `cards/${goalKey}/${indexText}`,
+            updateKeys: Object.keys(updates)
+          });
+          await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
+          const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
+          const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
+          const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
+          setFirebaseSaveFailureBanner('');
+          const successAt = new Date().toISOString();
+          updateFirebaseLastUpdatedText({
+            lastUpdatedAt: successAt,
+            updatedByName: actorName,
+            updatedByEmail: actorEmail,
+            updatedByUid: actorUid
+          });
+          markSaveSuccess(successAt);
+          console.log('[cards] update 성공', {
+            reason,
+            path: `cards/${goalKey}/${indexText}`,
+            updateKeys: Object.keys(updates)
+          });
+          return { ok: true };
+        } catch (error) {
+          const errorCode = error && error.code ? error.code : 'unknown';
+          setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
+          console.error('Firebase 카드 부분 저장 실패', reason, error);
+          return { ok: false, reason: 'firebase-update-failed', errorCode };
+        } finally {
+          firebaseSaving = false;
+          updateFirebaseConnectionChip();
+        }
+      };
+
+      return runWriteWithAuth(executePartialUpdate, `cards/${goalKey}/${indexText}`);
     }
 
     function upsertChecklistHistory(itemState, entry) {
@@ -13911,6 +14185,8 @@
 
         if (resetRoundButton) {
           resetRoundButton.addEventListener('click', async () => {
+            const confirmReset = window.confirm('체크 상태가 모두 해제됩니다. 진행할까요?');
+            if (!confirmReset) return;
             const previousCycleCount = getCycleCompletedCount(itemState);
             const totalSteps = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
             const completedStepEntries = Array.isArray(itemState.steps)
@@ -14766,6 +15042,7 @@
         attachFirebaseCardsListener({ reason: 'auth-state-change' });
         if (currentFirebaseUser) {
           void backfillActivityLogTitlesOnce();
+          void flushPendingFirebaseWrites();
         }
       });
     }
@@ -14779,7 +15056,7 @@
         firebaseInitErrorReason = bridge.initError;
       }
       firebaseBridgeReady = Boolean(bridge);
-      firebaseAuthReady = Boolean(bridge && bridge.auth && bridge.GoogleAuthProvider && (bridge.signInWithPopup || bridge.signInWithRedirect));
+      firebaseAuthReady = Boolean(bridge && bridge.auth && (bridge.signInAnonymously || bridge.signInWithPopup || bridge.signInWithRedirect));
 
       await attachFirebaseAuthListener();
 
@@ -14794,7 +15071,6 @@
 
       attachFirebaseConnectionListener();
       attachFirebaseCardsListener({ reason: 'initialize' });
-
       firebaseAuthInitializing = false;
       updateFirebaseModeChip();
       updateFirebaseAuthControls();
@@ -15852,6 +16128,15 @@
           const result = await runFullCardsSyncNow('manual-full-sync');
           if (result && result.ok) {
             attachFirebaseCardsListener({ reason: 'full-sync-success' });
+          }
+        });
+      }
+
+      if (firebaseLocalOnlySyncBtn) {
+        firebaseLocalOnlySyncBtn.addEventListener('click', async () => {
+          const result = await runLocalOnlyCardsSyncNow('manual-local-only-sync');
+          if (result && result.ok) {
+            attachFirebaseCardsListener({ reason: 'local-only-sync-success' });
           }
         });
       }
