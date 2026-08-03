@@ -233,6 +233,7 @@
     .card-delete-btn { border: 1px solid #efc6c6 !important; background: #fff6f6 !important; color: #a63a3a !important; }
     .card-delete-btn:hover { background: #ffecec !important; }
     .quick-add-missing-due-note { border: 1px solid #f0d8ba; border-radius: 10px; background: #fff7eb; color: #9a5a13; font-size: 12px; font-weight: 700; padding: 8px 10px; }
+    .quick-add-due-help { margin-top: 6px; color: #7f8791; font-size: 11px; line-height: 1.35; }
     .quick-add-modal-panel { width: min(760px, 100%); }
     .quick-add-form { display: grid; gap: 10px; }
     .quick-add-row-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
@@ -1573,8 +1574,9 @@
             <select class="card-editor-input" id="quickAddGoalSelect"></select>
           </div>
           <div class="card-editor-field">
-            <label for="quickAddDueDateInput">마감일 (선택)</label>
-            <input type="date" class="card-editor-input" id="quickAddDueDateInput" />
+            <label for="quickAddDueDateInput">완료 예정일 (선택)</label>
+            <input type="text" class="card-editor-input" id="quickAddDueDateInput" placeholder="YYYY-MM-DD" inputmode="numeric" autocomplete="off" />
+            <div class="quick-add-due-help">체크리스트 4단계(완료·공유)의 마감일로 저장됩니다</div>
           </div>
         </div>
         <div class="quick-add-row-grid">
@@ -5093,12 +5095,14 @@
       }
 
       const finalDueDate = cardState.steps[3] && typeof cardState.steps[3].dueDate === 'string' ? cardState.steps[3].dueDate : '';
+      const hasCardLevelDueDateBeforeSave = Object.prototype.hasOwnProperty.call(cardState, 'dueDate');
       console.log('[quick-add] 생성 직후 검증', {
         title: safeTitle,
         path: `cards/${normalizedGoalKey}/${nextIndex}`,
         index: nextIndex,
         stepCount: Array.isArray(cardState.steps) ? cardState.steps.length : 0,
-        finalStepDueDate: finalDueDate || ''
+        finalStepDueDate: finalDueDate || '',
+        hasCardLevelDueDate: hasCardLevelDueDateBeforeSave
       });
       const catalogEntry = getBenchmarkCatalogEntryByItemKey(itemKey);
       console.log('[quick-add] 연동 카운트 검증', {
@@ -5122,6 +5126,15 @@
         const targetPath = `cards/${normalizedGoalKey}/${nextIndex}`;
         await bridge.update(bridge.ref(bridge.db), {
           [targetPath]: cardPayload
+        });
+        const savedFinalStepDueDate = cardPayload && Array.isArray(cardPayload.steps) && cardPayload.steps[3] && typeof cardPayload.steps[3].dueDate === 'string'
+          ? cardPayload.steps[3].dueDate
+          : '';
+        const hasCardLevelDueDate = Boolean(cardPayload) && Object.prototype.hasOwnProperty.call(cardPayload, 'dueDate');
+        console.log('[quick-add] 저장 직후 due 검증', {
+          title: safeTitle,
+          finalStepDueDate: savedFinalStepDueDate,
+          hasCardLevelDueDate
         });
         setFirebaseSaveFailureBanner('');
         updateFirebaseLastUpdatedText(actorMeta);
@@ -14497,7 +14510,13 @@
           event.preventDefault();
           const title = quickAddTitleInput ? quickAddTitleInput.value.trim() : '';
           const goalKey = quickAddGoalSelect ? quickAddGoalSelect.value : '';
-          const dueDate = quickAddDueDateInput ? quickAddDueDateInput.value : '';
+          const dueDateRaw = quickAddDueDateInput ? quickAddDueDateInput.value.trim() : '';
+          if (dueDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(dueDateRaw)) {
+            window.alert('완료 예정일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+            if (quickAddDueDateInput) quickAddDueDateInput.focus();
+            return;
+          }
+          const dueDate = dueDateRaw || '';
           const priority = quickAddPrioritySelect ? quickAddPrioritySelect.value : PRIORITY_NORMAL;
           const isLeaderRequested = quickAddLeaderInput ? quickAddLeaderInput.checked : false;
           const directiveText = quickAddDirectiveInput ? quickAddDirectiveInput.value : '';
