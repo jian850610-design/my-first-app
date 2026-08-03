@@ -646,17 +646,24 @@
     .card-references-title { font-size: 13px; font-weight: 900; color: #21486f; }
     .card-references-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
     .card-reference-row { border: 1px solid #dde8f3; border-radius: 10px; background: #ffffff; padding: 8px 10px; display: grid; gap: 6px; }
+    .card-reference-display { display: grid; gap: 6px; }
     .card-reference-line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; color: #254762; font-size: 12px; line-height: 1.5; }
     .card-reference-icon { flex-shrink: 0; }
+    .card-reference-values { min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
     .card-reference-name { font-weight: 800; color: #1f4468; }
     .card-reference-divider { color: #7a8da3; }
-    .card-reference-path { color: #6f7c8b; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+    .card-reference-path { color: #6f7c8b; font-family: Consolas, "Courier New", monospace; white-space: normal; word-break: break-all; overflow: visible; }
+    .card-reference-note-inline { color: #5e748d; font-size: 11px; }
     .card-reference-note { color: #5e748d; font-size: 11px; }
     .card-reference-actions { display: inline-flex; align-items: center; gap: 6px; }
     .card-reference-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #35516d; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .card-reference-action-btn:hover { background: #eef5fd; }
+    .card-reference-action-btn:disabled { opacity: 0.55; cursor: default; }
     .card-reference-action-btn.delete { border-color: #efc6c6; color: #a63a3a; }
     .card-reference-action-btn.delete:hover { background: #fff1f1; }
+    .card-reference-edit-form { display: none; gap: 8px; }
+    .card-reference-row.editing .card-reference-display { display: none; }
+    .card-reference-row.editing .card-reference-edit-form { display: grid; }
     .card-reference-empty { font-size: 12px; color: #7289a1; }
     .card-reference-form { display: grid; gap: 8px; }
     .card-reference-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -5554,7 +5561,7 @@
         return { ok: false, reason: 'firebase-update-failed', errorCode };
     }
 
-    async function recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName) {
+    async function recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName, actionLabel = '추가') {
       const bridge = getFirebaseBridge();
       if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
@@ -5563,7 +5570,7 @@
       const payload = buildActivityLogPayload('card', {
         cardId: itemKey,
         cardTitle,
-        content: `참고 자료 추가: ${displayName}`
+        content: `참고 자료 ${actionLabel}: ${displayName}`
       });
       const path = `activityLogs/${logId}`;
       try {
@@ -5644,10 +5651,82 @@
         path: `cards/${goalKey}/${indexText}/references`,
         referenceCount: nextReferences.length
       });
-      void recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName);
+      void recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName, '추가');
       return {
         ok: true,
         reference: referenceEntry,
+        referenceCount: nextReferences.length
+      };
+    }
+
+    async function updateCardReference(itemKey, referenceId, payload = {}) {
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
+
+      const plannerState = loadPlannerState();
+      const goalTemplate = goalTemplates[goalKey] || {};
+      const itemIndex = Number(indexText);
+      const baseItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[itemIndex] : null;
+      const itemPrinciples = baseItem ? getCardGuidelines(plannerState, goalKey, baseItem, goalTemplate, itemKey) : [];
+      const stepCount = baseItem ? getChecklistStepsForItem(plannerState, goalKey, baseItem, itemKey, itemPrinciples).length : 4;
+      const itemState = getItemState(plannerState, itemKey, stepCount, itemPrinciples);
+
+      const inputName = typeof payload.name === 'string' ? payload.name.trim() : '';
+      const inputLocation = typeof payload.location === 'string' ? payload.location.trim() : '';
+      const inputNote = typeof payload.note === 'string' ? payload.note.trim() : '';
+      if (!inputLocation) {
+        return { ok: false, reason: 'location-required', message: '위치를 입력해 주세요.' };
+      }
+      if (isBlockedReferenceLocation(inputLocation)) {
+        return { ok: false, reason: 'location-link-blocked', message: '링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요' };
+      }
+
+      const previousReferences = normalizeCardReferences(itemState.references);
+      const targetIndex = previousReferences.findIndex((entry) => entry && entry.id === referenceId);
+      if (targetIndex < 0) return { ok: false, reason: 'not-found' };
+
+      const fallbackName = getCardReferenceFileName(inputLocation);
+      const displayName = inputName || fallbackName || '참고 자료';
+      const previousEntry = previousReferences[targetIndex];
+      const nextEntry = normalizeCardReferenceEntry({
+        id: previousEntry.id,
+        createdAt: previousEntry.createdAt,
+        name: displayName,
+        location: inputLocation,
+        note: inputNote
+      }, previousEntry.id);
+      if (!nextEntry) {
+        return { ok: false, reason: 'reference-invalid', message: '참고 자료 값을 다시 확인해 주세요.' };
+      }
+
+      const nextReferences = previousReferences.slice();
+      nextReferences[targetIndex] = nextEntry;
+      itemState.references = nextReferences;
+      markItemUpdated(itemState);
+      const savedState = savePlannerState(plannerState, { reason: 'reference-edit-local', skipFirebaseSync: true });
+      syncOverviewWidgets(savedState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+        updateGoalCard(goalKey);
+      }
+
+      const saveResult = await updateItemFieldsInFirebase(itemKey, { references: nextReferences }, 'reference-edit');
+      if (!saveResult.ok) {
+        itemState.references = previousReferences;
+        savePlannerState(plannerState, { reason: 'reference-edit-rollback', skipFirebaseSync: true });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+          updateGoalCard(goalKey);
+        }
+        const errorCode = saveResult && saveResult.errorCode ? saveResult.errorCode : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText}/references (${errorCode})`);
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
+      }
+
+      const cardTitle = getCardTitleText(itemState, baseItem || { title: itemKey });
+      void recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName, '수정');
+      return {
+        ok: true,
+        reference: nextEntry,
         referenceCount: nextReferences.length
       };
     }
@@ -13769,22 +13848,50 @@
         const showQuickDueHint = itemState && itemState.quickAddMissingDue === true && !hasFinalDueDate;
         const referenceEntries = normalizeCardReferences(itemState && itemState.references);
         const referencesHtml = referenceEntries.length
-          ? referenceEntries.map((entry) => `
+          ? referenceEntries.map((entry) => {
+              const displayName = entry.name || getCardReferenceFileName(entry.location) || '참고 자료';
+              const valueSegments = [
+                `<span class="card-reference-name">${escapeHtml(displayName)}</span>`,
+                `<span class="card-reference-path">${escapeHtml(entry.location)}</span>`,
+                entry.note ? `<span class="card-reference-note-inline">${escapeHtml(entry.note)}</span>` : ''
+              ].filter(Boolean);
+              const valueHtml = valueSegments.join('<span class="card-reference-divider">/</span>');
+              return `
               <li class="card-reference-row" data-reference-id="${escapeHtml(entry.id)}">
-                <div class="card-reference-line">
-                  <span class="card-reference-icon">📎</span>
-                  <span class="card-reference-name">${escapeHtml(entry.name || getCardReferenceFileName(entry.location) || '참고 자료')}</span>
-                  <span class="card-reference-divider">/</span>
-                  <span class="card-reference-path">${escapeHtml(entry.location)}</span>
-                  <span class="card-reference-divider">/</span>
-                  <span class="card-reference-actions">
+                <div class="card-reference-display">
+                  <div class="card-reference-line">
+                    <span class="card-reference-icon">📎</span>
+                    <span class="card-reference-values">${valueHtml}</span>
+                  </div>
+                  <div class="card-reference-actions">
                     <button type="button" class="card-reference-action-btn" data-reference-action="copy" data-reference-id="${escapeHtml(entry.id)}">경로 복사</button>
+                    <button type="button" class="card-reference-action-btn" data-reference-action="edit" data-reference-id="${escapeHtml(entry.id)}">수정</button>
                     <button type="button" class="card-reference-action-btn delete" data-reference-action="delete" data-reference-id="${escapeHtml(entry.id)}">삭제</button>
-                  </span>
+                  </div>
                 </div>
-                ${entry.note ? `<div class="card-reference-note">비고: ${escapeHtml(entry.note)}</div>` : ''}
+                <div class="card-reference-edit-form" data-reference-edit-form="${escapeHtml(entry.id)}" hidden>
+                  <div class="card-reference-form-grid">
+                    <div class="card-editor-field">
+                      <label>표시 이름</label>
+                      <input type="text" class="card-editor-input" data-reference-edit-name="${escapeHtml(entry.id)}" value="${escapeHtml(entry.name || '')}" />
+                    </div>
+                    <div class="card-editor-field">
+                      <label>위치</label>
+                      <input type="text" class="card-editor-input" data-reference-edit-location="${escapeHtml(entry.id)}" value="${escapeHtml(entry.location || '')}" required />
+                    </div>
+                  </div>
+                  <div class="card-editor-field">
+                    <label>비고 (선택)</label>
+                    <input type="text" class="card-editor-input" data-reference-edit-note="${escapeHtml(entry.id)}" value="${escapeHtml(entry.note || '')}" />
+                  </div>
+                  <div class="card-reference-actions">
+                    <button type="button" class="card-reference-action-btn" data-reference-action="save-edit" data-reference-id="${escapeHtml(entry.id)}">저장</button>
+                    <button type="button" class="card-reference-action-btn" data-reference-action="cancel-edit" data-reference-id="${escapeHtml(entry.id)}">취소</button>
+                  </div>
+                </div>
               </li>
-            `).join('')
+            `;
+            }).join('')
           : '<li class="card-reference-empty">등록된 참고 자료가 없습니다.</li>';
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
@@ -14073,6 +14180,46 @@
           });
         }
 
+        let activeReferenceEditId = '';
+
+        const syncReferenceEditUi = () => {
+          const rows = Array.from(card.querySelectorAll('.card-reference-row[data-reference-id]'));
+          rows.forEach((row) => {
+            const rowReferenceId = row.getAttribute('data-reference-id') || '';
+            const isEditingRow = Boolean(activeReferenceEditId) && rowReferenceId === activeReferenceEditId;
+            row.classList.toggle('editing', isEditingRow);
+            const editForm = row.querySelector(`[data-reference-edit-form="${rowReferenceId}"]`);
+            if (editForm) {
+              editForm.hidden = !isEditingRow;
+            }
+            const editButtons = row.querySelectorAll('[data-reference-action="edit"]');
+            editButtons.forEach((button) => {
+              button.disabled = Boolean(activeReferenceEditId) && !isEditingRow;
+            });
+          });
+        };
+
+        const closeReferenceEditRow = (referenceId) => {
+          if (!referenceId) return;
+          const references = normalizeCardReferences(itemState.references);
+          const target = references.find((entry) => entry && entry.id === referenceId);
+          if (!target) {
+            activeReferenceEditId = '';
+            syncReferenceEditUi();
+            return;
+          }
+          const nameInput = card.querySelector(`[data-reference-edit-name="${referenceId}"]`);
+          const locationInput = card.querySelector(`[data-reference-edit-location="${referenceId}"]`);
+          const noteInput = card.querySelector(`[data-reference-edit-note="${referenceId}"]`);
+          if (nameInput) nameInput.value = target.name || '';
+          if (locationInput) locationInput.value = target.location || '';
+          if (noteInput) noteInput.value = target.note || '';
+          activeReferenceEditId = '';
+          syncReferenceEditUi();
+        };
+
+        syncReferenceEditUi();
+
         card.addEventListener('click', async (event) => {
           const copyButton = event.target.closest('[data-reference-action="copy"]');
           if (copyButton) {
@@ -14089,6 +14236,82 @@
             return;
           }
 
+          const editButton = event.target.closest('[data-reference-action="edit"]');
+          if (editButton) {
+            if (!EDIT_MODE_REQUESTED) {
+              showReferenceError('읽기 전용 모드에서는 수정할 수 없습니다.');
+              return;
+            }
+            const referenceId = editButton.getAttribute('data-reference-id') || '';
+            if (!referenceId) return;
+            if (activeReferenceEditId && activeReferenceEditId !== referenceId) {
+              return;
+            }
+            activeReferenceEditId = referenceId;
+            syncReferenceEditUi();
+            const locationInput = card.querySelector(`[data-reference-edit-location="${referenceId}"]`);
+            if (locationInput) {
+              locationInput.focus();
+              const valueLength = String(locationInput.value || '').length;
+              locationInput.setSelectionRange(valueLength, valueLength);
+            }
+            showReferenceError('');
+            return;
+          }
+
+          const cancelEditButton = event.target.closest('[data-reference-action="cancel-edit"]');
+          if (cancelEditButton) {
+            const referenceId = cancelEditButton.getAttribute('data-reference-id') || '';
+            closeReferenceEditRow(referenceId);
+            showReferenceError('');
+            return;
+          }
+
+          const saveEditButton = event.target.closest('[data-reference-action="save-edit"]');
+          if (saveEditButton) {
+            if (!EDIT_MODE_REQUESTED) {
+              showReferenceError('읽기 전용 모드에서는 수정할 수 없습니다.');
+              return;
+            }
+            const referenceId = saveEditButton.getAttribute('data-reference-id') || '';
+            if (!referenceId) return;
+            const nameInput = card.querySelector(`[data-reference-edit-name="${referenceId}"]`);
+            const locationInput = card.querySelector(`[data-reference-edit-location="${referenceId}"]`);
+            const noteInput = card.querySelector(`[data-reference-edit-note="${referenceId}"]`);
+            const locationText = locationInput ? locationInput.value.trim() : '';
+            if (!locationText) {
+              showReferenceError('위치를 입력해 주세요.');
+              if (locationInput) locationInput.focus();
+              return;
+            }
+            if (isBlockedReferenceLocation(locationText)) {
+              showReferenceError('링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요');
+              if (locationInput) locationInput.focus();
+              return;
+            }
+
+            const saveLabel = saveEditButton.textContent;
+            saveEditButton.disabled = true;
+            saveEditButton.textContent = '저장 중...';
+            try {
+              const result = await updateCardReference(itemKey, referenceId, {
+                name: nameInput ? nameInput.value : '',
+                location: locationText,
+                note: noteInput ? noteInput.value : ''
+              });
+              if (!result.ok) {
+                showReferenceError(result.message || '참고 자료 수정에 실패했습니다.');
+                return;
+              }
+              closeReferenceEditRow(referenceId);
+              showReferenceError('');
+            } finally {
+              saveEditButton.disabled = false;
+              saveEditButton.textContent = saveLabel || '저장';
+            }
+            return;
+          }
+
           const deleteButton = event.target.closest('[data-reference-action="delete"]');
           if (!deleteButton) return;
           if (!EDIT_MODE_REQUESTED) {
@@ -14099,7 +14322,8 @@
           const references = normalizeCardReferences(itemState.references);
           const target = references.find((entry) => entry && entry.id === referenceId);
           if (!target) return;
-          const confirmed = window.confirm(`참고 자료 삭제\n\n${target.name || getCardReferenceFileName(target.location) || '참고 자료'}\n\n삭제하시겠습니까?`);
+          const displayName = target.name || getCardReferenceFileName(target.location) || '참고 자료';
+          const confirmed = window.confirm(`'${displayName}'을(를) 삭제할까요?`);
           if (!confirmed) return;
           const result = await deleteCardReference(itemKey, referenceId);
           if (!result.ok) {
