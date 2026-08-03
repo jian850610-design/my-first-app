@@ -5558,11 +5558,48 @@
         .sort((left, right) => right - left)[0] || 0;
     }
 
+    function getLatestDirectiveActivityDetails(itemState) {
+      const directiveText = getDirectiveSummaryText(itemState);
+      const directiveTs = parseIsoTimestamp(itemState && itemState.directiveUpdatedAt);
+      const directiveCandidate = directiveText
+        ? { text: directiveText, timestamp: directiveTs > 0 ? directiveTs : 0 }
+        : { text: '', timestamp: 0 };
+
+      const historyEntries = Array.isArray(itemState && itemState.directiveHistory) ? itemState.directiveHistory : [];
+      const latestHistory = historyEntries
+        .slice()
+        .sort((left, right) => parseIsoTimestamp(right && right.createdAt) - parseIsoTimestamp(left && left.createdAt))[0] || null;
+      const latestHistoryText = latestHistory && typeof latestHistory.text === 'string'
+        ? latestHistory.text.replace(/\s+/g, ' ').trim()
+        : '';
+      const latestHistoryTs = parseIsoTimestamp(latestHistory && latestHistory.createdAt);
+      const historyCandidate = latestHistoryText
+        ? {
+            text: latestHistoryText.length > 110 ? `${latestHistoryText.slice(0, 107)}...` : latestHistoryText,
+            timestamp: latestHistoryTs > 0 ? latestHistoryTs : 0
+          }
+        : { text: '', timestamp: 0 };
+
+      if (historyCandidate.timestamp > directiveCandidate.timestamp) {
+        return historyCandidate;
+      }
+      if (directiveCandidate.text) {
+        return directiveCandidate;
+      }
+      return historyCandidate;
+    }
+
+    function getLatestDirectiveActivityTimestamp(itemState) {
+      const latestDirective = getLatestDirectiveActivityDetails(itemState);
+      return Number.isFinite(latestDirective.timestamp) ? latestDirective.timestamp : 0;
+    }
+
     function hasRecentActivityEvidence(itemState) {
       const hasComments = Array.isArray(itemState && itemState.comments) && itemState.comments.length > 0;
       const hasChecklistLogs = Array.isArray(itemState && itemState.steps)
         && itemState.steps.some((step) => parseIsoTimestamp(step && step.completedAt) > 0);
-      return hasComments || hasChecklistLogs;
+      const hasDirective = getLatestDirectiveActivityTimestamp(itemState) > 0;
+      return hasComments || hasChecklistLogs || hasDirective;
     }
 
     function getLatestOverviewTimelineEntry(itemKey) {
@@ -5575,37 +5612,65 @@
     function getLatestCommentActivityDetails(itemKey, itemState) {
       const comments = Array.isArray(itemState && itemState.comments) ? itemState.comments : [];
       const latestComment = getLatestCommentEntry(comments);
+      let commentCandidate = { text: '아직 등록된 코멘트가 없습니다.', timestamp: 0, label: '' };
+
       if (latestComment) {
         const text = computeLatestCommentSummary(comments);
-        return {
+        commentCandidate = {
           text: text || '아직 등록된 코멘트가 없습니다.',
-          timestamp: parseIsoTimestamp(latestComment.updatedAt || latestComment.timestamp)
+          timestamp: parseIsoTimestamp(latestComment.updatedAt || latestComment.timestamp),
+          label: '코멘트'
         };
+      } else {
+        const checklistLogs = Array.isArray(itemState && itemState.activityLog) ? itemState.activityLog : [];
+        const latestStepLog = checklistLogs
+          .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.stepComment === 'string' && entry.stepComment.trim())
+          .sort((left, right) => new Date(right.timestamp || 0).getTime() - new Date(left.timestamp || 0).getTime())[0];
+        if (latestStepLog && typeof latestStepLog.stepComment === 'string' && latestStepLog.stepComment.trim()) {
+          const normalized = latestStepLog.stepComment.replace(/\s+/g, ' ').trim();
+          commentCandidate = {
+            text: normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized,
+            timestamp: parseIsoTimestamp(latestStepLog.timestamp),
+            label: '코멘트'
+          };
+        }
       }
 
-      const checklistLogs = Array.isArray(itemState && itemState.activityLog) ? itemState.activityLog : [];
-      const latestStepLog = checklistLogs
-        .filter((entry) => entry && entry.type === 'checklist-complete' && typeof entry.stepComment === 'string' && entry.stepComment.trim())
-        .sort((left, right) => new Date(right.timestamp || 0).getTime() - new Date(left.timestamp || 0).getTime())[0];
-      if (latestStepLog && typeof latestStepLog.stepComment === 'string' && latestStepLog.stepComment.trim()) {
-        const normalized = latestStepLog.stepComment.replace(/\s+/g, ' ').trim();
+      if (commentCandidate.timestamp <= 0) {
+        const timelineEntry = getLatestOverviewTimelineEntry(itemKey);
+        if (timelineEntry) {
+          commentCandidate = {
+            text: typeof timelineEntry.detail === 'string' && timelineEntry.detail.trim()
+              ? timelineEntry.detail.trim()
+              : (timelineEntry.type === 'checklist' ? '업무 수행 완료' : '아직 등록된 코멘트가 없습니다.'),
+            timestamp: Number.isFinite(timelineEntry.timestamp) ? timelineEntry.timestamp : 0,
+            label: '코멘트'
+          };
+        }
+      }
+
+      const latestDirective = getLatestDirectiveActivityDetails(itemState);
+      if (latestDirective && latestDirective.text && latestDirective.timestamp > commentCandidate.timestamp) {
         return {
-          text: normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized,
-          timestamp: parseIsoTimestamp(latestStepLog.timestamp)
+          text: latestDirective.text,
+          timestamp: latestDirective.timestamp,
+          label: '지시사항'
         };
       }
 
-      const timelineEntry = getLatestOverviewTimelineEntry(itemKey);
-      if (timelineEntry) {
+      if (commentCandidate.timestamp > 0 && commentCandidate.text) {
+        return commentCandidate;
+      }
+
+      if (latestDirective && latestDirective.text) {
         return {
-          text: typeof timelineEntry.detail === 'string' && timelineEntry.detail.trim()
-            ? timelineEntry.detail.trim()
-            : (timelineEntry.type === 'checklist' ? '업무 수행 완료' : '아직 등록된 코멘트가 없습니다.'),
-          timestamp: Number.isFinite(timelineEntry.timestamp) ? timelineEntry.timestamp : 0
+          text: latestDirective.text,
+          timestamp: latestDirective.timestamp,
+          label: '지시사항'
         };
       }
 
-      return { text: '아직 등록된 코멘트가 없습니다.', timestamp: 0 };
+      return { text: '아직 등록된 코멘트가 없습니다.', timestamp: 0, label: '' };
     }
 
     function buildTeamOverviewProgressHtml(row) {
@@ -5614,8 +5679,10 @@
       const doneCount = Number(row && row.doneCount) || 0;
       const totalCount = Number(row && row.totalCount) || 0;
       const commentText = row && typeof row.latestCommentText === 'string' ? row.latestCommentText.trim() : '';
+      const commentLabel = row && typeof row.latestCommentLabel === 'string' ? row.latestCommentLabel.trim() : '';
       const commentAt = row && row.latestCommentAt ? formatEntryDateTime(row.latestCommentAt) : '';
       const doneAt = row && row.latestDoneAt ? formatEntryDateTime(row.latestDoneAt) : '';
+      const commentPrefix = commentLabel ? `[${commentLabel}] ` : '';
 
       return `
         <div class="team-overview-progress-cell">
@@ -5625,7 +5692,7 @@
             </div>
             <div class="team-overview-progress-meta"><span>${escapeHtml(percentText)}</span><span class="team-overview-progress-count">${escapeHtml(`${doneCount}/${totalCount}`)}</span></div>
           </div>
-          ${commentText ? `<div class="team-overview-progress-comment">💬 ${commentAt ? `[${escapeHtml(commentAt)}] : ` : ''}${escapeHtml(commentText)}</div>` : ''}
+          ${commentText ? `<div class="team-overview-progress-comment">💬 ${commentAt ? `[${escapeHtml(commentAt)}] ` : ''}${escapeHtml(commentPrefix)}${escapeHtml(commentText)}</div>` : ''}
           ${doneAt ? `<div class="team-overview-progress-completion">🟢 최근 완료: ${escapeHtml(doneAt)}</div>` : ''}
         </div>
       `;
@@ -5735,11 +5802,13 @@
       const lastUpdatedAt = parseIsoTimestamp(itemState && itemState.lastUpdatedAt);
       const timelineEntry = getLatestOverviewTimelineEntry(itemKey);
       const timelineTs = timelineEntry && Number.isFinite(timelineEntry.timestamp) ? timelineEntry.timestamp : 0;
+      const directiveTs = getLatestDirectiveActivityTimestamp(itemState);
       return Math.max(
         explicit,
         lastUpdatedAt,
         getLatestCommentActivityTimestamp(itemState),
         getLatestChecklistActivityTimestamp(itemState),
+        directiveTs,
         timelineTs,
         0
       );
@@ -5813,6 +5882,7 @@
             totalCount,
             progressPercent,
             latestCommentText: latestComment.text,
+            latestCommentLabel: latestComment.label || '',
             latestCommentAt: latestComment.timestamp > 0 ? new Date(latestComment.timestamp).toISOString() : '',
             latestDoneAt,
             highlight,
@@ -8698,19 +8768,28 @@
         ? dashboardUnifiedOverviewState
         : state;
       const requestedEntries = Object.entries((sourceState && sourceState.items) || {})
-        .filter(([, value]) => value && (value.isLeaderRequested === true || value.bossRequest === true || value.isBossRequested === true))
+        .filter(([, value]) => {
+          if (!value) return false;
+          const hasDirective = typeof value.directive === 'string' && value.directive.trim().length > 0;
+          return value.isLeaderRequested === true || value.bossRequest === true || value.isBossRequested === true || hasDirective;
+        })
         .map(([itemKey, itemState]) => {
           const detail = getItemDetailByKey(itemKey, sourceState);
-          const latestDirective = typeof itemState?.directive === 'string' && itemState.directive.trim()
-            ? itemState.directive.trim()
-            : '';
-          const latestHistoryDirective = Array.isArray(itemState?.directiveHistory) && itemState.directiveHistory.length
-            ? String(itemState.directiveHistory[itemState.directiveHistory.length - 1]?.text || '').trim()
-            : '';
-          const directivePreview = latestDirective || latestHistoryDirective || '최근 지시사항 없음';
-          return { itemKey, detail, directivePreview };
+          const directiveMeta = getLatestDirectiveActivityDetails(itemState);
+          const directivePreview = directiveMeta && directiveMeta.text ? directiveMeta.text : '최근 지시사항 없음';
+          const directiveSavedAt = directiveMeta && directiveMeta.timestamp > 0
+            ? formatEntryDateTime(new Date(directiveMeta.timestamp).toISOString())
+            : '-';
+          const pinned = itemState && itemState.isLeaderRequested === true;
+          return { itemKey, detail, directivePreview, directiveSavedAt, pinned, directiveTs: directiveMeta.timestamp || 0 };
         })
-        .filter((entry) => entry.detail);
+        .filter((entry) => entry.detail)
+        .sort((left, right) => {
+          if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+          if (left.directiveTs !== right.directiveTs) return right.directiveTs - left.directiveTs;
+          if (left.detail.goalLabel !== right.detail.goalLabel) return left.detail.goalLabel.localeCompare(right.detail.goalLabel);
+          return left.detail.title.localeCompare(right.detail.title);
+        });
 
       if (!requestedEntries.length) {
         leaderSummaryList.innerHTML = '';
@@ -8719,7 +8798,7 @@
       }
 
       leaderSummaryList.innerHTML = requestedEntries
-        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">📌 [${escapeHtml(entry.detail.goalLabel)}] - ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">최신 지시: ${escapeHtml(entry.directivePreview)} | 마감: ${escapeHtml(entry.detail.dueText)}</div></button>`)
+        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">${entry.pinned ? '📌 ' : ''}[${escapeHtml(entry.detail.goalLabel)}] - ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">카드 제목: ${escapeHtml(entry.detail.title)} / 지시사항: ${escapeHtml(entry.directivePreview)} / 저장 일시: ${escapeHtml(entry.directiveSavedAt)}</div></button>`)
         .join('');
       leaderSummaryEmpty.style.display = 'none';
     }
