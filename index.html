@@ -230,6 +230,17 @@
     .team-overview-filter { height: 34px; border: 1px solid #c9d9ea; border-radius: 10px; background: #ffffff; color: #244a70; padding: 0 10px; font-size: 12px; font-weight: 700; }
     .team-overview-toggle-btn { height: 34px; border: 1px solid #95b8db; border-radius: 10px; background: #f3f8ff; color: #1f507a; padding: 0 11px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .team-overview-toggle-btn:hover { background: #e7f1ff; }
+    .card-delete-btn { border: 1px solid #efc6c6 !important; background: #fff6f6 !important; color: #a63a3a !important; }
+    .card-delete-btn:hover { background: #ffecec !important; }
+    .quick-add-missing-due-note { border: 1px solid #f0d8ba; border-radius: 10px; background: #fff7eb; color: #9a5a13; font-size: 12px; font-weight: 700; padding: 8px 10px; }
+    .quick-add-modal-panel { width: min(760px, 100%); }
+    .quick-add-form { display: grid; gap: 10px; }
+    .quick-add-row-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+    .quick-add-leader-option { min-height: 44px; align-self: end; }
+    .quick-add-submit-row { display: flex; justify-content: flex-end; }
+    @media (max-width: 760px) {
+      .quick-add-row-grid { grid-template-columns: 1fr; }
+    }
     .team-overview-body { display: block; }
     .team-overview-section.collapsed .team-overview-body { display: none; }
     .team-overview-filter-notice { margin: 0 0 8px; border-radius: 10px; border: 1px solid #f1dd9d; background: #fff7dc; color: #7b5a08; padding: 8px 10px; font-size: 12px; font-weight: 700; }
@@ -1246,6 +1257,7 @@
             <div class="team-overview-subtitle">만다라트 카드와 체크리스트/코멘트 데이터를 실시간으로 집계합니다.</div>
           </div>
           <div class="team-overview-tools">
+            <button type="button" class="team-overview-toggle-btn" id="quickAddFromDashboardBtn">+ 카드 빠른 추가</button>
             <select class="team-overview-filter" id="teamAssigneeFilter" aria-label="담당자 필터">
               <option value="all">전체</option>
               <option value="Jian">Jian</option>
@@ -1401,6 +1413,7 @@
           <div class="detail-card">
             <h2 id="detailTitle">선택된 목표 상세 내용</h2>
             <p id="detailSubtitle">상단에서 목표를 선택하면 관련 업무 계획과 참고 내용이 자동으로 업데이트됩니다.</p>
+            <button type="button" class="team-overview-toggle-btn" id="quickAddFromDetailBtn">+ 카드 추가</button>
             <div class="goal-guideline-badge-box" id="goalGuidelineBadgeBox" hidden></div>
           </div>
         </div>
@@ -1536,6 +1549,53 @@
           <button type="button" class="card-edit-modal-btn primary" id="cardEditModalSaveBtn">저장</button>
         </div>
       </div>
+    </section>
+  </div>
+
+  <div class="card-edit-modal" id="quickAddModal" hidden>
+    <div class="card-edit-modal-backdrop" data-quick-add-action="close"></div>
+    <section class="card-edit-modal-panel quick-add-modal-panel" role="dialog" aria-modal="true" aria-labelledby="quickAddModalTitle">
+      <div class="card-edit-modal-header">
+        <div>
+          <div class="card-edit-modal-kicker">카드 빠른 추가</div>
+          <div class="card-edit-modal-title" id="quickAddModalTitle">회의 중 즉시 카드 등록</div>
+        </div>
+        <button type="button" class="card-edit-modal-close-btn" data-quick-add-action="close" aria-label="닫기">×</button>
+      </div>
+      <form class="card-edit-modal-body quick-add-form" id="quickAddForm">
+        <div class="card-editor-field">
+          <label for="quickAddTitleInput">업무명 (필수)</label>
+          <input type="text" class="card-editor-input" id="quickAddTitleInput" maxlength="140" required />
+        </div>
+        <div class="quick-add-row-grid">
+          <div class="card-editor-field">
+            <label for="quickAddGoalSelect">목표 선택</label>
+            <select class="card-editor-input" id="quickAddGoalSelect"></select>
+          </div>
+          <div class="card-editor-field">
+            <label for="quickAddDueDateInput">마감일 (선택)</label>
+            <input type="date" class="card-editor-input" id="quickAddDueDateInput" />
+          </div>
+        </div>
+        <div class="quick-add-row-grid">
+          <div class="card-editor-field">
+            <label for="quickAddPrioritySelect">중요도</label>
+            <select class="card-editor-input" id="quickAddPrioritySelect">
+              <option value="normal">보통</option>
+              <option value="important">🟡 중요</option>
+              <option value="urgent">🔴 긴급</option>
+            </select>
+          </div>
+          <label class="card-edit-flag-option quick-add-leader-option"><input type="checkbox" id="quickAddLeaderInput" /> 📌 팀장 지시</label>
+        </div>
+        <div class="card-editor-field">
+          <label for="quickAddDirectiveInput">지시사항 (선택)</label>
+          <textarea class="card-editor-textarea" id="quickAddDirectiveInput" rows="3"></textarea>
+        </div>
+        <div class="quick-add-submit-row">
+          <button type="submit" class="card-edit-modal-btn primary" id="quickAddSubmitBtn">추가</button>
+        </div>
+      </form>
     </section>
   </div>
 
@@ -1712,6 +1772,8 @@
     const newsSettingsStatus = document.getElementById('newsSettingsStatus');
     const teamOverviewSection = document.getElementById('teamOverviewSection');
     const teamOverviewToggleBtn = document.getElementById('teamOverviewToggleBtn');
+    const quickAddFromDashboardBtn = document.getElementById('quickAddFromDashboardBtn');
+    const quickAddFromDetailBtn = document.getElementById('quickAddFromDetailBtn');
     const teamAssigneeFilter = document.getElementById('teamAssigneeFilter');
     const teamUpdateWindowFilter = document.getElementById('teamUpdateWindowFilter');
     const teamOverviewFilterNotice = document.getElementById('teamOverviewFilterNotice');
@@ -1755,6 +1817,15 @@
     const cardEditModalCloseBtn = document.getElementById('cardEditModalCloseBtn');
     const cardEditModalCancelBtn = document.getElementById('cardEditModalCancelBtn');
     const cardEditModalSaveBtn = document.getElementById('cardEditModalSaveBtn');
+    const quickAddModal = document.getElementById('quickAddModal');
+    const quickAddForm = document.getElementById('quickAddForm');
+    const quickAddTitleInput = document.getElementById('quickAddTitleInput');
+    const quickAddGoalSelect = document.getElementById('quickAddGoalSelect');
+    const quickAddDueDateInput = document.getElementById('quickAddDueDateInput');
+    const quickAddPrioritySelect = document.getElementById('quickAddPrioritySelect');
+    const quickAddLeaderInput = document.getElementById('quickAddLeaderInput');
+    const quickAddDirectiveInput = document.getElementById('quickAddDirectiveInput');
+    const quickAddSubmitBtn = document.getElementById('quickAddSubmitBtn');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -2748,7 +2819,7 @@
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
         if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
         const goalNumber = getGoalNumberFromGoalKey(goalKey);
-        goalTemplate.items.forEach((item, index) => {
+        getGoalItemEntries(goalKey).forEach(({ item, index }) => {
           const itemKey = `${goalKey}::${index}`;
           const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
           const fallbackTitle = typeof item.title === 'string' ? item.title : '';
@@ -4172,7 +4243,7 @@
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
         snapshot[goalKey] = {};
         if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
-        goalTemplate.items.forEach((_, index) => {
+        getGoalItemEntries(goalKey).forEach(({ index }) => {
           const itemKey = `${goalKey}::${index}`;
           const itemState = normalizedState.items[itemKey] || {};
           snapshot[goalKey][index] = {
@@ -4200,6 +4271,7 @@
             cycleCompletedCount: Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0,
             totalCycles: Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0),
             seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
+            quickAddMissingDue: itemState.quickAddMissingDue === true,
             customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
             customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
@@ -4243,8 +4315,34 @@
           const itemKey = `${goalKey}::${indexText}`;
           const goalTemplate = goalTemplates[goalKey];
           const itemIndex = Number(indexText);
-          const item = goalTemplate && Array.isArray(goalTemplate.items) && goalTemplate.items[itemIndex] ? goalTemplate.items[itemIndex] : null;
-          if (!item) return;
+          if (!goalTemplate || !Array.isArray(goalTemplate.items) || Number.isNaN(itemIndex)) return;
+          if (!remoteItem || typeof remoteItem !== 'object') {
+            if (goalTemplate.items[itemIndex] && typeof goalTemplate.items[itemIndex] === 'object') {
+              goalTemplate.items[itemIndex] = {
+                ...(goalTemplate.items[itemIndex] || {}),
+                __deleted: true
+              };
+            }
+            delete nextState.items[itemKey];
+            return;
+          }
+          if (!isGoalTemplateItemVisible(goalTemplate.items[itemIndex])) {
+            const generatedTitle = typeof remoteItem.customTitle === 'string' && remoteItem.customTitle.trim()
+              ? remoteItem.customTitle.trim()
+              : (typeof remoteItem.title === 'string' && remoteItem.title.trim() ? remoteItem.title.trim() : `신규 카드 ${itemIndex + 1}`);
+            const generatedSummary = typeof remoteItem.customSummary === 'string' && remoteItem.customSummary.trim()
+              ? remoteItem.customSummary.trim()
+              : (typeof remoteItem.summary === 'string' ? remoteItem.summary : '');
+            goalTemplate.items[itemIndex] = {
+              title: generatedTitle,
+              summary: generatedSummary,
+              hq: '',
+              competitor: '',
+              link: '',
+              __deleted: false
+            };
+          }
+          const item = goalTemplate.items[itemIndex];
           const itemStepCount = item ? getChecklistStepsForItem(nextState, goalKey, item, itemKey, []).length : 0;
           const itemState = nextState.items[itemKey] || getItemState(nextState, itemKey, itemStepCount);
           itemState.note = typeof remoteItem?.note === 'string' ? remoteItem.note : '';
@@ -4278,6 +4376,7 @@
             ? Number(remoteItem.totalCycles)
             : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : (Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0));
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
+          itemState.quickAddMissingDue = remoteItem?.quickAddMissingDue === true;
           itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
           itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
@@ -4450,6 +4549,8 @@
 
       if (newsRefreshBtn) newsRefreshBtn.hidden = !isEditable;
       if (newsSettingsBtn) newsSettingsBtn.hidden = !isEditable;
+      if (quickAddFromDashboardBtn) quickAddFromDashboardBtn.disabled = !isEditable;
+      if (quickAddFromDetailBtn) quickAddFromDetailBtn.disabled = !isEditable;
       syncNewsRefreshButtonState();
       if (!isEditable && newsSettingsModal) {
         newsSettingsModal.hidden = true;
@@ -4861,6 +4962,294 @@
       return currentFirebaseUser
         ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL)
         : EDITOR_NAME_LABEL;
+    }
+
+    function getQuickAddDefaultStepLabels() {
+      return [
+        '자료 수집 · 현황 파악',
+        '초안 작성 · 준비',
+        '검토 · 수정',
+        '완료 · 공유'
+      ];
+    }
+
+    function buildQuickAddTemplateItem(title) {
+      return {
+        title,
+        summary: '',
+        hq: '',
+        competitor: '',
+        link: '',
+        __deleted: false
+      };
+    }
+
+    function markGoalTemplateItemDeleted(goalKey, index) {
+      if (!goalTemplates[goalKey] || !Array.isArray(goalTemplates[goalKey].items)) return;
+      const previous = goalTemplates[goalKey].items[index] && typeof goalTemplates[goalKey].items[index] === 'object'
+        ? goalTemplates[goalKey].items[index]
+        : {};
+      goalTemplates[goalKey].items[index] = {
+        ...previous,
+        __deleted: true,
+        title: typeof previous.title === 'string' && previous.title ? previous.title : `삭제된 카드 ${index + 1}`,
+        summary: typeof previous.summary === 'string' ? previous.summary : ''
+      };
+    }
+
+    function createQuickAddItemState(goalKey, itemKey, title, dueDate, priority, isLeaderRequested, directiveText) {
+      const stepLabels = getQuickAddDefaultStepLabels();
+      const nowIso = new Date().toISOString();
+      const normalizedDueDate = typeof dueDate === 'string' ? dueDate.trim() : '';
+      const normalizedDirective = typeof directiveText === 'string' ? directiveText.trim() : '';
+      return {
+        steps: stepLabels.map((_, index) => ({
+          id: createChecklistStepId(itemKey, index),
+          checked: false,
+          dueDate: index === 3 && normalizedDueDate ? normalizedDueDate : '',
+          completedAt: '',
+          comment: ''
+        })),
+        note: '',
+        noteUpdatedAt: '',
+        activityUpdatedAt: '',
+        directive: normalizedDirective,
+        directiveUpdatedAt: normalizedDirective ? nowIso : '',
+        directiveHistory: normalizedDirective
+          ? [{ id: `directive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: normalizedDirective, createdAt: nowIso }]
+          : [],
+        latestCommentSummary: '',
+        remark: '',
+        benchmarkUpdatedAt: '',
+        priority: normalizePriorityValue(priority),
+        comments: [],
+        historyList: [],
+        cycleCompletedCount: 0,
+        totalCycles: 0,
+        activityLog: [createActivityLogEntry('card-add', {
+          itemKey,
+          goalKey,
+          content: `카드 추가: ${title}`
+        })],
+        seriesDraftName: '',
+        quickAddMissingDue: !normalizedDueDate,
+        customTitle: title,
+        customSummary: '',
+        customGuidelines: [],
+        customSteps: stepLabels.slice(),
+        benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
+        lastUpdatedAt: nowIso,
+        lastUpdatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
+        lastUpdatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
+        lastUpdatedByUid: currentFirebaseUser ? (currentFirebaseUser.uid || '') : '',
+        principles: [],
+        isUrgent: normalizePriorityValue(priority) === PRIORITY_URGENT,
+        isImportant: normalizePriorityValue(priority) === PRIORITY_IMPORTANT,
+        isBossRequested: false,
+        isLeaderRequested: isLeaderRequested === true
+      };
+    }
+
+    async function addQuickCard({ title, goalKey, dueDate, priority, isLeaderRequested, directiveText }) {
+      const safeTitle = typeof title === 'string' ? title.trim() : '';
+      const normalizedGoalKey = typeof goalKey === 'string' ? goalKey : '';
+      if (!safeTitle) return { ok: false, reason: 'title-required' };
+      if (!goalTemplates[normalizedGoalKey]) return { ok: false, reason: 'invalid-goal' };
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady || !currentFirebaseUser) {
+        const failPath = `cards/${normalizedGoalKey}/?`;
+        setFirebaseSaveFailureBanner(`저장 실패: ${failPath} (write-unavailable)`);
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${normalizedGoalKey}/? (bridge-unavailable)`);
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const plannerState = loadPlannerState();
+      const goalTemplate = goalTemplates[normalizedGoalKey];
+      if (!Array.isArray(goalTemplate.items)) goalTemplate.items = [];
+
+      const nextIndex = getGoalNextAppendIndex(normalizedGoalKey);
+      const itemKey = `${normalizedGoalKey}::${nextIndex}`;
+      const normalizedDueDate = typeof dueDate === 'string' ? dueDate.trim() : '';
+      const cardState = createQuickAddItemState(
+        normalizedGoalKey,
+        itemKey,
+        safeTitle,
+        normalizedDueDate,
+        normalizePriorityValue(priority),
+        isLeaderRequested === true,
+        directiveText
+      );
+      const templateItem = buildQuickAddTemplateItem(safeTitle);
+
+      plannerState.items[itemKey] = cardState;
+      goalTemplate.items[nextIndex] = templateItem;
+      savePlannerState(plannerState, { reason: 'quick-card-add-local', skipFirebaseSync: true });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === normalizedGoalKey) {
+        updateGoalCard(normalizedGoalKey);
+      }
+
+      const finalDueDate = cardState.steps[3] && typeof cardState.steps[3].dueDate === 'string' ? cardState.steps[3].dueDate : '';
+      console.log('[quick-add] 생성 직후 검증', {
+        title: safeTitle,
+        path: `cards/${normalizedGoalKey}/${nextIndex}`,
+        index: nextIndex,
+        stepCount: Array.isArray(cardState.steps) ? cardState.steps.length : 0,
+        finalStepDueDate: finalDueDate || ''
+      });
+      const catalogEntry = getBenchmarkCatalogEntryByItemKey(itemKey);
+      console.log('[quick-add] 연동 카운트 검증', {
+        goalKey: normalizedGoalKey,
+        goalCardCount: getGoalItemEntries(normalizedGoalKey).length,
+        totalPromptCardCount: countBenchmarkPromptCards(),
+        assignedCardId: catalogEntry ? catalogEntry.id : ''
+      });
+
+      try {
+        const actorMeta = {
+          lastUpdatedAt: new Date().toISOString(),
+          updatedByName: currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL,
+          updatedByEmail: currentFirebaseUser.email || '',
+          updatedByUid: currentFirebaseUser.uid || ''
+        };
+        const snapshot = buildFirebaseSnapshot(plannerState, actorMeta);
+        const cardPayload = snapshot && snapshot[normalizedGoalKey] ? snapshot[normalizedGoalKey][nextIndex] : null;
+        if (!cardPayload) throw Object.assign(new Error('card-payload-missing'), { code: 'card-payload-missing' });
+
+        const targetPath = `cards/${normalizedGoalKey}/${nextIndex}`;
+        await bridge.update(bridge.ref(bridge.db), {
+          [targetPath]: cardPayload
+        });
+        setFirebaseSaveFailureBanner('');
+        updateFirebaseLastUpdatedText(actorMeta);
+        console.log('[quick-add] 저장 성공', {
+          title: safeTitle,
+          path: targetPath,
+          index: nextIndex
+        });
+        return { ok: true, itemKey, goalKey: normalizedGoalKey, index: nextIndex };
+      } catch (error) {
+        delete plannerState.items[itemKey];
+        if (Array.isArray(goalTemplate.items) && goalTemplate.items.length === nextIndex + 1) {
+          goalTemplate.items.pop();
+        } else {
+          markGoalTemplateItemDeleted(normalizedGoalKey, nextIndex);
+        }
+        savePlannerState(plannerState, { reason: 'quick-card-add-rollback', skipFirebaseSync: true });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey === normalizedGoalKey) {
+          updateGoalCard(normalizedGoalKey);
+        }
+
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${normalizedGoalKey}/${nextIndex} (${errorCode})`);
+        console.error('[quick-add] 저장 실패', {
+          path: `cards/${normalizedGoalKey}/${nextIndex}`,
+          errorCode,
+          error
+        });
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
+      }
+    }
+
+    async function deleteCardByItemKey(itemKey) {
+      const [goalKey, indexText] = String(itemKey || '').split('::');
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText || '')) return { ok: false, reason: 'invalid-item-key' };
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady || !currentFirebaseUser) {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (write-unavailable)`);
+        return { ok: false, reason: 'write-unavailable' };
+      }
+      const bridge = getFirebaseBridge();
+      if (!bridge || !bridge.db || typeof bridge.ref !== 'function' || typeof bridge.update !== 'function') {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (bridge-unavailable)`);
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
+
+      const index = Number(indexText);
+      const plannerState = loadPlannerState();
+      const previousItemState = plannerState.items[itemKey] ? { ...plannerState.items[itemKey] } : null;
+      const previousTemplate = goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items)
+        ? goalTemplates[goalKey].items[index]
+        : null;
+
+      delete plannerState.items[itemKey];
+      markGoalTemplateItemDeleted(goalKey, index);
+      savePlannerState(plannerState, { reason: 'card-delete-local', skipFirebaseSync: true });
+      syncOverviewWidgets(plannerState);
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+        updateGoalCard(goalKey);
+      }
+
+      try {
+        const targetPath = `cards/${goalKey}/${indexText}`;
+        await bridge.update(bridge.ref(bridge.db), {
+          [targetPath]: null
+        });
+        setFirebaseSaveFailureBanner('');
+        console.log('[quick-add] 카드 삭제 성공', { path: targetPath, index });
+        return { ok: true, goalKey, index };
+      } catch (error) {
+        if (previousItemState) {
+          plannerState.items[itemKey] = previousItemState;
+        }
+        if (goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items)) {
+          goalTemplates[goalKey].items[index] = previousTemplate;
+        }
+        savePlannerState(plannerState, { reason: 'card-delete-rollback', skipFirebaseSync: true });
+        syncOverviewWidgets(plannerState);
+        if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+          updateGoalCard(goalKey);
+        }
+
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
+        console.error('[quick-add] 카드 삭제 실패', {
+          path: `cards/${goalKey}/${indexText}`,
+          errorCode,
+          error
+        });
+        return { ok: false, reason: 'firebase-update-failed', errorCode };
+      }
+    }
+
+    function populateQuickAddGoalSelect(defaultGoalKey = '') {
+      if (!quickAddGoalSelect) return;
+      quickAddGoalSelect.innerHTML = Object.entries(goalTemplates)
+        .map(([goalKey, goal]) => `<option value="${goalKey}">${getGoalDisplayLabel(goalKey)} (${goal.label})</option>`)
+        .join('');
+      if (defaultGoalKey && goalTemplates[defaultGoalKey]) {
+        quickAddGoalSelect.value = defaultGoalKey;
+      }
+    }
+
+    function resetQuickAddForm(keepGoalSelection = true) {
+      const selectedGoal = keepGoalSelection && quickAddGoalSelect ? quickAddGoalSelect.value : '';
+      if (quickAddTitleInput) quickAddTitleInput.value = '';
+      if (quickAddDueDateInput) quickAddDueDateInput.value = '';
+      if (quickAddPrioritySelect) quickAddPrioritySelect.value = PRIORITY_NORMAL;
+      if (quickAddLeaderInput) quickAddLeaderInput.checked = false;
+      if (quickAddDirectiveInput) quickAddDirectiveInput.value = '';
+      if (quickAddGoalSelect && selectedGoal && goalTemplates[selectedGoal]) {
+        quickAddGoalSelect.value = selectedGoal;
+      }
+    }
+
+    function openQuickAddModal(defaultGoalKey = '') {
+      if (!quickAddModal) return;
+      populateQuickAddGoalSelect(defaultGoalKey || currentGoalKey || '');
+      resetQuickAddForm(true);
+      quickAddModal.hidden = false;
+      document.body.classList.add('modal-open');
+      if (quickAddTitleInput) quickAddTitleInput.focus();
+    }
+
+    function closeQuickAddModal() {
+      if (!quickAddModal) return;
+      quickAddModal.hidden = true;
+      document.body.classList.remove('modal-open');
     }
 
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
@@ -5807,8 +6196,7 @@
       const rows = [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
-        const items = Array.isArray(goalTemplate && goalTemplate.items) ? goalTemplate.items : [];
-        items.forEach((item, index) => {
+        getGoalItemEntries(goalKey).forEach(({ item, index }) => {
           const itemKey = `${goalKey}::${index}`;
           const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
@@ -6520,6 +6908,7 @@
         if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
+        itemState.quickAddMissingDue = itemState.quickAddMissingDue === true;
         const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
         itemState.benchmarking = {
           skf: typeof benchmark.skf === 'string' ? benchmark.skf : '',
@@ -6615,6 +7004,7 @@
           totalCycles: 0,
           activityLog: [],
           seriesDraftName: '',
+          quickAddMissingDue: false,
           benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
           lastUpdatedAt: '',
           lastUpdatedByName: '',
@@ -8428,10 +8818,26 @@
       return index >= 0 ? `${index + 1}. ${goal.label}` : goal.label;
     }
 
-    function getGoalPreviewTags(goalKey) {
+    function isGoalTemplateItemVisible(item) {
+      return Boolean(item && typeof item === 'object' && item.__deleted !== true);
+    }
+
+    function getGoalItemEntries(goalKey) {
       const goal = goalTemplates[goalKey];
       if (!goal || !Array.isArray(goal.items)) return [];
-      return goal.items.map((item) => item.title
+      return goal.items
+        .map((item, index) => ({ item, index }))
+        .filter((entry) => isGoalTemplateItemVisible(entry.item));
+    }
+
+    function getGoalNextAppendIndex(goalKey) {
+      const goal = goalTemplates[goalKey];
+      if (!goal || !Array.isArray(goal.items)) return 0;
+      return goal.items.length;
+    }
+
+    function getGoalPreviewTags(goalKey) {
+      return getGoalItemEntries(goalKey).map(({ item }) => item.title
         .replace(/^SKF\s*/i, '')
         .replace(/^신규\s*/i, '')
         .replace(/^주요\s*/i, '')
@@ -8451,10 +8857,10 @@
 
     function getGoalPreviewCards(goalKey, state) {
       const goal = goalTemplates[goalKey];
-      if (!goal || !Array.isArray(goal.items)) return [];
+      if (!goal) return [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
 
-      return goal.items.map((item, index) => {
+      return getGoalItemEntries(goalKey).map(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         const itemPrinciples = getCardGuidelines(state, goalKey, item, goal, itemKey);
         const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
@@ -8487,16 +8893,14 @@
     function goalMatchesSearch(goalKey, searchTerm) {
       const keyword = (searchTerm || '').trim().toLowerCase();
       if (!keyword) return false;
-      const goal = goalTemplates[goalKey];
-      if (!goal || !Array.isArray(goal.items)) return false;
-      return goal.items.some((item) => `${item.title} ${item.summary}`.toLowerCase().includes(keyword));
+      return getGoalItemEntries(goalKey).some(({ item }) => `${item.title} ${item.summary}`.toLowerCase().includes(keyword));
     }
 
     function getItemDetailByKey(itemKey, state) {
       const [goalKey, indexText] = itemKey.split('::');
       const goal = goalTemplates[goalKey];
       const idx = Number(indexText);
-      if (!goal || !Array.isArray(goal.items) || Number.isNaN(idx) || !goal.items[idx]) return null;
+      if (!goal || !Array.isArray(goal.items) || Number.isNaN(idx) || !isGoalTemplateItemVisible(goal.items[idx])) return null;
       const itemState = state && state.items ? state.items[itemKey] : null;
       const dueSummary = getChecklistDueDateSummary(itemState && itemState.steps);
       const dueDate = dueSummary.dueDateText;
@@ -8558,7 +8962,7 @@
         const goal = goalTemplates[goalKey];
         const stats = getGoalStats(goalKey, sourceState);
         const previewCards = getGoalPreviewCards(goalKey, sourceState);
-        const cardCount = Array.isArray(goal.items) ? goal.items.length : previewCards.length;
+        const cardCount = getGoalItemEntries(goalKey).length;
         countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewCards.length });
         previewCards.forEach((card) => {
           mandalartLogRows.push({
@@ -8682,8 +9086,7 @@
       today.setHours(0, 0, 0, 0);
 
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
-        const items = Array.isArray(goalTemplate.items) ? goalTemplate.items : [];
-        items.forEach((item, itemIndex) => {
+        getGoalItemEntries(goalKey).forEach(({ item, index: itemIndex }) => {
           const itemKey = `${goalKey}::${itemIndex}`;
           const itemGuidelines = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemGuidelines);
@@ -10904,10 +11307,10 @@
       }
 
       const goalState = state || loadPlannerState();
-      const items = goalTemplate.items;
+      const itemEntries = getGoalItemEntries(goalKey);
       goalCardSummaryWidget.hidden = false;
-      goalCardSummaryTitle.textContent = `📌 ${goalTemplate.label} 세부 카드 목록 (총 ${items.length}개)`;
-      goalCardSummaryCount.textContent = `총 ${items.length}개`;
+      goalCardSummaryTitle.textContent = `📌 ${goalTemplate.label} 세부 카드 목록 (총 ${itemEntries.length}개)`;
+      goalCardSummaryCount.textContent = `총 ${itemEntries.length}개`;
 
       const parseDateAtMidnight = (dateText) => {
         if (!dateText || typeof dateText !== 'string') return null;
@@ -10943,7 +11346,7 @@
         return { text: `D+${Math.abs(diff)}`, overdue: completed !== true, diff };
       };
 
-      const sortedItems = items.map((item, index) => {
+      const sortedItems = itemEntries.map(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         const itemPrinciples = getCardGuidelines(goalState, goalKey, item, goalTemplate, itemKey);
         const checklistSteps = getChecklistStepsForItem(goalState, goalKey, item, itemKey, itemPrinciples);
@@ -12786,11 +13189,11 @@
       return stepSwapped && customStepSwapped;
     }
 
-    function renderDetailItems(items, goalKey) {
+    function renderDetailItems(goalKey) {
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      const cardsHtml = items.map((item, index) => {
+      const cardsHtml = getGoalItemEntries(goalKey).map(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
         const displayTitle = getCardTitleText(existingItemState, item);
@@ -12862,6 +13265,8 @@
           itemState
         );
         const historyArchiveHtml = createHistoryArchiveHtml();
+        const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
+        const showQuickDueHint = itemState && itemState.quickAddMissingDue === true && !hasFinalDueDate;
         return `
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
@@ -12879,10 +13284,12 @@
                 </select>
               </div>
               <button type="button" class="card-edit-btn">✏️ 카드 내용 수정</button>
+              <button type="button" class="card-edit-btn card-delete-btn">카드 삭제</button>
               <button type="button" class="leader-star-btn" aria-label="팀장님 요청 표시">☆</button>
             </div>
           </div>
           <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
+          ${showQuickDueHint ? '<div class="quick-add-missing-due-note">마감일을 입력하세요</div>' : ''}
           <div class="detail-item-meta">
             ${benchmarkHtml}
             ${principleBoxHtml}
@@ -12939,6 +13346,7 @@
         const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
         const cardEditButton = card.querySelector('.card-edit-btn');
+        const cardDeleteButton = card.querySelector('.card-delete-btn');
         const prioritySelect = card.querySelector('.card-priority-select');
         const directiveSection = card.querySelector('.directive-section');
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
@@ -13048,6 +13456,18 @@
         if (cardEditButton) {
           cardEditButton.addEventListener('click', () => {
             openCardEditModal(itemKey);
+          });
+        }
+
+        if (cardDeleteButton) {
+          cardDeleteButton.addEventListener('click', async () => {
+            const currentTitle = getCardTitleText(itemState, currentItem || { title: '' }) || itemKey;
+            const confirmed = window.confirm(`카드 삭제 확인\n\n제목: ${currentTitle}\n\n이 카드를 삭제하시겠습니까?`);
+            if (!confirmed) return;
+            const result = await deleteCardByItemKey(itemKey);
+            if (!result.ok) {
+              window.alert('카드 삭제에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
+            }
           });
         }
 
@@ -13694,11 +14114,23 @@
             console.log('[DUE] 이전 날짜', previousDueDate);
             console.log('[DUE] 변경 날짜', nextDueDate);
             itemState.steps[idx].dueDate = nextDueDate;
+            if (idx === 3 && nextDueDate) {
+              itemState.quickAddMissingDue = false;
+            }
             markItemUpdated(itemState);
             input.value = nextDueDate;
             updateDueDateBadges();
             const savedState = savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
-            await flushFirebaseSnapshot('due-date-change');
+            if (idx === 3) {
+              await updateItemFieldsInFirebase(itemKey, {
+                [`steps/${idx}/dueDate`]: nextDueDate,
+                quickAddMissingDue: itemState.quickAddMissingDue === true
+              }, 'due-date-change-step4');
+            } else {
+              await updateItemFieldsInFirebase(itemKey, {
+                [`steps/${idx}/dueDate`]: nextDueDate
+              }, 'due-date-change');
+            }
             renderLatestActivityPanel(latestActivityPanel, itemState);
             renderGoalSummaryWidget(currentGoal, savedState);
             syncOverviewWidgets(savedState);
@@ -13727,7 +14159,7 @@
       detailSubtitle.textContent = template.goalText;
       renderKpiSection(key);
       renderKpiSummaryChip();
-      renderDetailItems(template.items, key);
+      renderDetailItems(key);
       renderGoalSummaryWidget(key, latestState);
       renderNewsWidget(key, latestState);
       updateFirebaseLastUpdatedText(latestState.meta || firebaseLastUpdatedMeta);
@@ -14030,6 +14462,80 @@
       if (teamAssigneeFilter) {
         teamAssigneeFilter.addEventListener('change', () => {
           renderTeamOverviewTable(loadPlannerState());
+        });
+      }
+
+      if (quickAddFromDashboardBtn) {
+        quickAddFromDashboardBtn.addEventListener('click', () => {
+          openQuickAddModal(currentGoalKey || '');
+        });
+      }
+
+      if (quickAddFromDetailBtn) {
+        quickAddFromDetailBtn.addEventListener('click', () => {
+          openQuickAddModal(currentGoalKey || goalSelect.value || '');
+        });
+      }
+
+      if (quickAddModal) {
+        quickAddModal.addEventListener('click', (event) => {
+          const closeAction = event.target.closest('[data-quick-add-action="close"]');
+          if (closeAction || event.target === quickAddModal) {
+            closeQuickAddModal();
+          }
+        });
+
+        quickAddModal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            closeQuickAddModal();
+          }
+        });
+      }
+
+      if (quickAddForm) {
+        quickAddForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const title = quickAddTitleInput ? quickAddTitleInput.value.trim() : '';
+          const goalKey = quickAddGoalSelect ? quickAddGoalSelect.value : '';
+          const dueDate = quickAddDueDateInput ? quickAddDueDateInput.value : '';
+          const priority = quickAddPrioritySelect ? quickAddPrioritySelect.value : PRIORITY_NORMAL;
+          const isLeaderRequested = quickAddLeaderInput ? quickAddLeaderInput.checked : false;
+          const directiveText = quickAddDirectiveInput ? quickAddDirectiveInput.value : '';
+
+          if (!title) {
+            window.alert('업무명을 입력해 주세요.');
+            if (quickAddTitleInput) quickAddTitleInput.focus();
+            return;
+          }
+
+          if (quickAddSubmitBtn) {
+            quickAddSubmitBtn.disabled = true;
+            quickAddSubmitBtn.textContent = '추가 중...';
+          }
+
+          try {
+            const result = await addQuickCard({
+              title,
+              goalKey,
+              dueDate,
+              priority,
+              isLeaderRequested,
+              directiveText
+            });
+
+            if (!result.ok) {
+              window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
+              return;
+            }
+
+            resetQuickAddForm(true);
+            if (quickAddTitleInput) quickAddTitleInput.focus();
+          } finally {
+            if (quickAddSubmitBtn) {
+              quickAddSubmitBtn.disabled = false;
+              quickAddSubmitBtn.textContent = '추가';
+            }
+          }
         });
       }
 
