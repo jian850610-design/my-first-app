@@ -2602,11 +2602,11 @@
 
         try {
           const raw = localStorage.getItem(key);
-          if (!raw) continue;
           const parsed = JSON.parse(raw);
           const state = normalizePlannerState(parsed);
           if (!state || !state.items || !Object.keys(state.items).length) continue;
           entries.push({
+            key,
             dateKey,
             state,
             updatedAt: new Date(state.meta && state.meta.lastUpdatedAt ? state.meta.lastUpdatedAt : 0).getTime()
@@ -2622,11 +2622,14 @@
     function getLatestPlannerSnapshotFromStorage() {
       const entries = getStoredPlannerSnapshotEntries().sort((left, right) => {
         if (left.updatedAt !== right.updatedAt) return right.updatedAt - left.updatedAt;
-        return right.dateKey.localeCompare(left.dateKey);
+        return 0;
       });
 
       if (entries.length) {
-        return entries[0];
+        return {
+          dateKey: entries[0].dateKey,
+          state: entries[0].state
+        };
       }
 
       const todayKey = getLocalDateKey(new Date());
@@ -4343,6 +4346,7 @@
           const itemKey = `${goalKey}::${index}`;
           const itemState = normalizedState.items[itemKey] || {};
           snapshot[goalKey][index] = {
+            title: typeof itemState.title === 'string' ? itemState.title : '',
             note: typeof itemState.note === 'string' ? itemState.note : '',
             noteUpdatedAt: typeof itemState.noteUpdatedAt === 'string' ? itemState.noteUpdatedAt : '',
             activityUpdatedAt: typeof itemState.activityUpdatedAt === 'string' ? itemState.activityUpdatedAt : '',
@@ -4457,6 +4461,7 @@
             : normalizeCardNotes(itemState.notes);
           itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
           itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
+          itemState.title = typeof remoteItem?.title === 'string' ? remoteItem.title : (typeof itemState.title === 'string' ? itemState.title : '');
           itemState.benchmarkUpdatedAt = typeof remoteItem?.benchmarkUpdatedAt === 'string' ? remoteItem.benchmarkUpdatedAt : (typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '');
           itemState.priority = normalizePriorityValue(remoteItem?.priority || itemState.priority);
           itemState.steps = Array.isArray(remoteItem?.steps)
@@ -7298,19 +7303,19 @@
     function normalizeSalesSupportItemIndexes(items) {
       if (!items || typeof items !== 'object') return;
 
-      const hasLegacyLayout = ['sales-support::3', 'sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
+      const hasLegacyLayout = ['sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
         .some((key) => Boolean(items[key]));
 
-      if (items['sales-support::5']) {
+      if (!hasLegacyLayout) return;
+
+      if (items['sales-support::5'] && !items['sales-support::1']) {
         items['sales-support::1'] = items['sales-support::5'];
       }
 
-      if (hasLegacyLayout) {
-        // The new index 2 is a freshly added education card; drop stale old index-2 data on migration.
-        delete items['sales-support::2'];
-      }
+      // The new index 2 is a freshly added education card; drop stale old index-2 data on migration.
+      delete items['sales-support::2'];
 
-      ['sales-support::3', 'sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
+      ['sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
         .forEach((key) => {
           delete items[key];
         });
@@ -7535,6 +7540,7 @@
         itemState.notes = normalizeCardNotes(itemState.notes);
         itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
         itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
+        itemState.title = typeof itemState.title === 'string' ? itemState.title : '';
         itemState.benchmarkUpdatedAt = typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '';
         itemState.priority = normalizePriorityValue(itemState.priority);
         itemState.lastUpdatedAt = typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '';
@@ -11329,8 +11335,11 @@
     }
 
     function getCardTitleText(itemState, item) {
-      if (itemState && Object.prototype.hasOwnProperty.call(itemState, 'customTitle') && typeof itemState.customTitle === 'string') {
+      if (itemState && Object.prototype.hasOwnProperty.call(itemState, 'customTitle') && typeof itemState.customTitle === 'string' && itemState.customTitle.trim()) {
         return itemState.customTitle;
+      }
+      if (itemState && typeof itemState.title === 'string' && itemState.title.trim()) {
+        return itemState.title;
       }
       return item.title;
     }
@@ -11989,6 +11998,9 @@
 
       if (nextTitle) itemState.customTitle = nextTitle;
       else delete itemState.customTitle;
+      itemState.title = nextTitle;
+      console.log('[card-edit-title] 입력값', nextTitle);
+      console.log('[card-edit-title] 대입 직후 itemState.title', itemState.title);
 
       if (nextSummary) itemState.customSummary = nextSummary;
       else delete itemState.customSummary;
@@ -12023,7 +12035,12 @@
 
       markItemUpdated(itemState);
       const savedState = savePlannerState(latestState, { reason: 'card-edit-save', skipFirebaseSync: true });
+      const plannerTitleAtSave = savedState && savedState.items && savedState.items[itemKey]
+        ? savedState.items[itemKey].title
+        : undefined;
+      console.log('[card-edit-title] 같은 시점 plannerState.items[itemKey].title', plannerTitleAtSave);
       const fieldsForUpdate = {
+        title: typeof itemState.title === 'string' ? itemState.title : '',
         customTitle: itemState.customTitle || '',
         customSummary: itemState.customSummary || '',
         customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
@@ -12031,9 +12048,26 @@
         steps: Array.isArray(itemState.steps) ? itemState.steps : [],
         isRecurring: itemState.isRecurring === true
       };
+      console.log('[card-edit-title] payload.title', fieldsForUpdate.title);
       const saveResult = await updateItemFieldsInFirebase(itemKey, fieldsForUpdate, 'card-edit-save');
+      const saveEvidence = {
+        cardKey: itemKey,
+        path: `cards/${goalKey}/${itemIndex}`,
+        payloadTitle: fieldsForUpdate.title,
+        payloadKeys: Object.keys(fieldsForUpdate),
+        responseOk: Boolean(saveResult && saveResult.ok)
+      };
+      console.log('[card-edit-modal] 전송/응답 근거', saveEvidence);
       if (!saveResult.ok) {
         window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
+        return;
+      }
+      if ((fieldsForUpdate.title || '') !== nextTitle) {
+        console.error('[card-edit-modal] 저장 성공 토스트 차단: payload-title-mismatch', {
+          inputTitle: nextTitle,
+          payloadTitle: fieldsForUpdate.title
+        });
+        setToastMessage('저장 확인 실패: 전송 제목 불일치', 'warn');
         return;
       }
       const afterChecklistSteps = getChecklistStepsForItem(savedState, goalKey, item, itemKey, goalTemplate.principles || []);
