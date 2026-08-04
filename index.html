@@ -273,6 +273,7 @@
     .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
     .team-overview-ref-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 12px; line-height: 1; opacity: 0.9; }
     .team-overview-recurring-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 11px; line-height: 1; opacity: 0.8; }
+    .team-overview-note-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 11px; line-height: 1; opacity: 0.88; }
     .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
@@ -487,6 +488,27 @@
     .directive-history-actions { display: flex; justify-content: flex-end; }
     .directive-history-delete-btn { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .directive-history-delete-btn:hover { background: #fff1f1; }
+    .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .work-note-title { font-size: 12px; font-weight: 800; color: #3f5874; }
+    .work-note-type-toggle { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+    .work-note-type-btn { border: 1px solid #c9d9ea; border-radius: 999px; background: #ffffff; color: #36536f; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .work-note-type-btn.active { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
+    .work-note-editor { width: 100%; min-height: 72px; border: 1px solid #d8dfe7; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--text); background: #ffffff; resize: vertical; outline: none; }
+    .work-note-editor:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .work-note-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .work-note-list { display: grid; gap: 8px; }
+    .work-note-empty { font-size: 12px; color: #72859a; }
+    .work-note-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 6px; }
+    .work-note-item.divider { border-style: dashed; background: #fbfdff; }
+    .work-note-divider-line { font-size: 12px; color: #5f7690; font-weight: 800; letter-spacing: 0.04em; text-align: center; }
+    .work-note-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .work-note-meta { font-size: 11px; color: #5f7690; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+    .work-note-type-badge { border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; color: #1f507a; background: #e7f0fb; }
+    .work-note-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; }
+    .work-note-buttons { display: inline-flex; gap: 6px; }
+    .work-note-edit-box { display: grid; gap: 8px; }
+    .work-note-more-btn { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
+    .work-note-indicator { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 11px; line-height: 1; opacity: 0.85; }
     .workflow-section { margin-top: 2px; padding: 6px 8px; border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; display: grid; gap: 6px; }
     .principle-box { margin-top: 2px; border: 1px solid #d9e6f4; border-radius: 14px; background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%); padding: 11px 12px; display: grid; gap: 8px; }
     .principle-box-title { font-size: 12px; font-weight: 800; color: #295477; letter-spacing: 0.04em; }
@@ -4331,6 +4353,7 @@
             directive: typeof itemState.directive === 'string' ? itemState.directive : '',
             directiveUpdatedAt: typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '',
             directiveHistory: Array.isArray(itemState.directiveHistory) ? itemState.directiveHistory : [],
+            notes: normalizeCardNotes(itemState.notes),
             latestCommentSummary: typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '',
             remark: typeof itemState.remark === 'string' ? itemState.remark : '',
             benchmarkUpdatedAt: typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '',
@@ -4433,6 +4456,9 @@
           itemState.directiveHistory = Array.isArray(remoteItem?.directiveHistory)
             ? remoteItem.directiveHistory
             : (Array.isArray(itemState.directiveHistory) ? itemState.directiveHistory : []);
+          itemState.notes = Array.isArray(remoteItem?.notes)
+            ? normalizeCardNotes(remoteItem.notes)
+            : normalizeCardNotes(itemState.notes);
           itemState.latestCommentSummary = typeof remoteItem?.latestCommentSummary === 'string' ? remoteItem.latestCommentSummary : (typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '');
           itemState.remark = typeof remoteItem?.remark === 'string' ? remoteItem.remark : (typeof itemState.remark === 'string' ? itemState.remark : '');
           itemState.benchmarkUpdatedAt = typeof remoteItem?.benchmarkUpdatedAt === 'string' ? remoteItem.benchmarkUpdatedAt : (typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '');
@@ -6625,10 +6651,19 @@
 
       const latestDirective = getLatestDirectiveActivityDetails(itemState);
       if (latestDirective && latestDirective.text && latestDirective.timestamp > commentCandidate.timestamp) {
-        return {
+        commentCandidate = {
           text: latestDirective.text,
           timestamp: latestDirective.timestamp,
           label: '지시사항'
+        };
+      }
+
+      const latestExecutionNote = getLatestExecutionNoteDetails(itemState);
+      if (latestExecutionNote && latestExecutionNote.text && latestExecutionNote.timestamp > commentCandidate.timestamp) {
+        commentCandidate = {
+          text: latestExecutionNote.text,
+          timestamp: latestExecutionNote.timestamp,
+          label: '수행'
         };
       }
 
@@ -6849,6 +6884,7 @@
           const isRecentUpdate = hasActivityEvidence && Number.isFinite(lastUpdateDays) && lastUpdateDays <= 15;
           const isLeaderPinned = isTeamLeaderRequested(effectiveState);
           const hasReferences = normalizeCardReferences(itemState.references).length > 0;
+          const hasNotes = normalizeCardNotes(itemState.notes).length > 0;
 
           rows.push({
             itemKey,
@@ -6876,6 +6912,7 @@
             priorityPinned: priorityMeta.pinned,
             leaderPinned: isLeaderPinned,
             hasReferences,
+            hasNotes,
             isRecurring
           });
         });
@@ -6973,7 +7010,7 @@
                 ${row.priority === PRIORITY_IMPORTANT ? '<span class="team-overview-priority-badge important">🟡중요</span>' : ''}
                 ${row.leaderPinned ? '<span class="team-overview-priority-badge leader">📌팀장지시</span>' : ''}
               </div>
-              <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}${row.isRecurring ? '<span class="team-overview-recurring-flag" aria-label="반복 수행 카드">🔁</span>' : ''}${row.hasReferences ? '<span class="team-overview-ref-flag" aria-label="참고 자료 있음">📎</span>' : ''}</button>
+              <button type="button" class="team-overview-card-link" data-item-key="${escapeHtml(row.itemKey)}">${escapeHtml(row.agenda)}${row.isRecurring ? '<span class="team-overview-recurring-flag" aria-label="반복 수행 카드">🔁</span>' : ''}${row.hasReferences ? '<span class="team-overview-ref-flag" aria-label="참고 자료 있음">📎</span>' : ''}${row.hasNotes ? '<span class="team-overview-note-flag" aria-label="업무 노트 있음">📝</span>' : ''}</button>
             </div>
           </td>
           <td>${escapeHtml(row.actionPlan)}</td>
@@ -7499,6 +7536,7 @@
         itemState.directive = typeof itemState.directive === 'string' ? itemState.directive : '';
         itemState.directiveUpdatedAt = typeof itemState.directiveUpdatedAt === 'string' ? itemState.directiveUpdatedAt : '';
         if (!Array.isArray(itemState.directiveHistory)) itemState.directiveHistory = [];
+        itemState.notes = normalizeCardNotes(itemState.notes);
         itemState.latestCommentSummary = typeof itemState.latestCommentSummary === 'string' ? itemState.latestCommentSummary : '';
         itemState.remark = typeof itemState.remark === 'string' ? itemState.remark : '';
         itemState.benchmarkUpdatedAt = typeof itemState.benchmarkUpdatedAt === 'string' ? itemState.benchmarkUpdatedAt : '';
@@ -7605,6 +7643,7 @@
           benchmarkUpdatedAt: '',
           priority: PRIORITY_NORMAL,
           comments: [],
+          notes: [],
           historyList: getDefaultHistoryList(itemKey),
           references: [],
           cycleCompletedCount: 0,
@@ -7741,6 +7780,7 @@
       if (!itemState.historyList.length) {
         itemState.historyList = getDefaultHistoryList(itemKey);
       }
+      itemState.notes = normalizeCardNotes(itemState.notes);
       if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
       itemState.references = normalizeCardReferences(itemState.references);
       if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
@@ -7770,6 +7810,67 @@
       const hh = String(date.getHours()).padStart(2, '0');
       const min = String(date.getMinutes()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+    }
+
+    const WORK_NOTE_TYPE_OPTIONS = [
+      { value: 'meeting', label: '회의 내용' },
+      { value: 'reference', label: '참고 사항' },
+      { value: 'execution', label: '수행 내용' }
+    ];
+
+    function normalizeWorkNoteType(rawType) {
+      if (rawType === 'meeting' || rawType === 'reference' || rawType === 'execution' || rawType === 'divider') return rawType;
+      if (rawType === '회의 내용') return 'meeting';
+      if (rawType === '참고 사항') return 'reference';
+      if (rawType === '수행 내용') return 'execution';
+      return 'meeting';
+    }
+
+    function getWorkNoteTypeLabel(typeValue) {
+      const normalized = normalizeWorkNoteType(typeValue);
+      if (normalized === 'meeting') return '회의 내용';
+      if (normalized === 'reference') return '참고 사항';
+      if (normalized === 'execution') return '수행 내용';
+      return '구분선';
+    }
+
+    function normalizeCardNotes(rawNotes) {
+      if (!Array.isArray(rawNotes)) return [];
+      return rawNotes
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') return null;
+          const type = normalizeWorkNoteType(entry.type);
+          const text = typeof entry.text === 'string' ? entry.text : '';
+          const createdAt = typeof entry.createdAt === 'string' ? entry.createdAt : '';
+          const updatedAt = typeof entry.updatedAt === 'string' ? entry.updatedAt : '';
+          if (!createdAt) return null;
+          if (type !== 'divider' && !text.trim()) return null;
+          return { type, text, createdAt, updatedAt };
+        })
+        .filter(Boolean)
+        .sort((left, right) => parseIsoTimestamp(right && right.createdAt) - parseIsoTimestamp(left && left.createdAt));
+    }
+
+    function getLatestExecutionNoteDetails(itemState) {
+      const notes = normalizeCardNotes(itemState && itemState.notes);
+      const latestExecution = notes.find((entry) => entry && entry.type === 'execution' && typeof entry.text === 'string' && entry.text.trim());
+      if (!latestExecution) return null;
+      const firstLine = String(latestExecution.text || '').split('\n').map((line) => line.trim()).find(Boolean) || '';
+      if (!firstLine) return null;
+      const normalized = firstLine.replace(/\s+/g, ' ').trim();
+      return {
+        text: normalized.length > 110 ? `${normalized.slice(0, 107)}...` : normalized,
+        timestamp: parseIsoTimestamp(latestExecution.updatedAt || latestExecution.createdAt)
+      };
+    }
+
+    function createRoundEndNoteEntry(roundNumber) {
+      return {
+        type: 'divider',
+        text: `── ${roundNumber}회차 종료 ──`,
+        createdAt: new Date().toISOString(),
+        updatedAt: ''
+      };
     }
 
     function formatStepCompletedAt(timestamp) {
@@ -8629,6 +8730,83 @@
       const before = itemState.directiveHistory.length;
       itemState.directiveHistory = itemState.directiveHistory.filter((entry) => String(entry && entry.id ? entry.id : '') !== String(historyId || ''));
       return itemState.directiveHistory.length < before;
+    }
+
+    function buildWorkNoteTypeToggleHtml(selectedType, prefix, disabled = false) {
+      const normalizedType = normalizeWorkNoteType(selectedType);
+      const disableAttr = disabled ? 'disabled' : '';
+      return `
+        <div class="work-note-type-toggle">
+          ${WORK_NOTE_TYPE_OPTIONS.map((option) => `
+            <button type="button" class="work-note-type-btn ${normalizedType === option.value ? 'active' : ''}" data-${prefix}-note-type="${option.value}" ${disableAttr}>${option.label}</button>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderWorkNoteList(listElement, notes, options = {}) {
+      if (!listElement) return;
+      const safeNotes = normalizeCardNotes(notes);
+      const editIndex = Number.isInteger(options.editIndex) ? options.editIndex : -1;
+      const editDraft = options && options.editDraft && typeof options.editDraft === 'object' ? options.editDraft : null;
+      const showAll = options.showAll === true;
+      const visibleNotes = showAll ? safeNotes : safeNotes.slice(0, 3);
+      const hiddenCount = safeNotes.length > visibleNotes.length ? safeNotes.length - visibleNotes.length : 0;
+
+      if (!safeNotes.length) {
+        listElement.innerHTML = '<div class="work-note-empty">저장된 업무 노트가 없습니다.</div>';
+        return;
+      }
+
+      listElement.innerHTML = `
+        ${visibleNotes.map((entry, index) => {
+          const createdAtText = formatEntryDateTime(entry.createdAt || '');
+          const updatedAtText = entry.updatedAt ? formatEntryDateTime(entry.updatedAt) : '';
+          const canEdit = entry.type !== 'divider';
+          const isEditing = editIndex === index && canEdit;
+
+          if (entry.type === 'divider') {
+            return `
+              <div class="work-note-item divider" data-work-note-index="${index}">
+                <div class="work-note-divider-line">${escapeHtml(entry.text || '── 회차 종료 ──')}</div>
+              </div>
+            `;
+          }
+
+          if (isEditing) {
+            const selectedType = editDraft && typeof editDraft.type === 'string' ? editDraft.type : entry.type;
+            const textValue = editDraft && typeof editDraft.text === 'string' ? editDraft.text : entry.text;
+            return `
+              <div class="work-note-item" data-work-note-index="${index}">
+                <div class="work-note-edit-box">
+                  ${buildWorkNoteTypeToggleHtml(selectedType, 'work-note-edit')}
+                  <textarea class="work-note-editor" data-work-note-edit-text>${escapeHtml(textValue || '')}</textarea>
+                  <div class="work-note-actions">
+                    <button type="button" class="journal-edit-btn save" data-work-note-action="save-edit" data-work-note-index="${index}">저장</button>
+                    <button type="button" class="journal-edit-btn" data-work-note-action="cancel-edit" data-work-note-index="${index}">취소</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          const editedText = updatedAtText ? ` · 수정 ${escapeHtml(updatedAtText)}` : '';
+          const disableAttr = editIndex >= 0 ? 'disabled' : '';
+          return `
+            <div class="work-note-item" data-work-note-index="${index}">
+              <div class="work-note-meta-row">
+                <div class="work-note-meta"><span class="work-note-type-badge">${escapeHtml(getWorkNoteTypeLabel(entry.type))}</span><span>${escapeHtml(createdAtText)}${editedText}</span></div>
+                <div class="work-note-buttons">
+                  <button type="button" class="journal-action-btn edit" data-work-note-action="edit" data-work-note-index="${index}" ${disableAttr}>수정</button>
+                  <button type="button" class="journal-action-btn delete" data-work-note-action="delete" data-work-note-index="${index}" ${disableAttr}>삭제</button>
+                </div>
+              </div>
+              <div class="work-note-text">${escapeHtml(entry.text || '')}</div>
+            </div>
+          `;
+        }).join('')}
+        ${hiddenCount > 0 ? `<button type="button" class="work-note-more-btn" data-work-note-action="toggle-more">${showAll ? '접기' : `이전 노트 ${hiddenCount}건 더 보기`}</button>` : ''}
+      `;
     }
 
     function formatDateOnly(timestamp) {
@@ -14008,6 +14186,7 @@
           const historyArchiveHtml = createHistoryArchiveHtml(itemState && itemState.isRecurring === true);
           const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
           const showQuickDueHint = itemState && itemState.isRecurring === true && itemState.quickAddMissingDue === true && !hasFinalDueDate;
+          const hasWorkNotes = normalizeCardNotes(itemState.notes).length > 0;
           const referenceEntries = normalizeCardReferences(itemState && itemState.references);
           const referencesHtml = referenceEntries.length
             ? referenceEntries.map((entry) => {
@@ -14059,7 +14238,7 @@
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
             <div class="card-title-group">
-              <span class="card-main-title">${escapeHtml(displayTitle)}</span>
+              <span class="card-main-title">${escapeHtml(displayTitle)}${hasWorkNotes ? '<span class="work-note-indicator" aria-label="업무 노트 있음">📝</span>' : ''}</span>
               ${leaderTagHtml}
             </div>
             <div class="button-group">
@@ -14096,6 +14275,15 @@
                 <div class="directive-history-title">지시사항 이력</div>
                 <div class="directive-history-list"></div>
               </div>
+            </div>
+            <div class="work-note-section">
+              <div class="work-note-title">업무 노트</div>
+              ${buildWorkNoteTypeToggleHtml('meeting', 'work-note')}
+              <textarea class="work-note-editor" data-work-note-input placeholder="회의/참고/수행 내용을 기록하세요."></textarea>
+              <div class="work-note-actions">
+                <button type="button" class="journal-save-btn" data-work-note-action="save">저장</button>
+              </div>
+              <div class="work-note-list" data-work-note-list></div>
             </div>
             <section class="card-references-section">
               <div class="card-references-title">참고 자료</div>
@@ -14386,6 +14574,9 @@
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
         const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
         const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
+        const workNoteSection = card.querySelector('.work-note-section');
+        const workNoteInput = card.querySelector('[data-work-note-input]');
+        const workNoteList = card.querySelector('[data-work-note-list]');
         const referenceForm = card.querySelector('[data-reference-form]');
         const referenceNameInput = card.querySelector('[data-reference-name-input]');
         const referenceLocationInput = card.querySelector('[data-reference-location-input]');
@@ -14777,13 +14968,185 @@
           directiveInput.value = readDirectiveDraft(itemKey) || '';
         }
         let historyEditIndex = -1;
+        let workNoteSelectedType = 'meeting';
+        let workNoteEditIndex = -1;
+        let workNoteEditDraft = null;
+        let workNoteExpanded = false;
         const rerenderHistoryArchive = () => {
           renderHistoryArchive(historyListElement, historyCountLabel, itemState.historyList, historyEditIndex);
           updateCycleCountLabel();
         };
 
+        const updateWorkNoteTypeButtons = () => {
+          if (!workNoteSection) return;
+          const typeButtons = Array.from(workNoteSection.querySelectorAll('[data-work-note-type]'));
+          typeButtons.forEach((button) => {
+            const typeValue = button.getAttribute('data-work-note-type') || 'meeting';
+            button.classList.toggle('active', normalizeWorkNoteType(typeValue) === normalizeWorkNoteType(workNoteSelectedType));
+          });
+        };
+
+        const rerenderWorkNotes = () => {
+          renderWorkNoteList(workNoteList, itemState.notes, {
+            editIndex: workNoteEditIndex,
+            editDraft: workNoteEditDraft,
+            showAll: workNoteExpanded
+          });
+          updateWorkNoteTypeButtons();
+        };
+
+        const saveWorkNotesToFirebase = async (reason, previousNotes, activityText = '') => {
+          const itemCount = Array.isArray(itemState.notes) ? itemState.notes.length : 0;
+          const saveResult = await updateItemFieldsInFirebase(itemKey, {
+            notes: normalizeCardNotes(itemState.notes)
+          }, reason);
+          if (!saveResult.ok) {
+            itemState.notes = normalizeCardNotes(previousNotes);
+            savePlannerState(plannerState, { reason: `${reason}-rollback`, skipFirebaseSync: true });
+            rerenderWorkNotes();
+            console.error('[work-note] 저장 실패', {
+              cardKey: itemKey,
+              path: `cards/${currentGoal}/${currentIndexText}/notes`,
+              count: itemCount,
+              errorCode: saveResult.errorCode || 'unknown'
+            });
+            return false;
+          }
+          if (activityText) {
+            void recordSharedActivityLog('card', {
+              cardId: itemKey,
+              cardTitle: getCardActivityTitle(plannerState, itemKey),
+              content: activityText
+            });
+          }
+          return true;
+        };
+
         rerenderHistoryArchive();
         renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+        itemState.notes = normalizeCardNotes(itemState.notes);
+        rerenderWorkNotes();
+
+        if (workNoteSection) {
+          workNoteSection.addEventListener('click', async (event) => {
+            const typeButton = event.target.closest('[data-work-note-type]');
+            if (typeButton) {
+              workNoteSelectedType = normalizeWorkNoteType(typeButton.getAttribute('data-work-note-type') || 'meeting');
+              updateWorkNoteTypeButtons();
+              return;
+            }
+
+            const editTypeButton = event.target.closest('[data-work-note-edit-note-type]');
+            if (editTypeButton && workNoteEditIndex >= 0 && workNoteEditDraft) {
+              workNoteEditDraft.type = normalizeWorkNoteType(editTypeButton.getAttribute('data-work-note-edit-note-type') || workNoteEditDraft.type || 'meeting');
+              rerenderWorkNotes();
+              return;
+            }
+
+            const actionButton = event.target.closest('[data-work-note-action]');
+            if (!actionButton) return;
+            const action = actionButton.getAttribute('data-work-note-action') || '';
+            const noteIndex = Number(actionButton.getAttribute('data-work-note-index'));
+
+            if (action === 'toggle-more') {
+              workNoteExpanded = !workNoteExpanded;
+              rerenderWorkNotes();
+              return;
+            }
+
+            if (action === 'save') {
+              if (!workNoteInput) return;
+              const nextText = (workNoteInput.value || '').trim();
+              if (!nextText) {
+                workNoteInput.focus();
+                return;
+              }
+              const previousNotes = normalizeCardNotes(itemState.notes);
+              const createdAt = new Date().toISOString();
+              const nextNote = {
+                type: normalizeWorkNoteType(workNoteSelectedType),
+                text: nextText,
+                createdAt,
+                updatedAt: ''
+              };
+              itemState.notes = [nextNote, ...previousNotes];
+              workNoteInput.value = '';
+              workNoteEditIndex = -1;
+              workNoteEditDraft = null;
+              markItemUpdated(itemState);
+              savePlannerState(plannerState, { reason: 'work-note-add', skipFirebaseSync: true });
+              rerenderWorkNotes();
+              renderLatestActivityPanel(latestActivityPanel, itemState);
+              syncOverviewWidgets(plannerState);
+              const cardTitleText = getCardTitleText(itemState, currentItem || { title: '' });
+              const saved = await saveWorkNotesToFirebase('work-note-add', previousNotes, `업무 노트 추가: ${cardTitleText}`);
+              if (saved) updateGoalCard(currentGoal);
+              return;
+            }
+
+            if (Number.isNaN(noteIndex) || !Array.isArray(itemState.notes) || !itemState.notes[noteIndex]) return;
+
+            if (action === 'edit') {
+              const targetNote = itemState.notes[noteIndex];
+              if (!targetNote || targetNote.type === 'divider') return;
+              workNoteEditIndex = noteIndex;
+              workNoteEditDraft = {
+                type: normalizeWorkNoteType(targetNote.type),
+                text: targetNote.text || ''
+              };
+              rerenderWorkNotes();
+              return;
+            }
+
+            if (action === 'cancel-edit') {
+              workNoteEditIndex = -1;
+              workNoteEditDraft = null;
+              rerenderWorkNotes();
+              return;
+            }
+
+            if (action === 'save-edit') {
+              if (workNoteEditIndex !== noteIndex || !workNoteEditDraft) return;
+              const editorInput = workNoteSection.querySelector('[data-work-note-edit-text]');
+              const nextText = editorInput ? String(editorInput.value || '').trim() : String(workNoteEditDraft.text || '').trim();
+              if (!nextText) {
+                if (editorInput) editorInput.focus();
+                return;
+              }
+              const previousNotes = normalizeCardNotes(itemState.notes);
+              const target = itemState.notes[noteIndex];
+              target.type = normalizeWorkNoteType(workNoteEditDraft.type);
+              target.text = nextText;
+              target.updatedAt = new Date().toISOString();
+              workNoteEditIndex = -1;
+              workNoteEditDraft = null;
+              markItemUpdated(itemState);
+              savePlannerState(plannerState, { reason: 'work-note-edit', skipFirebaseSync: true });
+              rerenderWorkNotes();
+              renderLatestActivityPanel(latestActivityPanel, itemState);
+              syncOverviewWidgets(plannerState);
+              const saved = await saveWorkNotesToFirebase('work-note-edit', previousNotes);
+              if (saved) updateGoalCard(currentGoal);
+              return;
+            }
+
+            if (action === 'delete') {
+              const confirmed = window.confirm('이 노트를 삭제할까요?');
+              if (!confirmed) return;
+              const previousNotes = normalizeCardNotes(itemState.notes);
+              itemState.notes.splice(noteIndex, 1);
+              workNoteEditIndex = -1;
+              workNoteEditDraft = null;
+              markItemUpdated(itemState);
+              savePlannerState(plannerState, { reason: 'work-note-delete', skipFirebaseSync: true });
+              rerenderWorkNotes();
+              renderLatestActivityPanel(latestActivityPanel, itemState);
+              syncOverviewWidgets(plannerState);
+              const saved = await saveWorkNotesToFirebase('work-note-delete', previousNotes);
+              if (saved) updateGoalCard(currentGoal);
+            }
+          });
+        }
 
         const syncCurrentRunUi = (forceEditor = false) => {
           const currentName = typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName.trim() : '';
@@ -14871,6 +15234,10 @@
 
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
+            itemState.notes = [
+              createRoundEndNoteEntry(previousCycleCount + 1),
+              ...normalizeCardNotes(itemState.notes)
+            ];
             itemState.activityLog.push(createActivityLogEntry('history-add', {
               itemKey,
               goalKey: currentGoal,
@@ -15206,6 +15573,7 @@
             const previousSteps = Array.isArray(itemState.steps)
               ? itemState.steps.map((step) => ({ ...step }))
               : [];
+            const previousNotes = normalizeCardNotes(itemState.notes);
             const previousSeriesDraftName = typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '';
             const previousQuickAddMissingDue = itemState.quickAddMissingDue === true;
 
@@ -15220,6 +15588,10 @@
 
             itemState.cycleCompletedCount = previousCycleCount + 1;
             itemState.totalCycles = previousCycleCount + 1;
+            itemState.notes = [
+              createRoundEndNoteEntry(previousCycleCount + 1),
+              ...normalizeCardNotes(itemState.notes)
+            ];
 
             itemState.steps = itemState.steps.map(() => ({
               id: createChecklistStepId(itemKey),
@@ -15247,6 +15619,7 @@
               historyList: itemState.historyList,
               cycleCompletedCount: itemState.cycleCompletedCount,
               totalCycles: itemState.totalCycles,
+              notes: itemState.notes,
               steps: itemState.steps,
               seriesDraftName: itemState.seriesDraftName,
               quickAddMissingDue: itemState.quickAddMissingDue === true
@@ -15255,6 +15628,7 @@
               itemState.historyList = previousHistoryList;
               itemState.cycleCompletedCount = previousCycleCompletedCount;
               itemState.totalCycles = previousTotalCycles;
+              itemState.notes = previousNotes;
               itemState.steps = previousSteps;
               itemState.seriesDraftName = previousSeriesDraftName;
               itemState.quickAddMissingDue = previousQuickAddMissingDue;
