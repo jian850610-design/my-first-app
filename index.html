@@ -1346,6 +1346,7 @@
               <option value="recent15">⚡ 최근 15일 업데이트 건만 보기 (기본)</option>
               <option value="all">📋 전체 업무 보기</option>
             </select>
+            <button type="button" class="team-overview-toggle-btn" id="teamOverviewExportBtn">📥 엑셀 내려받기</button>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewToggleBtn">표 접기</button>
           </div>
         </div>
@@ -1389,6 +1390,7 @@
                 <button type="button" class="firebase-today-btn" id="timelineTodayBtn" hidden>[오늘로]</button>
               </div>
             </div>
+            <button type="button" class="today-activity-history-btn" id="timelineExportBtn">📥 엑셀 내려받기</button>
             <button type="button" class="today-activity-history-btn" id="allTimelineHistoryBtn">📅 전체 히스토리 모아보기</button>
             <button type="button" class="today-activity-clear-btn" id="todayTimelineClearBtn">🧹 오늘 타임라인 전체 초기화</button>
           </div>
@@ -1860,6 +1862,7 @@
     const teamOverviewFilterNotice = document.getElementById('teamOverviewFilterNotice');
     const teamOverviewTableBody = document.getElementById('teamOverviewTableBody');
     const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
+    const teamOverviewExportBtn = document.getElementById('teamOverviewExportBtn');
     const copyBenchmarkPromptBtn = document.getElementById('copyBenchmarkPromptBtn');
     const benchmarkPromptStatus = document.getElementById('benchmarkPromptStatus');
     const benchmarkPromptPreview = document.getElementById('benchmarkPromptPreview');
@@ -1905,6 +1908,7 @@
     const quickAddLeaderInput = document.getElementById('quickAddLeaderInput');
     const quickAddDirectiveInput = document.getElementById('quickAddDirectiveInput');
     const quickAddSubmitBtn = document.getElementById('quickAddSubmitBtn');
+    const timelineExportBtn = document.getElementById('timelineExportBtn');
     const STORAGE_KEY = 'skfMarketingPlannerStateV2';
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
@@ -1918,6 +1922,12 @@
     let activityTimelineEntries = [];
     let activityTimelineLoadPromise = null;
     let timelineHistoryEntries = [];
+    let teamOverviewRenderedRows = [];
+    let teamOverviewRenderedFilterSnapshot = {
+      goalLabel: '전체',
+      windowMode: 'recent15',
+      assignee: 'all'
+    };
     let timelineHistoryMonthFilterValue = 'all';
     let timelineHistoryKeywordValue = '';
     let timelineActivityLoading = true;
@@ -6889,6 +6899,8 @@
 
           rows.push({
             itemKey,
+            goalKey,
+            goalLabel: goalTemplate && typeof goalTemplate.label === 'string' ? goalTemplate.label : goalKey,
             dueDateText: dueDateText || '-',
             agenda: title,
             actionPlan,
@@ -6988,6 +7000,12 @@
       });
 
       if (!filteredRows.length) {
+        teamOverviewRenderedRows = [];
+        teamOverviewRenderedFilterSnapshot = {
+          goalLabel: '전체',
+          windowMode: teamOverviewUpdateFilterMode,
+          assignee: selectedAssignee || 'all'
+        };
         teamOverviewTableBody.innerHTML = '';
         teamOverviewEmpty.textContent = teamOverviewUpdateFilterMode === 'recent15'
           ? '최근 15일 이내 변경사항이 있는 업무가 없습니다. 전체 보기로 전환해 주세요.'
@@ -6997,6 +7015,13 @@
       }
 
       teamOverviewEmpty.hidden = true;
+      teamOverviewRenderedRows = filteredRows.slice();
+      const goalLabels = Array.from(new Set(filteredRows.map((row) => row.goalLabel).filter(Boolean)));
+      teamOverviewRenderedFilterSnapshot = {
+        goalLabel: goalLabels.length === 1 ? goalLabels[0] : '전체',
+        windowMode: teamOverviewUpdateFilterMode,
+        assignee: selectedAssignee || 'all'
+      };
       teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
         <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} ${row.priority === PRIORITY_URGENT ? 'team-overview-row-urgent' : ''} ${row.priority === PRIORITY_IMPORTANT ? 'team-overview-row-important' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
           <td>
@@ -12299,6 +12324,180 @@
       }, Number.isFinite(durationMs) ? durationMs : 2400);
     }
 
+    function escapeCsvCell(value) {
+      const text = value === null || value === undefined ? '' : String(value);
+      const escaped = text.replace(/"/g, '""');
+      if (/[",\n\r]/.test(escaped)) return `"${escaped}"`;
+      return escaped;
+    }
+
+    function createCsvText(rows) {
+      const csvBody = (Array.isArray(rows) ? rows : [])
+        .map((row) => (Array.isArray(row) ? row : [row]).map((cell) => escapeCsvCell(cell)).join(','))
+        .join('\r\n');
+      return `\uFEFF${csvBody}`;
+    }
+
+    function downloadCsvFile(filename, csvText) {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function getExportTimestampParts() {
+      const now = new Date();
+      const yyyy = String(now.getFullYear());
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      return {
+        dateCompact: `${yyyy}${mm}${dd}`,
+        timeCompact: `${hh}${min}`,
+        dateDisplay: `${yyyy}-${mm}-${dd}`,
+        timeDisplay: `${hh}:${min}`
+      };
+    }
+
+    function getPriorityTextOnly(priorityValue) {
+      const normalized = normalizePriorityValue(priorityValue);
+      if (normalized === PRIORITY_URGENT) return '긴급';
+      if (normalized === PRIORITY_IMPORTANT) return '중요';
+      return '일반';
+    }
+
+    function getTimelineTypeLabel(entryType) {
+      if (entryType === 'comment') return '오늘의 업무 코멘트';
+      if (entryType === 'checklist') return '업무 수행 완료';
+      return '카드 히스토리';
+    }
+
+    function getRenderedTodayTimelineEntries(state, targetDateKey = getTimelineSelectedDateKey()) {
+      const selectedDateKey = formatDateToYYYYMMDD(targetDateKey) || getLocalDateKey();
+      const sharedEntries = getActivityTimelineEntriesForDate(selectedDateKey);
+      const fallbackEntries = collectTodayActivityEntries(state, selectedDateKey);
+      return {
+        selectedDateKey,
+        entries: sharedEntries.length ? sharedEntries : fallbackEntries
+      };
+    }
+
+    function exportTeamOverviewCsv() {
+      const rows = Array.isArray(teamOverviewRenderedRows) ? teamOverviewRenderedRows.slice() : [];
+      if (!rows.length) {
+        setToastMessage('내보낼 데이터가 없습니다', 'warn');
+        return;
+      }
+
+      const { dateCompact, timeCompact, dateDisplay, timeDisplay } = getExportTimestampParts();
+      const windowLabel = teamOverviewRenderedFilterSnapshot.windowMode === 'recent15' ? '최근 15일 보기' : '전체';
+      const goalLabel = teamOverviewRenderedFilterSnapshot.goalLabel || '전체';
+      const assignee = teamOverviewRenderedFilterSnapshot.assignee || 'all';
+      const assigneeLabel = assignee === 'all' ? '전체' : assignee;
+
+      const headerRows = [
+        [`기준일시: ${dateDisplay} ${timeDisplay} / 필터: ${goalLabel} / ${windowLabel}`],
+        [],
+        ['마감일', '중요도', '목표', '업무명', 'ACTION PLAN', '담당자', '진행률(%)', '완료단계', '전체단계', '최신 코멘트', '최근 완료일시', '반복카드', '팀장지시', '참고자료 유무']
+      ];
+
+      const dataRows = rows.map((row) => {
+        const completedAt = row.latestDoneAt ? formatEntryDateTime(row.latestDoneAt) : '';
+        return [
+          row.dueDateText === '-' ? '' : (row.dueDateText || ''),
+          getPriorityTextOnly(row.priority),
+          row.goalLabel || '',
+          row.agenda || '',
+          row.actionPlan || '',
+          row.assignee === '-' ? '' : (row.assignee || ''),
+          Number.isFinite(row.progressPercent) ? Math.round(row.progressPercent) : 0,
+          Number.isFinite(row.doneCount) ? row.doneCount : 0,
+          Number.isFinite(row.totalCount) ? row.totalCount : 0,
+          row.latestCommentText || '',
+          completedAt,
+          row.isRecurring ? 'Y' : '',
+          row.leaderPinned ? 'Y' : '',
+          row.hasReferences ? 'Y' : ''
+        ];
+      });
+
+      const filename = `팀업무현황표_${dateCompact}_${timeCompact}.csv`;
+      downloadCsvFile(filename, createCsvText([...headerRows, ...dataRows]));
+      console.log('[csv-export] 팀업무현황표', {
+        filename,
+        rowCount: dataRows.length,
+        filter: {
+          goal: goalLabel,
+          window: windowLabel,
+          assignee: assigneeLabel
+        },
+        writeRequests: 0
+      });
+      setToastMessage('현황표 CSV를 내려받았습니다.', 'ok');
+    }
+
+    function exportTimelineCsv() {
+      const isHistoryModalOpen = Boolean(timelineHistoryModal && !timelineHistoryModal.hidden);
+      const defaultScope = isHistoryModalOpen ? '2' : '1';
+      const selected = window.prompt(
+        '내려받기 범위를 선택하세요.\n1: 조회 날짜 하루\n2: 전체 히스토리',
+        defaultScope
+      );
+      if (selected === null) return;
+      const scopeCode = String(selected || '').trim();
+      const scope = scopeCode === '2' ? 'all' : (scopeCode === '1' ? 'day' : (defaultScope === '2' ? 'all' : 'day'));
+
+      const plannerState = loadPlannerState();
+      const { selectedDateKey, entries: dayEntries } = getRenderedTodayTimelineEntries(plannerState, getTimelineSelectedDateKey());
+      const allEntriesBase = timelineHistoryEntries.length
+        ? timelineHistoryEntries.slice()
+        : (activityTimelineEntries.length ? activityTimelineEntries.slice() : dayEntries.slice());
+
+      const rowsSource = (scope === 'all' ? allEntriesBase : dayEntries)
+        .filter((entry) => entry && Number.isFinite(entry.timestamp))
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      if (!rowsSource.length) {
+        setToastMessage('내보낼 데이터가 없습니다', 'warn');
+        return;
+      }
+
+      const { dateCompact, timeCompact } = getExportTimestampParts();
+      const scopeLabel = scope === 'all' ? '전체' : selectedDateKey.replace(/-/g, '');
+      const filename = `업무히스토리_${scopeLabel}_${dateCompact}_${timeCompact}.csv`;
+
+      const headers = ['일시', '구분', '목표', '업무명', '내용', '단계'];
+      const dataRows = rowsSource.map((entry) => {
+        const goalLabel = goalTemplates[entry.goalKey] ? goalTemplates[entry.goalKey].label : (entry.goalKey || '');
+        return [
+          entry.timeText || (entry.timestamp ? formatEntryDateTime(entry.timestamp) : ''),
+          getTimelineTypeLabel(entry.type),
+          goalLabel,
+          entry.cardTitle || '',
+          entry.detail || '',
+          Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? entry.stepIndex + 1 : ''
+        ];
+      });
+
+      downloadCsvFile(filename, createCsvText([headers, ...dataRows]));
+      console.log('[csv-export] 업무히스토리', {
+        filename,
+        rowCount: dataRows.length,
+        filter: {
+          scope: scope === 'all' ? '전체 히스토리' : `${selectedDateKey} 하루`,
+          defaultScope: defaultScope === '2' ? '전체 히스토리' : '조회 날짜 하루'
+        },
+        writeRequests: 0
+      });
+      setToastMessage('업무 히스토리 CSV를 내려받았습니다.', 'ok');
+    }
+
     function renderGoalSummaryWidget(goalKey, state) {
       if (!goalCardSummaryWidget || !goalCardSummaryTitle || !goalCardSummaryCount || !goalCardSummaryList) return;
       const goalTemplate = goalTemplates[goalKey];
@@ -16787,6 +16986,18 @@
       if (allTimelineHistoryBtn) {
         allTimelineHistoryBtn.addEventListener('click', () => {
           void openTimelineHistoryModal();
+        });
+      }
+
+      if (timelineExportBtn) {
+        timelineExportBtn.addEventListener('click', () => {
+          exportTimelineCsv();
+        });
+      }
+
+      if (teamOverviewExportBtn) {
+        teamOverviewExportBtn.addEventListener('click', () => {
+          exportTeamOverviewCsv();
         });
       }
 
