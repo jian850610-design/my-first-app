@@ -1909,6 +1909,8 @@
     const DATA_FILE_NAME = 'data.json';
     let currentGoalKey = '';
     let cardEditModalState = null;
+    let cardEditModalInitialSnapshot = null;
+    let cardEditModalMouseDownOutside = false;
     let dashboardSearchTerm = '';
     let dashboardUnifiedOverviewState = null;
     let dashboardUnifiedTimelineEntries = [];
@@ -11758,10 +11760,57 @@
 
     function closeCardEditModal() {
       cardEditModalState = null;
+      cardEditModalInitialSnapshot = null;
+      cardEditModalMouseDownOutside = false;
       if (cardEditModal) {
         cardEditModal.hidden = true;
       }
       document.body.classList.remove('modal-open');
+    }
+
+    function getCardEditModalSnapshot() {
+      if (!cardEditModalState) return null;
+      syncCardEditChecklistDraftFromDom();
+      const draft = Array.isArray(cardEditModalState.checklistDraft)
+        ? cardEditModalState.checklistDraft.map((entry) => ({
+            stepId: entry && typeof entry.stepId === 'string' ? entry.stepId : '',
+            stepName: entry && typeof entry.stepName === 'string' ? entry.stepName : '',
+            dueDate: formatDateToISO(entry && typeof entry.dueDate === 'string' ? entry.dueDate : '') || ''
+          }))
+        : [];
+      return {
+        title: cardEditModalTitleInput ? String(cardEditModalTitleInput.value || '') : '',
+        summary: cardEditModalSummaryInput ? String(cardEditModalSummaryInput.value || '') : '',
+        guidelines: cardEditModalGuidelinesInput ? String(cardEditModalGuidelinesInput.value || '') : '',
+        isRecurring: cardEditModalRecurringInput ? cardEditModalRecurringInput.checked === true : false,
+        checklistDraft: draft
+      };
+    }
+
+    function hasCardEditModalUnsavedChanges() {
+      if (!cardEditModalState) return false;
+      const currentSnapshot = getCardEditModalSnapshot();
+      if (!currentSnapshot || !cardEditModalInitialSnapshot) return false;
+      return JSON.stringify(currentSnapshot) !== JSON.stringify(cardEditModalInitialSnapshot);
+    }
+
+    function tryCloseCardEditModal(trigger = '') {
+      if (cardEditModalState && hasCardEditModalUnsavedChanges()) {
+        const confirmed = window.confirm('변경 내용을 저장하지 않고 닫을까요?');
+        if (!confirmed) {
+          console.log('[card-edit-modal] 닫기 취소', { trigger, reason: 'unsaved-changes' });
+          return false;
+        }
+      }
+      closeCardEditModal();
+      return true;
+    }
+
+    function isCardEditModalOutsideTarget(target) {
+      if (!cardEditModal || !target) return false;
+      const panel = cardEditModal.querySelector('.card-edit-modal-panel');
+      if (!panel) return false;
+      return !panel.contains(target);
     }
 
     function buildCardEditChecklistDraft(stepLabels, itemState, itemKey) {
@@ -11903,6 +11952,7 @@
       if (cardEditModalGuidelinesInput) cardEditModalGuidelinesInput.value = cardEditModalState.guidelines;
       if (cardEditModalRecurringInput) cardEditModalRecurringInput.checked = cardEditModalState.isRecurring === true;
       renderCardEditChecklistList();
+      cardEditModalInitialSnapshot = getCardEditModalSnapshot();
       if (cardEditModal) {
         cardEditModal.hidden = false;
         document.body.classList.add('modal-open');
@@ -16622,22 +16672,24 @@
             }
             return;
           }
+        });
 
-          const actionButton = event.target.closest('[data-card-edit-action]');
-          if (actionButton) {
-            closeCardEditModal();
-            return;
-          }
+        cardEditModal.addEventListener('mousedown', (event) => {
+          cardEditModalMouseDownOutside = isCardEditModalOutsideTarget(event.target);
+        });
 
-          if (event.target === cardEditModal) {
-            closeCardEditModal();
-            return;
+        cardEditModal.addEventListener('mouseup', (event) => {
+          const mouseUpOutside = isCardEditModalOutsideTarget(event.target);
+          if (cardEditModalMouseDownOutside && mouseUpOutside) {
+            void tryCloseCardEditModal('outside-mouseup');
           }
+          cardEditModalMouseDownOutside = false;
         });
 
         cardEditModal.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') {
-            closeCardEditModal();
+            event.preventDefault();
+            void tryCloseCardEditModal('escape');
           }
         });
 
@@ -16672,13 +16724,13 @@
 
         if (cardEditModalCancelBtn) {
           cardEditModalCancelBtn.addEventListener('click', () => {
-            closeCardEditModal();
+            void tryCloseCardEditModal('cancel-button');
           });
         }
 
         if (cardEditModalCloseBtn) {
           cardEditModalCloseBtn.addEventListener('click', () => {
-            closeCardEditModal();
+            void tryCloseCardEditModal('close-button');
           });
         }
       }
