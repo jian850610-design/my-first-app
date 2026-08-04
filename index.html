@@ -3173,7 +3173,7 @@
       const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
       const idPatternRegex = /G\s*(\d+)\s*[-–—]\s*(\d+)/i;
       const idCardLineRegex = /^\s*(?:\*\*)?\[\s*([^\]]+)\s*\]\s*(.*?)(?:\s*[:：]\s*(.*))?\s*(?:\*\*)?\s*$/;
-      const companyLineRegex = /^\s*[*\-•]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+      const companyLineRegex = /^\s*[*\-•]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|세플러|셰플러|쉐플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|한국\s*NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
       const companyCandidateRegex = /^\s*(?:[*\-•]\s*)?([^:：]{1,40})\s*[:：]\s*(.*)$/;
 
       let currentGoalNumber = null;
@@ -3234,26 +3234,17 @@
           continue;
         }
 
-        const companyMatch = line.match(companyLineRegex);
-        if (currentCard && companyMatch) {
-          const fieldKey = getBenchmarkFieldKey(companyMatch[1] || '');
-          if (fieldKey) {
-            currentCard.benchmarking[fieldKey] = normalizeBenchmarkFieldText(companyMatch[2] || '');
-            activeFieldKey = fieldKey;
-          }
-          continue;
-        }
-
         const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
-        const cardMatch = line.match(cardLineRegex);
-        const hasColon = /[:：]/.test(line);
-        const hasBracket = /\[[^\]]+\]/.test(line);
-        if (!isGoalLine && cardMatch && hasColon && hasBracket) {
-          const idPatternMatch = line.match(idPatternRegex);
+        const startsWithBracket = /^\s*(?:\*\*)?\[[^\]]+\]/.test(line);
+        const cardMatch = line.match(idCardLineRegex);
+        if (!isGoalLine && startsWithBracket && cardMatch) {
+          const bracketToken = normalizeBenchmarkFieldText(cardMatch[1] || '');
+          const bodyText = normalizeBenchmarkFieldText(cardMatch[2] || '');
+          const inlineTail = normalizeBenchmarkFieldText(cardMatch[3] || '');
+          const idPatternMatch = bracketToken.match(idPatternRegex) || line.match(idPatternRegex);
           let parsedCardId = null;
           let parsedGoalNumber = currentGoalNumber;
           let idMismatchReason = '';
-          let cardTitle = '';
 
           if (idPatternMatch) {
             const parsedGoalFromId = Number(idPatternMatch[1]);
@@ -3262,137 +3253,117 @@
               parsedGoalNumber = parsedGoalFromId;
               parsedCardId = normalizeBenchmarkCardId(`G${parsedGoalFromId}-${parsedIndexFromId}`);
             }
-
-            const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
-            const startsWithBracket = /^\s*(?:\*\*)?\[[^\]]+\]/.test(line);
-            const cardMatch = line.match(idCardLineRegex);
-            if (!isGoalLine && startsWithBracket && cardMatch) {
-              const bracketToken = normalizeBenchmarkFieldText(cardMatch[1] || '');
-              const bodyText = normalizeBenchmarkFieldText(cardMatch[2] || '');
-              const inlineTail = normalizeBenchmarkFieldText(cardMatch[3] || '');
-              const idPatternMatch = bracketToken.match(idPatternRegex) || line.match(idPatternRegex);
-              let parsedCardId = null;
-              let parsedGoalNumber = currentGoalNumber;
-              let idMismatchReason = '';
-
-              if (idPatternMatch) {
-                const parsedGoalFromId = Number(idPatternMatch[1]);
-                const parsedIndexFromId = Number(idPatternMatch[2]);
-                if (Number.isFinite(parsedGoalFromId) && Number.isFinite(parsedIndexFromId)) {
-                  parsedGoalNumber = parsedGoalFromId;
-                  parsedCardId = normalizeBenchmarkCardId(`G${parsedGoalFromId}-${parsedIndexFromId}`);
-                }
-              } else {
-                idMismatchReason = 'ID 패턴 불일치';
-              }
-
-              let cardTitle = bodyText
-                .replace(/^\s*[:：\-]+\s*/, '')
-                .replace(/\s*[:：]\s*$/, '')
-                .replace(/^\[\s*/, '')
-                .replace(/\s*\]$/, '')
-                .trim();
-
-              if (!cardTitle && !idPatternMatch) {
-                cardTitle = normalizeBenchmarkFieldText(bracketToken)
-                  .replace(/^[\-*:•\s]+/, '')
-                  .replace(/[\-*:•\s]+$/, '');
-              }
-
-              logParserStage({
-                originalLine,
-                preprocessedLine: line,
-                regexMatch: idPatternMatch
-                  ? { goalToken: idPatternMatch[1], cardToken: idPatternMatch[2], raw: idPatternMatch[0] }
-                  : null,
-                goalNumber: parsedGoalNumber,
-                cardId: parsedCardId,
-                title: cardTitle
-              });
-
-              if (!cardTitle) continue;
-
-              if (!idPatternMatch) {
-                console.warn('[Benchmark Parser] 카드 ID 추출 실패', {
-                  rawLine: line,
-                  reason: idMismatchReason,
-                  cardId: null
-                });
-              }
-
-              pushCurrentCard();
-              currentCard = {
-                id: parsedCardId,
-                title: cardTitle,
-                goalNumber: parsedGoalNumber,
-                idMismatchReason,
-                unrecognizedCompanyLabels: [],
-                benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
-              };
-              activeFieldKey = applyInlineCompanyTail(currentCard, inlineTail) || '';
-              continue;
-            }
-
-            // Step-3: strip ID token from the preprocessed line, then use the remaining text as title.
-            const titleTail = line
-              activeFieldKey = applyCompanyField(currentCard, companyMatch[1] || '', companyMatch[2] || '') || '';
-              continue;
-            }
-
-            if (currentCard) {
-              const candidate = line.match(companyCandidateRegex);
-              if (candidate) {
-                activeFieldKey = applyCompanyField(currentCard, candidate[1] || '', candidate[2] || '') || '';
-                continue;
-              }
-            }
-
-            if (!currentCard) continue;
-            const continuationText = normalizeBenchmarkFieldText(line);
-            if (!continuationText || !activeFieldKey) continue;
-            currentCard.benchmarking[activeFieldKey] = currentCard.benchmarking[activeFieldKey]
-              ? `${currentCard.benchmarking[activeFieldKey]}\n${continuationText}`
-              : continuationText;
+          } else {
+            idMismatchReason = 'ID 패턴 불일치';
           }
 
-          pushCurrentCard();
+          let cardTitle = bodyText
+            .replace(/^\s*[:：\-]+\s*/, '')
+            .replace(/\s*[:：]\s*$/, '')
+            .replace(/^\[\s*/, '')
+            .replace(/\s*\]$/, '')
+            .trim();
 
-          if (!parsedCards.length) {
-            const bracketRegex = /\[(.*?)\]/g;
-            const matches = Array.from(rawText.matchAll(bracketRegex));
-            matches.forEach((match) => {
-              const title = normalizeBenchmarkFieldText(match[1] || '');
-              if (!title) return;
-              parsedCards.push({
-                id: null,
-                title,
-                goalNumber: null,
-                idMismatchReason: 'ID 패턴 불일치',
-                parseSource: 'fallback-bracket-only',
-                unrecognizedCompanyLabels: [],
-                benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
-              });
+          if (!cardTitle && !idPatternMatch) {
+            cardTitle = normalizeBenchmarkFieldText(bracketToken)
+              .replace(/^[\-*:•\s]+/, '')
+              .replace(/[\-*:•\s]+$/, '');
+          }
+
+          logParserStage({
+            originalLine,
+            preprocessedLine: line,
+            regexMatch: idPatternMatch
+              ? { goalToken: idPatternMatch[1], cardToken: idPatternMatch[2], raw: idPatternMatch[0] }
+              : null,
+            goalNumber: parsedGoalNumber,
+            cardId: parsedCardId,
+            title: cardTitle
+          });
+
+          if (!cardTitle) continue;
+
+          if (!idPatternMatch) {
+            console.warn('[Benchmark Parser] 카드 ID 추출 실패', {
+              rawLine: line,
+              reason: idMismatchReason,
+              cardId: null
             });
           }
 
-          return parsedCards.filter((card) => card && card.title);
+          pushCurrentCard();
+          currentCard = {
+            id: parsedCardId,
+            title: cardTitle,
+            goalNumber: parsedGoalNumber,
+            idMismatchReason,
+            unrecognizedCompanyLabels: [],
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          };
+          activeFieldKey = applyInlineCompanyTail(currentCard, inlineTail) || '';
+          continue;
         }
 
-        function isBenchmarkPublicInfoPlaceholder(value) {
-          if (typeof value !== 'string') return false;
-          const normalized = normalizeBenchmarkFieldText(value)
-            .normalize('NFKC')
-            .toLowerCase()
-            .replace(/[\s\u3000]/g, '');
-          if (!normalized) return false;
-          const patterns = [
-            '공개정보없음',
-            '확인되지않습니다',
-            '관련공개정보가없습니다',
-            '관련공개정보는없습니다'
-          ];
-          return patterns.some((pattern) => normalized.includes(pattern));
+        const companyMatch = line.match(companyLineRegex);
+        if (currentCard && companyMatch) {
+          activeFieldKey = applyCompanyField(currentCard, companyMatch[1] || '', companyMatch[2] || '') || '';
+          continue;
         }
+
+        if (currentCard) {
+          const candidate = line.match(companyCandidateRegex);
+          if (candidate) {
+            activeFieldKey = applyCompanyField(currentCard, candidate[1] || '', candidate[2] || '') || '';
+            continue;
+          }
+        }
+
+        if (!currentCard) continue;
+        const continuationText = normalizeBenchmarkFieldText(line);
+        if (!continuationText || !activeFieldKey) continue;
+        currentCard.benchmarking[activeFieldKey] = currentCard.benchmarking[activeFieldKey]
+          ? `${currentCard.benchmarking[activeFieldKey]}\n${continuationText}`
+          : continuationText;
+      }
+
+      pushCurrentCard();
+
+      if (!parsedCards.length) {
+        const bracketRegex = /\[(.*?)\]/g;
+        const matches = Array.from(rawText.matchAll(bracketRegex));
+        matches.forEach((match) => {
+          const title = normalizeBenchmarkFieldText(match[1] || '');
+          if (!title) return;
+          parsedCards.push({
+            id: null,
+            title,
+            goalNumber: null,
+            idMismatchReason: 'ID 패턴 불일치',
+            parseSource: 'fallback-bracket-only',
+            unrecognizedCompanyLabels: [],
+            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+          });
+        });
+      }
+
+      return parsedCards.filter((card) => card && card.title);
+    }
+
+    function isBenchmarkPublicInfoPlaceholder(value) {
+      if (typeof value !== 'string') return false;
+      const normalized = normalizeBenchmarkFieldText(value)
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\s\u3000]/g, '');
+      if (!normalized) return false;
+      const patterns = [
+        '공개정보없음',
+        '확인되지않습니다',
+        '관련공개정보가없습니다',
+        '관련공개정보는없습니다'
+      ];
+      return patterns.some((pattern) => normalized.includes(pattern));
+    }
     function parseAiBenchmarkText(rawText) {
       const parsedCards = parseBracketCardsFromText(rawText);
       benchmarkDebugLog('[Benchmark Parser] 파싱된 카드들:', parsedCards);
