@@ -3286,6 +3286,7 @@
             title,
             goalNumber: null,
             idMismatchReason: 'ID 패턴 불일치',
+            parseSource: 'fallback-bracket-only',
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           });
         });
@@ -3357,6 +3358,25 @@
       };
 
       parsedCards.forEach((card) => {
+        if (card && card.parseSource === 'fallback-bracket-only') {
+          matchStats.failed += 1;
+          console.warn('[Benchmark Parser] fallback-bracket-only 카드 스킵', {
+            failedCardTitle: card.title,
+            cardId: card.id || null,
+            reason: 'fallback-bracket-only-skip'
+          });
+          unmatched.push({
+            title: card.title,
+            normalizedTitle: normalizeKey(card.title || ''),
+            goalNumber: card.goalNumber,
+            cardId: card.id || null,
+            failureReason: 'fallback-bracket-only-skip',
+            benchmarking: card.benchmarking,
+            candidates: []
+          });
+          return;
+        }
+
         const normalizedCardId = normalizeBenchmarkCardId(card.id || '');
         const normalizedTitle = normalizeKey(card.title);
         const fallbackTitleKey = normalizeBenchmarkTitleForFallback(card.title || '');
