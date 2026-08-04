@@ -4684,10 +4684,6 @@
             control.disabled = !isEditable;
             return;
           }
-          if (control.tagName === 'INPUT' && control.type === 'checkbox') {
-            control.disabled = !isEditable;
-            return;
-          }
           if (control.tagName === 'BUTTON' || control.tagName === 'SELECT') {
             control.disabled = !isEditable;
           }
@@ -13789,9 +13785,6 @@
       Array.from(card.querySelectorAll('.workflow-step-text-input')).forEach((input) => {
         input.disabled = !isEditing;
       });
-      Array.from(card.querySelectorAll('.workflow-due-date')).forEach((input) => {
-        input.disabled = !isEditing;
-      });
       const addStepButton = card.querySelector('.workflow-add-step-btn');
       if (addStepButton) addStepButton.disabled = !isEditing;
 
@@ -15016,12 +15009,6 @@
                   stepText,
                   stepComment
                 });
-                void recordSharedActivityLog('checklist', {
-                  cardId: itemKey,
-                  cardTitle: getCardActivityTitle(plannerState, itemKey),
-                  stepTitle: stepText || `${idx + 1}단계`,
-                  content: stepText ? `완료 단계: ${stepText}${stepComment ? ` | 💬 ${stepComment}` : ''}` : `완료 단계: ${idx + 1}단계`
-                });
               } else {
                 removeChecklistHistory(itemState, checklistItemId);
                 itemState.activityLog = itemState.activityLog.filter((entry) => !(entry
@@ -15033,11 +15020,36 @@
             updateLatestActivityPanel(true);
             rerenderHistoryArchive();
             savePlannerState(plannerState, { reason: 'checklist-history-sync', skipFirebaseSync: true });
+            const requestAt = new Date().toISOString();
+            const targetPath = `cards/${currentGoal}/${currentIndexText}`;
+            console.log('[cards] update 요청', {
+              reason: 'checklist-history-sync',
+              path: targetPath,
+              requestAt,
+              stepIndex: idx,
+              checked: itemState.steps[idx].checked
+            });
             const partialSaveResult = await updateItemFieldsInFirebase(itemKey, {
               [`steps/${idx}/checked`]: itemState.steps[idx].checked,
               [`steps/${idx}/completedAt`]: itemState.steps[idx].completedAt,
               historyList: itemState.historyList
             }, 'checklist-history-sync');
+            if (!partialSaveResult.ok) {
+              console.error('[cards] update 실패', {
+                reason: 'checklist-history-sync',
+                path: targetPath,
+                requestAt,
+                errorCode: partialSaveResult.errorCode || 'unknown'
+              });
+              return;
+            }
+            console.log('[cards] update 성공', {
+              reason: 'checklist-history-sync',
+              path: targetPath,
+              requestAt,
+              stepIndex: idx,
+              checked: itemState.steps[idx].checked
+            });
             if (!partialSaveResult.ok && partialSaveResult.reason !== 'write-unavailable') {
               window.alert('체크리스트 히스토리 저장에 실패했습니다. 네트워크 연결을 확인해 주세요.');
             }
@@ -15121,11 +15133,16 @@
             if (!itemState.steps[idx]) return;
             const previousDueDate = typeof itemState.steps[idx].dueDate === 'string' ? itemState.steps[idx].dueDate : '';
             const nextDueDate = input.value || '';
-            console.log('[DUE] 입력 변경');
-            console.log('[DUE] 카드ID', itemKey);
-            console.log('[DUE] 체크리스트ID', idx);
-            console.log('[DUE] 이전 날짜', previousDueDate);
-            console.log('[DUE] 변경 날짜', nextDueDate);
+            const requestAt = new Date().toISOString();
+            const targetPath = `cards/${currentGoal}/${currentIndexText}`;
+            console.log('[cards] update 요청', {
+              reason: 'due-date-change',
+              path: targetPath,
+              requestAt,
+              stepIndex: idx,
+              previousDueDate,
+              nextDueDate
+            });
             itemState.steps[idx].dueDate = nextDueDate;
             if (idx === 3 && nextDueDate) {
               itemState.quickAddMissingDue = false;
@@ -15134,21 +15151,34 @@
             input.value = nextDueDate;
             updateDueDateBadges();
             const savedState = savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
-            if (idx === 3) {
-              await updateItemFieldsInFirebase(itemKey, {
-                [`steps/${idx}/dueDate`]: nextDueDate,
-                quickAddMissingDue: itemState.quickAddMissingDue === true
-              }, 'due-date-change-step4');
-            } else {
-              await updateItemFieldsInFirebase(itemKey, {
-                [`steps/${idx}/dueDate`]: nextDueDate
-              }, 'due-date-change');
+            const saveResult = idx === 3
+              ? await updateItemFieldsInFirebase(itemKey, {
+                  [`steps/${idx}/dueDate`]: nextDueDate,
+                  quickAddMissingDue: itemState.quickAddMissingDue === true
+                }, 'due-date-change-step4')
+              : await updateItemFieldsInFirebase(itemKey, {
+                  [`steps/${idx}/dueDate`]: nextDueDate
+                }, 'due-date-change');
+            if (!saveResult.ok) {
+              console.error('[cards] update 실패', {
+                reason: idx === 3 ? 'due-date-change-step4' : 'due-date-change',
+                path: targetPath,
+                requestAt,
+                errorCode: saveResult.errorCode || 'unknown'
+              });
+              return;
             }
             renderLatestActivityPanel(latestActivityPanel, itemState);
             renderGoalSummaryWidget(currentGoal, savedState);
             syncOverviewWidgets(savedState);
-            console.log('[DUE] Firestore 저장 성공', { itemKey, checklistId: idx, dueDate: nextDueDate });
-            console.log('[DUE] D-Day 갱신 완료', { itemKey, checklistId: idx, dDay: dueDateBadges[idx] ? dueDateBadges[idx].textContent : '' });
+            console.log('[cards] update 성공', {
+              reason: idx === 3 ? 'due-date-change-step4' : 'due-date-change',
+              path: targetPath,
+              requestAt,
+              stepIndex: idx,
+              dueDate: nextDueDate,
+              dDay: dueDateBadges[idx] ? dueDateBadges[idx].textContent : ''
+            });
           });
         });
 
