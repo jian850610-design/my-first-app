@@ -831,7 +831,7 @@
     .kpi-action-btn:hover { background: #fff8de; }
     .kpi-action-btn.primary { background: #f3b71a; border-color: #dfaa11; color: #3f2d00; }
     .kpi-action-btn.primary:hover { background: #ffc936; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
     .kpi-empty { border: 1px dashed #e0c55d; border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.55); color: #6c5510; font-size: 12px; line-height: 1.6; }
     .kpi-card { border: 1px solid #e0c55d; border-radius: 14px; background: rgba(255,255,255,0.82); box-shadow: 0 8px 18px rgba(123, 90, 8, 0.08); padding: 12px; display: grid; gap: 10px; }
     .kpi-card.good { border-color: #8dd5ab; }
@@ -840,6 +840,13 @@
     .kpi-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .kpi-card-title { font-size: 13px; font-weight: 800; color: #433100; line-height: 1.45; }
     .kpi-card-title small { display: block; margin-top: 2px; color: #796014; font-weight: 700; font-size: 11px; }
+    .kpi-card-details { border-top: 1px dashed rgba(166, 138, 51, 0.25); padding-top: 8px; }
+    .kpi-card-details summary { font-size: 11px; font-weight: 800; color: #7a5f15; cursor: pointer; list-style: none; }
+    .kpi-card-details summary::-webkit-details-marker { display: none; }
+    .kpi-card-details-body { display: grid; gap: 6px; margin-top: 8px; color: #4f3d10; font-size: 11px; line-height: 1.55; }
+    .kpi-card-details-text { white-space: pre-line; }
+    .kpi-card-details-note,
+    .kpi-card-details-keywords { color: #6a5617; }
     .kpi-card-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
     .kpi-icon-btn { border: 1px solid #dfc76e; border-radius: 999px; background: #ffffff; color: #6f5500; width: 30px; height: 30px; font-size: 15px; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .kpi-icon-btn:hover { background: #fff4c8; }
@@ -1727,6 +1734,7 @@
     </section>
   </div>
 
+  <script src="./naver-target-keywords.js"></script>
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
     const todayActivityTitle = document.getElementById('todayActivityTitle');
@@ -1778,6 +1786,7 @@
     const goalSelect = document.getElementById('goalSelect');
     const metricSelected = document.getElementById('metric-selected');
     const detailContainer = document.getElementById('detailItems');
+    let detailContainerDelegatedListenersAttached = false;
     const leaderSummaryList = document.getElementById('leaderSummaryList');
     const leaderSummaryEmpty = document.getElementById('leaderSummaryEmpty');
     const urgentDeadlineList = document.getElementById('urgentDeadlineList');
@@ -2108,6 +2117,7 @@
     const BENCHMARK_AUTO_INPUT_DRAFT_KEY = 'skfBenchmarkAutoInputDraftV1';
     let benchmarkRetryFailedItemKeys = [];
     const KPI_DEFAULT_DEADLINE = '2026-12-31';
+    const NAVER_TARGET_KEYWORDS = Array.isArray(window.NAVER_TARGET_KEYWORDS) ? window.NAVER_TARGET_KEYWORDS.slice() : [];
     const KPI_CATALOG_DOC_KEY = 'catalog';
     let kpiCatalogState = null;
     let kpiCatalogLoaded = false;
@@ -10327,9 +10337,28 @@
         { name: '영상 라이브러리 등록 콘텐츠', unit: '건', targetValue: 30 }
       ],
       'naver-platform': [
-        { name: '블로그 포스팅 발행', unit: '건', targetValue: 20 },
-        { name: '검색 1페이지 진입 키워드', unit: '개', targetValue: 5 },
-        { name: '네이버TV 영상 업로드', unit: '편', targetValue: 10 }
+        {
+          name: '지정 키워드 블로그탭 1p 노출',
+          title: '지정 키워드 블로그탭 1p 노출',
+          unit: '개',
+          targetValue: 5,
+          currentValue: 0,
+          dueDate: '2026-12-31',
+          description: '지정 키워드 리스트 중 네이버 블로그탭 1페이지(상위 10위 이내) 노출이 2주 연속 확인된 키워드 수',
+          measurementNote: '모바일 / 로그아웃 / 시크릿모드 / 매주 금요일 확인',
+          targetKeywords: NAVER_TARGET_KEYWORDS.slice()
+        },
+        {
+          name: '지정 키워드 통합검색 1p 노출',
+          title: '지정 키워드 통합검색 1p 노출',
+          unit: '개',
+          targetValue: 2,
+          currentValue: 0,
+          dueDate: '2026-12-31',
+          description: '지정 키워드 리스트 중 네이버 모바일 통합검색 첫 페이지(스마트블록·인기글 블록 포함) 노출이 2주 연속 확인된 키워드 수',
+          measurementNote: '모바일 / 로그아웃 / 시크릿모드 / 매주 금요일 확인',
+          targetKeywords: NAVER_TARGET_KEYWORDS.slice()
+        }
       ],
       'field-communication': [
         { name: '대리점·고객사 현장 방문', unit: '개사', targetValue: 20 },
@@ -10368,16 +10397,23 @@
           goalLabel: goalTemplate.label,
           items: items.map((item, index) => ({
             id: `${goalKey}-kpi-${index + 1}`,
+            title: typeof item.title === 'string' && item.title ? item.title : (typeof item.name === 'string' ? item.name : `KPI ${index + 1}`),
             goalKey,
-            name: item.name,
+            name: typeof item.name === 'string' && item.name ? item.name : (typeof item.title === 'string' ? item.title : `KPI ${index + 1}`),
             unit: item.unit,
             targetValue: Number(item.targetValue) || 0,
-            currentValue: 0,
-            dueDate: KPI_DEFAULT_DEADLINE,
+            target: Number(item.targetValue) || 0,
+            currentValue: Number(item.currentValue) || 0,
+            current: Number(item.currentValue) || 0,
+            dueDate: typeof item.dueDate === 'string' && item.dueDate ? item.dueDate : KPI_DEFAULT_DEADLINE,
+            deadline: typeof item.dueDate === 'string' && item.dueDate ? item.dueDate : KPI_DEFAULT_DEADLINE,
             description: item.description || '',
+            measurementNote: item.measurementNote || '',
+            targetKeywords: Array.isArray(item.targetKeywords) ? item.targetKeywords.slice() : [],
             kpiUpdatedAt: nowIso,
             definitionUpdatedAt: nowIso,
-            updatedAt: nowIso
+            updatedAt: nowIso,
+            archived: item.archived === true
           }))
         };
       });
@@ -10406,22 +10442,44 @@
 
     function normalizeKpiItem(rawItem, goalKey, index, fallbackGoalLabel) {
       const fallbackSeed = (KPI_SEED_BLUEPRINTS[goalKey] && KPI_SEED_BLUEPRINTS[goalKey][index]) || {};
-      const currentValue = Number(rawItem && rawItem.currentValue);
-      const targetValue = Number(rawItem && rawItem.targetValue);
+      const name = typeof rawItem?.name === 'string' && rawItem.name.trim()
+        ? rawItem.name.trim()
+        : (typeof rawItem?.title === 'string' && rawItem.title.trim()
+          ? rawItem.title.trim()
+          : (fallbackSeed.name || fallbackSeed.title || `KPI ${index + 1}`));
+      const currentValue = Number(rawItem && (rawItem.currentValue ?? rawItem.current));
+      const targetValue = Number(rawItem && (rawItem.targetValue ?? rawItem.target));
+      const dueDate = typeof rawItem?.dueDate === 'string' && rawItem.dueDate
+        ? rawItem.dueDate
+        : (typeof rawItem?.deadline === 'string' && rawItem.deadline ? rawItem.deadline : (fallbackSeed.dueDate || KPI_DEFAULT_DEADLINE));
+      const description = typeof rawItem?.description === 'string' ? rawItem.description : (typeof fallbackSeed.description === 'string' ? fallbackSeed.description : '');
+      const measurementNote = typeof rawItem?.measurementNote === 'string'
+        ? rawItem.measurementNote
+        : (typeof fallbackSeed.measurementNote === 'string' ? fallbackSeed.measurementNote : '');
+      const targetKeywords = Array.isArray(rawItem?.targetKeywords)
+        ? rawItem.targetKeywords.filter((keyword) => typeof keyword === 'string' && keyword.trim())
+        : (Array.isArray(fallbackSeed.targetKeywords) ? fallbackSeed.targetKeywords.slice() : []);
       return {
         id: typeof rawItem?.id === 'string' && rawItem.id ? rawItem.id : `${goalKey}-kpi-${index + 1}`,
+        title: name,
         goalKey,
-        name: typeof rawItem?.name === 'string' && rawItem.name.trim() ? rawItem.name.trim() : fallbackSeed.name || `KPI ${index + 1}`,
+        name,
         unit: typeof rawItem?.unit === 'string' ? rawItem.unit : fallbackSeed.unit || '',
         targetValue: Number.isFinite(targetValue) ? targetValue : Number(fallbackSeed.targetValue) || 0,
+        target: Number.isFinite(targetValue) ? targetValue : Number(fallbackSeed.targetValue) || 0,
         currentValue: Number.isFinite(currentValue) ? currentValue : 0,
-        dueDate: typeof rawItem?.dueDate === 'string' && rawItem.dueDate ? rawItem.dueDate : KPI_DEFAULT_DEADLINE,
-        description: typeof rawItem?.description === 'string' ? rawItem.description : '',
+        current: Number.isFinite(currentValue) ? currentValue : 0,
+        dueDate,
+        deadline: dueDate,
+        description,
+        measurementNote,
+        targetKeywords,
         kpiUpdatedAt: typeof rawItem?.kpiUpdatedAt === 'string' ? rawItem.kpiUpdatedAt : '',
         definitionUpdatedAt: typeof rawItem?.definitionUpdatedAt === 'string' ? rawItem.definitionUpdatedAt : '',
         updatedAt: typeof rawItem?.updatedAt === 'string' ? rawItem.updatedAt : '',
         sortOrder: Number.isFinite(rawItem?.sortOrder) ? Number(rawItem.sortOrder) : index,
-        goalLabel: fallbackGoalLabel
+        goalLabel: fallbackGoalLabel,
+        archived: rawItem?.archived === true
       };
     }
 
@@ -10434,13 +10492,27 @@
         const incomingGoal = sourceGoals && typeof sourceGoals[goalKey] === 'object' ? sourceGoals[goalKey] : null;
         const hasIncomingItems = Boolean(incomingGoal && Array.isArray(incomingGoal.items));
         const incomingItems = hasIncomingItems ? incomingGoal.items : null;
-        const mergedItems = hasIncomingItems
-          ? incomingItems.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel))
-          : goalState.items.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel));
+        const mergedItems = goalKey === 'naver-platform'
+          ? goalState.items.map((seedItem, index) => {
+              const sourceItem = incomingItems && incomingItems[index] && typeof incomingItems[index] === 'object' ? incomingItems[index] : {};
+              return normalizeKpiItem({
+                ...seedItem,
+                currentValue: sourceItem.currentValue,
+                current: sourceItem.current,
+                kpiUpdatedAt: sourceItem.kpiUpdatedAt,
+                definitionUpdatedAt: sourceItem.definitionUpdatedAt,
+                updatedAt: sourceItem.updatedAt,
+                sortOrder: Number.isFinite(sourceItem.sortOrder) ? Number(sourceItem.sortOrder) : index,
+                archived: sourceItem.archived === true
+              }, goalKey, index, goalState.goalLabel);
+            })
+          : (hasIncomingItems
+            ? incomingItems.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel))
+            : goalState.items.map((item, index) => normalizeKpiItem(item, goalKey, index, goalState.goalLabel)));
         normalized.goals[goalKey] = {
           goalKey,
           goalLabel: goalState.goalLabel,
-          items: mergedItems.slice(0, 5)
+          items: mergedItems.slice(0, goalKey === 'naver-platform' ? 2 : 5)
         };
       });
 
@@ -10457,12 +10529,16 @@
     function getKpiGoalState(goalKey) {
       const catalog = kpiCatalogState || buildDefaultKpiCatalog();
       const goalState = catalog.goals && catalog.goals[goalKey] ? catalog.goals[goalKey] : null;
-      return goalState || { goalKey, goalLabel: goalTemplates[goalKey] ? goalTemplates[goalKey].label : goalKey, items: [] };
+      if (!goalState) return { goalKey, goalLabel: goalTemplates[goalKey] ? goalTemplates[goalKey].label : goalKey, items: [] };
+      return {
+        ...goalState,
+        items: Array.isArray(goalState.items) ? goalState.items.filter((item) => item && item.archived !== true) : []
+      };
     }
 
     function getKpiItemsForGoal(goalKey) {
       const goalState = getKpiGoalState(goalKey);
-      return Array.isArray(goalState.items) ? goalState.items : [];
+      return Array.isArray(goalState.items) ? goalState.items.filter((item) => item && item.archived !== true) : [];
     }
 
     function formatKpiNumber(value) {
@@ -10541,10 +10617,9 @@
     function getAllKpiIssueItems() {
       const issueItems = [];
       Object.keys(goalTemplates).forEach((goalKey) => {
-        const goalState = getKpiGoalState(goalKey);
-        const status = getKpiGoalStatus(goalKey);
-        if (!goalState || !Array.isArray(goalState.items) || !goalState.items.length) return;
-        goalState.items.forEach((item) => {
+        const items = getKpiItemsForGoal(goalKey);
+        if (!Array.isArray(items) || !items.length) return;
+        items.forEach((item) => {
           const paceBadge = getKpiPaceBadge(item);
           const updatedMeta = getKpiUpdatedMeta(item);
           if (paceBadge || updatedMeta.isStale) {
@@ -11393,9 +11468,10 @@
       const progressClass = getKpiCardClass(item);
       const paceBadge = getKpiPaceBadge(item);
       const updatedMeta = getKpiUpdatedMeta(item);
-      const currentValueText = `${formatKpiNumber(item.currentValue)}${item.unit || ''}`;
-      const targetValueText = `${formatKpiNumber(item.targetValue)}${item.unit || ''}`;
-      const progressText = `${Math.round(item.targetValue > 0 ? (Number(item.currentValue) / Number(item.targetValue)) * 100 : 0)}%`;
+      const currentValueText = `${formatKpiNumber(item.currentValue ?? item.current)}${item.unit || ''}`;
+      const targetValueText = `${formatKpiNumber(item.targetValue ?? item.target)}${item.unit || ''}`;
+      const progressText = `${Math.round((item.targetValue ?? item.target) > 0 ? (Number(item.currentValue ?? item.current) / Number(item.targetValue ?? item.target)) * 100 : 0)}%`;
+      const targetKeywords = Array.isArray(item.targetKeywords) ? item.targetKeywords.filter((keyword) => typeof keyword === 'string' && keyword.trim()) : [];
       const editButtons = EDIT_MODE_REQUESTED
         ? `<div class="kpi-card-actions"><button type="button" class="kpi-icon-btn" data-kpi-action="edit-current" data-goal-key="${goalKey}" data-kpi-id="${item.id}" aria-label="현재값 수정">✏️</button></div>`
         : '';
@@ -11414,17 +11490,25 @@
       return `
         <div class="kpi-card ${progressClass}" data-kpi-card="${item.id}" data-kpi-goal="${goalKey}">
           <div class="kpi-card-header">
-            <div class="kpi-card-title">${escapeHtml(item.name || `KPI ${index + 1}`)}<small>${escapeHtml(currentValueText)} / ${escapeHtml(targetValueText)}</small></div>
+            <div class="kpi-card-title" title="${escapeHtml(item.description || '')}">${escapeHtml(item.name || item.title || `KPI ${index + 1}`)}<small>${escapeHtml(currentValueText)} / ${escapeHtml(targetValueText)}</small></div>
             ${editButtons}
           </div>
           <div class="kpi-stat"><span>진행률</span><span>${escapeHtml(progressText)}</span></div>
           <div class="kpi-progress-track"><div class="kpi-progress-bar" style="width:${Math.max(0, Math.min(100, progress)).toFixed(1)}%"></div></div>
           <div class="kpi-meta-row">
-            <span>기한: ${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}</span>
+            <span>기한: ${escapeHtml(item.dueDate || item.deadline || KPI_DEFAULT_DEADLINE)}</span>
             <span>${escapeHtml(updatedMeta.text)}</span>
           </div>
           ${paceBadge ? `<span class="kpi-badge alert">${escapeHtml(paceBadge.text)}</span>` : ''}
           ${updatedMeta.badgeText ? `<span class="kpi-badge stale">${escapeHtml(updatedMeta.badgeText)}</span>` : ''}
+          <details class="kpi-card-details">
+            <summary>설명</summary>
+            <div class="kpi-card-details-body">
+              <div class="kpi-card-details-text">${escapeHtml(item.description || '설명이 없습니다.')}</div>
+              <div class="kpi-card-details-note"><strong>측정 메모</strong> ${escapeHtml(item.measurementNote || '없음')}</div>
+              ${targetKeywords.length ? `<div class="kpi-card-details-keywords"><strong>지정 키워드</strong> ${escapeHtml(targetKeywords.join(' · '))}</div>` : ''}
+            </div>
+          </details>
           ${inlineEditor}
         </div>
       `;
@@ -11434,7 +11518,7 @@
       if (!goalGuidelineBadgeBox) return;
       const goalTemplate = goalTemplates[goalKey];
       const goalState = getKpiGoalState(goalKey);
-      const items = Array.isArray(goalState.items) ? goalState.items : [];
+      const items = getKpiItemsForGoal(goalKey);
 
       if (!items.length && !EDIT_MODE_REQUESTED) {
         goalGuidelineBadgeBox.hidden = true;
@@ -11788,7 +11872,7 @@
       }
 
       kpiModalBody.innerHTML = `
-        <div class="kpi-edit-banner">KPI 이름, 단위, 목표값, 기한, 설명을 수정할 수 있습니다. 최대 5개까지 등록됩니다.</div>
+        <div class="kpi-edit-banner">KPI 이름, 단위, 목표값, 기한, 설명, 측정 메모, 타깃 키워드를 수정할 수 있습니다. 최대 5개까지 등록됩니다.</div>
         <div class="kpi-settings-list">
           ${draftItems.map((item, index) => `
             <div class="kpi-settings-row" data-kpi-setting-row="${index}">
@@ -11806,6 +11890,8 @@
                 <input type="number" step="any" min="0" data-kpi-draft-field="targetValue" data-kpi-index="${index}" value="${escapeHtml(String(item.targetValue ?? 0))}" placeholder="목표값" />
                 <input type="date" data-kpi-draft-field="dueDate" data-kpi-index="${index}" value="${escapeHtml(item.dueDate || KPI_DEFAULT_DEADLINE)}" placeholder="기한" />
                 <textarea data-kpi-draft-field="description" data-kpi-index="${index}" placeholder="설명">${escapeHtml(item.description || '')}</textarea>
+                <textarea data-kpi-draft-field="measurementNote" data-kpi-index="${index}" placeholder="측정 메모">${escapeHtml(item.measurementNote || '')}</textarea>
+                <textarea data-kpi-draft-field="targetKeywords" data-kpi-index="${index}" placeholder="타깃 키워드, 줄바꿈 또는 쉼표로 구분">${escapeHtml(Array.isArray(item.targetKeywords) ? item.targetKeywords.join('\n') : '')}</textarea>
               </div>
             </div>
           `).join('')}
@@ -11825,8 +11911,15 @@
       if (!kpiModalState || !kpiModalState.draft || !Array.isArray(kpiModalState.draft.items)) return;
       const item = kpiModalState.draft.items[index];
       if (!item) return;
-      if (field === 'name' || field === 'unit' || field === 'description' || field === 'dueDate') {
+      if (field === 'name' || field === 'unit' || field === 'description' || field === 'dueDate' || field === 'measurementNote') {
         item[field] = value;
+        return;
+      }
+      if (field === 'targetKeywords') {
+        item.targetKeywords = String(value || '')
+          .split(/\n|,/) 
+          .map((keyword) => keyword.trim())
+          .filter(Boolean);
         return;
       }
       if (field === 'currentValue' || field === 'targetValue') {
@@ -11857,6 +11950,8 @@
         currentValue: 0,
         dueDate: KPI_DEFAULT_DEADLINE,
         description: '',
+        measurementNote: '',
+        targetKeywords: [],
         kpiUpdatedAt: '',
         definitionUpdatedAt: '',
         sortOrder: nextIndex
@@ -11896,11 +11991,17 @@
         .map((item, index) => ({
           ...item,
           goalKey,
+          title: item.name || '',
           targetValue: Number(item.targetValue) || 0,
           currentValue: Number(item.currentValue) || 0,
+          target: Number(item.targetValue) || 0,
+          current: Number(item.currentValue) || 0,
           dueDate: item.dueDate || KPI_DEFAULT_DEADLINE,
           description: item.description || '',
+          measurementNote: item.measurementNote || '',
+          targetKeywords: Array.isArray(item.targetKeywords) ? item.targetKeywords.filter((keyword) => typeof keyword === 'string' && keyword.trim()) : [],
           definitionUpdatedAt: new Date().toISOString(),
+          archived: item.archived === true,
           sortOrder: index
         }))
         .filter((item) => item.name && String(item.name).trim());
@@ -13831,33 +13932,35 @@
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      const cardsHtml = getGoalItemEntries(goalKey).map(({ item, index }) => {
+      const cardsHtmlParts = [];
+      getGoalItemEntries(goalKey).forEach(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
-        const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
-        const displayTitle = getCardTitleText(existingItemState, item);
-        const displaySummary = getCardSummaryText(existingItemState, item);
-        const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
-        const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
-        const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
-        const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
-        const priorityMeta = getPriorityMeta(itemState.priority);
-        const leaderTagHtml = itemState.isLeaderRequested === true
-          ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
-          : '';
-        const benchmarkDisplay = resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, item);
-        const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt);
-        const benchmarkUpdatedText = benchmarkAge.text;
-        const benchmarkItems = [
-          { label: 'SKF 본사 실행 내용', value: benchmarkDisplay.values.skf || '' },
-          { label: '셰플러', value: benchmarkDisplay.values.schaeffler || '' },
-          { label: '한국NSK', value: benchmarkDisplay.values.nsk || '' },
-          { label: '팀켄', value: benchmarkDisplay.values.timken || '' }
-        ];
-        const staleBadgeHtml = `<span class="benchmark-stale-badge ${benchmarkAge.badgeClass}">${benchmarkAge.days === null ? '기준일 없음' : `${benchmarkAge.days}일 경과`}</span>`;
-        const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
-          ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
-          : '';
-        const benchmarkHtml = `
+        try {
+          const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
+          const displayTitle = getCardTitleText(existingItemState, item);
+          const displaySummary = getCardSummaryText(existingItemState, item);
+          const itemPrinciples = getCardGuidelines(plannerState, goalKey, item, goalTemplate, itemKey);
+          const checklistSteps = getChecklistStepsForItem(plannerState, goalKey, item, itemKey, itemPrinciples);
+          const principleBoxHtml = createPrincipleBoxHtml(itemPrinciples);
+          const itemState = getItemState(plannerState, itemKey, checklistSteps.length, itemPrinciples);
+          const priorityMeta = getPriorityMeta(itemState.priority);
+          const leaderTagHtml = itemState.isLeaderRequested === true
+            ? '<span class="leader-request-tag visible">팀장님 요청 건</span>'
+            : '';
+          const benchmarkDisplay = resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, item);
+          const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt);
+          const benchmarkUpdatedText = benchmarkAge.text;
+          const benchmarkItems = [
+            { label: 'SKF 본사 실행 내용', value: benchmarkDisplay.values.skf || '' },
+            { label: '셰플러', value: benchmarkDisplay.values.schaeffler || '' },
+            { label: '한국NSK', value: benchmarkDisplay.values.nsk || '' },
+            { label: '팀켄', value: benchmarkDisplay.values.timken || '' }
+          ];
+          const staleBadgeHtml = `<span class="benchmark-stale-badge ${benchmarkAge.badgeClass}">${benchmarkAge.days === null ? '기준일 없음' : `${benchmarkAge.days}일 경과`}</span>`;
+          const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
+            ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
+            : '';
+          const benchmarkHtml = `
           <div class="benchmark-meta-row">
             <span class="benchmark-updated-label">${escapeHtml(benchmarkUpdatedText)}</span>
             ${staleBadgeHtml}
@@ -13896,26 +13999,26 @@
             </div>
           </div>
         `;
-        const workflowHtml = createWorkflowChecklistHtml(
-          checklistSteps,
-          index,
-          getCycleCompletedCount(itemState),
-          itemState
-        );
-        const historyArchiveHtml = createHistoryArchiveHtml(itemState && itemState.isRecurring === true);
-        const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
-        const showQuickDueHint = itemState && itemState.isRecurring === true && itemState.quickAddMissingDue === true && !hasFinalDueDate;
-        const referenceEntries = normalizeCardReferences(itemState && itemState.references);
-        const referencesHtml = referenceEntries.length
-          ? referenceEntries.map((entry) => {
-              const displayName = entry.name || getCardReferenceFileName(entry.location) || '참고 자료';
-              const valueSegments = [
-                `<span class="card-reference-name">${escapeHtml(displayName)}</span>`,
-                `<span class="card-reference-path">${escapeHtml(entry.location)}</span>`,
-                entry.note ? `<span class="card-reference-note-inline">${escapeHtml(entry.note)}</span>` : ''
-              ].filter(Boolean);
-              const valueHtml = valueSegments.join('<span class="card-reference-divider">/</span>');
-              return `
+          const workflowHtml = createWorkflowChecklistHtml(
+            checklistSteps,
+            index,
+            getCycleCompletedCount(itemState),
+            itemState
+          );
+          const historyArchiveHtml = createHistoryArchiveHtml(itemState && itemState.isRecurring === true);
+          const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
+          const showQuickDueHint = itemState && itemState.isRecurring === true && itemState.quickAddMissingDue === true && !hasFinalDueDate;
+          const referenceEntries = normalizeCardReferences(itemState && itemState.references);
+          const referencesHtml = referenceEntries.length
+            ? referenceEntries.map((entry) => {
+                const displayName = entry.name || getCardReferenceFileName(entry.location) || '참고 자료';
+                const valueSegments = [
+                  `<span class="card-reference-name">${escapeHtml(displayName)}</span>`,
+                  `<span class="card-reference-path">${escapeHtml(entry.location)}</span>`,
+                  entry.note ? `<span class="card-reference-note-inline">${escapeHtml(entry.note)}</span>` : ''
+                ].filter(Boolean);
+                const valueHtml = valueSegments.join('<span class="card-reference-divider">/</span>');
+                return `
               <li class="card-reference-row" data-reference-id="${escapeHtml(entry.id)}">
                 <div class="card-reference-display">
                   <div class="card-reference-line">
@@ -13950,9 +14053,9 @@
                 </div>
               </li>
             `;
-            }).join('')
-          : '<li class="card-reference-empty">등록된 참고 자료가 없습니다.</li>';
-        return `
+              }).join('')
+            : '<li class="card-reference-empty">등록된 참고 자료가 없습니다.</li>';
+          cardsHtmlParts.push(`
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
             <div class="card-title-group">
@@ -14022,8 +14125,15 @@
           <div class="detail-item-progress">
             <div class="latest-activity-panel"></div>
           </div>
-        </article>`;
-      }).join('');
+        </article>`);
+        } catch (error) {
+          console.error('[detailItems] 카드 렌더 실패', {
+            cardKey: itemKey,
+            errorMessage: error && error.message ? error.message : String(error || 'unknown')
+          });
+        }
+      });
+      const cardsHtml = cardsHtmlParts.join('');
 
       const fragment = document.createDocumentFragment();
       const tempContainer = document.createElement('div');
@@ -14033,13 +14143,228 @@
       }
       detailContainer.innerHTML = '';
       detailContainer.appendChild(fragment);
+      if (goalKey === 'naver-platform') {
+        const renderedCount = getCards().filter((card) => (card.dataset.key || '').startsWith('naver-platform::')).length;
+        const remoteGoalCards = plannerState.items && plannerState.items[goalKey] && typeof plannerState.items[goalKey] === 'object'
+          ? Object.keys(plannerState.items[goalKey]).length
+          : 0;
+        const comparePayload = {
+          renderedCount,
+          remoteCount: remoteGoalCards,
+          renderSource: 'index.html:13930 renderDetailItems -> index.html:7144 getNaverPlatformReformCards'
+        };
+        if (renderedCount !== remoteGoalCards) {
+          console.warn('[detailItems] naver-platform 개수 불일치', comparePayload);
+        } else {
+          console.log('[detailItems] naver-platform 개수 일치', comparePayload);
+        }
+      }
       attachDetailItemListeners();
     }
 
     function attachDetailItemListeners() {
       const plannerState = loadPlannerState();
       renderLeaderRequestSummary(plannerState);
+      if (!detailContainerDelegatedListenersAttached && detailContainer) {
+        detailContainerDelegatedListenersAttached = true;
+
+        const resolveCardContext = (eventTarget) => {
+          const card = eventTarget ? eventTarget.closest('.detail-item-card') : null;
+          if (!card) return null;
+          const itemKey = card.dataset.key || '';
+          const [goalKey, indexText] = String(itemKey).split('::');
+          if (!goalKey || !/^[0-9]+$/.test(indexText || '')) return null;
+          const goalTemplate = goalTemplates[goalKey] || {};
+          const itemIndex = Number(indexText);
+          const currentItem = Array.isArray(goalTemplate.items) && Number.isInteger(itemIndex) ? goalTemplate.items[itemIndex] : null;
+          const plannerSnapshot = loadPlannerState();
+          const currentPrinciples = currentItem ? getCardGuidelines(plannerSnapshot, goalKey, currentItem, goalTemplate, itemKey) : [];
+          const workflowSteps = currentItem ? getWorkflowSteps(goalKey, currentItem, itemKey) : [];
+          const itemState = getItemState(plannerSnapshot, itemKey, workflowSteps.length, currentPrinciples);
+          return { card, itemKey, goalKey, indexText, itemIndex, currentItem, itemState, workflowSteps, plannerSnapshot };
+        };
+
+        detailContainer.addEventListener('input', (event) => {
+          const input = event.target.closest('.workflow-step-text-input');
+          if (!input) return;
+          const context = resolveCardContext(input);
+          if (!context) return;
+          const stepIndex = Number(input.dataset.stepIndex);
+          if (Number.isNaN(stepIndex)) return;
+          try {
+            const currentPlanner = context.plannerSnapshot || loadPlannerState();
+            const { itemKey, goalKey, itemState } = context;
+            if (!Array.isArray(itemState.customSteps)) {
+              itemState.customSteps = [];
+            }
+            while (itemState.customSteps.length <= stepIndex) {
+              itemState.customSteps.push('');
+            }
+            itemState.customSteps[stepIndex] = input.value || '';
+            savePlannerState(currentPlanner, { debounceMs: 450, reason: 'step-text-input' });
+            updateStats();
+            console.log('[cards] step text input', {
+              cardKey: itemKey,
+              stepIndex,
+              updatePath: `cards/${goalKey}/${context.indexText}`,
+              success: true
+            });
+          } catch (error) {
+            console.error('[cards] step text input 실패', {
+              cardKey: context && context.itemKey ? context.itemKey : '',
+              errorMessage: error && error.message ? error.message : String(error || 'unknown')
+            });
+          }
+        });
+
+        detailContainer.addEventListener('change', async (event) => {
+          const checkbox = event.target.closest('.workflow-check');
+          const dueDateInput = event.target.closest('.workflow-due-date');
+          if (!checkbox && !dueDateInput) return;
+          const control = checkbox || dueDateInput;
+          const context = resolveCardContext(control);
+          if (!context) return;
+          const stepIndex = Number(control.dataset.stepIndex);
+          if (Number.isNaN(stepIndex)) return;
+
+          try {
+            const currentPlanner = loadPlannerState();
+            const { itemKey, goalKey, indexText, itemState, currentItem } = context;
+            const requestAt = new Date().toISOString();
+            const targetPath = `cards/${goalKey}/${indexText}`;
+
+            if (checkbox) {
+              const stepState = itemState.steps[stepIndex];
+              if (!stepState) return;
+              const stepText = context.workflowSteps && context.workflowSteps[stepIndex] ? String(context.workflowSteps[stepIndex]) : '';
+              if (!checkbox.checked) {
+                const isConfirmed = window.confirm('이 단계의 수행 기록도 함께 삭제됩니다. 계속할까요?');
+                if (!isConfirmed) {
+                  checkbox.checked = true;
+                  return;
+                }
+              }
+              const checklistItemId = typeof stepState.id === 'string' && stepState.id ? stepState.id : createChecklistStepId(itemKey, stepIndex);
+              stepState.id = checklistItemId;
+              stepState.checked = checkbox.checked;
+              stepState.completedAt = checkbox.checked ? new Date().toISOString() : '';
+              if (checkbox.checked) {
+                const stepComment = typeof stepState.comment === 'string' ? stepState.comment : '';
+                upsertChecklistHistory(itemState, {
+                  projectName: stepText || `${stepIndex + 1}단계`,
+                  completedAt: stepState.completedAt,
+                  authorName: getHistoryAuthorName(),
+                  source: 'checklist',
+                  checklistItemId,
+                  commentSummary: stepComment || '체크리스트 단계 완료'
+                });
+                upsertChecklistActivityLog(itemState, {
+                  itemKey,
+                  goalKey,
+                  stepIndex,
+                  checklistId: typeof stepState.id === 'string' ? stepState.id : '',
+                  stepText,
+                  stepComment
+                });
+              } else {
+                removeChecklistHistory(itemState, checklistItemId);
+                itemState.activityLog = itemState.activityLog.filter((entry) => !(entry
+                  && entry.type === 'checklist-complete'
+                  && entry.checklistId === checklistItemId));
+              }
+
+              markItemUpdated(itemState);
+              savePlannerState(currentPlanner, { reason: 'checklist-history-sync', skipFirebaseSync: true });
+              const partialSaveResult = await updateItemFieldsInFirebase(itemKey, {
+                [`steps/${stepIndex}/checked`]: stepState.checked,
+                [`steps/${stepIndex}/completedAt`]: stepState.completedAt,
+                historyList: itemState.historyList
+              }, 'checklist-history-sync');
+              if (!partialSaveResult.ok) {
+                console.error('[cards] update 실패', {
+                  reason: 'checklist-history-sync',
+                  path: targetPath,
+                  requestAt,
+                  cardKey: itemKey,
+                  stepIndex,
+                  errorCode: partialSaveResult.errorCode || 'unknown'
+                });
+                return;
+              }
+              console.log('[cards] update 성공', {
+                reason: 'checklist-history-sync',
+                path: targetPath,
+                requestAt,
+                cardKey: itemKey,
+                stepIndex,
+                checked: stepState.checked,
+                success: true
+              });
+              updateGoalCard(goalKey);
+              return;
+            }
+
+            if (!itemState.steps[stepIndex]) return;
+            const previousDueDate = typeof itemState.steps[stepIndex].dueDate === 'string' ? itemState.steps[stepIndex].dueDate : '';
+            const nextDueDate = dueDateInput.value || '';
+            console.log('[cards] update 요청', {
+              reason: 'due-date-change',
+              path: targetPath,
+              requestAt,
+              cardKey: itemKey,
+              stepIndex,
+              previousDueDate,
+              nextDueDate
+            });
+            itemState.steps[stepIndex].dueDate = nextDueDate;
+            if (stepIndex === 3 && nextDueDate) {
+              itemState.quickAddMissingDue = false;
+            }
+            markItemUpdated(itemState);
+            dueDateInput.value = nextDueDate;
+            const savedState = savePlannerState(currentPlanner, { reason: 'due-date-change', skipFirebaseSync: true });
+            const saveResult = stepIndex === 3
+              ? await updateItemFieldsInFirebase(itemKey, {
+                  [`steps/${stepIndex}/dueDate`]: nextDueDate,
+                  quickAddMissingDue: itemState.quickAddMissingDue === true
+                }, 'due-date-change-step4')
+              : await updateItemFieldsInFirebase(itemKey, {
+                  [`steps/${stepIndex}/dueDate`]: nextDueDate
+                }, 'due-date-change');
+            if (!saveResult.ok) {
+              console.error('[cards] update 실패', {
+                reason: stepIndex === 3 ? 'due-date-change-step4' : 'due-date-change',
+                path: targetPath,
+                requestAt,
+                cardKey: itemKey,
+                stepIndex,
+                errorCode: saveResult.errorCode || 'unknown'
+              });
+              return;
+            }
+            console.log('[cards] update 성공', {
+              reason: stepIndex === 3 ? 'due-date-change-step4' : 'due-date-change',
+              path: targetPath,
+              requestAt,
+              cardKey: itemKey,
+              stepIndex,
+              dueDate: nextDueDate,
+              success: true
+            });
+            renderGoalSummaryWidget(goalKey, savedState);
+            syncOverviewWidgets(savedState);
+            updateGoalCard(goalKey);
+          } catch (error) {
+            const context = resolveCardContext(event.target);
+            console.error('[cards] detail event failed', {
+              cardKey: context ? context.itemKey : '',
+              errorMessage: error && error.message ? error.message : String(error || 'unknown')
+            });
+          }
+        });
+      }
       getCards().forEach((card) => {
+        try {
         const itemKey = card.dataset.key;
         const starButton = card.querySelector('.leader-star-btn');
         const cardTitleGroup = card.querySelector('.card-title-group');
@@ -14394,15 +14719,6 @@
           if (!result.ok) {
             showReferenceError('참고 자료 삭제에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
           }
-        });
-
-        stepTextInputs.forEach((input, idx) => {
-          input.addEventListener('input', () => {
-            ensureCustomSteps();
-            itemState.customSteps[idx] = input.value || '';
-            savePlannerState(plannerState, { debounceMs: 450, reason: 'step-text-input' });
-            updateStats();
-          });
         });
 
         deleteStepButtons.forEach((button) => {
@@ -14969,93 +15285,6 @@
           });
         }
 
-        checkboxes.forEach((checkbox, idx) => {
-          checkbox.addEventListener('change', async (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (itemState.steps[idx]) {
-              const stepState = itemState.steps[idx];
-              const checklistItemId = typeof stepState.id === 'string' && stepState.id
-                ? stepState.id
-                : createChecklistStepId(itemKey, idx);
-              const stepText = stepTextInputs[idx] ? stepTextInputs[idx].value || '' : '';
-
-              if (!checkbox.checked) {
-                const isConfirmed = window.confirm('이 단계의 수행 기록도 함께 삭제됩니다. 계속할까요?');
-                if (!isConfirmed) {
-                  checkbox.checked = true;
-                  return;
-                }
-              }
-
-              stepState.id = checklistItemId;
-              itemState.steps[idx].checked = checkbox.checked;
-              itemState.steps[idx].completedAt = checkbox.checked ? new Date().toISOString() : '';
-              if (checkbox.checked) {
-                const stepComment = itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string' ? itemState.steps[idx].comment : '';
-                upsertChecklistHistory(itemState, {
-                  projectName: stepText || `${idx + 1}단계`,
-                  completedAt: itemState.steps[idx].completedAt,
-                  authorName: getHistoryAuthorName(),
-                  source: 'checklist',
-                  checklistItemId,
-                  commentSummary: stepComment || '체크리스트 단계 완료'
-                });
-                upsertChecklistActivityLog(itemState, {
-                  itemKey,
-                  goalKey: currentGoal,
-                  stepIndex: idx,
-                  checklistId: typeof itemState.steps[idx].id === 'string' ? itemState.steps[idx].id : '',
-                  stepText,
-                  stepComment
-                });
-              } else {
-                removeChecklistHistory(itemState, checklistItemId);
-                itemState.activityLog = itemState.activityLog.filter((entry) => !(entry
-                  && entry.type === 'checklist-complete'
-                  && entry.checklistId === checklistItemId));
-              }
-            }
-            markItemUpdated(itemState);
-            updateLatestActivityPanel(true);
-            rerenderHistoryArchive();
-            savePlannerState(plannerState, { reason: 'checklist-history-sync', skipFirebaseSync: true });
-            const requestAt = new Date().toISOString();
-            const targetPath = `cards/${currentGoal}/${currentIndexText}`;
-            console.log('[cards] update 요청', {
-              reason: 'checklist-history-sync',
-              path: targetPath,
-              requestAt,
-              stepIndex: idx,
-              checked: itemState.steps[idx].checked
-            });
-            const partialSaveResult = await updateItemFieldsInFirebase(itemKey, {
-              [`steps/${idx}/checked`]: itemState.steps[idx].checked,
-              [`steps/${idx}/completedAt`]: itemState.steps[idx].completedAt,
-              historyList: itemState.historyList
-            }, 'checklist-history-sync');
-            if (!partialSaveResult.ok) {
-              console.error('[cards] update 실패', {
-                reason: 'checklist-history-sync',
-                path: targetPath,
-                requestAt,
-                errorCode: partialSaveResult.errorCode || 'unknown'
-              });
-              return;
-            }
-            console.log('[cards] update 성공', {
-              reason: 'checklist-history-sync',
-              path: targetPath,
-              requestAt,
-              stepIndex: idx,
-              checked: itemState.steps[idx].checked
-            });
-            if (!partialSaveResult.ok && partialSaveResult.reason !== 'write-unavailable') {
-              window.alert('체크리스트 히스토리 저장에 실패했습니다. 네트워크 연결을 확인해 주세요.');
-            }
-          });
-        });
-
         stepCommentSaveButtons.forEach((button) => {
           button.addEventListener('click', async () => {
             const stepIndex = Number(button.getAttribute('data-step-comment-save-index'));
@@ -15126,68 +15355,18 @@
           });
         });
 
-        dueDateInputs.forEach((input, idx) => {
-          input.addEventListener('change', async (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!itemState.steps[idx]) return;
-            const previousDueDate = typeof itemState.steps[idx].dueDate === 'string' ? itemState.steps[idx].dueDate : '';
-            const nextDueDate = input.value || '';
-            const requestAt = new Date().toISOString();
-            const targetPath = `cards/${currentGoal}/${currentIndexText}`;
-            console.log('[cards] update 요청', {
-              reason: 'due-date-change',
-              path: targetPath,
-              requestAt,
-              stepIndex: idx,
-              previousDueDate,
-              nextDueDate
-            });
-            itemState.steps[idx].dueDate = nextDueDate;
-            if (idx === 3 && nextDueDate) {
-              itemState.quickAddMissingDue = false;
-            }
-            markItemUpdated(itemState);
-            input.value = nextDueDate;
-            updateDueDateBadges();
-            const savedState = savePlannerState(plannerState, { reason: 'due-date-change', skipFirebaseSync: true });
-            const saveResult = idx === 3
-              ? await updateItemFieldsInFirebase(itemKey, {
-                  [`steps/${idx}/dueDate`]: nextDueDate,
-                  quickAddMissingDue: itemState.quickAddMissingDue === true
-                }, 'due-date-change-step4')
-              : await updateItemFieldsInFirebase(itemKey, {
-                  [`steps/${idx}/dueDate`]: nextDueDate
-                }, 'due-date-change');
-            if (!saveResult.ok) {
-              console.error('[cards] update 실패', {
-                reason: idx === 3 ? 'due-date-change-step4' : 'due-date-change',
-                path: targetPath,
-                requestAt,
-                errorCode: saveResult.errorCode || 'unknown'
-              });
-              return;
-            }
-            renderLatestActivityPanel(latestActivityPanel, itemState);
-            renderGoalSummaryWidget(currentGoal, savedState);
-            syncOverviewWidgets(savedState);
-            console.log('[cards] update 성공', {
-              reason: idx === 3 ? 'due-date-change-step4' : 'due-date-change',
-              path: targetPath,
-              requestAt,
-              stepIndex: idx,
-              dueDate: nextDueDate,
-              dDay: dueDateBadges[idx] ? dueDateBadges[idx].textContent : ''
-            });
-          });
-        });
-
         // Removed per-card freeform journal section; step-level comments are now the primary activity input.
 
         updateDueDateBadges();
         updateStepExecutionBadges();
         updateLatestActivityPanel(true);
         applyEditabilityState();
+        } catch (error) {
+          console.error('[detailItems] 카드 부착 실패', {
+            cardKey: itemKey,
+            errorMessage: error && error.message ? error.message : String(error || 'unknown')
+          });
+        }
       });
     }
 
