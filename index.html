@@ -1599,11 +1599,8 @@
                 <textarea class="card-editor-textarea" id="cardEditModalGuidelinesInput"></textarea>
               </div>
               <div class="card-editor-field">
-                <label>중요도 및 지시 상태</label>
+                <label>반복 수행 설정</label>
                 <div class="card-edit-flag-grid">
-                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalUrgentInput" /> 🔴 긴급</label>
-                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalImportantInput" /> 🟡 중요</label>
-                  <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalBossInput" /> 📌 팀장지시</label>
                   <label class="card-edit-flag-option"><input type="checkbox" id="cardEditModalRecurringInput" /> 🔁 반복 수행 카드 (같은 순서를 계속 반복)</label>
                 </div>
               </div>
@@ -1893,9 +1890,6 @@
     const cardEditModalTitleInput = document.getElementById('cardEditModalTitleInput');
     const cardEditModalSummaryInput = document.getElementById('cardEditModalSummaryInput');
     const cardEditModalGuidelinesInput = document.getElementById('cardEditModalGuidelinesInput');
-    const cardEditModalUrgentInput = document.getElementById('cardEditModalUrgentInput');
-    const cardEditModalImportantInput = document.getElementById('cardEditModalImportantInput');
-    const cardEditModalBossInput = document.getElementById('cardEditModalBossInput');
     const cardEditModalRecurringInput = document.getElementById('cardEditModalRecurringInput');
     const cardEditModalChecklistList = document.getElementById('cardEditModalChecklistList');
     const cardEditModalAddStepBtn = document.getElementById('cardEditModalAddStepBtn');
@@ -11775,10 +11769,11 @@
       const safeItemSteps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
       return safeSteps.map((stepText, index) => {
         const stepState = safeItemSteps[index] || {};
+        const normalizedDueDate = formatDateToISO(stepState && typeof stepState.dueDate === 'string' ? stepState.dueDate : '');
         return {
           stepId: stepState && typeof stepState.id === 'string' && stepState.id ? stepState.id : createChecklistStepId(itemKey, index),
           stepName: typeof stepText === 'string' ? stepText : '',
-          dueDate: stepState && typeof stepState.dueDate === 'string' ? stepState.dueDate : ''
+          dueDate: normalizedDueDate || ''
         };
       });
     }
@@ -11888,9 +11883,6 @@
         title: getCardTitleText(itemState, item),
         summary: getCardSummaryText(itemState, item),
         guidelines: getCardGuidelines(latestState, goalKey, item, goalTemplate, itemKey).join('\n'),
-        isUrgent: resolveTeamOverviewPriority(itemState) === PRIORITY_URGENT || itemState.isUrgent === true || itemState.urgent === true,
-        isImportant: resolveTeamOverviewPriority(itemState) === PRIORITY_IMPORTANT || itemState.isImportant === true || itemState.important === true,
-        isBossRequested: itemState.isBossRequested === true || itemState.bossRequest === true,
         isRecurring: itemState.isRecurring === true
       };
 
@@ -11909,9 +11901,6 @@
       if (cardEditModalTitleInput) cardEditModalTitleInput.value = cardEditModalState.title;
       if (cardEditModalSummaryInput) cardEditModalSummaryInput.value = cardEditModalState.summary;
       if (cardEditModalGuidelinesInput) cardEditModalGuidelinesInput.value = cardEditModalState.guidelines;
-      if (cardEditModalUrgentInput) cardEditModalUrgentInput.checked = cardEditModalState.isUrgent === true;
-      if (cardEditModalImportantInput) cardEditModalImportantInput.checked = cardEditModalState.isImportant === true;
-      if (cardEditModalBossInput) cardEditModalBossInput.checked = cardEditModalState.isBossRequested === true;
       if (cardEditModalRecurringInput) cardEditModalRecurringInput.checked = cardEditModalState.isRecurring === true;
       renderCardEditChecklistList();
       if (cardEditModal) {
@@ -11944,7 +11933,7 @@
         ? cardEditModalState.checklistDraft.map((entry) => ({
             stepId: entry && typeof entry.stepId === 'string' ? entry.stepId : '',
             stepName: entry && typeof entry.stepName === 'string' ? entry.stepName.trim() : '',
-            dueDate: entry && typeof entry.dueDate === 'string' ? entry.dueDate : ''
+            dueDate: formatDateToISO(entry && typeof entry.dueDate === 'string' ? entry.dueDate : '') || ''
           }))
         : [];
 
@@ -11957,29 +11946,22 @@
       if (nextGuidelines.length) itemState.customGuidelines = nextGuidelines;
       else delete itemState.customGuidelines;
 
-      const nextUrgent = cardEditModalUrgentInput ? cardEditModalUrgentInput.checked === true : itemState.isUrgent === true;
-      const nextImportant = cardEditModalImportantInput ? cardEditModalImportantInput.checked === true : itemState.isImportant === true;
-      const nextBossRequested = cardEditModalBossInput ? cardEditModalBossInput.checked === true : itemState.isBossRequested === true;
       const nextRecurring = cardEditModalRecurringInput ? cardEditModalRecurringInput.checked === true : itemState.isRecurring === true;
-      itemState.isUrgent = nextUrgent;
-      itemState.urgent = nextUrgent;
-      itemState.isImportant = !nextUrgent && nextImportant;
-      itemState.important = !nextUrgent && nextImportant;
-      itemState.isBossRequested = nextBossRequested;
-      itemState.bossRequest = nextBossRequested;
       itemState.isRecurring = nextRecurring;
-      itemState.priority = nextUrgent ? PRIORITY_URGENT : (nextImportant ? PRIORITY_IMPORTANT : PRIORITY_NORMAL);
+
+      const beforeAudit = {
+        title: getCardTitleText(itemState, item),
+        stepCount: Array.isArray(itemState.steps) ? itemState.steps.length : 0,
+        stepTexts: currentChecklistSteps.map((step) => (typeof step === 'string' ? step : '')),
+        checkedStates: Array.isArray(itemState.steps) ? itemState.steps.map((step) => Boolean(step && step.checked)) : [],
+        priority: normalizePriorityValue(itemState.priority),
+        isLeaderRequested: itemState.isLeaderRequested === true
+      };
 
       itemState.customSteps = nextChecklistSteps.map((entry) => entry.stepName);
-      const previousStepById = new Map(
-        (Array.isArray(itemState.steps) ? itemState.steps : [])
-          .map((step) => [step && typeof step.id === 'string' ? step.id : '', step])
-          .filter(([id]) => Boolean(id))
-      );
+      const previousSteps = Array.isArray(itemState.steps) ? itemState.steps : [];
       itemState.steps = nextChecklistSteps.map((entry, index) => {
-        const previousStep = entry.stepId && previousStepById.has(entry.stepId)
-          ? previousStepById.get(entry.stepId)
-          : null;
+        const previousStep = previousSteps[index] || null;
         return {
           id: entry.stepId || (previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index)),
           checked: Boolean(previousStep && previousStep.checked),
@@ -11991,25 +11973,41 @@
 
       markItemUpdated(itemState);
       const savedState = savePlannerState(latestState, { reason: 'card-edit-save', skipFirebaseSync: true });
-      const saveResult = await updateItemFieldsInFirebase(itemKey, {
+      const fieldsForUpdate = {
         customTitle: itemState.customTitle || '',
         customSummary: itemState.customSummary || '',
         customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
         customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
         steps: Array.isArray(itemState.steps) ? itemState.steps : [],
-        isUrgent: itemState.isUrgent === true,
-        urgent: itemState.urgent === true,
-        isImportant: itemState.isImportant === true,
-        important: itemState.important === true,
-        isBossRequested: itemState.isBossRequested === true,
-        bossRequest: itemState.bossRequest === true,
-        priority: normalizePriorityValue(itemState.priority),
         isRecurring: itemState.isRecurring === true
-      }, 'card-edit-save');
+      };
+      const saveResult = await updateItemFieldsInFirebase(itemKey, fieldsForUpdate, 'card-edit-save');
       if (!saveResult.ok) {
         window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
         return;
       }
+      const afterChecklistSteps = getChecklistStepsForItem(savedState, goalKey, item, itemKey, goalTemplate.principles || []);
+      const afterAudit = {
+        title: getCardTitleText(itemState, item),
+        stepCount: Array.isArray(itemState.steps) ? itemState.steps.length : 0,
+        stepTexts: afterChecklistSteps.map((step) => (typeof step === 'string' ? step : '')),
+        checkedStates: Array.isArray(itemState.steps) ? itemState.steps.map((step) => Boolean(step && step.checked)) : [],
+        priority: normalizePriorityValue(itemState.priority),
+        isLeaderRequested: itemState.isLeaderRequested === true,
+        isRecurring: itemState.isRecurring === true
+      };
+      console.log('[card-edit-modal] 저장 전후 보존 검증', {
+        cardKey: itemKey,
+        before: beforeAudit,
+        after: afterAudit
+      });
+      console.log('[card-edit-modal] 저장 후 상태 검증', {
+        cardKey: itemKey,
+        priority: normalizePriorityValue(itemState.priority),
+        isLeaderRequested: itemState.isLeaderRequested === true,
+        isRecurring: itemState.isRecurring === true,
+        updateFields: Object.keys(fieldsForUpdate)
+      });
       closeCardEditModal();
       updateGoalCard(goalKey);
       syncOverviewWidgets(savedState);
@@ -16644,16 +16642,6 @@
         });
 
         cardEditModal.addEventListener('input', (event) => {
-          const flagInput = event.target.closest('#cardEditModalUrgentInput, #cardEditModalImportantInput');
-          if (flagInput) {
-            if (flagInput === cardEditModalUrgentInput && cardEditModalUrgentInput && cardEditModalUrgentInput.checked && cardEditModalImportantInput) {
-              cardEditModalImportantInput.checked = false;
-            }
-            if (flagInput === cardEditModalImportantInput && cardEditModalImportantInput && cardEditModalImportantInput.checked && cardEditModalUrgentInput) {
-              cardEditModalUrgentInput.checked = false;
-            }
-            return;
-          }
           const fieldInput = event.target.closest('[data-card-edit-step-field]');
           if (!fieldInput) return;
           const stepIndex = Number(fieldInput.dataset.stepIndex);
