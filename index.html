@@ -3135,17 +3135,24 @@
           .trim();
       };
 
-      const lines = rawText.split(/\r?\n/).map((line) => preprocessBenchmarkParserLine(line));
+      const rawLines = rawText.split(/\r?\n/);
+      const lines = rawLines.map((line) => preprocessBenchmarkParserLine(line));
       const parsedCards = [];
       const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
-      const idCardLineRegex = /^\s*\[\s*([^\]]+)\s*\]\s*(.+?)\s*[:：]\s*(.*)$/;
       const idPatternRegex = /G\s*(\d+)\s*[-–—]\s*(\d+)/i;
-      const plainCardLineRegex = /^\s*\[?(.+?)\]?\s*[:：]\s*(.*)$/;
-      const companyLineRegex = /^\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+      const cardLineRegex = /^\s*(?:\[\s*([^\]]+)\s*\]\s*)?(.+?)\s*[:：]\s*(.*)$/;
+      const companyLineRegex = /^\s*[*\-•]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
 
       let currentGoalNumber = null;
       let currentCard = null;
       let activeFieldKey = '';
+      let parserDebugCount = 0;
+
+      const logParserStage = (payload) => {
+        if (parserDebugCount >= 3) return;
+        parserDebugCount += 1;
+        console.log('[Benchmark Parser][Line Stage]', payload);
+      };
 
       const pushCurrentCard = () => {
         if (currentCard && currentCard.title) parsedCards.push(currentCard);
@@ -3162,8 +3169,9 @@
         return inlineField;
       };
 
-      for (const rawLine of lines) {
-        const line = typeof rawLine === 'string' ? rawLine : '';
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const line = typeof lines[lineIndex] === 'string' ? lines[lineIndex] : '';
+        const originalLine = typeof rawLines[lineIndex] === 'string' ? rawLines[lineIndex] : '';
         if (!line.trim()) continue;
 
         const goalMatch = line.match(goalLineRegex);
@@ -3182,13 +3190,16 @@
           continue;
         }
 
-        const idCardMatch = line.match(idCardLineRegex);
-        if (idCardMatch) {
-          const bracketToken = normalizeBenchmarkFieldText(idCardMatch[1] || '');
-          const idPatternMatch = bracketToken.match(idPatternRegex);
+        const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
+        const cardMatch = line.match(cardLineRegex);
+        const hasColon = /[:：]/.test(line);
+        const hasBracket = /\[[^\]]+\]/.test(line);
+        if (!isGoalLine && cardMatch && hasColon && hasBracket) {
+          const idPatternMatch = line.match(idPatternRegex);
           let parsedCardId = null;
           let parsedGoalNumber = currentGoalNumber;
           let idMismatchReason = '';
+          let cardTitle = '';
 
           if (idPatternMatch) {
             const parsedGoalFromId = Number(idPatternMatch[1]);
@@ -3197,11 +3208,46 @@
               parsedGoalNumber = parsedGoalFromId;
               parsedCardId = normalizeBenchmarkCardId(`G${parsedGoalFromId}-${parsedIndexFromId}`);
             }
+
+            // Step-3: strip ID token from the preprocessed line, then use the remaining text as title.
+            const titleTail = line
+              .replace(idPatternRegex, '')
+              .replace(/^\s*\[\s*\]\s*/, '')
+              .replace(/^\s*\[\s*/, '')
+              .replace(/\]\s*/, ' ')
+              .replace(/^\s*[:：\-]+\s*/, '')
+              .replace(/\s*[:：]\s*$/, '')
+              .trim();
+            const companySplit = titleTail.match(/^(.*?)\s*[:：]\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]/i);
+            cardTitle = normalizeBenchmarkFieldText((companySplit && companySplit[1]) ? companySplit[1] : titleTail)
+              .replace(/^\[\s*/, '')
+              .replace(/\s*\]$/, '')
+              .trim();
           } else {
             idMismatchReason = 'ID 패턴 불일치';
+            const bracketTitleMatch = line.match(/^\s*\[([^\]]+)\]/);
+            const fallbackTitle = (bracketTitleMatch && bracketTitleMatch[1]) ? bracketTitleMatch[1] : (cardMatch[2] || '');
+            cardTitle = normalizeBenchmarkFieldText(fallbackTitle)
+              .replace(/^[\-*:•\s]+/, '')
+              .replace(/[\-*:•\s]+$/, '');
+          }
+
+          logParserStage({
+            originalLine,
+            preprocessedLine: line,
+            regexMatch: idPatternMatch
+              ? { goalToken: idPatternMatch[1], cardToken: idPatternMatch[2], raw: idPatternMatch[0] }
+              : null,
+            goalNumber: parsedGoalNumber,
+            cardId: parsedCardId,
+            title: cardTitle
+          });
+
+          if (!cardTitle) continue;
+
+          if (!idPatternMatch) {
             console.warn('[Benchmark Parser] 카드 ID 추출 실패', {
               rawLine: line,
-              bracketToken,
               reason: idMismatchReason,
               cardId: null
             });
@@ -3210,34 +3256,12 @@
           pushCurrentCard();
           currentCard = {
             id: parsedCardId,
-            title: normalizeBenchmarkFieldText(idCardMatch[2] || ''),
+            title: cardTitle,
             goalNumber: parsedGoalNumber,
             idMismatchReason,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           };
-          activeFieldKey = applyInlineCompanyTail(currentCard, idCardMatch[3]) || '';
-          continue;
-        }
-
-        const isGoalLine = /^\s*@?\s*목표\b/i.test(line);
-        const plainCardMatch = line.match(plainCardLineRegex);
-        const hasBracket = /\[[^\]]+\]/.test(line);
-        if (!isGoalLine && plainCardMatch && hasBracket) {
-          const bracketTitleMatch = line.match(/\[([^\]]+)\]/);
-          const title = normalizeBenchmarkFieldText((bracketTitleMatch && bracketTitleMatch[1]) || plainCardMatch[1] || '')
-            .replace(/^[\-*:•\s]+/, '')
-            .replace(/[\-*:•\s]+$/, '');
-          if (!title) continue;
-
-          pushCurrentCard();
-          currentCard = {
-            id: null,
-            title,
-            goalNumber: currentGoalNumber,
-            idMismatchReason: 'ID 패턴 불일치',
-            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
-          };
-          activeFieldKey = applyInlineCompanyTail(currentCard, plainCardMatch[2]) || '';
+          activeFieldKey = applyInlineCompanyTail(currentCard, cardMatch[3]) || '';
           continue;
         }
 
@@ -3324,6 +3348,13 @@
       const matched = {};
       const unmatched = [];
       const matchedItemKeys = new Set();
+      const matchStats = {
+        total: parsedCards.length,
+        success: 0,
+        idMatched: 0,
+        titleMatched: 0,
+        failed: 0
+      };
 
       parsedCards.forEach((card) => {
         const normalizedCardId = normalizeBenchmarkCardId(card.id || '');
@@ -3337,6 +3368,7 @@
         // 안전장치: [ID]가 주어졌는데 현재 프롬프트 카탈로그에 없는 ID면
         // 제목 유사도 매칭으로 우회하지 않고 반영 대상에서 제외한다.
         if (normalizedCardId && !catalogById.has(normalizedCardId)) {
+          matchStats.failed += 1;
           unmatched.push({
             title: card.title,
             normalizedTitle,
@@ -3377,6 +3409,7 @@
           const fallbackReason = card.idMismatchReason
             ? card.idMismatchReason
             : (normalizedCardId ? 'ID 매칭 실패' : '제목 정규화 매칭 실패');
+          matchStats.failed += 1;
 
           console.warn('[Benchmark Parser] 카드 매핑 실패', {
             failedCardTitle: card.title,
@@ -3399,6 +3432,12 @@
         }
 
         benchmarkDebugLog('[Benchmark Parser] 카드 매핑 성공', { rawTitle: card.title, matchedTitle: bestMatch.title, matchSource });
+        matchStats.success += 1;
+        if (matchSource === 'id') {
+          matchStats.idMatched += 1;
+        } else if (matchSource === 'title-fallback') {
+          matchStats.titleMatched += 1;
+        }
 
         const itemKey = `${bestMatch.goalKey}::${bestMatch.index}`;
         matchedItemKeys.add(itemKey);
@@ -3423,12 +3462,20 @@
         .map((entry) => ({ itemKey: `${entry.goalKey}::${entry.index}`, title: entry.title, goalKey: entry.goalKey, goalNumber: entry.goalNumber }));
 
       if (!Object.keys(matched).length && !unmatched.length) return null;
+      console.log('[Benchmark Parser][Summary]', {
+        total: matchStats.total,
+        success: matchStats.success,
+        idMatched: matchStats.idMatched,
+        titleMatched: matchStats.titleMatched,
+        failed: matchStats.failed
+      });
       return {
         matched,
         unmatched,
         missingFromResponse,
         appCardCount: catalog.length,
-        aiResponseCount: parsedCards.length
+        aiResponseCount: parsedCards.length,
+        matchStats
       };
     }
 
