@@ -533,11 +533,14 @@
     .workflow-item-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .workflow-item-tools { grid-column: 1 / -1; display: none; justify-content: flex-end; align-items: center; gap: 6px; padding-top: 2px; }
     .detail-item-card.editing .workflow-item-tools { display: flex; }
-    .workflow-step-assignee-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding-top: 2px; flex-wrap: wrap; }
-    .workflow-step-assignee-badge { border-radius: 999px; border: 1px dashed #aac3dc; background: #f4f9ff; color: #2f567b; padding: 3px 8px; font-size: 11px; font-weight: 700; line-height: 1.2; }
-    .workflow-step-assignee-badge.assigned { border-style: solid; border-color: #88acd0; background: #ecf4ff; color: #20496e; cursor: pointer; }
-    .workflow-step-assignee-badge.self { display: none; }
-    .detail-item-card.editing .workflow-step-assignee-badge.self { display: inline-flex; }
+    .workflow-status-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; min-width: 0; }
+    .workflow-step-assignee-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 2px; flex-wrap: wrap; }
+    .workflow-step-assignee-badge { border-radius: 999px; border: 1px dashed #c8d5e5; background: #f6f8fb; color: #7f8f9f; padding: 3px 8px; font-size: 11px; font-weight: 700; line-height: 1.2; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease; }
+    .workflow-step-assignee-badge:hover { color: #5d6f82; border-color: #b3c4d7; background: #eef3f8; }
+    .workflow-step-assignee-badge.assigned { border-style: solid; border-color: #88acd0; background: #ecf4ff; color: #20496e; }
+    .workflow-step-assignee-badge.assigned:hover { border-color: #6f9ecb; background: #deeeff; color: #153e63; }
+    .workflow-step-assignee-badge.self { color: #8796a5; border-color: #cbd7e4; background: #f5f7fa; filter: saturate(0.5); }
+    .workflow-step-assignee-badge.self:hover { color: #5a6f84; border-color: #a7bbd0; background: #e9f0f7; filter: none; }
     .workflow-step-assignee-editor { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .workflow-step-assignee-editor[hidden] { display: none; }
     .workflow-step-assignee-select,
@@ -569,7 +572,7 @@
     .workflow-dday-badge.overdue { background: #ffe9e9; color: #b93838; }
     .workflow-dday-badge.done { background: #e7f6ef; color: #0e7a4d; }
     .workflow-completed-at-badge,
-    .status-badge { display: block; width: 100%; box-sizing: border-box; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .status-badge { display: inline-flex; align-items: center; justify-content: center; width: auto; max-width: 100%; box-sizing: border-box; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 800; white-space: nowrap; }
     .workflow-completed-at-badge.pending { background: #f5f7fa; color: #8a97a7; }
     .workflow-completed-at-badge.done { background: #edf9f1; color: #0d7a46; }
     .workflow-delete-step-btn { display: none; border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; width: 26px; height: 26px; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
@@ -4754,6 +4757,19 @@
       getCards().forEach((card) => {
         const controls = Array.from(card.querySelectorAll('input, textarea, button, select'));
         controls.forEach((control) => {
+          if (
+            control.hasAttribute('data-step-assignee-trigger-index')
+            || control.hasAttribute('data-step-assignee-save-index')
+            || control.hasAttribute('data-step-assignee-cancel-index')
+            || control.classList.contains('workflow-step-assignee-select')
+            || control.classList.contains('workflow-step-assignee-custom-input')
+          ) {
+            if (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') {
+              control.readOnly = false;
+            }
+            control.disabled = false;
+            return;
+          }
           if (control.classList.contains('workflow-step-text-input')) {
             control.readOnly = !isEditable;
             control.disabled = !isEditable;
@@ -11552,7 +11568,7 @@
         const isKnownAssignee = STEP_ASSIGNEE_OPTIONS.some((option) => option && !option.isCustom && option.value === assigneeValue);
         const assigneeSelectValue = assigneeValue && !isKnownAssignee ? '__custom__' : assigneeValue;
         const assigneeBadgeClass = assigneeValue ? 'assigned' : 'self';
-        const assigneeBadgeText = assigneeValue ? `👤 ${assigneeValue}` : '담당자 지정';
+        const assigneeBadgeText = assigneeValue ? `👤 ${assigneeValue}` : '👤 +';
         const assigneeAccent = assigneeValue ? getStepAssigneeColor(assigneeValue) : '';
         const rowAssigneeClass = assigneeValue ? 'workflow-item-assigned' : '';
         const rowAssigneeStyle = assigneeAccent ? ` style="--step-assignee-accent:${escapeHtml(assigneeAccent)};"` : '';
@@ -11572,9 +11588,11 @@
                 </div>
                 <input class="workflow-due-date" type="date" data-step-index="${stepIndex}" />
                 <span class="workflow-dday-badge dday-badge unset" data-step-index="${stepIndex}">미설정</span>
-                <span class="workflow-completed-at-badge status-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
-                <div class="workflow-step-assignee-row">
+                <div class="workflow-status-row">
+                  <span class="workflow-completed-at-badge status-badge pending" data-step-completed-index="${stepIndex}">⚪ 기록 없음</span>
                   <button type="button" class="workflow-step-assignee-badge ${assigneeBadgeClass}" data-step-assignee-trigger-index="${stepIndex}" data-step-index="${stepIndex}">${escapeHtml(assigneeBadgeText)}</button>
+                </div>
+                <div class="workflow-step-assignee-row">
                   <div class="workflow-step-assignee-editor" data-step-assignee-editor-index="${stepIndex}" hidden>
                     <select class="workflow-step-assignee-select" data-step-assignee-select-index="${stepIndex}" data-step-index="${stepIndex}">
                       ${buildWorkflowStepAssigneeOptionsHtml(assigneeSelectValue)}
@@ -14822,6 +14840,101 @@
           return { card, itemKey, goalKey, indexText, itemIndex, currentItem, itemState, workflowSteps, plannerSnapshot };
         };
 
+        const persistStepAssigneeChange = async (context, stepIndex, nextAssignee, options = {}) => {
+          if (!context || Number.isNaN(stepIndex)) return { ok: false, reason: 'invalid-context' };
+          const { itemKey, goalKey, indexText, itemState } = context;
+          const targetStep = Array.isArray(itemState.steps) ? itemState.steps[stepIndex] : null;
+          if (!targetStep) return { ok: false, reason: 'missing-step' };
+
+          const previousAssignee = normalizeStepAssigneeValue(targetStep.assignee);
+          const normalizedNextAssignee = normalizeStepAssigneeValue(nextAssignee);
+          const editor = options.editor || context.card.querySelector(`[data-step-assignee-editor-index="${stepIndex}"]`);
+          const busyButton = options.busyButton || null;
+          const skipNoopClose = options.skipNoopClose === true;
+
+          if (normalizedNextAssignee === previousAssignee) {
+            if (editor && !skipNoopClose) editor.hidden = true;
+            return { ok: true, noop: true, reloadedValue: previousAssignee };
+          }
+
+          const updatePath = `cards/${goalKey}/${indexText}/steps/${stepIndex}/assignee`;
+          const payload = { [`steps/${stepIndex}/assignee`]: normalizedNextAssignee };
+          const payloadKeyCount = Object.keys(payload).length;
+          if (payloadKeyCount > 100) {
+            console.error('[STEP ASSIGNEE] payload 키 개수 초과로 저장 중단', {
+              cardKey: itemKey,
+              stepIndex,
+              payloadKeyCount,
+              updatePath
+            });
+            setFirebaseSaveFailureBanner(`저장 중단: ${updatePath} (payload-too-large:${payloadKeyCount})`);
+            return { ok: false, reason: 'payload-too-large', payloadKeyCount };
+          }
+
+          const requestAt = new Date().toISOString();
+          console.log('[STEP ASSIGNEE] 변경 요청', {
+            cardKey: itemKey,
+            stepIndex,
+            previousValue: previousAssignee,
+            nextValue: normalizedNextAssignee,
+            updatePath,
+            payloadKeyCount,
+            requestAt
+          });
+
+          targetStep.assignee = normalizedNextAssignee;
+          markItemUpdated(itemState);
+          savePlannerState(context.plannerSnapshot, { reason: 'step-assignee-change', skipFirebaseSync: true });
+
+          const beforeLabel = busyButton ? busyButton.textContent : '';
+          if (busyButton) {
+            busyButton.disabled = true;
+            busyButton.textContent = '저장 중...';
+          }
+
+          const saveResult = await updateItemFieldsInFirebase(itemKey, payload, 'step-assignee-change');
+          const reloaded = loadPlannerState();
+          const reloadedItem = reloaded && reloaded.items ? reloaded.items[itemKey] : null;
+          const reloadedStep = reloadedItem && Array.isArray(reloadedItem.steps) ? reloadedItem.steps[stepIndex] : null;
+          const reloadedAssignee = normalizeStepAssigneeValue(reloadedStep && reloadedStep.assignee);
+
+          console.log('[STEP ASSIGNEE] 변경 결과', {
+            cardKey: itemKey,
+            stepIndex,
+            previousValue: previousAssignee,
+            nextValue: normalizedNextAssignee,
+            updatePath,
+            payloadKeyCount,
+            responseOk: Boolean(saveResult && saveResult.ok),
+            reloadedValue: reloadedAssignee
+          });
+
+          if (!saveResult.ok) {
+            setFirebaseSaveFailureBanner(`저장 실패: ${updatePath} (${saveResult.errorCode || 'unknown'})`);
+            targetStep.assignee = previousAssignee;
+            savePlannerState(context.plannerSnapshot, { reason: 'step-assignee-rollback', skipFirebaseSync: true });
+            updateGoalCard(goalKey);
+            if (busyButton) {
+              busyButton.disabled = false;
+              busyButton.textContent = beforeLabel || '저장';
+            }
+            return { ok: false, reason: saveResult.errorCode || 'write-failed', payloadKeyCount, reloadedValue: reloadedAssignee };
+          }
+
+          if (busyButton) {
+            busyButton.textContent = '저장됨';
+            window.setTimeout(() => {
+              busyButton.disabled = false;
+              busyButton.textContent = beforeLabel || '저장';
+            }, 700);
+          }
+          if (editor) editor.hidden = true;
+          setToastMessage('담당자가 저장되었습니다.', 'ok');
+          syncOverviewWidgets(context.plannerSnapshot);
+          updateGoalCard(goalKey);
+          return { ok: true, payloadKeyCount, reloadedValue: reloadedAssignee };
+        };
+
         detailContainer.addEventListener('input', (event) => {
           const input = event.target.closest('.workflow-step-text-input');
           if (!input) return;
@@ -14889,7 +15002,7 @@
           if (!context) return;
           const stepIndex = Number(saveButton.dataset.stepIndex);
           if (Number.isNaN(stepIndex)) return;
-          const { itemKey, goalKey, indexText, itemState } = context;
+          const { itemState } = context;
           const targetStep = Array.isArray(itemState.steps) ? itemState.steps[stepIndex] : null;
           if (!targetStep) return;
 
@@ -14909,68 +15022,7 @@
             nextAssignee = normalizeStepAssigneeValue(selectedValue);
           }
 
-          if (nextAssignee === previousAssignee) {
-            if (editor) editor.hidden = true;
-            return;
-          }
-
-          const updatePath = `cards/${goalKey}/${indexText}/steps/${stepIndex}/assignee`;
-          const payload = { [`steps/${stepIndex}/assignee`]: nextAssignee };
-          const payloadKeyCount = Object.keys(payload).length;
-          const requestAt = new Date().toISOString();
-          console.log('[STEP ASSIGNEE] 변경 요청', {
-            cardKey: itemKey,
-            stepIndex,
-            previousValue: previousAssignee,
-            nextValue: nextAssignee,
-            updatePath,
-            payloadKeyCount,
-            requestAt
-          });
-
-          targetStep.assignee = nextAssignee;
-          markItemUpdated(itemState);
-          savePlannerState(context.plannerSnapshot, { reason: 'step-assignee-change', skipFirebaseSync: true });
-
-          saveButton.disabled = true;
-          const beforeLabel = saveButton.textContent;
-          saveButton.textContent = '저장 중...';
-          const saveResult = await updateItemFieldsInFirebase(itemKey, payload, 'step-assignee-change');
-          const reloaded = loadPlannerState();
-          const reloadedItem = reloaded && reloaded.items ? reloaded.items[itemKey] : null;
-          const reloadedStep = reloadedItem && Array.isArray(reloadedItem.steps) ? reloadedItem.steps[stepIndex] : null;
-          const reloadedAssignee = normalizeStepAssigneeValue(reloadedStep && reloadedStep.assignee);
-
-          console.log('[STEP ASSIGNEE] 변경 결과', {
-            cardKey: itemKey,
-            stepIndex,
-            previousValue: previousAssignee,
-            nextValue: nextAssignee,
-            updatePath,
-            payloadKeyCount,
-            responseOk: Boolean(saveResult && saveResult.ok),
-            reloadedValue: reloadedAssignee
-          });
-
-          if (!saveResult.ok) {
-            setFirebaseSaveFailureBanner(`저장 실패: ${updatePath} (${saveResult.errorCode || 'unknown'})`);
-            targetStep.assignee = previousAssignee;
-            savePlannerState(context.plannerSnapshot, { reason: 'step-assignee-rollback', skipFirebaseSync: true });
-            updateGoalCard(goalKey);
-            saveButton.disabled = false;
-            saveButton.textContent = beforeLabel || '저장';
-            return;
-          }
-
-          saveButton.textContent = '저장됨';
-          if (editor) editor.hidden = true;
-          setToastMessage('담당자가 저장되었습니다.', 'ok');
-          syncOverviewWidgets(context.plannerSnapshot);
-          updateGoalCard(goalKey);
-          window.setTimeout(() => {
-            saveButton.disabled = false;
-            saveButton.textContent = beforeLabel || '저장';
-          }, 700);
+          await persistStepAssigneeChange(context, stepIndex, nextAssignee, { editor, busyButton: saveButton });
         });
 
         detailContainer.addEventListener('change', async (event) => {
@@ -14978,13 +15030,18 @@
           if (assigneeSelect) {
             const stepIndex = Number(assigneeSelect.dataset.stepIndex);
             if (Number.isNaN(stepIndex)) return;
-            const card = assigneeSelect.closest('.detail-item-card');
-            if (!card) return;
+            const context = resolveCardContext(assigneeSelect);
+            if (!context) return;
+            const card = context.card;
             const customInput = card.querySelector(`[data-step-assignee-custom-index="${stepIndex}"]`);
             if (!customInput) return;
             const isCustom = String(assigneeSelect.value || '') === '__custom__';
             customInput.hidden = !isCustom;
-            if (isCustom) customInput.focus();
+            if (isCustom) {
+              customInput.focus();
+              return;
+            }
+            await persistStepAssigneeChange(context, stepIndex, assigneeSelect.value || '', { skipNoopClose: false });
             return;
           }
 
