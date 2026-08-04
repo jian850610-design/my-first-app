@@ -2555,6 +2555,7 @@
       const catalog = getBenchmarkCardCatalog();
       const cardCount = catalog.length;
       const goalGroups = new Map();
+      const listedItemKeys = [];
       catalog.forEach((entry) => {
         if (!goalGroups.has(entry.goalNumber)) {
           goalGroups.set(entry.goalNumber, []);
@@ -2582,6 +2583,7 @@
           .slice()
           .sort((left, right) => left.index - right.index)
           .forEach((entry) => {
+            listedItemKeys.push(`${entry.goalKey}::${entry.index}`);
             lines.push(`- [${entry.id}] ${entry.title}:`);
             lines.push('  * SKF 본사:');
             lines.push('  * 셰플러:');
@@ -2594,10 +2596,16 @@
       const promptText = lines.join('\n').trim();
       const insertedCountMatch = promptText.match(/총\s*(\d+)개/);
       const insertedCount = insertedCountMatch ? Number(insertedCountMatch[1]) : -1;
+      const listedLineCount = listedItemKeys.length;
+      const catalogItemKeys = catalog.map((entry) => `${entry.goalKey}::${entry.index}`);
+      const listedSet = new Set(listedItemKeys);
+      const missingKeys = catalogItemKeys.filter((itemKey) => !listedSet.has(itemKey));
       console.log('[Benchmark Prompt] 카드 수 검증', {
         actualCardCount: cardCount,
         insertedCount,
-        isMatch: insertedCount === cardCount
+        listedLineCount,
+        isMatch: insertedCount === cardCount && listedLineCount === cardCount,
+        missingItemKeys: missingKeys
       });
       return promptText;
     }
@@ -2880,6 +2888,18 @@
         .replace(/[\s\u3000]/g, '');
     }
 
+    function normalizeBenchmarkTitleForFallback(value) {
+      if (typeof value !== 'string') return '';
+      return value
+        .normalize('NFKC')
+        .replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}|<[^>]*>/g, ' ')
+        .replace(/[~〜～·•ㆍ・/\\／|_\-.,:;&!?'"`]+/g, ' ')
+        .replace(/[\s\u3000]+/g, ' ')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s\u3000]/g, '');
+    }
+
     function getDiceSimilarity(left, right) {
       const a = normalizeKey(left);
       const b = normalizeKey(right);
@@ -3100,21 +3120,28 @@
       return null;
     }
 
-    // AI 응답 텍스트를 파싱해 카드 배열로 변환한다.
-    // "@목표: N." 라인을 만날 때마다 currentGoalNumber를 갱신해, 각 카드가 어느 목표에 속하는지 추적한다
-    // (이 goalNumber는 나중에 "같은 목표 내에서만 유사도 매칭"을 하기 위해 반드시 필요하다).
-    // 카드 라인은 두 가지 형식을 지원한다:
-    //  1) "- [G3-02] 카드명:" — ID가 있는 새 형식(권장, 우선 매칭에 사용)
-    //  2) "- [카드명]:" — ID가 없는 구형식(AI가 ID를 누락한 경우 대비)
     function parseBracketCardsFromText(rawText) {
       if (typeof rawText !== 'string' || !rawText.trim()) return [];
 
-      const lines = rawText.split(/\r?\n/);
+      const preprocessBenchmarkParserLine = (rawLine) => {
+        if (typeof rawLine !== 'string') return '';
+        return rawLine
+          .normalize('NFKC')
+          .replace(/\*\*|__/g, '')
+          .replace(/[［]/g, '[')
+          .replace(/[］]/g, ']')
+          .replace(/[–—]/g, '-')
+          .replace(/^\s*[#\-•]+\s*/, '')
+          .trim();
+      };
+
+      const lines = rawText.split(/\r?\n/).map((line) => preprocessBenchmarkParserLine(line));
       const parsedCards = [];
       const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
-      const idCardLineRegex = /^\s*[-•*]?\s*(?:\*\*)?\[\s*([A-Za-z0-9\-._\s]+)\s*\](?:\*\*)?\s*(.+?)\s*[:：]\s*(.*)$/;
-      const plainCardLineRegex = /^\s*[-•*]?\s*\[?(.+?)\]?\s*:\s*(.*)$/;
-      const companyLineRegex = /^\s*[-•*]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+      const idCardLineRegex = /^\s*\[\s*([^\]]+)\s*\]\s*(.+?)\s*[:：]\s*(.*)$/;
+      const idPatternRegex = /G\s*(\d+)\s*[-–—]\s*(\d+)/i;
+      const plainCardLineRegex = /^\s*\[?(.+?)\]?\s*[:：]\s*(.*)$/;
+      const companyLineRegex = /^\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|셰플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
 
       let currentGoalNumber = null;
       let currentCard = null;
@@ -3157,11 +3184,35 @@
 
         const idCardMatch = line.match(idCardLineRegex);
         if (idCardMatch) {
+          const bracketToken = normalizeBenchmarkFieldText(idCardMatch[1] || '');
+          const idPatternMatch = bracketToken.match(idPatternRegex);
+          let parsedCardId = null;
+          let parsedGoalNumber = currentGoalNumber;
+          let idMismatchReason = '';
+
+          if (idPatternMatch) {
+            const parsedGoalFromId = Number(idPatternMatch[1]);
+            const parsedIndexFromId = Number(idPatternMatch[2]);
+            if (Number.isFinite(parsedGoalFromId) && Number.isFinite(parsedIndexFromId)) {
+              parsedGoalNumber = parsedGoalFromId;
+              parsedCardId = normalizeBenchmarkCardId(`G${parsedGoalFromId}-${parsedIndexFromId}`);
+            }
+          } else {
+            idMismatchReason = 'ID 패턴 불일치';
+            console.warn('[Benchmark Parser] 카드 ID 추출 실패', {
+              rawLine: line,
+              bracketToken,
+              reason: idMismatchReason,
+              cardId: null
+            });
+          }
+
           pushCurrentCard();
           currentCard = {
-            id: normalizeBenchmarkCardId(idCardMatch[1]),
+            id: parsedCardId,
             title: normalizeBenchmarkFieldText(idCardMatch[2] || ''),
-            goalNumber: currentGoalNumber,
+            goalNumber: parsedGoalNumber,
+            idMismatchReason,
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           };
           activeFieldKey = applyInlineCompanyTail(currentCard, idCardMatch[3]) || '';
@@ -3180,9 +3231,10 @@
 
           pushCurrentCard();
           currentCard = {
-            id: '',
+            id: null,
             title,
             goalNumber: currentGoalNumber,
+            idMismatchReason: 'ID 패턴 불일치',
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           };
           activeFieldKey = applyInlineCompanyTail(currentCard, plainCardMatch[2]) || '';
@@ -3206,9 +3258,10 @@
           const title = normalizeBenchmarkFieldText(match[1] || '');
           if (!title) return;
           parsedCards.push({
-            id: '',
+            id: null,
             title,
             goalNumber: null,
+            idMismatchReason: 'ID 패턴 불일치',
             benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
           });
         });
@@ -3261,8 +3314,15 @@
         });
       });
       const catalogByItemKey = new Map(catalog.map((entry) => [`${entry.goalKey}::${entry.index}`, entry]));
-      const catalogByNormalizedKey = new Map(catalog.map((entry) => [entry.normalizedKey, entry]));
-      const aliasMap = getBenchmarkAliasMap();
+      const catalogByTitleFallbackKey = new Map();
+      catalog.forEach((entry) => {
+        const fallbackKey = normalizeBenchmarkTitleForFallback(entry.title);
+        if (!fallbackKey) return;
+        if (!catalogByTitleFallbackKey.has(fallbackKey)) {
+          catalogByTitleFallbackKey.set(fallbackKey, []);
+        }
+        catalogByTitleFallbackKey.get(fallbackKey).push(entry);
+      });
       const matched = {};
       const unmatched = [];
       const matchedItemKeys = new Set();
@@ -3270,6 +3330,7 @@
       parsedCards.forEach((card) => {
         const normalizedCardId = normalizeBenchmarkCardId(card.id || '');
         const normalizedTitle = normalizeKey(card.title);
+        const fallbackTitleKey = normalizeBenchmarkTitleForFallback(card.title || '');
         if (!normalizedTitle && !normalizedCardId) return;
 
         let bestMatch = null;
@@ -3301,73 +3362,40 @@
           matchSource = 'id';
         }
 
-        // 2) localStorage 별칭(사용자가 수동으로 연결한 기록) 완전 일치
-        if (!bestMatch) {
-          const aliasItemKey = aliasMap[normalizedTitle];
-          if (aliasItemKey && catalogByItemKey.has(aliasItemKey)) {
-            bestMatch = catalogByItemKey.get(aliasItemKey);
-            matchSource = 'alias';
+        // 2) 제목 정규화 fallback (공백/괄호/특수문자 차이 허용)
+        if (!bestMatch && fallbackTitleKey && catalogByTitleFallbackKey.has(fallbackTitleKey)) {
+          const fallbackCandidates = catalogByTitleFallbackKey.get(fallbackTitleKey) || [];
+          if (fallbackCandidates.length === 1) {
+            bestMatch = fallbackCandidates[0];
+          } else {
+            bestMatch = fallbackCandidates.find((entry) => card.goalNumber && entry.goalNumber === card.goalNumber) || fallbackCandidates[0] || null;
           }
-        }
-
-        // 3) normalizeKey 완전 일치 (전체 카탈로그 대상 — 완전 일치이므로 목표 제한 불필요)
-        if (!bestMatch && normalizedTitle && catalogByNormalizedKey.has(normalizedTitle)) {
-          bestMatch = catalogByNormalizedKey.get(normalizedTitle);
-          matchSource = 'normalized-exact';
-        }
-
-        // 4) 같은 목표 내에서만 유사도 0.6 이상 (goalNumber를 모르면 이 단계는 건너뛴다)
-        if (!bestMatch && card.goalNumber) {
-          let bestSimilarity = 0;
-          let bestCandidate = null;
-          catalog
-            .filter((candidate) => candidate.goalNumber === card.goalNumber)
-            .forEach((candidate) => {
-              const similarity = getDiceSimilarity(normalizedTitle, candidate.normalizedKey);
-              if (similarity > bestSimilarity) {
-                bestSimilarity = similarity;
-                bestCandidate = candidate;
-              }
-            });
-          if (bestCandidate && bestSimilarity >= 0.6) {
-            bestMatch = bestCandidate;
-            matchSource = 'same-goal-similarity';
+          if (bestMatch) {
+            matchSource = 'title-fallback';
           }
         }
 
         if (!bestMatch) {
-          // 후보 추천도 같은 목표 내에서만 제공한다. goalNumber를 모르면 후보 없음으로 처리한다.
-          const rankedCandidates = card.goalNumber
-            ? catalog
-                .filter((candidate) => candidate.goalNumber === card.goalNumber)
-                .map((candidate) => ({
-                  itemKey: `${candidate.goalKey}::${candidate.index}`,
-                  title: candidate.title,
-                  goalKey: candidate.goalKey,
-                  goalNumber: candidate.goalNumber,
-                  index: candidate.index,
-                  score: getDiceSimilarity(normalizedTitle, candidate.normalizedKey)
-                }))
-                .sort((left, right) => right.score - left.score)
-                .slice(0, 5)
-            : [];
+          const fallbackReason = card.idMismatchReason
+            ? card.idMismatchReason
+            : (normalizedCardId ? 'ID 매칭 실패' : '제목 정규화 매칭 실패');
 
           console.warn('[Benchmark Parser] 카드 매핑 실패', {
             failedCardTitle: card.title,
-            cardId: card.id,
+            cardId: card.id || null,
             goalNumber: card.goalNumber,
             normalizedTitle,
-            candidates: rankedCandidates.map((entry) => `${entry.title} (${entry.score.toFixed(2)})`)
+            reason: fallbackReason
           });
 
           unmatched.push({
             title: card.title,
             normalizedTitle,
             goalNumber: card.goalNumber,
-            cardId: card.id,
-            failureReason: 'not-in-list',
+            cardId: card.id || null,
+            failureReason: fallbackReason,
             benchmarking: card.benchmarking,
-            candidates: rankedCandidates
+            candidates: []
           });
           return;
         }
@@ -3633,6 +3661,31 @@
       return '';
     }
 
+    function parseBenchmarkItemKey(itemKey) {
+      if (!itemKey || typeof itemKey !== 'string') return null;
+      const [goalKey, indexText] = itemKey.split('::');
+      const itemIndex = Number(indexText);
+      if (!goalKey || !Number.isFinite(itemIndex)) return null;
+      return { goalKey, indexText: String(itemIndex), itemIndex };
+    }
+
+    function buildBenchmarkCardWritePatch(payload) {
+      const safePayload = sanitizeBenchmarkPayload(payload);
+      return {
+        'benchmarking/skf': safePayload.skf,
+        'benchmarking/schaeffler': safePayload.schaeffler,
+        'benchmarking/koreaNsk': safePayload.koreaNsk,
+        'benchmarking/timken': safePayload.timken
+      };
+    }
+
+    function validateBenchmarkWritePatch(patch) {
+      const keys = Object.keys(patch || {});
+      if (keys.length !== 4) return 'invalid-patch-key-count';
+      if (keys.some((key) => !key.startsWith('benchmarking/'))) return 'invalid-patch-root-key';
+      return '';
+    }
+
     function collectUndefinedFieldPaths(obj, prefix = '') {
       const issues = [];
       if (!obj || typeof obj !== 'object') return issues;
@@ -3723,7 +3776,7 @@
       const firstItemKey = Object.keys(parsed.matched)[0];
       const firstCard = parsed.matched[firstItemKey];
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+      if (!bridge || typeof bridge.getCardRef !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'bridge-unavailable' };
       }
 
@@ -3733,13 +3786,23 @@
         return { ok: false, reason: pathIssue };
       }
 
-      const payload = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload({
+      const parsedItemKey = parseBenchmarkItemKey(firstItemKey);
+      if (!parsedItemKey) {
+        return { ok: false, reason: 'invalid-item-key' };
+      }
+
+      const payload = sanitizeFirestoreUpdateData(buildBenchmarkCardWritePatch({
         skf: firstCard && firstCard.benchmarking ? firstCard.benchmarking.skf : '',
         schaeffler: firstCard && firstCard.benchmarking ? firstCard.benchmarking.schaeffler : '',
         koreaNsk: firstCard && firstCard.benchmarking ? firstCard.benchmarking.koreaNsk : '',
-        timken: firstCard && firstCard.benchmarking ? firstCard.benchmarking.timken : '',
-        updatedAt: new Date().toISOString()
+        timken: firstCard && firstCard.benchmarking ? firstCard.benchmarking.timken : ''
       }));
+
+      const patchIssue = validateBenchmarkWritePatch(payload);
+      if (patchIssue) {
+        console.error('[__testOne] 패치 검증 실패', { firstItemKey, patchIssue, payloadKeys: Object.keys(payload || {}) });
+        return { ok: false, reason: patchIssue };
+      }
 
       const undefinedIssues = collectUndefinedFieldPaths(payload, 'payload');
       if (undefinedIssues.length) {
@@ -3749,13 +3812,12 @@
 
       const startedAt = Date.now();
       try {
-        await bridge.update(bridge.getBenchmarksRef(), { [firstItemKey]: payload });
+        await bridge.update(bridge.getCardRef(parsedItemKey.goalKey, parsedItemKey.indexText), payload);
         const elapsed = Date.now() - startedAt;
         console.log('[__testOne] 성공', {
           elapsedMs: elapsed,
           itemKey: firstItemKey,
-          rtdbPath: `plans/skf-daily/benchmarks/${firstItemKey}`,
-          rtdbPathForComments: `cards/${firstItemKey.replace('::', '/')}`
+          rtdbPath: `cards/${parsedItemKey.goalKey}/${parsedItemKey.indexText}`
         });
         return { ok: true, elapsedMs: elapsed, itemKey: firstItemKey };
       } catch (error) {
@@ -3763,7 +3825,7 @@
         console.error('[__testOne] 실패', {
           elapsedMs: elapsed,
           itemKey: firstItemKey,
-          rtdbPath: `plans/skf-daily/benchmarks/${firstItemKey}`,
+          rtdbPath: `cards/${parsedItemKey.goalKey}/${parsedItemKey.indexText}`,
           code: error && error.code ? error.code : 'unknown',
           message: error && error.message ? error.message : String(error)
         });
@@ -3781,18 +3843,29 @@
 
     async function upsertBenchmarkRealtimeDbEntry(itemKey, payload, cardName) {
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+      if (!bridge || typeof bridge.getCardRef !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'rtdb-unavailable' };
       }
 
-      const safePayload = sanitizeBenchmarkPayload(payload);
+      const parsedItemKey = parseBenchmarkItemKey(itemKey);
+      if (!parsedItemKey) {
+        return { ok: false, reason: 'invalid-item-key' };
+      }
+
+      const safePayload = sanitizeFirestoreUpdateData(buildBenchmarkCardWritePatch(payload));
+      const patchIssue = validateBenchmarkWritePatch(safePayload);
+      if (patchIssue) {
+        return { ok: false, reason: patchIssue };
+      }
+
       try {
-        await bridge.update(bridge.getBenchmarksRef(), { [itemKey]: safePayload });
+        await bridge.update(bridge.getCardRef(parsedItemKey.goalKey, parsedItemKey.indexText), safePayload);
         return { ok: true, mode: 'rtdb-update' };
       } catch (error) {
         console.error('[Benchmark Apply] RTDB 저장 실패', {
           cardName,
           itemKey,
+          rtdbPath: `cards/${parsedItemKey.goalKey}/${parsedItemKey.indexText}`,
           errorMessage: error && error.message ? error.message : String(error)
         });
         return { ok: false, reason: 'write-failed', error };
@@ -3801,22 +3874,49 @@
 
     async function updateBenchmarkRealtimeDbEntries(entryMap) {
       const bridge = await waitForFirebaseBridge();
-      if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+      if (!bridge || typeof bridge.getCardRef !== 'function' || typeof bridge.update !== 'function') {
         return { ok: false, reason: 'rtdb-unavailable' };
       }
 
-      const safeEntryMap = Object.entries(entryMap && typeof entryMap === 'object' ? entryMap : {}).reduce((acc, [itemKey, payload]) => {
-        if (!itemKey) return acc;
-        acc[itemKey] = sanitizeFirestoreUpdateData(sanitizeBenchmarkPayload(payload));
-        return acc;
-      }, {});
+      const updates = Object.entries(entryMap && typeof entryMap === 'object' ? entryMap : {})
+        .map(([itemKey, payload]) => {
+          const parsedItemKey = parseBenchmarkItemKey(itemKey);
+          if (!parsedItemKey) return null;
+          const patch = sanitizeFirestoreUpdateData(buildBenchmarkCardWritePatch(payload));
+          const patchIssue = validateBenchmarkWritePatch(patch);
+          if (patchIssue) return { itemKey, patchIssue };
+          return { itemKey, parsedItemKey, patch };
+        })
+        .filter(Boolean);
+
+      const invalidUpdate = updates.find((entry) => entry.patchIssue);
+      if (invalidUpdate) {
+        return { ok: false, reason: invalidUpdate.patchIssue };
+      }
 
       try {
-        await bridge.update(bridge.getBenchmarksRef(), safeEntryMap);
+        const results = await Promise.all(updates.map(async (entry) => {
+          try {
+            await bridge.update(bridge.getCardRef(entry.parsedItemKey.goalKey, entry.parsedItemKey.indexText), entry.patch);
+            return { ok: true, itemKey: entry.itemKey };
+          } catch (error) {
+            return {
+              ok: false,
+              itemKey: entry.itemKey,
+              error
+            };
+          }
+        }));
+
+        const failed = results.filter((result) => !result.ok);
+        if (failed.length) {
+          const firstError = failed[0] && failed[0].error ? failed[0].error : null;
+          return { ok: false, reason: 'write-failed', error: firstError, failed };
+        }
         return { ok: true, mode: 'rtdb-update' };
       } catch (error) {
         console.error('[Benchmark Apply] RTDB 일괄 저장 실패', {
-          cardCount: Object.keys(safeEntryMap).length,
+          cardCount: updates.length,
           errorCode: error && error.code ? error.code : 'unknown',
           errorMessage: error && error.message ? error.message : String(error)
         });
@@ -3841,11 +3941,11 @@
         const { matched, unmatched, missingFromResponse, appCardCount, aiResponseCount } = parsed;
 
         const bridge = await waitForFirebaseBridge();
-        if (!bridge || typeof bridge.getBenchmarksRef !== 'function' || typeof bridge.update !== 'function') {
+        if (!bridge || typeof bridge.getCardRef !== 'function' || typeof bridge.update !== 'function') {
           console.error('[Benchmark Apply] Realtime Database 업데이트 함수 사용 불가', {
             hasBridge: Boolean(bridge),
             hasDatabase: Boolean(bridge && bridge.db),
-            hasBenchmarksRefFactory: Boolean(bridge && bridge.getBenchmarksRef),
+            hasCardRefFactory: Boolean(bridge && bridge.getCardRef),
             hasUpdate: Boolean(bridge && bridge.update)
           });
           response = { ok: false, count: 0, total: 0, attemptedCount: 0, reason: 'rtdb-update-unavailable', unmatched, missingFromResponse, appCardCount, aiResponseCount };
@@ -3876,7 +3976,7 @@
         const applyStartedAt = Date.now();
 
         console.log('[Benchmark Compare] 저장 경로 비교', {
-          benchmarkRtdbPathTemplate: 'plans/skf-daily/benchmarks/{itemKey}',
+          benchmarkRtdbPathTemplate: 'cards/{category}/{index}/benchmarking/*',
           plannerRealtimeDbPath: 'cards/{category}/{index}',
           apiBenchmark: 'Realtime Database update',
           apiPlanner: 'Realtime Database update'
@@ -3965,7 +4065,7 @@
         console.log('[Benchmark Apply][Debug] 저장 실행 모드', {
           mode: 'rtdb-single-update',
           totalCards: filteredUpdates.length,
-          benchmarkPath: 'plans/skf-daily/benchmarks',
+          benchmarkPath: 'cards/{category}/{index}/benchmarking/*',
           firebaseConnectionOnline,
           hasCurrentUser: Boolean(currentFirebaseUser)
         });
