@@ -8999,13 +8999,16 @@
       return itemState.directiveHistory.length < before;
     }
 
-    function buildWorkNoteTypeToggleHtml(selectedType, prefix, disabled = false) {
+    function buildWorkNoteTypeToggleHtml(selectedType, attributeName, disabled = false) {
       const normalizedType = normalizeWorkNoteType(selectedType);
+      const safeAttributeName = typeof attributeName === 'string' && attributeName.trim()
+        ? attributeName.trim()
+        : 'data-work-note-type';
       const disableAttr = disabled ? 'disabled' : '';
       return `
         <div class="work-note-type-toggle">
           ${WORK_NOTE_TYPE_OPTIONS.map((option) => `
-            <button type="button" class="work-note-type-btn ${normalizedType === option.value ? 'active' : ''}" data-${prefix}-note-type="${option.value}" ${disableAttr}>${option.label}</button>
+            <button type="button" class="work-note-type-btn ${normalizedType === option.value ? 'active' : ''}" ${safeAttributeName}="${option.value}" ${disableAttr}>${option.label}</button>
           `).join('')}
         </div>
       `;
@@ -9046,7 +9049,7 @@
             return `
               <div class="work-note-item" data-work-note-index="${index}">
                 <div class="work-note-edit-box">
-                  ${buildWorkNoteTypeToggleHtml(selectedType, 'work-note-edit')}
+                  ${buildWorkNoteTypeToggleHtml(selectedType, 'data-work-note-edit-note-type')}
                   <textarea class="work-note-editor" data-work-note-edit-text>${escapeHtml(textValue || '')}</textarea>
                   <div class="work-note-actions">
                     <button type="button" class="journal-edit-btn save" data-work-note-action="save-edit" data-work-note-index="${index}">저장</button>
@@ -14844,7 +14847,7 @@
             </div>
             <div class="work-note-section">
               <div class="work-note-title">업무 노트</div>
-              ${buildWorkNoteTypeToggleHtml('meeting', 'work-note')}
+              ${buildWorkNoteTypeToggleHtml('meeting', 'data-work-note-type')}
               <textarea class="work-note-editor" data-work-note-input placeholder="회의/참고/수행 내용을 기록하세요."></textarea>
               <div class="work-note-actions">
                 <button type="button" class="journal-save-btn" data-work-note-action="save">저장</button>
@@ -15732,23 +15735,105 @@
           updateWorkNoteTypeButtons();
         };
 
-        const saveWorkNotesToFirebase = async (reason, previousNotes, activityText = '') => {
+        const getWorkNoteCardCountSnapshot = () => {
+          const expectedByGoal = {
+            'ai-culture': 7,
+            'field-communication': 7,
+            'global-sns': 5,
+            'marketing-skill': 5,
+            'naver-platform': 4,
+            'offline-brand': 8,
+            'sales-support': 4,
+            'web-ecosystem': 8
+          };
+          const byGoal = {
+            'ai-culture': 0,
+            'field-communication': 0,
+            'global-sns': 0,
+            'marketing-skill': 0,
+            'naver-platform': 0,
+            'offline-brand': 0,
+            'sales-support': 0,
+            'web-ecosystem': 0
+          };
+          const catalog = getBenchmarkCardCatalog();
+          catalog.forEach((entry) => {
+            if (!entry || !entry.goalKey || !Object.prototype.hasOwnProperty.call(byGoal, entry.goalKey)) return;
+            byGoal[entry.goalKey] += 1;
+          });
+          const total = catalog.length;
+          return {
+            total,
+            byGoal,
+            expectedByGoal,
+            isExpectedMatch: Object.keys(expectedByGoal).every((goalKey) => byGoal[goalKey] === expectedByGoal[goalKey])
+          };
+        };
+
+        const saveWorkNotesToFirebase = async (reason, previousNotes, activityText = '', selectedType = '') => {
           const itemCount = Array.isArray(itemState.notes) ? itemState.notes.length : 0;
-          const saveResult = await updateItemFieldsInFirebase(itemKey, {
+          const normalizedSelectedType = selectedType ? normalizeWorkNoteType(selectedType) : '';
+          const updatePayload = {
             notes: normalizeCardNotes(itemState.notes)
-          }, reason);
+          };
+          const payloadKeyCount = Object.keys(updatePayload).length;
+          if (payloadKeyCount !== 1 || Object.keys(updatePayload).some((key) => key !== 'notes')) {
+            console.error('[work-note] 저장 중단: 루트/비정상 payload 감지', {
+              cardKey: itemKey,
+              selectedType: normalizedSelectedType || '(없음)',
+              selectedTypeIsUndefined: typeof selectedType === 'undefined',
+              contentLength: 0,
+              updatePath: `cards/${currentGoal}/${currentIndexText}`,
+              payloadKeyCount,
+              payloadKeys: Object.keys(updatePayload)
+            });
+            return false;
+          }
+
+          const beforeCounts = getWorkNoteCardCountSnapshot();
+          console.log('[work-note] 저장 요청', {
+            cardKey: itemKey,
+            selectedType: normalizedSelectedType || '(없음)',
+            selectedTypeIsUndefined: typeof selectedType === 'undefined',
+            contentLength: Array.isArray(itemState.notes) && itemState.notes[0] && typeof itemState.notes[0].text === 'string'
+              ? itemState.notes[0].text.length
+              : 0,
+            updatePath: `cards/${currentGoal}/${currentIndexText}/notes`,
+            payloadKeyCount,
+            payloadKeys: Object.keys(updatePayload),
+            beforeCardCounts: beforeCounts
+          });
+
+          const saveResult = await updateItemFieldsInFirebase(itemKey, updatePayload, reason);
           if (!saveResult.ok) {
             itemState.notes = normalizeCardNotes(previousNotes);
             savePlannerState(plannerState, { reason: `${reason}-rollback`, skipFirebaseSync: true });
             rerenderWorkNotes();
             console.error('[work-note] 저장 실패', {
               cardKey: itemKey,
+              selectedType: normalizedSelectedType || '(없음)',
+              selectedTypeIsUndefined: typeof selectedType === 'undefined',
               path: `cards/${currentGoal}/${currentIndexText}/notes`,
               count: itemCount,
+              payloadKeyCount,
+              responseOk: false,
               errorCode: saveResult.errorCode || 'unknown'
             });
             return false;
           }
+          const afterCounts = getWorkNoteCardCountSnapshot();
+          console.log('[work-note] 저장 결과', {
+            cardKey: itemKey,
+            selectedType: normalizedSelectedType || '(없음)',
+            selectedTypeIsUndefined: typeof selectedType === 'undefined',
+            contentLength: Array.isArray(itemState.notes) && itemState.notes[0] && typeof itemState.notes[0].text === 'string'
+              ? itemState.notes[0].text.length
+              : 0,
+            updatePath: `cards/${currentGoal}/${currentIndexText}/notes`,
+            payloadKeyCount,
+            responseOk: true,
+            afterCardCounts: afterCounts
+          });
           if (activityText) {
             void recordSharedActivityLog('card', {
               cardId: itemKey,
@@ -15768,7 +15853,24 @@
           workNoteSection.addEventListener('click', async (event) => {
             const typeButton = event.target.closest('[data-work-note-type]');
             if (typeButton) {
-              workNoteSelectedType = normalizeWorkNoteType(typeButton.getAttribute('data-work-note-type') || 'meeting');
+              const selectedCard = typeButton.closest('.detail-item-card');
+              const selectedCardKey = selectedCard && selectedCard.dataset ? (selectedCard.dataset.key || '') : '';
+              const nextType = typeButton.dataset ? typeButton.dataset.workNoteType : undefined;
+              console.log('[work-note] 타입 버튼 선택', {
+                selector: '[data-work-note-type]',
+                cardKey: selectedCardKey || itemKey,
+                datasetWorkNoteType: nextType,
+                attrValue: typeButton.getAttribute('data-work-note-type') || '',
+                isUndefined: typeof nextType === 'undefined'
+              });
+              if (typeof nextType === 'undefined') {
+                console.warn('[work-note] 타입 버튼 선택 중단: undefined 타입', {
+                  cardKey: selectedCardKey || itemKey,
+                  selector: '[data-work-note-type]'
+                });
+                return;
+              }
+              workNoteSelectedType = normalizeWorkNoteType(nextType || 'meeting');
               updateWorkNoteTypeButtons();
               return;
             }
@@ -15793,15 +15895,40 @@
 
             if (action === 'save') {
               if (!workNoteInput) return;
+              const cardFromAction = actionButton.closest('.detail-item-card');
+              const cardKeyFromAction = cardFromAction && cardFromAction.dataset ? (cardFromAction.dataset.key || '') : '';
+              if (!cardKeyFromAction) {
+                console.warn('[work-note] 저장 중단: 카드 키를 찾지 못했습니다.', {
+                  selector: '[data-work-note-action="save"]'
+                });
+                return;
+              }
               const nextText = (workNoteInput.value || '').trim();
               if (!nextText) {
                 workNoteInput.focus();
                 return;
               }
+              if (typeof workNoteSelectedType === 'undefined') {
+                console.warn('[work-note] 저장 중단: 선택 타입이 undefined 입니다.', {
+                  cardKey: cardKeyFromAction,
+                  selectedType: workNoteSelectedType,
+                  isUndefined: true
+                });
+                return;
+              }
+              const normalizedType = normalizeWorkNoteType(workNoteSelectedType);
+              if (!normalizedType) {
+                console.warn('[work-note] 저장 중단: 타입 값이 비어 있습니다.', {
+                  cardKey: cardKeyFromAction,
+                  selectedType: workNoteSelectedType,
+                  isUndefined: typeof workNoteSelectedType === 'undefined'
+                });
+                return;
+              }
               const previousNotes = normalizeCardNotes(itemState.notes);
               const createdAt = new Date().toISOString();
               const nextNote = {
-                type: normalizeWorkNoteType(workNoteSelectedType),
+                type: normalizedType,
                 text: nextText,
                 createdAt,
                 updatedAt: ''
@@ -15816,7 +15943,7 @@
               renderLatestActivityPanel(latestActivityPanel, itemState);
               syncOverviewWidgets(plannerState);
               const cardTitleText = getCardTitleText(itemState, currentItem || { title: '' });
-              const saved = await saveWorkNotesToFirebase('work-note-add', previousNotes, `업무 노트 추가: ${cardTitleText}`);
+              const saved = await saveWorkNotesToFirebase('work-note-add', previousNotes, `업무 노트 추가: ${cardTitleText}`, normalizedType);
               if (saved) updateGoalCard(currentGoal);
               return;
             }
@@ -15862,7 +15989,7 @@
               rerenderWorkNotes();
               renderLatestActivityPanel(latestActivityPanel, itemState);
               syncOverviewWidgets(plannerState);
-              const saved = await saveWorkNotesToFirebase('work-note-edit', previousNotes);
+              const saved = await saveWorkNotesToFirebase('work-note-edit', previousNotes, '', target.type);
               if (saved) updateGoalCard(currentGoal);
               return;
             }
