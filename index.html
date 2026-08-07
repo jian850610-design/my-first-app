@@ -7196,6 +7196,40 @@
       );
     }
 
+    function resolveTeamOverviewCurrentStep(itemState, stepLabels) {
+      const normalizedLabels = Array.isArray(stepLabels) ? stepLabels : [];
+      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      const stripCompletedTag = (text) => text.replace(/^\[완료\]\s*/u, '').trim();
+      const nextPendingStepIndex = steps.findIndex((step, stepIndex) => {
+        if (!step || isChecklistStepCompleted(step)) return false;
+        const label = normalizedLabels[stepIndex] || '';
+        return label ? !/^\[완료\]\s*/u.test(label) : true;
+      });
+      const fallbackPendingStepIndex = steps.findIndex((step) => step && !isChecklistStepCompleted(step));
+      const selectedStepIndex = nextPendingStepIndex >= 0 ? nextPendingStepIndex : fallbackPendingStepIndex;
+      const selectedStep = selectedStepIndex >= 0 ? steps[selectedStepIndex] : null;
+      const selectedLabel = selectedStepIndex >= 0
+        ? stripCompletedTag(normalizedLabels[selectedStepIndex] || '진행 중 단계 확인 필요')
+        : '';
+      const selectedStepDueDate = selectedStep && typeof selectedStep.dueDate === 'string'
+        ? selectedStep.dueDate.trim()
+        : '';
+      const cardLevelDueDate = itemState && typeof itemState.dueDate === 'string'
+        ? itemState.dueDate.trim()
+        : '';
+      return {
+        stripCompletedTag,
+        nextPendingStepIndex,
+        fallbackPendingStepIndex,
+        selectedStepIndex,
+        selectedLabel,
+        selectedStepDueDate,
+        cardLevelDueDate,
+        usedCardLevelFallback: selectedStepIndex >= 0 && !selectedStepDueDate && Boolean(cardLevelDueDate),
+        effectiveDueDate: selectedStepDueDate || cardLevelDueDate || ''
+      };
+    }
+
     function buildTeamOverviewRows(state) {
       const rows = [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
@@ -7217,8 +7251,6 @@
           const assigneeFilterNames = stepAssigneeSummary.hasExplicit
             ? stepAssigneeSummary.filterNames
             : (parsedAssignee !== '-' ? [parsedAssignee] : []);
-          const dueSummary = getChecklistDueDateSummary(itemState.steps);
-          const dueDateText = dueSummary.dueDateText;
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
           const isRecurring = itemState && itemState.isRecurring === true;
@@ -7226,27 +7258,27 @@
           const stepLabels = Array.isArray(checklistSteps)
             ? checklistSteps.map((text) => (typeof text === 'string' ? text.trim() : '')).filter(Boolean)
             : [];
-          const stripCompletedTag = (text) => text.replace(/^\[완료\]\s*/u, '').trim();
-          const nextPendingStepIndex = Array.isArray(itemState.steps)
-            ? itemState.steps.findIndex((step, stepIndex) => {
-                if (!step || isChecklistStepCompleted(step)) return false;
-                const label = stepLabels[stepIndex] || '';
-                return label ? !/^\[완료\]\s*/u.test(label) : true;
-              })
-            : -1;
-          const fallbackPendingStepIndex = Array.isArray(itemState.steps)
-            ? itemState.steps.findIndex((step) => step && !isChecklistStepCompleted(step))
-            : -1;
+          const overviewStep = resolveTeamOverviewCurrentStep(itemState, stepLabels);
           let actionPlan = '-';
           if (totalCount > 0 && doneCount >= totalCount) {
             actionPlan = '🎉 모든 업무 단계 완료';
-          } else if (nextPendingStepIndex >= 0) {
-            actionPlan = stripCompletedTag(stepLabels[nextPendingStepIndex] || '진행 중 단계 확인 필요');
-          } else if (fallbackPendingStepIndex >= 0) {
-            actionPlan = stripCompletedTag(stepLabels[fallbackPendingStepIndex] || '진행 중 단계 확인 필요');
+          } else if (overviewStep.selectedStepIndex >= 0) {
+            actionPlan = overviewStep.selectedLabel || '진행 중 단계 확인 필요';
           }
           if (isRecurring && currentRunName) {
             actionPlan = `→ [${currentRunName}] ${actionPlan}`;
+          }
+          const dueDateText = totalCount > 0 && doneCount >= totalCount
+            ? '완료'
+            : (overviewStep.effectiveDueDate || '');
+          const dueSort = dueDateText && dueDateText !== '완료' ? dueDateText : '9999-12-31';
+          if (overviewStep.usedCardLevelFallback) {
+            console.warn('[현황표] step dueDate 누락으로 카드 레벨 dueDate 폴백', {
+              itemKey,
+              stepIndex: overviewStep.selectedStepIndex,
+              actionPlan,
+              fallbackDueDate: overviewStep.cardLevelDueDate
+            });
           }
           const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
           const latestComment = getLatestCommentActivityDetails(itemKey, itemState);
@@ -7284,7 +7316,7 @@
             latestCommentAt: latestComment.timestamp > 0 ? new Date(latestComment.timestamp).toISOString() : '',
             latestDoneAt,
             highlight,
-            dueSort: dueSummary.dueSort,
+            dueSort,
             lastUpdateTs,
             lastUpdateDays,
             isRecentUpdate,
