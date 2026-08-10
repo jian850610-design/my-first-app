@@ -4756,7 +4756,9 @@
             ? remoteItem.steps.map((step, stepIndex) => ({
                 id: step && typeof step.id === 'string' ? step.id : createChecklistStepId(itemKey, stepIndex),
                 checked: Boolean(step && step.checked),
-                dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, stepIndex),
+                dueDate: (step && typeof step.dueDate === 'string' && step.dueDate)
+                  ? step.dueDate
+                  : (getLegacyCustomStepDueDate(remoteItem && remoteItem.customSteps, stepIndex) || getDefaultDueDate(itemKey, stepIndex)),
                 completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
                 comment: step && typeof step.comment === 'string' ? step.comment : '',
                 assignee: normalizeStepAssigneeValue(step && step.assignee)
@@ -7211,8 +7213,8 @@
       const selectedLabel = selectedStepIndex >= 0
         ? stripCompletedTag(normalizedLabels[selectedStepIndex] || '진행 중 단계 확인 필요')
         : '';
-      const selectedStepDueDate = selectedStep && typeof selectedStep.dueDate === 'string'
-        ? selectedStep.dueDate.trim()
+      const selectedStepDueDate = selectedStepIndex >= 0
+        ? getStepDueDateValue(itemState, selectedStepIndex).trim()
         : '';
       const cardLevelDueDate = itemState && typeof itemState.dueDate === 'string'
         ? itemState.dueDate.trim()
@@ -8053,6 +8055,28 @@
       showView('dashboard');
     }
 
+    function getLegacyCustomStepDueDate(customSteps, stepIndex) {
+      if (!Array.isArray(customSteps)) return '';
+      const entry = customSteps[stepIndex];
+      if (!entry || typeof entry !== 'object') return '';
+      if (typeof entry.dueDate !== 'string') return '';
+      const normalized = formatDateToISO(entry.dueDate);
+      return normalized || '';
+    }
+
+    function getStepDueDateValue(itemState, stepIndex, itemKey = '') {
+      const fromSteps = itemState
+        && Array.isArray(itemState.steps)
+        && itemState.steps[stepIndex]
+        && typeof itemState.steps[stepIndex].dueDate === 'string'
+        ? formatDateToISO(itemState.steps[stepIndex].dueDate)
+        : '';
+      if (fromSteps) return fromSteps;
+      const fromLegacyCustomSteps = getLegacyCustomStepDueDate(itemState && itemState.customSteps, stepIndex);
+      if (fromLegacyCustomSteps) return fromLegacyCustomSteps;
+      return getDefaultDueDate(itemKey, stepIndex);
+    }
+
     function getItemState(state, itemKey, stepCount, principles = []) {
       if (!state.items[itemKey]) {
         const defaultChecks = defaultChecksByItemKey[itemKey];
@@ -8190,30 +8214,10 @@
         }));
       }
 
-      if (itemKey === OFFLINE_POPKIT_ITEM_KEY) {
-        itemState.steps = itemState.steps.map((step, index) => ({
-          checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
-          comment: step && typeof step.comment === 'string' ? step.comment : '',
-          assignee: normalizeStepAssigneeValue(step && step.assignee)
-        }));
-      }
-
-      if (itemKey === OFFLINE_SIGNBOARD_ITEM_KEY) {
-        itemState.steps = itemState.steps.map((step, index) => ({
-          checked: Boolean(step && step.checked),
-          dueDate: getDefaultDueDate(itemKey, index),
-          completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
-          comment: step && typeof step.comment === 'string' ? step.comment : '',
-          assignee: normalizeStepAssigneeValue(step && step.assignee)
-        }));
-      }
-
       itemState.steps = itemState.steps.map((step, index) => ({
         id: step && typeof step.id === 'string' && step.id ? step.id : createChecklistStepId(itemKey, index),
         checked: Boolean(step && step.checked),
-        dueDate: step && typeof step.dueDate === 'string' && step.dueDate ? step.dueDate : getDefaultDueDate(itemKey, index),
+        dueDate: getStepDueDateValue({ steps: itemState.steps, customSteps: itemState.customSteps }, index, itemKey),
         completedAt: step && typeof step.completedAt === 'string' ? step.completedAt : '',
         comment: step && typeof step.comment === 'string' ? step.comment : '',
         assignee: normalizeStepAssigneeValue(step && step.assignee)
@@ -12309,7 +12313,7 @@
       const safeItemSteps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
       return safeSteps.map((stepText, index) => {
         const stepState = safeItemSteps[index] || {};
-        const normalizedDueDate = formatDateToISO(stepState && typeof stepState.dueDate === 'string' ? stepState.dueDate : '');
+        const normalizedDueDate = getStepDueDateValue(itemState, index, itemKey);
         return {
           stepId: stepState && typeof stepState.id === 'string' && stepState.id ? stepState.id : createChecklistStepId(itemKey, index),
           stepName: typeof stepText === 'string' ? stepText : '',
@@ -12465,16 +12469,21 @@
       const item = goalTemplate.items[itemIndex];
       const currentChecklistSteps = getChecklistStepsForItem(latestState, goalKey, item, itemKey, goalTemplate.principles || []);
       const itemState = getItemState(latestState, itemKey, currentChecklistSteps.length, goalTemplate.principles || []);
+      const previousCustomTitle = typeof itemState.customTitle === 'string' ? itemState.customTitle : '';
+      const previousCustomSummary = typeof itemState.customSummary === 'string' ? itemState.customSummary : '';
+      const previousCustomGuidelines = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines.slice() : [];
+      const previousRecurring = itemState.isRecurring === true;
       const nextTitle = cardEditModalTitleInput ? cardEditModalTitleInput.value.trim() : '';
       const nextSummary = cardEditModalSummaryInput ? cardEditModalSummaryInput.value.trim() : '';
       const nextGuidelines = cardEditModalGuidelinesInput
         ? cardEditModalGuidelinesInput.value.split('\n').map((line) => line.trim()).filter((line) => line)
         : [];
       const nextChecklistSteps = cardEditModalState && Array.isArray(cardEditModalState.checklistDraft)
-        ? cardEditModalState.checklistDraft.map((entry) => ({
+        ? cardEditModalState.checklistDraft.map((entry, stepIndex) => ({
             stepId: entry && typeof entry.stepId === 'string' ? entry.stepId : '',
             stepName: entry && typeof entry.stepName === 'string' ? entry.stepName.trim() : '',
-            dueDate: formatDateToISO(entry && typeof entry.dueDate === 'string' ? entry.dueDate : '') || ''
+            dueDate: formatDateToISO(entry && typeof entry.dueDate === 'string' ? entry.dueDate : '') || '',
+            previousDueDate: getStepDueDateValue(itemState, stepIndex, itemKey)
           }))
         : [];
 
@@ -12502,18 +12511,19 @@
         isLeaderRequested: itemState.isLeaderRequested === true
       };
 
-      itemState.customSteps = nextChecklistSteps.map((entry) => entry.stepName);
-      const previousSteps = Array.isArray(itemState.steps) ? itemState.steps : [];
-      itemState.steps = nextChecklistSteps.map((entry, index) => {
-        const previousStep = previousSteps[index] || null;
-        return {
-          id: entry.stepId || (previousStep && typeof previousStep.id === 'string' && previousStep.id ? previousStep.id : createChecklistStepId(itemKey, index)),
-          checked: Boolean(previousStep && previousStep.checked),
-          dueDate: entry.dueDate || '',
-          completedAt: previousStep && typeof previousStep.completedAt === 'string' ? previousStep.completedAt : '',
-          comment: previousStep && typeof previousStep.comment === 'string' ? previousStep.comment : '',
-          assignee: normalizeStepAssigneeValue(previousStep && previousStep.assignee)
-        };
+      const changedDueDateEntries = [];
+      nextChecklistSteps.forEach((entry, stepIndex) => {
+        const nextDueDate = entry.dueDate || '';
+        const previousDueDate = entry.previousDueDate || '';
+        if (nextDueDate === previousDueDate) return;
+        changedDueDateEntries.push({
+          stepIndex,
+          previousDueDate,
+          nextDueDate
+        });
+        if (Array.isArray(itemState.steps) && itemState.steps[stepIndex]) {
+          itemState.steps[stepIndex].dueDate = nextDueDate;
+        }
       });
 
       markItemUpdated(itemState);
@@ -12522,37 +12532,86 @@
         ? savedState.items[itemKey].title
         : undefined;
       console.log('[card-edit-title] 같은 시점 plannerState.items[itemKey].title', plannerTitleAtSave);
-      const fieldsForUpdate = {
-        title: typeof itemState.title === 'string' ? itemState.title : '',
-        customTitle: itemState.customTitle || '',
-        customSummary: itemState.customSummary || '',
-        customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
-        customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
-        steps: Array.isArray(itemState.steps) ? itemState.steps : [],
-        isRecurring: itemState.isRecurring === true
-      };
+      const fieldsForUpdate = {};
+      const nextCustomTitleForUpdate = itemState.customTitle || '';
+      const nextCustomSummaryForUpdate = itemState.customSummary || '';
+      const nextCustomGuidelinesForUpdate = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [];
+      const nextRecurringForUpdate = itemState.isRecurring === true;
+      if (nextCustomTitleForUpdate !== previousCustomTitle) {
+        fieldsForUpdate.customTitle = nextCustomTitleForUpdate;
+      }
+      if (nextCustomSummaryForUpdate !== previousCustomSummary) {
+        fieldsForUpdate.customSummary = nextCustomSummaryForUpdate;
+      }
+      if (JSON.stringify(nextCustomGuidelinesForUpdate) !== JSON.stringify(previousCustomGuidelines)) {
+        fieldsForUpdate.customGuidelines = nextCustomGuidelinesForUpdate;
+      }
+      if (nextRecurringForUpdate !== previousRecurring) {
+        fieldsForUpdate.isRecurring = nextRecurringForUpdate;
+      }
+      changedDueDateEntries.forEach((entry) => {
+        fieldsForUpdate[`steps/${entry.stepIndex}/dueDate`] = entry.nextDueDate;
+      });
+      const payloadKeys = Object.keys(fieldsForUpdate);
+      if (!payloadKeys.length) {
+        console.log('[card-edit-modal] 저장 생략: 변경 필드 없음', {
+          cardKey: itemKey,
+          payloadKeyCount: 0
+        });
+        closeCardEditModal();
+        updateGoalCard(goalKey);
+        syncOverviewWidgets(savedState);
+        updateStats();
+        setToastMessage('변경 사항이 없습니다.', 'warn');
+        return;
+      }
+      if (payloadKeys.length > 100) {
+        console.error('[card-edit-modal] 저장 중단: payload 키 100개 초과', {
+          cardKey: itemKey,
+          payloadKeyCount: payloadKeys.length,
+          payloadKeys
+        });
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${itemIndex} (payload-too-large:${payloadKeys.length})`);
+        return;
+      }
       console.log('[card-edit-title] payload.title', fieldsForUpdate.title);
       const saveResult = await updateItemFieldsInFirebase(itemKey, fieldsForUpdate, 'card-edit-save');
+      const bridge = getFirebaseBridge();
+      let fetchedCard = null;
+      if (saveResult && saveResult.ok && bridge && typeof bridge.getCardRef === 'function') {
+        fetchedCard = await readFirebaseValueOnce(bridge.getCardRef(goalKey, itemIndex));
+      }
       const saveEvidence = {
         cardKey: itemKey,
         path: `cards/${goalKey}/${itemIndex}`,
-        payloadTitle: fieldsForUpdate.title,
+        payloadTitle: typeof itemState.title === 'string' ? itemState.title : '',
         payloadKeys: Object.keys(fieldsForUpdate),
-        responseOk: Boolean(saveResult && saveResult.ok)
+        payloadKeyCount: Object.keys(fieldsForUpdate).length,
+        responseOk: Boolean(saveResult && saveResult.ok),
+        changedDueDates: changedDueDateEntries,
+        fetchedDueDates: Array.isArray(fetchedCard && fetchedCard.steps)
+          ? fetchedCard.steps.map((step) => (step && typeof step.dueDate === 'string' ? step.dueDate : ''))
+          : []
       };
       console.log('[card-edit-modal] 전송/응답 근거', saveEvidence);
       if (!saveResult.ok) {
         window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
         return;
       }
-      if ((fieldsForUpdate.title || '') !== nextTitle) {
-        console.error('[card-edit-modal] 저장 성공 토스트 차단: payload-title-mismatch', {
-          inputTitle: nextTitle,
-          payloadTitle: fieldsForUpdate.title
-        });
-        setToastMessage('저장 확인 실패: 전송 제목 불일치', 'warn');
+      const dueDateMismatch = changedDueDateEntries.some((entry) => {
+        const refetchedValue = Array.isArray(fetchedCard && fetchedCard.steps)
+          && fetchedCard.steps[entry.stepIndex]
+          && typeof fetchedCard.steps[entry.stepIndex].dueDate === 'string'
+          ? fetchedCard.steps[entry.stepIndex].dueDate
+          : '';
+        return refetchedValue !== entry.nextDueDate;
+      });
+      if (dueDateMismatch) {
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${itemIndex}/steps/*/dueDate (post-read-mismatch)`);
+        setToastMessage('저장 실패: 재조회 값 불일치', 'warn');
         return;
       }
+      setFirebaseSaveFailureBanner('');
       const afterChecklistSteps = getChecklistStepsForItem(savedState, goalKey, item, itemKey, goalTemplate.principles || []);
       const afterAudit = {
         title: getCardTitleText(itemState, item),
@@ -15876,7 +15935,7 @@
           checkbox.checked = Boolean(itemState.steps[idx] && itemState.steps[idx].checked);
         });
         dueDateInputs.forEach((input, idx) => {
-          input.value = (itemState.steps[idx] && itemState.steps[idx].dueDate) || '';
+          input.value = getStepDueDateValue(itemState, idx, itemKey) || '';
         });
         stepCommentInputs.forEach((input, idx) => {
           input.value = (itemState.steps[idx] && typeof itemState.steps[idx].comment === 'string') ? itemState.steps[idx].comment : '';
@@ -16446,7 +16505,8 @@
         const updateDueDateBadges = () => {
           dueDateBadges.forEach((badge, idx) => {
             const stepState = itemState.steps[idx] || { checked: false, dueDate: '' };
-            const info = getDueBadgeInfo(stepState.dueDate, isChecklistStepCompleted(stepState));
+            const dueDate = getStepDueDateValue(itemState, idx, itemKey);
+            const info = getDueBadgeInfo(dueDate, isChecklistStepCompleted(stepState));
             badge.textContent = info.text;
             badge.className = `workflow-dday-badge ${info.cls}`;
           });
