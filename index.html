@@ -10670,12 +10670,13 @@
     function getFirebaseCardEntriesForGoal(goalKey) {
       if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).filter(([, remoteCard]) => {
+      return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).filter(([indexText, remoteCard]) => {
         const hasIdentity = Boolean(remoteCard && (
           (typeof remoteCard.title === 'string' && remoteCard.title.trim())
           || (typeof remoteCard.customTitle === 'string' && remoteCard.customTitle.trim())
         ));
-        const isBlankDeletedTombstone = remoteCard
+        const isBlankDeletedTombstone = goalKey === 'offline-brand'
+          && indexText === '1'
           && !hasIdentity
           && typeof remoteCard.lastUpdatedAt === 'string'
           && !remoteCard.lastUpdatedAt.trim();
