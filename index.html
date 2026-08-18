@@ -3050,7 +3050,7 @@
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
         if (!goalTemplate || !Array.isArray(goalTemplate.items)) return;
         const goalNumber = getGoalNumberFromGoalKey(goalKey);
-        getGoalItemEntries(goalKey).forEach(({ item, index }) => {
+        getFirebaseCardEntriesForGoal(goalKey).forEach(({ item, index }) => {
           const itemKey = `${goalKey}::${index}`;
           const itemState = plannerState && plannerState.items ? plannerState.items[itemKey] : null;
           const fallbackTitle = typeof item.title === 'string' ? item.title : '';
@@ -7698,7 +7698,7 @@
                 summary: remoteCard && (remoteCard.summary || remoteCard.customSummary) ? (remoteCard.summary || remoteCard.customSummary) : ''
               }
         })))
-        : Object.entries(goalTemplates).flatMap(([goalKey, goalTemplate]) => getGoalItemEntries(goalKey).map((entry) => ({ goalKey, ...entry, remoteCard: null })));
+        : [];
       remoteCardEntries.forEach(({ goalKey, item, index }) => {
           const goalTemplate = goalTemplates[goalKey] || { label: goalKey, principles: [] };
           const itemKey = `${goalKey}::${index}`;
@@ -10488,7 +10488,10 @@
     }
 
     function getGoalStats(goalKey, state) {
-      const entries = Object.entries((state && state.items) || {}).filter(([itemKey]) => itemKey.startsWith(`${goalKey}::`));
+      const entries = getFirebaseCardEntriesForGoal(goalKey).map(({ index }) => [
+        `${goalKey}::${index}`,
+        state && state.items ? state.items[`${goalKey}::${index}`] : null
+      ]);
       let totalSteps = 0;
       let checkedSteps = 0;
       let leaderRequestedCount = 0;
@@ -10533,7 +10536,7 @@
     }
 
     function getFirebaseCardEntriesForGoal(goalKey) {
-      if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return getGoalItemEntries(goalKey);
+      if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return [];
       const goalTemplate = goalTemplates[goalKey] || {};
       return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).map(([indexText, remoteCard]) => {
         const index = Number(indexText);
@@ -10592,7 +10595,7 @@
       if (!goal) return [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
 
-      return getGoalItemEntries(goalKey).map(({ item, index }) => {
+      return getFirebaseCardEntriesForGoal(goalKey).map(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         const itemPrinciples = getCardGuidelines(state, goalKey, item, goal, itemKey);
         const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
@@ -10626,7 +10629,7 @@
     function goalMatchesSearch(goalKey, searchTerm) {
       const keyword = (searchTerm || '').trim().toLowerCase();
       if (!keyword) return false;
-      return getGoalItemEntries(goalKey).some(({ item }) => `${item.title} ${item.summary}`.toLowerCase().includes(keyword));
+      return getFirebaseCardEntriesForGoal(goalKey).some(({ item }) => `${item.title} ${item.summary}`.toLowerCase().includes(keyword));
     }
 
     function getItemDetailByKey(itemKey, state) {
@@ -10695,7 +10698,7 @@
         const goal = goalTemplates[goalKey];
         const stats = getGoalStats(goalKey, sourceState);
         const previewCards = getGoalPreviewCards(goalKey, sourceState);
-        const cardCount = getGoalItemEntries(goalKey).length;
+        const cardCount = previewCards.length;
         countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewCards.length });
         previewCards.forEach((card) => {
           mandalartLogRows.push({
@@ -10730,7 +10733,11 @@
       });
       mandalartGrid.innerHTML = cells.join('');
       console.table(countReport);
-      console.log('[mandalart] 목표별 카드 수 검증', countReport);
+      console.log('[mandalart] Firebase /cards 기준 목표별 카드 수', {
+        source: dashboardRemoteCardsSnapshot ? '/cards snapshot' : 'no snapshot',
+        goalCounts: Object.fromEntries(countReport.map((entry) => [entry.goalKey, entry.renderedCardCount])),
+        total: countReport.reduce((sum, entry) => sum + entry.renderedCardCount, 0)
+      });
     }
 
     function syncOverviewWidgets(state) {
