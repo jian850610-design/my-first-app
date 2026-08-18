@@ -2319,7 +2319,7 @@
       let count = 0;
       Object.entries(remoteCards).forEach(([goalKey, indexedItems]) => {
         if (!goalTemplates[goalKey] || !indexedItems || typeof indexedItems !== 'object') return;
-        count += Object.keys(indexedItems).length;
+        count += Object.values(indexedItems).filter((card) => !(card && card.deleted === true)).length;
       });
       return count;
     }
@@ -5131,7 +5131,7 @@
       Object.keys(goalTemplates).forEach((goalKey) => {
         const indexed = snapshot[goalKey];
         if (!indexed || typeof indexed !== 'object') return;
-        count += Object.keys(indexed).length;
+        count += Object.values(indexed).filter((card) => !(card && card.deleted === true)).length;
       });
       return count;
     }
@@ -5892,12 +5892,13 @@
       const index = Number(indexText);
       const plannerState = loadPlannerState();
       const previousItemState = plannerState.items[itemKey] ? { ...plannerState.items[itemKey] } : null;
-      const previousTemplate = goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items)
-        ? goalTemplates[goalKey].items[index]
-        : null;
+      const previousDeleted = dashboardRemoteCardsSnapshot
+        && dashboardRemoteCardsSnapshot[goalKey]
+        && dashboardRemoteCardsSnapshot[goalKey][indexText]
+        ? dashboardRemoteCardsSnapshot[goalKey][indexText].deleted
+        : undefined;
 
       delete plannerState.items[itemKey];
-      markGoalTemplateItemDeleted(goalKey, index);
       savePlannerState(plannerState, { reason: 'card-delete-local', skipFirebaseSync: true });
       syncOverviewWidgets(plannerState);
       if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
@@ -5908,12 +5909,15 @@
         const targetPath = `cards/${goalKey}/${indexText}`;
         console.log('[cards] update 요청', { reason: 'card-delete', path: targetPath });
         await bridge.update(bridge.ref(bridge.db), {
-          [targetPath]: null
+          [`${targetPath}/deleted`]: true
         });
         setFirebaseSaveFailureBanner('');
         markSaveSuccess(new Date().toISOString());
         console.log('[cards] update 성공', { reason: 'card-delete', path: targetPath });
-        console.log('[quick-add] 카드 삭제 성공', { path: targetPath, index });
+        if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
+          dashboardRemoteCardsSnapshot[goalKey][indexText].deleted = true;
+        }
+        console.log('[quick-add] 카드 소프트 삭제 성공', { path: `${targetPath}/deleted`, index });
         return { ok: true, goalKey, index };
       };
 
@@ -5925,8 +5929,9 @@
         if (previousItemState) {
           plannerState.items[itemKey] = previousItemState;
         }
-        if (goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items)) {
-          goalTemplates[goalKey].items[index] = previousTemplate;
+        if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
+          if (typeof previousDeleted === 'undefined') delete dashboardRemoteCardsSnapshot[goalKey][indexText].deleted;
+          else dashboardRemoteCardsSnapshot[goalKey][indexText].deleted = previousDeleted;
         }
         savePlannerState(plannerState, { reason: 'card-delete-rollback', skipFirebaseSync: true });
         syncOverviewWidgets(plannerState);
@@ -5943,6 +5948,57 @@
         });
         return { ok: false, reason: 'firebase-update-failed', errorCode };
     }
+
+    async function listDeletedCards() {
+      const bridge = getFirebaseBridge();
+      const snapshot = dashboardRemoteCardsSnapshot && typeof dashboardRemoteCardsSnapshot === 'object'
+        ? dashboardRemoteCardsSnapshot
+        : (bridge && typeof bridge.getCardsRef === 'function' ? await readFirebaseValueOnce(bridge.getCardsRef()) : {});
+      const deleted = Object.entries(snapshot || {}).flatMap(([goalKey, goalCards]) => Object.entries(goalCards || {})
+        .filter(([, card]) => card && card.deleted === true)
+        .map(([index, card]) => ({ goalKey, index: Number(index), title: card.title || card.customTitle || '' })));
+      console.table(deleted);
+      return deleted;
+    }
+
+    window.__listDeletedCards = listDeletedCards;
+
+    async function restoreCard(goalKey, index) {
+      const bridge = getFirebaseBridge();
+      const indexText = String(index);
+      if (!goalKey || !/^\d+$/.test(indexText) || !bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
+        return { ok: false, reason: 'invalid-restore-request' };
+      }
+      const path = `cards/${goalKey}/${indexText}/deleted`;
+      console.log('[cards] soft restore 요청', { path, payloadKeys: ['deleted'], payloadKeyCount: 1 });
+      await bridge.update(bridge.getCardRef(goalKey, indexText), { deleted: null });
+      if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
+        delete dashboardRemoteCardsSnapshot[goalKey][indexText].deleted;
+      }
+      syncOverviewWidgets(loadPlannerState());
+      console.log('[cards] soft restore 성공', { path });
+      return { ok: true, path };
+    }
+
+    window.__restoreCard = restoreCard;
+
+    window.__softDeleteCardDryRun = function softDeleteCardDryRun(goalKey, index) {
+      const indexText = String(index);
+      const card = dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey]
+        ? dashboardRemoteCardsSnapshot[goalKey][indexText]
+        : null;
+      const result = {
+        goalKey,
+        index: Number(index),
+        title: card && (card.title || card.customTitle) ? (card.title || card.customTitle) : '',
+        path: `cards/${goalKey}/${indexText}/deleted`,
+        payload: { deleted: true },
+        payloadKeyCount: 1,
+        executed: false
+      };
+      console.log('[cards] soft delete dry-run', result);
+      return result;
+    };
 
     async function recordReferenceActivityLogWithUpdate(itemKey, cardTitle, displayName, actionLabel = '추가') {
       const bridge = getFirebaseBridge();
@@ -7720,17 +7776,7 @@
       const rows = [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
       const remoteCardEntries = dashboardRemoteCardsSnapshot && typeof dashboardRemoteCardsSnapshot === 'object'
-        ? Object.entries(dashboardRemoteCardsSnapshot).flatMap(([goalKey, goalCards]) => Object.entries(goalCards || {}).map(([indexText, remoteCard]) => ({
-          goalKey,
-          index: Number(indexText),
-          remoteCard,
-          item: goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items) && goalTemplates[goalKey].items[Number(indexText)]
-            ? goalTemplates[goalKey].items[Number(indexText)]
-            : {
-                title: remoteCard && (remoteCard.title || remoteCard.customTitle) ? (remoteCard.title || remoteCard.customTitle) : `${goalKey} ${Number(indexText) + 1}번 카드`,
-                summary: remoteCard && (remoteCard.summary || remoteCard.customSummary) ? (remoteCard.summary || remoteCard.customSummary) : ''
-              }
-        })))
+        ? Object.keys(goalTemplates).flatMap((goalKey) => getFirebaseCardEntriesForGoal(goalKey).map((entry) => ({ goalKey, ...entry })))
         : [];
       remoteCardEntries.forEach(({ goalKey, item, index }) => {
           const goalTemplate = goalTemplates[goalKey] || { label: goalKey, principles: [] };
@@ -10671,6 +10717,7 @@
       if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return [];
       const goalTemplate = goalTemplates[goalKey] || {};
       return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).filter(([indexText, remoteCard]) => {
+        if (remoteCard && remoteCard.deleted === true) return false;
         const hasIdentity = Boolean(remoteCard && (
           (typeof remoteCard.title === 'string' && remoteCard.title.trim())
           || (typeof remoteCard.customTitle === 'string' && remoteCard.customTitle.trim())
