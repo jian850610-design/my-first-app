@@ -10532,6 +10532,36 @@
         .filter((entry) => isGoalTemplateItemVisible(entry.item));
     }
 
+    function getFirebaseCardEntriesForGoal(goalKey) {
+      if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return getGoalItemEntries(goalKey);
+      const goalTemplate = goalTemplates[goalKey] || {};
+      return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).map(([indexText, remoteCard]) => {
+        const index = Number(indexText);
+        const templateItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[index] : null;
+        const item = templateItem && typeof templateItem === 'object'
+          ? templateItem
+          : {
+              title: remoteCard && (remoteCard.title || remoteCard.customTitle) ? (remoteCard.title || remoteCard.customTitle) : `${goalKey} ${index + 1}번 카드`,
+              summary: remoteCard && (remoteCard.summary || remoteCard.customSummary) ? (remoteCard.summary || remoteCard.customSummary) : ''
+            };
+        return { item, index, remoteCard };
+      }).filter((entry) => Number.isInteger(entry.index));
+    }
+
+    window.__diagnoseCardSources = function diagnoseCardSources() {
+      const templateKeys = Object.entries(goalTemplates).flatMap(([goalKey, goal]) => (
+        Array.isArray(goal && goal.items) ? goal.items
+          .map((item, index) => ({ goalKey, index, title: item && item.title ? item.title : '' }))
+          .filter((entry) => isGoalTemplateItemVisible(goalTemplates[entry.goalKey].items[entry.index])) : []
+      ));
+      const remoteKeys = Object.entries(dashboardRemoteCardsSnapshot || {}).flatMap(([goalKey, goalCards]) => Object.keys(goalCards || {}).map((indexText) => `${goalKey}::${indexText}`));
+      const remoteKeySet = new Set(remoteKeys);
+      const missing = templateKeys.filter((entry) => !remoteKeySet.has(`${entry.goalKey}::${entry.index}`));
+      console.table(missing);
+      console.log('[cards] 템플릿-vs-Firebase 비교', { templateCount: templateKeys.length, remoteCount: remoteKeys.length, missingCount: missing.length, missing });
+      return { templateKeys, remoteKeys, missing };
+    };
+
     function getGoalNextAppendIndex(goalKey) {
       const goal = goalTemplates[goalKey];
       if (!goal || !Array.isArray(goal.items)) return 0;
@@ -15405,7 +15435,7 @@
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
       const cardsHtmlParts = [];
-      getGoalItemEntries(goalKey).forEach(({ item, index }) => {
+      getFirebaseCardEntriesForGoal(goalKey).forEach(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         try {
           const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
