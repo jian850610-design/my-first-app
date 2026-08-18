@@ -136,7 +136,14 @@
     .mandalart-mini-badge.important { background: #fff5d9; color: #8b6510; border-color: #ecdca9; }
     .mandalart-mini-badge.leader { background: #fff3dd; color: #8f6400; border-color: #ebd29a; }
     .mandalart-keyword-list { display: flex; flex-wrap: wrap; gap: 6px; }
-    .mandalart-keyword-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
+    .mandalart-keyword-tag { position: relative; display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 7px 4px 10px; background: #eef5ff; color: #28557d; font-size: 10px; font-weight: 700; max-width: 100%; }
+    .mandalart-keyword-tag.priority-urgent::before,
+    .mandalart-keyword-tag.priority-important::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 2px; border-radius: 2px; }
+    .mandalart-keyword-tag.priority-urgent::before { background: #d33f49; }
+    .mandalart-keyword-tag.priority-important::before { background: #e78325; }
+    .mandalart-keyword-tag.completed { color: #91a0af; background: #f1f4f7; text-decoration: line-through; opacity: 0.72; }
+    .mandalart-more-toggle { flex-basis: 100%; border: 1px solid #c8d8e8; border-radius: 8px; background: #f8fbff; color: #356080; padding: 5px 8px; font-size: 10px; font-weight: 800; cursor: pointer; text-align: center; }
+    .mandalart-more-toggle:hover { background: #edf5fc; }
     .mandalart-recurring-flag { display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-right: 4px; opacity: 0.85; }
     .mandalart-cta { margin-top: auto; align-self: flex-end; border-radius: 999px; background: #0f5f9d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; border: 1px solid #0d548b; }
     .mandalart-goal-btn:hover .mandalart-cta,
@@ -1962,6 +1969,7 @@
     let dashboardSearchTerm = '';
     let dashboardUnifiedOverviewState = null;
     let dashboardRemoteCardsSnapshot = null;
+    const expandedDashboardGoalKeys = new Set();
     let dashboardUnifiedTimelineEntries = [];
     let dashboardUnifiedLoadPromise = null;
     let activityTimelineEntries = [];
@@ -10607,13 +10615,24 @@
           .replace(/^주요\s*/i, '')
           .replace(/\s+지속\s+.*$/i, '')
           .trim();
+        const completed = Array.isArray(itemState.steps) && itemState.steps.length > 0
+          && itemState.steps.every((step) => step && step.checked === true);
+        const priority = resolveTeamOverviewPriority(effectiveState);
+        const priorityRank = priority === PRIORITY_URGENT ? 0 : priority === PRIORITY_IMPORTANT ? 1 : 2;
         return {
+          index,
           title,
-          priority: resolveTeamOverviewPriority(effectiveState),
+          priority,
+          priorityRank,
+          completed,
           isLeaderRequested: isTeamLeaderRequested(effectiveState),
           isRecurring: itemState && itemState.isRecurring === true,
           badges: buildItemBadgeTokens(effectiveState)
         };
+      }).sort((left, right) => {
+        if (left.completed !== right.completed) return left.completed ? 1 : -1;
+        if (left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
+        return left.index - right.index;
       });
     }
 
@@ -10622,7 +10641,7 @@
         .map((badge) => `<span class="mandalart-mini-badge ${badge.className}">${badge.text}</span>`)
         .join('');
       return `
-        <span class="mandalart-keyword-tag">${badgeHtml ? `${badgeHtml} ` : ''}${card && card.isRecurring ? '<span class="mandalart-recurring-flag" aria-label="반복 수행 카드">🔁</span>' : ''}${escapeHtml(card.title || '')}</span>
+        <span class="mandalart-keyword-tag priority-${escapeHtml(card.priority || PRIORITY_NORMAL)}${card.completed ? ' completed' : ''}">${badgeHtml ? `${badgeHtml} ` : ''}${card && card.isRecurring ? '<span class="mandalart-recurring-flag" aria-label="반복 수행 카드">🔁</span>' : ''}${escapeHtml(card.title || '')}</span>
       `;
     }
 
@@ -10699,6 +10718,16 @@
         const stats = getGoalStats(goalKey, sourceState);
         const previewCards = getGoalPreviewCards(goalKey, sourceState);
         const cardCount = previewCards.length;
+        const normalCards = previewCards.filter((card) => card.priority === PRIORITY_NORMAL);
+        const alwaysVisibleCards = previewCards.filter((card) => card.priority !== PRIORITY_NORMAL);
+        const isExpanded = expandedDashboardGoalKeys.has(goalKey);
+        const visibleNormalCards = isExpanded || normalCards.length <= 5 ? normalCards : normalCards.slice(0, 5);
+        const visibleCards = [...alwaysVisibleCards, ...visibleNormalCards].sort((left, right) => {
+          if (left.completed !== right.completed) return left.completed ? 1 : -1;
+          if (left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
+          return left.index - right.index;
+        });
+        const hiddenNormalCount = normalCards.length > 5 && !isExpanded ? normalCards.length - 5 : 0;
         countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewCards.length });
         previewCards.forEach((card) => {
           mandalartLogRows.push({
@@ -10720,7 +10749,8 @@
                 <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}% · ${cardCount}건</span>
               </div>
               <div class="mandalart-keyword-list">
-                ${previewCards.map((card) => renderGoalPreviewCardHtml(card)).join('')}
+                ${visibleCards.map((card) => renderGoalPreviewCardHtml(card)).join('')}
+                ${normalCards.length > 5 ? `<span class="mandalart-more-toggle" role="button" tabindex="0" data-dashboard-expand-goal="${goalKey}" aria-expanded="${isExpanded}">${isExpanded ? '접기' : `+${hiddenNormalCount}개 더보기`}</span>` : ''}
               </div>
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
@@ -18237,10 +18267,27 @@
 
       if (mandalartGrid) {
         mandalartGrid.addEventListener('click', (event) => {
+          const expandToggle = event.target.closest('[data-dashboard-expand-goal]');
+          if (expandToggle) {
+            event.preventDefault();
+            event.stopPropagation();
+            const goalKey = expandToggle.dataset.dashboardExpandGoal || '';
+            if (expandedDashboardGoalKeys.has(goalKey)) expandedDashboardGoalKeys.delete(goalKey);
+            else expandedDashboardGoalKeys.add(goalKey);
+            renderMandalartBoard(loadPlannerState());
+            return;
+          }
           const button = event.target.closest('.mandalart-goal-btn');
           if (!button) return;
           const goalKey = button.dataset.goal || '';
           openGoalDetail(goalKey);
+        });
+        mandalartGrid.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          const expandToggle = event.target.closest('[data-dashboard-expand-goal]');
+          if (!expandToggle) return;
+          event.preventDefault();
+          expandToggle.click();
         });
       }
 
