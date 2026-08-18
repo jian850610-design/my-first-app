@@ -498,6 +498,16 @@
     .directive-history-actions { display: flex; justify-content: flex-end; }
     .directive-history-delete-btn { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .directive-history-delete-btn:hover { background: #fff1f1; }
+    .comment-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .comment-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
+    .comment-history-list { display: grid; gap: 8px; }
+    .comment-history-empty { font-size: 12px; color: #72859a; }
+    .comment-history-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 4px; }
+    .comment-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; }
+    .comment-history-step { font-size: 11px; color: #356080; font-weight: 800; }
+    .comment-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; cursor: pointer; }
+    .comment-history-text.collapsed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .comment-history-more { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
     .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
     .work-note-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .work-note-type-toggle { display: inline-flex; flex-wrap: wrap; gap: 6px; }
@@ -565,6 +575,8 @@
     .workflow-step-comment-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 2px; }
     .workflow-step-comment-input { width: 100%; min-height: 34px; border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 6px 8px; resize: vertical; outline: none; }
     .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
+    .workflow-step-comment-display { grid-column: 1 / -1; color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; cursor: pointer; }
+    .workflow-step-comment-display.collapsed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .workflow-step-comment-save-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
     .workflow-step-comment-save-btn:hover { background: #e5f1ff; }
     .workflow-step-text-display,
@@ -7367,6 +7379,7 @@
           activityTimelineEntries = nextLogs.map(createActivityTimelineEntryFromLog).filter(Boolean);
           timelineActivityLoading = false;
           timelineActivityLoadError = '';
+          refreshVisibleCardCommentHistories();
           renderTodayActivityWidget(loadPlannerState(), getTimelineSelectedDateKey());
           if (timelineHistoryEntries.length) {
             timelineHistoryEntries = activityTimelineEntries.slice();
@@ -9636,6 +9649,50 @@
           </div>
         `;
       }).join('');
+    }
+
+    function renderCardCommentHistory(listElement, itemKey, expanded = false) {
+      if (!listElement) return { activityCount: 0, renderedCount: 0, excluded: [] };
+      const allCardEntries = activityTimelineEntries.filter((entry) => entry && entry.itemKey === itemKey);
+      const commentEntries = allCardEntries
+        .filter((entry) => entry.type === 'comment')
+        .sort((left, right) => right.timestamp - left.timestamp);
+      const excluded = allCardEntries
+        .filter((entry) => entry.type !== 'comment')
+        .map((entry) => ({ logId: entry.logId, type: entry.type }));
+      console.log('[comment-history] activityLog type 확인', {
+        itemKey,
+        types: Array.from(new Set(allCardEntries.map((entry) => entry.type))),
+        commentTypeUsed: 'comment'
+      });
+      if (!commentEntries.length) {
+        listElement.innerHTML = '<div class="comment-history-empty">저장된 코멘트 이력이 없습니다.</div>';
+        console.log('[comment-history] 렌더 결과', { itemKey, activityCount: 0, renderedCount: 0, hiddenCount: 0, excluded });
+        return { activityCount: 0, renderedCount: 0, excluded };
+      }
+      const visibleEntries = expanded ? commentEntries : commentEntries.slice(0, 5);
+      listElement.innerHTML = visibleEntries.map((entry) => {
+        const stepLabel = entry.stepTitle || (Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? `${entry.stepIndex + 1}단계` : '단계 미상');
+        const fullText = entry.detail || '';
+        const shortText = fullText.length > 60 ? `${fullText.slice(0, 60)}...` : fullText;
+        return `<div class="comment-history-item">
+          <div class="comment-history-meta">${escapeHtml(formatEntryDateTime(entry.timestamp))} · ${escapeHtml(entry.authorName || EDITOR_NAME_LABEL)}</div>
+          <div class="comment-history-step">${escapeHtml(stepLabel)}</div>
+          <div class="comment-history-text${fullText.length > 60 ? ' collapsed' : ''}" data-full-comment-history="${escapeHtml(fullText)}">${escapeHtml(shortText)}</div>
+        </div>`;
+      }).join('');
+      if (!expanded && commentEntries.length > 5) {
+        listElement.insertAdjacentHTML('beforeend', `<button type="button" class="comment-history-more" data-comment-history-more="true">더 보기 +${commentEntries.length - 5}</button>`);
+      }
+      console.log('[comment-history] 렌더 결과', { itemKey, activityCount: commentEntries.length, renderedCount: visibleEntries.length, hiddenCount: commentEntries.length - visibleEntries.length, excluded });
+      return { activityCount: commentEntries.length, renderedCount: visibleEntries.length, excluded };
+    }
+
+    function refreshVisibleCardCommentHistories() {
+      document.querySelectorAll('.detail-item-card').forEach((card) => {
+        const list = card.querySelector('[data-comment-history-list]');
+        if (list) renderCardCommentHistory(list, card.dataset.key || '');
+      });
     }
 
     function deleteDirectiveHistoryEntry(itemState, historyId) {
@@ -12408,6 +12465,16 @@
         .join('');
     }
 
+    function getWorkflowStepCommentDisplay(itemState, stepIndex, stepText) {
+      const step = itemState && Array.isArray(itemState.steps) ? itemState.steps[stepIndex] : null;
+      const directComment = step && typeof step.comment === 'string' ? step.comment.trim() : '';
+      if (directComment) return { text: directComment, authorName: '', createdAt: '' };
+      const history = Array.isArray(itemState && itemState.historyList) ? itemState.historyList : [];
+      const targetLabel = `단계 수행: ${stepText || `${stepIndex + 1}단계`}`;
+      const latest = history.slice().reverse().find((entry) => entry && entry.projectName === targetLabel && entry.commentSummary && entry.commentSummary !== '코멘트 없음');
+      return latest ? { text: String(latest.commentSummary), authorName: latest.authorName || '', createdAt: latest.completedAt || '' } : { text: '', authorName: '', createdAt: '' };
+    }
+
     function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, itemState = null) {
       const workflowLines = [];
       let currentStage = '';
@@ -12424,6 +12491,9 @@
         const assigneeSelectValue = assigneeValue && !isKnownAssignee ? '__custom__' : assigneeValue;
         const assigneeBadgeClass = assigneeValue ? 'assigned' : 'self';
         const assigneeBadgeText = assigneeValue ? `👤 ${assigneeValue}` : '👤 +';
+        const savedComment = getWorkflowStepCommentDisplay(itemState, stepIndex, step);
+        const savedCommentText = savedComment.text;
+        const savedCommentMeta = [savedComment.authorName, savedComment.createdAt ? formatEntryDateTime(savedComment.createdAt) : ''].filter(Boolean).join(' · ');
         const assigneeAccent = assigneeValue ? getStepAssigneeColor(assigneeValue) : '';
         const rowAssigneeClass = assigneeValue ? 'workflow-item-assigned' : '';
         const rowAssigneeStyle = assigneeAccent ? ` style="--step-assignee-accent:${escapeHtml(assigneeAccent)};"` : '';
@@ -12461,6 +12531,7 @@
                   <textarea class="workflow-step-comment-input" data-step-comment-index="${stepIndex}" rows="1" placeholder="이 단계 수행 코멘트를 입력하세요">${escapeHtml(safeItemSteps[stepIndex] && typeof safeItemSteps[stepIndex].comment === 'string' ? safeItemSteps[stepIndex].comment : '')}</textarea>
                   <button type="button" class="workflow-step-comment-save-btn" data-step-comment-save-index="${stepIndex}">코멘트 저장</button>
                 </div>
+                ${savedCommentText ? `<div class="workflow-step-comment-display collapsed" data-full-comment="${escapeHtml(savedCommentText)}" title="클릭하면 전체 코멘트를 표시합니다">💬 ${escapeHtml(savedCommentText.length > 60 ? `${savedCommentText.slice(0, 60)}...` : savedCommentText)}${savedCommentMeta ? ` · ${escapeHtml(savedCommentMeta)}` : ''}</div>` : ''}
                 <div class="workflow-item-tools">
                   <div class="task-order-controls" aria-label="단계 순서 조정">
                     <button type="button" class="task-order-btn task-order-up" data-step-move="up" data-step-index="${stepIndex}" ${stepIndex === 0 ? 'data-order-boundary-disabled="1" disabled' : ''} aria-label="단계 위로 이동">↑</button>
@@ -15666,6 +15737,10 @@
                 <div class="directive-history-list"></div>
               </div>
             </div>
+            <div class="comment-history-section">
+              <div class="comment-history-title">코멘트 이력</div>
+              <div class="comment-history-list" data-comment-history-list></div>
+            </div>
             <div class="work-note-section">
               <div class="work-note-title">업무 노트</div>
               ${buildWorkNoteTypeToggleHtml('meeting', 'data-work-note-type')}
@@ -16301,6 +16376,7 @@
         const directiveInput = directiveSection ? directiveSection.querySelector('.directive-input') : null;
         const directiveSaveButton = directiveSection ? directiveSection.querySelector('.directive-save-btn') : null;
         const directiveHistoryList = directiveSection ? directiveSection.querySelector('.directive-history-list') : null;
+        const commentHistoryList = card.querySelector('[data-comment-history-list]');
         const workNoteSection = card.querySelector('.work-note-section');
         const workNoteInput = card.querySelector('[data-work-note-input]');
         const workNoteList = card.querySelector('[data-work-note-list]');
@@ -16833,6 +16909,7 @@
 
         rerenderHistoryArchive();
         renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+        renderCardCommentHistory(commentHistoryList, itemKey);
         itemState.notes = normalizeCardNotes(itemState.notes);
         rerenderWorkNotes();
 
@@ -17546,30 +17623,27 @@
                 commentSummary: nextComment || '코멘트 없음'
               });
 
-              if (nextComment) {
-                void recordSharedActivityLog('comment', {
+              const commentLogResult = nextComment ? await recordSharedActivityLog('comment', {
                   cardId: itemKey,
                   cardTitle: getCardActivityTitle(plannerState, itemKey),
                   stepTitle: stepText || `${stepIndex + 1}단계`,
                   stepIndex,
                   source: 'user',
                   content: nextComment
-                });
-              }
+                }) : null;
 
+              itemState.steps[stepIndex].comment = nextComment;
               markItemUpdated(itemState);
               savePlannerState(plannerState, { reason: 'step-comment-save', skipFirebaseSync: true });
               await flushFirebaseSnapshot('step-comment-save');
 
-              // 코멘트는 히스토리에만 남기고 입력 상태는 즉시 비운다.
-              itemState.steps[stepIndex].comment = '';
-              if (commentInput) commentInput.value = '';
+              if (commentInput) commentInput.value = nextComment;
               markItemUpdated(itemState);
-              savePlannerState(plannerState, { reason: 'step-comment-clear', skipFirebaseSync: true });
-              await flushFirebaseSnapshot('step-comment-clear');
-
+              savePlannerState(plannerState, { reason: 'step-comment-save-complete', skipFirebaseSync: true });
               rerenderHistoryArchive();
               updateLatestActivityPanel(true);
+              updateGoalCard(currentGoal);
+              console.log('[comment-history] 저장 후 상세 재렌더 호출', { itemKey, functionName: 'updateGoalCard', commentLogSuccess: Boolean(commentLogResult && commentLogResult.key) });
               setToastMessage('코멘트가 성공적으로 등록되었습니다.', 'ok');
               button.textContent = '저장됨';
             } catch (error) {
@@ -17586,6 +17660,28 @@
             }
           });
         });
+
+        card.querySelectorAll('.workflow-step-comment-display').forEach((display) => {
+          display.addEventListener('click', () => {
+            display.classList.remove('collapsed');
+            display.textContent = `💬 ${display.dataset.fullComment || ''}`;
+          });
+        });
+
+        if (commentHistoryList) {
+          commentHistoryList.addEventListener('click', (event) => {
+            const moreButton = event.target.closest('[data-comment-history-more]');
+            if (moreButton) {
+              renderCardCommentHistory(commentHistoryList, itemKey, true);
+              return;
+            }
+            const text = event.target.closest('[data-full-comment-history]');
+            if (text) {
+              text.classList.remove('collapsed');
+              text.textContent = text.dataset.fullCommentHistory || '';
+            }
+          });
+        }
 
         // Removed per-card freeform journal section; step-level comments are now the primary activity input.
 
