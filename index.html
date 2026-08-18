@@ -7733,10 +7733,12 @@
     function normalizeSalesSupportItemIndexes(items) {
       if (!items || typeof items !== 'object') return;
 
-      const hasLegacyLayout = ['sales-support::4', 'sales-support::5', 'sales-support::6', 'sales-support::7']
+      const hasLegacyTail = ['sales-support::5', 'sales-support::6', 'sales-support::7']
         .some((key) => Boolean(items[key]));
+      if (!hasLegacyTail) return;
 
-      if (!hasLegacyLayout) return;
+      // Guard: if index 3 or 4 already exists, treat as modern layout and skip legacy remap.
+      if (items['sales-support::3'] || items['sales-support::4']) return;
 
       if (items['sales-support::5'] && !items['sales-support::1']) {
         items['sales-support::1'] = items['sales-support::5'];
@@ -12472,6 +12474,7 @@
       const previousCustomTitle = typeof itemState.customTitle === 'string' ? itemState.customTitle : '';
       const previousCustomSummary = typeof itemState.customSummary === 'string' ? itemState.customSummary : '';
       const previousCustomGuidelines = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines.slice() : [];
+      const previousCustomSteps = Array.isArray(itemState.customSteps) ? itemState.customSteps.slice() : [];
       const previousRecurring = itemState.isRecurring === true;
       const nextTitle = cardEditModalTitleInput ? cardEditModalTitleInput.value.trim() : '';
       const nextSummary = cardEditModalSummaryInput ? cardEditModalSummaryInput.value.trim() : '';
@@ -12486,6 +12489,7 @@
             previousDueDate: getStepDueDateValue(itemState, stepIndex, itemKey)
           }))
         : [];
+      const nextCustomSteps = nextChecklistSteps.map((entry) => entry.stepName || '');
 
       if (nextTitle) itemState.customTitle = nextTitle;
       else delete itemState.customTitle;
@@ -12498,6 +12502,8 @@
 
       if (nextGuidelines.length) itemState.customGuidelines = nextGuidelines;
       else delete itemState.customGuidelines;
+
+      itemState.customSteps = nextCustomSteps;
 
       const nextRecurring = cardEditModalRecurringInput ? cardEditModalRecurringInput.checked === true : itemState.isRecurring === true;
       itemState.isRecurring = nextRecurring;
@@ -12545,6 +12551,9 @@
       }
       if (JSON.stringify(nextCustomGuidelinesForUpdate) !== JSON.stringify(previousCustomGuidelines)) {
         fieldsForUpdate.customGuidelines = nextCustomGuidelinesForUpdate;
+      }
+      if (JSON.stringify(nextCustomSteps) !== JSON.stringify(previousCustomSteps)) {
+        fieldsForUpdate.customSteps = nextCustomSteps;
       }
       if (nextRecurringForUpdate !== previousRecurring) {
         fieldsForUpdate.isRecurring = nextRecurringForUpdate;
@@ -12595,6 +12604,9 @@
       };
       console.log('[card-edit-modal] 전송/응답 근거', saveEvidence);
       if (!saveResult.ok) {
+        const errorCode = saveResult && saveResult.errorCode ? saveResult.errorCode : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${itemIndex} (${errorCode})`);
+        setToastMessage(`저장 실패: cards/${goalKey}/${itemIndex} (${errorCode})`, 'warn');
         window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
         return;
       }
