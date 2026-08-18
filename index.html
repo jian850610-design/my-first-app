@@ -9671,14 +9671,7 @@
     window.__backupActivityLogs = backupActivityLogs;
 
     async function deleteCardCommentHistoryLog(logId, itemKey, content, createdAt) {
-      let backupMeta = null;
-      try { backupMeta = JSON.parse(localStorage.getItem(ACTIVITY_LOG_BACKUP_KEY) || 'null'); } catch (error) { backupMeta = null; }
-      if (!backupMeta || !backupMeta.createdAt) {
-        window.alert('먼저 백업을 실행하세요.');
-        console.warn('[comment-history] 삭제 차단: activityLogs 백업 없음', { logId });
-        return { ok: false, reason: 'backup-required' };
-      }
-      const confirmed = window.confirm(`코멘트를 삭제하시겠습니까?\n\n${String(content || '').slice(0, 30)}\n작성: ${formatEntryDateTime(createdAt)}`);
+      const confirmed = window.confirm(`코멘트: ${String(content || '').slice(0, 20)}\n작성: ${formatEntryDateTime(createdAt)}\n삭제할까요?`);
       if (!confirmed) return { ok: false, reason: 'cancelled' };
       const bridge = getActivityTimelineBridge();
       if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
