@@ -5917,6 +5917,7 @@
         if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
           dashboardRemoteCardsSnapshot[goalKey][indexText].deleted = true;
         }
+        if (benchmarkPromptPreview) benchmarkPromptPreview.value = buildBenchmarkPromptText();
         console.log('[quick-add] 카드 소프트 삭제 성공', { path: `${targetPath}/deleted`, index });
         return { ok: true, goalKey, index };
       };
@@ -11076,7 +11077,7 @@
       today.setHours(0, 0, 0, 0);
 
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
-        getGoalItemEntries(goalKey).forEach(({ item, index: itemIndex }) => {
+        getFirebaseCardEntriesForGoal(goalKey).forEach(({ item, index: itemIndex }) => {
           const itemKey = `${goalKey}::${itemIndex}`;
           const itemGuidelines = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemGuidelines);
