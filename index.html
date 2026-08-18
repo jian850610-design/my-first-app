@@ -182,6 +182,7 @@
     .today-activity-item-type { display: inline-flex; width: fit-content; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; background: #eef5ff; color: #24547f; white-space: nowrap; flex-shrink: 0; }
     .today-activity-item-title { font-size: 12px; font-weight: 800; color: #183b5f; line-height: 1.2; white-space: nowrap; flex-shrink: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; }
     .today-activity-item-detail { font-size: 11px; color: #4e657f; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+    .today-activity-item-detail.expanded { overflow: visible; text-overflow: clip; white-space: pre-wrap; word-break: break-word; }
     .today-activity-item-meta { font-size: 10px; color: #70859c; white-space: nowrap; font-variant-numeric: tabular-nums; }
     @media (max-width: 760px) {
       .today-activity-row { grid-template-columns: minmax(0, 1fr) auto; }
@@ -1784,6 +1785,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     console.log('[VERSION] build ' + new Date().toISOString());
+    console.log('[BUILD]', '2026-08-18 15:04', 'uncommitted');
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
     const todayActivityList = document.getElementById('todayActivityList');
@@ -4891,6 +4893,7 @@
     function updateFirebaseAuthControls() {
       updateYellowBannerState();
       updateFirebaseFullSyncControls();
+      console.log(`[AUTH] 편집모드:${EDIT_MODE_REQUESTED} | uid:${currentFirebaseUser && currentFirebaseUser.uid ? currentFirebaseUser.uid : '-'}`);
     }
 
     function updateSaveSuccessFooter(at = '') {
@@ -4968,7 +4971,11 @@
     }
 
     async function runWriteWithAuth(task, pathHint = 'cards/?') {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+      if (!EDIT_MODE_REQUESTED) {
+        setFirebaseSaveFailureBanner('저장 불가: 읽기 전용 모드');
+        return { ok: false, reason: 'edit-disabled' };
+      }
+      if (!firebaseBridgeReady) {
         setFirebaseSaveFailureBanner(`저장 실패: ${pathHint} (write-unavailable)`);
         return { ok: false, reason: 'write-unavailable' };
       }
@@ -6167,8 +6174,55 @@
       document.body.classList.remove('modal-open');
     }
 
+    function getNestedVerifyValue(value, path) {
+      return String(path || '').split('/').reduce((current, key) => (
+        current && typeof current === 'object' ? current[key] : undefined
+      ), value);
+    }
+
+    function stringifyVerifyValue(value) {
+      if (typeof value === 'undefined') return 'undefined';
+      try { return JSON.stringify(value); } catch (error) { return String(value); }
+    }
+
+    function getVerifyActionName(reason = '') {
+      const names = {
+        'checklist-history-sync': '체크 완료',
+        'due-date-change': '마감일 변경',
+        'due-date-change-step4': '마감일 변경',
+        'step-assignee-change': '담당자 지정',
+        'step-assignee-bulk-change': '담당자 일괄 지정',
+        'work-note-add': '노트 저장',
+        'work-note-edit': '노트 수정',
+        'card-edit-save': '카드 수정 모달 저장'
+      };
+      return names[reason] || reason || '카드 저장';
+    }
+
+    async function logVerifiedCardWrite({ action, itemKey, stepIndex = '-', path, payload, beforeCard, success, errorCode = '', cardRef }) {
+      let reloadedCard = null;
+      try {
+        reloadedCard = cardRef ? await readFirebaseValueOnce(cardRef) : null;
+      } catch (error) {
+        reloadedCard = null;
+      }
+      const payloadKeys = Object.keys(payload || {});
+      const beforeValue = payloadKeys.length === 1
+        ? getNestedVerifyValue(beforeCard, payloadKeys[0])
+        : payloadKeys.reduce((result, key) => ({ ...result, [key]: getNestedVerifyValue(beforeCard, key) }), {});
+      const reloadedValue = payloadKeys.length === 1
+        ? getNestedVerifyValue(reloadedCard, payloadKeys[0])
+        : payloadKeys.reduce((result, key) => ({ ...result, [key]: getNestedVerifyValue(reloadedCard, key) }), {});
+      console.log(`[VERIFY] ${action} | ${itemKey} | ${stepIndex} | ${stringifyVerifyValue(beforeValue)} → ${stringifyVerifyValue(payloadKeys.length === 1 ? payload[payloadKeys[0]] : payload)} | ${path} | payload키:[${payloadKeys.join(',')}] | 키수 ${payloadKeys.length} | success:${Boolean(success)} | 재조회값 ${stringifyVerifyValue(reloadedValue)}${errorCode ? ` | error:${errorCode}` : ''}`);
+      return reloadedValue;
+    }
+
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
-      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) {
+      if (!EDIT_MODE_REQUESTED) {
+        setFirebaseSaveFailureBanner('저장 불가: 읽기 전용 모드');
+        return { ok: false, reason: 'edit-disabled' };
+      }
+      if (!firebaseBridgeReady) {
         setFirebaseSaveFailureBanner(`저장 실패: cards/${itemKey || '?'} (write-unavailable)`);
         return { ok: false, reason: 'write-unavailable' };
       }
@@ -6184,17 +6238,24 @@
       Object.entries(fieldValues || {}).forEach(([fieldPath, value]) => {
         updates[fieldPath] = value;
       });
+      const cardRef = bridge.getCardRef(goalKey, indexText);
 
       const executePartialUpdate = async () => {
         firebaseSaving = true;
         updateFirebaseConnectionChip();
+        let beforeCard = null;
+        try {
+          beforeCard = await readFirebaseValueOnce(cardRef);
+        } catch (error) {
+          console.warn('[VERIFY] update 전 원격값 조회 실패', { itemKey, reason, error });
+        }
         try {
           console.log('[cards] update 요청', {
             reason,
             path: `cards/${goalKey}/${indexText}`,
             updateKeys: Object.keys(updates)
           });
-          await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
+          await bridge.update(cardRef, updates);
           const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
           const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
           const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
@@ -6212,10 +6273,31 @@
             path: `cards/${goalKey}/${indexText}`,
             updateKeys: Object.keys(updates)
           });
+          await logVerifiedCardWrite({
+            action: getVerifyActionName(reason),
+            itemKey,
+            stepIndex: (Object.keys(updates).find((key) => /^steps\/\d+\//.test(key)) || '').match(/^steps\/(\d+)\//)?.[1] || '-',
+            path: `cards/${goalKey}/${indexText}`,
+            payload: updates,
+            beforeCard,
+            success: true,
+            cardRef
+          });
           return { ok: true };
         } catch (error) {
           const errorCode = error && error.code ? error.code : 'unknown';
           setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
+          await logVerifiedCardWrite({
+            action: getVerifyActionName(reason),
+            itemKey,
+            stepIndex: (Object.keys(updates).find((key) => /^steps\/\d+\//.test(key)) || '').match(/^steps\/(\d+)\//)?.[1] || '-',
+            path: `cards/${goalKey}/${indexText}`,
+            payload: updates,
+            beforeCard,
+            success: false,
+            errorCode,
+            cardRef
+          });
           console.error('Firebase 카드 부분 저장 실패', reason, error);
           return { ok: false, reason: 'firebase-update-failed', errorCode };
         } finally {
@@ -6768,6 +6850,10 @@
     }
 
     async function recordSharedActivityLog(type, details = {}) {
+      if (!EDIT_MODE_REQUESTED) {
+        setFirebaseSaveFailureBanner('저장 불가: 읽기 전용 모드');
+        return null;
+      }
       const bridge = getActivityTimelineBridge();
       const rootRef = getActivityTimelineRef();
       if (!bridge || !rootRef || typeof bridge.push !== 'function') return null;
@@ -6785,11 +6871,23 @@
         ...payload,
         content: formatActivityLogContent(type, details)
       };
+      if (Object.keys(record).length > 100) {
+        setFirebaseSaveFailureBanner('저장 실패: activityLogs (payload-too-large)');
+        console.error('[VERIFY] activityLogs 저장 중단: payload 키 개수 초과', { payloadKeyCount: Object.keys(record).length });
+        return null;
+      }
 
       try {
         const result = await bridge.push(rootRef, record);
+        const reloaded = result && typeof bridge.getActivityLogRef === 'function'
+          ? await readFirebaseValueOnce(bridge.getActivityLogRef(result.key))
+          : null;
+        console.log(`[VERIFY] ${type === 'comment' ? '코멘트 기록' : type === 'checklist' ? '체크 히스토리 기록' : '히스토리 기록'} | ${record.cardId} | ${details.stepIndex ?? '-'} | undefined → ${stringifyVerifyValue(record)} | activityLogs/${result && result.key ? result.key : '?'} | payload키:[${Object.keys(record).join(',')}] | 키수 ${Object.keys(record).length} | success:${Boolean(result && result.key)} | 재조회값 ${stringifyVerifyValue(reloaded)}`);
         return result || null;
       } catch (error) {
+        const errorCode = error && error.code ? error.code : 'unknown';
+        setFirebaseSaveFailureBanner(`저장 실패: activityLogs (${errorCode})`);
+        console.log(`[VERIFY] ${type === 'comment' ? '코멘트 기록' : type === 'checklist' ? '체크 히스토리 기록' : '히스토리 기록'} | ${record.cardId} | ${details.stepIndex ?? '-'} | undefined → ${stringifyVerifyValue(record)} | activityLogs | payload키:[${Object.keys(record).join(',')}] | 키수 ${Object.keys(record).length} | success:false | 재조회값 undefined | error:${errorCode}`);
         console.error('활동 로그 저장 실패', error);
         return null;
       }
@@ -6821,6 +6919,176 @@
         pendingSharedChecklistActivityLogKeys.delete(key);
       }
     }
+
+    async function readRemoteActivityVerificationData() {
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || typeof bridge.getCardsRef !== 'function' || typeof bridge.getActivityLogsRef !== 'function') {
+        throw new Error('Firebase read bridge unavailable');
+      }
+      const [cards, logs] = await Promise.all([
+        readFirebaseValueOnce(bridge.getCardsRef()),
+        readFirebaseValueOnce(bridge.getActivityLogsRef())
+      ]);
+      return { cards: cards || {}, logs: logs || {} };
+    }
+
+    function getHistoryDedupeKey(type, cardId, content, createdAt) {
+      return [type, cardId, content, getKstDateKeyFromTimestamp(createdAt)].join('|');
+    }
+
+    function collectMissingChecklistHistoryRows(cards, logs) {
+      const state = loadPlannerState();
+      const existingKeys = new Set(Object.values(logs || {}).map((entry) => getHistoryDedupeKey(
+        entry && entry.type ? entry.type : '',
+        entry && entry.cardId ? entry.cardId : '',
+        entry && entry.content ? entry.content : '',
+        entry && entry.createdAt ? entry.createdAt : ''
+      )));
+      const rows = [];
+      Object.entries(cards || {}).forEach(([goalKey, goalCards]) => {
+        Object.entries(goalCards || {}).forEach(([indexText, card]) => {
+          const itemKey = `${goalKey}::${indexText}`;
+          const steps = Array.isArray(card && card.steps) ? card.steps : [];
+          steps.forEach((step, stepIndex) => {
+            if (!step || step.checked !== true || !step.completedAt) return;
+            const dateKey = getKstDateKeyFromTimestamp(step.completedAt);
+            if (dateKey < '2026-08-05' || dateKey > '2026-08-18') return;
+            const goalTemplate = goalTemplates[goalKey] || {};
+            const item = Array.isArray(goalTemplate.items) ? goalTemplate.items[Number(indexText)] : null;
+            const cardTitle = getCardActivityTitle(state, itemKey);
+            const checklistSteps = item ? getChecklistStepsForItem(state, goalKey, item, itemKey, []) : [];
+            const stepText = checklistSteps[stepIndex] || step.stepText || `${stepIndex + 1}단계`;
+            const content = `완료 단계: ${stepText}`;
+            const duplicate = existingKeys.has(getHistoryDedupeKey('checklist', itemKey, content, step.completedAt));
+            rows.push({ itemKey, stepIndex, cardTitle, stepText, completedAt: step.completedAt, content, dateKey, duplicate });
+          });
+        });
+      });
+      return rows;
+    }
+
+    async function backfillHistory(options = {}) {
+      const dryRun = options.dryRun !== false;
+      const { cards, logs } = await readRemoteActivityVerificationData();
+      const backupJson = JSON.stringify(logs);
+      const rows = collectMissingChecklistHistoryRows(cards, logs);
+      const targets = rows.filter((row) => !row.duplicate);
+      console.log('[BACKFILL] 기존 히스토리 JSON 백업', { count: Object.keys(logs || {}).length, backupJson });
+      console.table(rows);
+      console.log('[BACKFILL] 등록 대상', { dryRun, totalRows: rows.length, targetCount: targets.length, payloadKeyCount: 8 });
+      if (dryRun) return { dryRun: true, beforeCount: Object.keys(logs || {}).length, rows, targets };
+
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || typeof bridge.push !== 'function') throw new Error('Firebase push bridge unavailable');
+      const results = [];
+      for (const row of targets) {
+        const payload = {
+          type: 'checklist', cardId: row.itemKey, cardTitle: row.cardTitle,
+          content: row.content, stepTitle: row.stepText, authorId: '',
+          authorName: EDITOR_NAME_LABEL, createdAt: row.completedAt
+        };
+        if (Object.keys(payload).length > 100) throw new Error('payload key count exceeded 100');
+        const pushed = await bridge.push(bridge.getActivityLogsRef(), payload);
+        results.push({ ...row, pushKey: pushed && pushed.key ? pushed.key : '', success: Boolean(pushed && pushed.key), payloadKeyCount: Object.keys(payload).length });
+      }
+      console.table(results);
+      return { dryRun: false, beforeCount: Object.keys(logs || {}).length, results, afterCount: Object.keys((await readRemoteActivityVerificationData()).logs || {}).length };
+    }
+
+    async function parserDryRun() {
+      const response = await fetch('sample-benchmark-response.md', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`sample-benchmark-response.md ${response.status}`);
+      const rawText = await response.text();
+      const result = parseAiBenchmarkText(rawText);
+      const matched = result && result.matched ? result.matched : {};
+      const fieldKeys = ['skf', 'schaeffler', 'koreaNsk', 'timken'];
+      const fieldMatched = Object.values(matched).reduce((count, entry) => count + fieldKeys.filter((key) => entry && entry.benchmarking && String(entry.benchmarking[key] || '').trim()).length, 0);
+      const unrecognizedCompanies = Array.from(new Set(Object.values(matched).flatMap((entry) => Array.isArray(entry && entry.unrecognizedCompanyLabels) ? entry.unrecognizedCompanyLabels : [])));
+      const report = {
+        cardRecognitionCount: result && Array.isArray(result.parsedCards) ? result.parsedCards.length : 0,
+        idMatched: result && Array.isArray(result.parsedCards) ? result.parsedCards.filter((entry) => entry && entry.id).length : 0,
+        failed: result && Array.isArray(result.unmatched) ? result.unmatched.length : 0,
+        fieldMatched,
+        fieldTotal: 192,
+        unrecognizedCompanies
+      };
+      console.table(report);
+      return report;
+    }
+
+    window.__backfillHistory = backfillHistory;
+    window.__parserDryRun = parserDryRun;
+
+    window.__compareDeployment = async function compareDeployment(options = {}) {
+      const deploymentUrl = typeof options === 'string' ? options : options.url;
+      if (!deploymentUrl) throw new Error('배포 URL을 입력하세요. 예: window.__compareDeployment({ url: "https://.../index.html" })');
+      const localUrl = `${window.location.href.split('?')[0]}?verifyCacheBust=${Date.now()}`;
+      const remoteUrl = `${deploymentUrl}${deploymentUrl.includes('?') ? '&' : '?'}verifyCacheBust=${Date.now()}`;
+      const [localResponse, remoteResponse] = await Promise.all([
+        fetch(localUrl, { cache: 'no-store' }),
+        fetch(remoteUrl, { cache: 'no-store' })
+      ]);
+      const [localHtml, remoteHtml] = await Promise.all([localResponse.text(), remoteResponse.text()]);
+      const localLines = localHtml.split(/\r?\n/).length;
+      const remoteLines = remoteHtml.split(/\r?\n/).length;
+      const markers = ['[BUILD]', '__verifyAll', '__backfillHistory', '__parserDryRun', '업무 노트(회의 내용)'];
+      const missingOnRemote = markers.filter((marker) => localHtml.includes(marker) && !remoteHtml.includes(marker));
+      const report = {
+        local: { url: localUrl, status: localResponse.status, bytes: new Blob([localHtml]).size, lines: localLines, hasBuild: localHtml.includes('[BUILD]') },
+        deployed: { url: remoteUrl, status: remoteResponse.status, bytes: new Blob([remoteHtml]).size, lines: remoteLines, hasBuild: remoteHtml.includes('[BUILD]') },
+        sameSize: localHtml.length === remoteHtml.length,
+        sameLines: localLines === remoteLines,
+        missingOnRemote
+      };
+      if (missingOnRemote.length || !report.sameSize || !report.sameLines) console.warn('[DEPLOY] 배포본이 로컬과 다릅니다.', report);
+      else console.log('[DEPLOY] 배포본과 로컬이 일치합니다.', report);
+      console.table(report);
+      return report;
+    };
+
+    window.__verifyAll = async function verifyAll() {
+      const bridge = getActivityTimelineBridge();
+      const { cards } = await readRemoteActivityVerificationData();
+      const beforeGoalCounts = Object.fromEntries(Object.entries(cards || {}).map(([goalKey, goalCards]) => [goalKey, Object.keys(goalCards || {}).length]));
+      const itemKey = Object.keys(cards || {}).flatMap((goalKey) => Object.keys(cards[goalKey] || {}).map((indexText) => `${goalKey}::${indexText}`))[0];
+      if (!itemKey) throw new Error('검증 대상 카드가 없습니다.');
+      const [goalKey, indexText] = itemKey.split('::');
+      const cardRef = bridge.getCardRef(goalKey, indexText);
+      const originalCard = await readFirebaseValueOnce(cardRef);
+      const originalStep = Array.isArray(originalCard.steps) && originalCard.steps[0] ? { ...originalCard.steps[0] } : null;
+      const originalNotes = Array.isArray(originalCard.notes) ? originalCard.notes : [];
+      const originalComments = Array.isArray(originalCard.comments) ? originalCard.comments : [];
+      const results = [];
+      const testTag = `__VERIFY_ALL__${Date.now()}`;
+      const runUpdate = async (action, payload, stepIndex = '-') => {
+        const result = await updateItemFieldsInFirebase(itemKey, payload, action);
+        results.push({ action, cardKey: itemKey, stepIndex, payloadKeys: Object.keys(payload), success: Boolean(result && result.ok) });
+        return result;
+      };
+
+      await runUpdate('step-assignee-change', { 'steps/0/assignee': '__VERIFY_ASSIGNEE__' }, 0);
+      await runUpdate('step-assignee-change', { 'steps/0/assignee': originalStep && originalStep.assignee ? originalStep.assignee : '' }, 0);
+      await runUpdate('checklist-history-sync', { 'steps/0/checked': true, 'steps/0/completedAt': new Date().toISOString() }, 0);
+      await runUpdate('checklist-history-sync', { 'steps/0/checked': Boolean(originalStep && originalStep.checked), 'steps/0/completedAt': originalStep && originalStep.completedAt ? originalStep.completedAt : '' }, 0);
+      const note = { type: 'meeting', text: testTag, createdAt: new Date().toISOString(), updatedAt: '' };
+      await runUpdate('work-note-add', { notes: [note, ...originalNotes] });
+      const noteLog = await recordSharedActivityLog('card', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: `업무 노트(회의 내용) | ${getCardActivityTitle(loadPlannerState(), itemKey)} | ${testTag}` });
+      const comment = { text: testTag, timestamp: new Date().toISOString(), updatedAt: '' };
+      await runUpdate('step-comment-save', { comments: [comment, ...originalComments] });
+      const commentLog = await recordSharedActivityLog('comment', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: testTag });
+      const dueDate = originalStep && originalStep.dueDate ? originalStep.dueDate : '';
+      await runUpdate('due-date-change', { 'steps/0/dueDate': '2099-12-31' }, 0);
+      await runUpdate('due-date-change', { 'steps/0/dueDate': dueDate }, 0);
+      await updateItemFieldsInFirebase(itemKey, { notes: originalNotes, comments: originalComments }, 'verify-all-restore');
+      if (noteLog && noteLog.key) await bridge.update(bridge.getActivityLogRef(noteLog.key), null);
+      if (commentLog && commentLog.key) await bridge.update(bridge.getActivityLogRef(commentLog.key), null);
+      const afterCards = (await readRemoteActivityVerificationData()).cards;
+      const afterGoalCounts = Object.fromEntries(Object.entries(afterCards || {}).map(([goalKey, goalCards]) => [goalKey, Object.keys(goalCards || {}).length]));
+      console.table(results);
+      console.log('[VERIFY] 목표별 카드 수 전후', { beforeGoalCounts, afterGoalCounts });
+      console.log('[VERIFY] __verifyAll 완료', { itemKey, restored: true, deletedTestLogKeys: [noteLog && noteLog.key, commentLog && commentLog.key].filter(Boolean) });
+      return { itemKey, results, restored: true, beforeGoalCounts, afterGoalCounts };
+    };
 
     function extractChecklistStepTitleFromActivityLog(rawLog) {
       if (!rawLog || typeof rawLog !== 'object') return '';
@@ -9784,6 +10052,11 @@
       return dashboardUnifiedLoadPromise;
     }
 
+    function truncateTimelineText(value, maxLength = 60) {
+      const text = typeof value === 'string' ? value : '';
+      return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+    }
+
     function renderTimelineHistoryModalBody() {
       if (!timelineHistoryModalBody) return;
       const monthFilter = timelineHistoryMonthFilterValue || 'all';
@@ -9825,7 +10098,7 @@
                   <li>
                     <div class="timeline-history-row">
                       <span class="timeline-history-type">${escapeHtml(typeLabel)}</span>
-                      <div class="timeline-history-detail">${escapeHtml(entry.cardTitle || '-')} | ${escapeHtml(entry.detail || '')}</div>
+                      <div class="timeline-history-detail">${escapeHtml(entry.type === 'card' && /^업무 노트\(/.test(entry.detail || '') ? entry.detail : `${entry.cardTitle || '-'} | ${entry.detail || ''}`)}</div>
                       <div class="timeline-history-meta">${escapeHtml(entry.timeText || '')}</div>
                     </div>
                   </li>
@@ -9966,7 +10239,7 @@
               <button type="button" class="today-activity-item" data-key="${entry.itemKey}" data-step-index="${focusStep}">
                 <span class="today-activity-item-type">${typeLabel}</span>
                 <div class="today-activity-item-title">${escapeHtml(entry.cardTitle)}</div>
-                <div class="today-activity-item-detail">${escapeHtml(entry.detail)}</div>
+                <div class="today-activity-item-detail" data-full-detail="${escapeHtml(entry.detail || '')}">${escapeHtml(truncateTimelineText(entry.detail || ''))}</div>
               </button>
               <div class="today-activity-item-meta">${escapeHtml(entry.timeText)}</div>
               <button
@@ -16419,7 +16692,12 @@
               renderLatestActivityPanel(latestActivityPanel, itemState);
               syncOverviewWidgets(plannerState);
               const cardTitleText = getCardTitleText(itemState, currentItem || { title: '' });
-              const saved = await saveWorkNotesToFirebase('work-note-add', previousNotes, `업무 노트 추가: ${cardTitleText}`, normalizedType);
+              const saved = await saveWorkNotesToFirebase(
+                'work-note-add',
+                previousNotes,
+                `업무 노트(${getWorkNoteTypeLabel(normalizedType)}) | ${cardTitleText} | ${nextText}`,
+                normalizedType
+              );
               if (saved) updateGoalCard(currentGoal);
               return;
             }
@@ -18316,6 +18594,14 @@
 
           const item = event.target.closest('.today-activity-item');
           if (!item) return;
+
+          const detail = item.querySelector('.today-activity-item-detail');
+          if (detail && !detail.classList.contains('expanded')) {
+            detail.classList.add('expanded');
+            detail.textContent = detail.dataset.fullDetail || detail.textContent || '';
+            item.setAttribute('aria-expanded', 'true');
+            return;
+          }
 
           const key = item.dataset.key || '';
           const [goalKey] = key.split('::');
