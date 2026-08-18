@@ -1974,6 +1974,7 @@
     let timelineActivityLoadError = '';
     let timelineActivityRealtimeUnsubscribe = null;
     let todayActivityRenderSignature = '';
+    const pendingSharedChecklistActivityLogKeys = new Set();
     const ACTIVITY_LOGS_MIGRATED_KEY = 'skfActivityLogsMigratedToFirebaseV1';
     const ACTIVITY_LOG_TITLES_GUARD_PATH = 'maintenanceMigrations/activityLogTitleSnapshotsV1';
     const CARDS_MIGRATION_BASE_DATE = '2026-07-31';
@@ -6791,6 +6792,33 @@
       } catch (error) {
         console.error('활동 로그 저장 실패', error);
         return null;
+      }
+    }
+
+    function hasSharedChecklistActivityLog(details = {}) {
+      const cardId = typeof details.cardId === 'string' ? details.cardId : '';
+      const content = formatActivityLogContent('checklist', details);
+      const dateKey = getKstDateKeyFromTimestamp(details.createdAt || new Date().toISOString());
+      return activityTimelineEntries.some((entry) => entry
+        && entry.type === 'checklist'
+        && entry.itemKey === cardId
+        && entry.detail === content
+        && entry.dateKey === dateKey);
+    }
+
+    async function recordSharedChecklistActivityLog(details = {}) {
+      const cardId = typeof details.cardId === 'string' ? details.cardId : '';
+      const content = formatActivityLogContent('checklist', details);
+      const dateKey = getKstDateKeyFromTimestamp(details.createdAt || new Date().toISOString());
+      const key = `${cardId}|${dateKey}|${content}`;
+      if (hasSharedChecklistActivityLog(details) || pendingSharedChecklistActivityLogKeys.has(key)) {
+        return { skipped: true, reason: 'duplicate-checklist-log' };
+      }
+      pendingSharedChecklistActivityLogKeys.add(key);
+      try {
+        return await recordSharedActivityLog('checklist', details);
+      } finally {
+        pendingSharedChecklistActivityLogKeys.delete(key);
       }
     }
 
@@ -15667,6 +15695,15 @@
                 checked: stepState.checked,
                 success: true
               });
+              if (checkbox.checked) {
+                void recordSharedChecklistActivityLog({
+                  cardId: itemKey,
+                  cardTitle: getCardActivityTitle(currentPlanner, itemKey),
+                  stepTitle: stepText || `${stepIndex + 1}단계`,
+                  content: stepText ? `완료 단계: ${stepText}` : '체크리스트 항목 완료',
+                  createdAt: stepState.completedAt
+                });
+              }
               updateGoalCard(goalKey);
               return;
             }
