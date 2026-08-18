@@ -10671,10 +10671,15 @@
       if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return [];
       const goalTemplate = goalTemplates[goalKey] || {};
       return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).filter(([, remoteCard]) => {
-        return Boolean(remoteCard && (
+        const hasIdentity = Boolean(remoteCard && (
           (typeof remoteCard.title === 'string' && remoteCard.title.trim())
           || (typeof remoteCard.customTitle === 'string' && remoteCard.customTitle.trim())
         ));
+        const isBlankDeletedTombstone = remoteCard
+          && !hasIdentity
+          && typeof remoteCard.lastUpdatedAt === 'string'
+          && !remoteCard.lastUpdatedAt.trim();
+        return hasIdentity || !isBlankDeletedTombstone;
       }).map(([indexText, remoteCard]) => {
         const index = Number(indexText);
         const templateItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[index] : null;
