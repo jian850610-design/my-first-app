@@ -548,6 +548,12 @@
     .workflow-step-assignee-custom-input { min-width: 170px; }
     .workflow-step-assignee-action-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 5px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .workflow-step-assignee-action-btn.cancel { border-color: #c7d7e8; background: #ffffff; color: #4f6881; }
+    .workflow-bulk-assignee-row { margin-top: 8px; padding: 10px; border: 1px solid #d8e3ef; border-radius: 10px; background: #f8fbff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .workflow-bulk-assignee-label { font-size: 11px; font-weight: 800; color: #375474; }
+    .workflow-bulk-assignee-select,
+    .workflow-bulk-assignee-mode { border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 11px; line-height: 1.3; padding: 4px 8px; min-height: 30px; }
+    .workflow-bulk-assignee-apply-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #e9f4ff; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .workflow-bulk-assignee-apply-btn:disabled { opacity: 0.55; cursor: default; }
     .workflow-step-comment-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 2px; }
     .workflow-step-comment-input { width: 100%; min-height: 34px; border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 6px 8px; resize: vertical; outline: none; }
     .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
@@ -11837,6 +11843,17 @@
       }).join('');
     }
 
+    function buildWorkflowBulkAssigneeOptionsHtml(selectedValue = '') {
+      return STEP_ASSIGNEE_OPTIONS
+        .filter((option) => option && option.isCustom !== true)
+        .map((option) => {
+          const valueText = option && typeof option.value === 'string' ? option.value : '';
+          const selected = valueText === selectedValue ? 'selected' : '';
+          return `<option value="${escapeHtml(valueText)}" ${selected}>${escapeHtml(option.label || valueText)}</option>`;
+        })
+        .join('');
+    }
+
     function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, itemState = null) {
       const workflowLines = [];
       let currentStage = '';
@@ -11929,6 +11946,17 @@
           <ul class="workflow-list">
             ${workflowLines.join('')}
           </ul>
+          <div class="workflow-bulk-assignee-row" data-bulk-assignee-row>
+            <span class="workflow-bulk-assignee-label">담당자 일괄 지정</span>
+            <select class="workflow-bulk-assignee-select" data-bulk-assignee-select>
+              ${buildWorkflowBulkAssigneeOptionsHtml('')}
+            </select>
+            <select class="workflow-bulk-assignee-mode" data-bulk-assignee-mode>
+              <option value="fill-empty" selected>비어 있는 단계만 채우기 (기본)</option>
+              <option value="overwrite-all">전체 덮어쓰기</option>
+            </select>
+            <button type="button" class="workflow-bulk-assignee-apply-btn" data-bulk-assignee-apply>적용</button>
+          </div>
           <div class="workflow-add-row"><button type="button" class="workflow-add-step-btn">+ 단계 추가</button></div>
         </div>`;
     }
@@ -15184,9 +15212,41 @@
           const currentItem = Array.isArray(goalTemplate.items) && Number.isInteger(itemIndex) ? goalTemplate.items[itemIndex] : null;
           const plannerSnapshot = loadPlannerState();
           const currentPrinciples = currentItem ? getCardGuidelines(plannerSnapshot, goalKey, currentItem, goalTemplate, itemKey) : [];
-          const workflowSteps = currentItem ? getWorkflowSteps(goalKey, currentItem, itemKey) : [];
-          const itemState = getItemState(plannerSnapshot, itemKey, workflowSteps.length, currentPrinciples);
-          return { card, itemKey, goalKey, indexText, itemIndex, currentItem, itemState, workflowSteps, plannerSnapshot };
+          const checklistSteps = currentItem ? getChecklistStepsForItem(plannerSnapshot, goalKey, currentItem, itemKey, currentPrinciples) : [];
+          const itemState = getItemState(plannerSnapshot, itemKey, checklistSteps.length, currentPrinciples);
+          return { card, itemKey, goalKey, indexText, itemIndex, currentItem, itemState, checklistSteps, plannerSnapshot };
+        };
+
+        const refreshStepAssigneeVisual = (card, itemState, stepIndex) => {
+          if (!card || !itemState || Number.isNaN(stepIndex)) return;
+          const row = card.querySelector(`.workflow-item.checklist-item[data-step-index="${stepIndex}"]`);
+          if (!row) return;
+          const stepState = Array.isArray(itemState.steps) ? itemState.steps[stepIndex] : null;
+          const assigneeValue = normalizeStepAssigneeValue(stepState && stepState.assignee);
+          const badge = row.querySelector(`[data-step-assignee-trigger-index="${stepIndex}"]`);
+          const select = row.querySelector(`[data-step-assignee-select-index="${stepIndex}"]`);
+          const customInput = row.querySelector(`[data-step-assignee-custom-index="${stepIndex}"]`);
+          const editor = row.querySelector(`[data-step-assignee-editor-index="${stepIndex}"]`);
+          const isKnownAssignee = STEP_ASSIGNEE_OPTIONS.some((option) => option && option.isCustom !== true && option.value === assigneeValue);
+          const selectValue = assigneeValue && !isKnownAssignee ? '__custom__' : assigneeValue;
+          const assigneeAccent = assigneeValue ? getStepAssigneeColor(assigneeValue) : '';
+
+          if (badge) {
+            badge.textContent = assigneeValue ? `👤 ${assigneeValue}` : '👤 +';
+            badge.classList.toggle('assigned', Boolean(assigneeValue));
+            badge.classList.toggle('self', !assigneeValue);
+          }
+          row.classList.toggle('workflow-item-assigned', Boolean(assigneeValue));
+          if (assigneeAccent) row.style.setProperty('--step-assignee-accent', assigneeAccent);
+          else row.style.removeProperty('--step-assignee-accent');
+
+          if (select) select.value = selectValue;
+          if (customInput) {
+            const showCustom = selectValue === '__custom__';
+            customInput.hidden = !showCustom;
+            customInput.value = showCustom ? assigneeValue : '';
+          }
+          if (editor) editor.hidden = true;
         };
 
         const persistStepAssigneeChange = async (context, stepIndex, nextAssignee, options = {}) => {
@@ -15217,6 +15277,7 @@
               updatePath
             });
             setFirebaseSaveFailureBanner(`저장 중단: ${updatePath} (payload-too-large:${payloadKeyCount})`);
+            setToastMessage(`저장 중단: ${updatePath} (payload-too-large:${payloadKeyCount})`, 'warn');
             return { ok: false, reason: 'payload-too-large', payloadKeyCount };
           }
 
@@ -15262,7 +15323,8 @@
             setFirebaseSaveFailureBanner(`저장 실패: ${updatePath} (${saveResult.errorCode || 'unknown'})`);
             targetStep.assignee = previousAssignee;
             savePlannerState(context.plannerSnapshot, { reason: 'step-assignee-rollback', skipFirebaseSync: true });
-            updateGoalCard(goalKey);
+            refreshStepAssigneeVisual(context.card, itemState, stepIndex);
+            setToastMessage(`저장 실패: ${updatePath} (${saveResult.errorCode || 'unknown'})`, 'warn');
             if (busyButton) {
               busyButton.disabled = false;
               busyButton.textContent = beforeLabel || '저장';
@@ -15278,10 +15340,126 @@
             }, 700);
           }
           if (editor) editor.hidden = true;
+          refreshStepAssigneeVisual(context.card, itemState, stepIndex);
+          setFirebaseSaveFailureBanner('');
           setToastMessage('담당자가 저장되었습니다.', 'ok');
           syncOverviewWidgets(context.plannerSnapshot);
-          updateGoalCard(goalKey);
+          renderTeamOverviewTable(loadPlannerState());
           return { ok: true, payloadKeyCount, reloadedValue: reloadedAssignee };
+        };
+
+        const persistBulkStepAssigneeChange = async (context, nextAssigneeRaw, mode = 'fill-empty', applyButton = null) => {
+          if (!context || !context.itemState) return { ok: false, reason: 'invalid-context' };
+          const { itemKey, goalKey, indexText, itemState, card, plannerSnapshot } = context;
+          const normalizedNextAssignee = normalizeStepAssigneeValue(nextAssigneeRaw);
+          const allSteps = Array.isArray(itemState.steps) ? itemState.steps : [];
+          const targetIndexes = [];
+          const previousByIndex = {};
+          const payload = {};
+
+          allSteps.forEach((step, stepIndex) => {
+            const previousAssignee = normalizeStepAssigneeValue(step && step.assignee);
+            const shouldApply = mode === 'overwrite-all'
+              ? true
+              : (!previousAssignee && previousAssignee !== normalizedNextAssignee);
+            if (!shouldApply) return;
+            targetIndexes.push(stepIndex);
+            previousByIndex[stepIndex] = previousAssignee;
+            payload[`steps/${stepIndex}/assignee`] = normalizedNextAssignee;
+          });
+
+          if (!targetIndexes.length) {
+            setToastMessage('변경 대상 단계가 없습니다.', 'warn');
+            return { ok: true, noop: true, payloadKeyCount: 0 };
+          }
+
+          const targetName = normalizedNextAssignee || '(본인)';
+          const confirmText = `\n${targetIndexes.length}개 단계 담당자를 「${targetName}」으로 일괄 변경합니다. 개별 지정된 단계도 덮어씁니다. 진행할까요?`;
+          const confirmed = window.confirm(confirmText.trim());
+          if (!confirmed) return { ok: false, reason: 'cancelled' };
+
+          const payloadKeyCount = Object.keys(payload).length;
+          if (payloadKeyCount > 100) {
+            const stopPath = `cards/${goalKey}/${indexText}`;
+            setFirebaseSaveFailureBanner(`저장 중단: ${stopPath} (payload-too-large:${payloadKeyCount})`);
+            setToastMessage(`저장 중단: ${stopPath} (payload-too-large:${payloadKeyCount})`, 'warn');
+            return { ok: false, reason: 'payload-too-large', payloadKeyCount };
+          }
+
+          console.log('[STEP ASSIGNEE BULK] 변경 요청', {
+            cardKey: itemKey,
+            mode,
+            targetIndexes,
+            nextAssignee: normalizedNextAssignee,
+            payloadKeys: Object.keys(payload),
+            payloadKeyCount
+          });
+
+          targetIndexes.forEach((stepIndex) => {
+            if (!itemState.steps[stepIndex]) return;
+            itemState.steps[stepIndex].assignee = normalizedNextAssignee;
+          });
+          markItemUpdated(itemState);
+          savePlannerState(plannerSnapshot, { reason: 'step-assignee-bulk-change', skipFirebaseSync: true });
+          targetIndexes.forEach((stepIndex) => refreshStepAssigneeVisual(card, itemState, stepIndex));
+
+          const beforeLabel = applyButton ? applyButton.textContent : '';
+          if (applyButton) {
+            applyButton.disabled = true;
+            applyButton.textContent = '적용 중...';
+          }
+
+          const saveResult = await updateItemFieldsInFirebase(itemKey, payload, 'step-assignee-bulk-change');
+          const reloaded = loadPlannerState();
+          const reloadedItem = reloaded && reloaded.items ? reloaded.items[itemKey] : null;
+          const reloadedAssignees = targetIndexes.map((stepIndex) => ({
+            stepIndex,
+            value: normalizeStepAssigneeValue(reloadedItem && Array.isArray(reloadedItem.steps) && reloadedItem.steps[stepIndex]
+              ? reloadedItem.steps[stepIndex].assignee
+              : '')
+          }));
+
+          if (!saveResult.ok) {
+            targetIndexes.forEach((stepIndex) => {
+              if (!itemState.steps[stepIndex]) return;
+              itemState.steps[stepIndex].assignee = previousByIndex[stepIndex] || '';
+              refreshStepAssigneeVisual(card, itemState, stepIndex);
+            });
+            savePlannerState(plannerSnapshot, { reason: 'step-assignee-bulk-rollback', skipFirebaseSync: true });
+            const errorCode = saveResult.errorCode || 'unknown';
+            const failPath = `cards/${goalKey}/${indexText}`;
+            setFirebaseSaveFailureBanner(`저장 실패: ${failPath} (${errorCode})`);
+            setToastMessage(`저장 실패: ${failPath} (${errorCode})`, 'warn');
+            if (applyButton) {
+              applyButton.disabled = false;
+              applyButton.textContent = beforeLabel || '적용';
+            }
+            console.error('[STEP ASSIGNEE BULK] 저장 실패', {
+              cardKey: itemKey,
+              targetIndexes,
+              payloadKeyCount,
+              errorCode
+            });
+            return { ok: false, reason: errorCode, payloadKeyCount, reloadedAssignees };
+          }
+
+          setFirebaseSaveFailureBanner('');
+          setToastMessage('담당자 일괄 지정이 저장되었습니다.', 'ok');
+          syncOverviewWidgets(plannerSnapshot);
+          renderTeamOverviewTable(loadPlannerState());
+          if (applyButton) {
+            applyButton.disabled = false;
+            applyButton.textContent = beforeLabel || '적용';
+          }
+          console.log('[STEP ASSIGNEE BULK] 저장 결과', {
+            cardKey: itemKey,
+            targetIndexes,
+            payloadKeys: Object.keys(payload),
+            payloadKeyCount,
+            responseOk: true,
+            reloadedAssignees
+          });
+          return { ok: true, payloadKeyCount, reloadedAssignees, targetIndexes };
         };
 
         detailContainer.addEventListener('input', (event) => {
@@ -15374,6 +15552,19 @@
           await persistStepAssigneeChange(context, stepIndex, nextAssignee, { editor, busyButton: saveButton });
         });
 
+        detailContainer.addEventListener('click', async (event) => {
+          const bulkApplyButton = event.target.closest('[data-bulk-assignee-apply]');
+          if (!bulkApplyButton) return;
+          const context = resolveCardContext(bulkApplyButton);
+          if (!context) return;
+          const card = context.card;
+          const assigneeSelect = card.querySelector('[data-bulk-assignee-select]');
+          const modeSelect = card.querySelector('[data-bulk-assignee-mode]');
+          const nextAssignee = assigneeSelect ? String(assigneeSelect.value || '') : '';
+          const mode = modeSelect ? String(modeSelect.value || 'fill-empty') : 'fill-empty';
+          await persistBulkStepAssigneeChange(context, nextAssignee, mode, bulkApplyButton);
+        });
+
         detailContainer.addEventListener('change', async (event) => {
           const assigneeSelect = event.target.closest('.workflow-step-assignee-select');
           if (assigneeSelect) {
@@ -15412,7 +15603,7 @@
             if (checkbox) {
               const stepState = itemState.steps[stepIndex];
               if (!stepState) return;
-              const stepText = context.workflowSteps && context.workflowSteps[stepIndex] ? String(context.workflowSteps[stepIndex]) : '';
+              const stepText = context.checklistSteps && context.checklistSteps[stepIndex] ? String(context.checklistSteps[stepIndex]) : '';
               if (!checkbox.checked) {
                 const isConfirmed = window.confirm('이 단계의 수행 기록도 함께 삭제됩니다. 계속할까요?');
                 if (!isConfirmed) {
