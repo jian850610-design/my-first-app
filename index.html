@@ -10496,31 +10496,33 @@
     }
 
     function getGoalStats(goalKey, state) {
-      const entries = getFirebaseCardEntriesForGoal(goalKey).map(({ index }) => [
-        `${goalKey}::${index}`,
-        state && state.items ? state.items[`${goalKey}::${index}`] : null
-      ]);
+      const entries = getFirebaseCardEntriesForGoal(goalKey);
       let totalSteps = 0;
       let checkedSteps = 0;
+      let completedCardCount = 0;
       let leaderRequestedCount = 0;
       let urgentCount = 0;
       let importantCount = 0;
 
-      entries.forEach(([, itemState]) => {
-        const steps = Array.isArray(itemState.steps) ? itemState.steps : [];
+      entries.forEach(({ index, remoteCard }) => {
+        const itemKey = `${goalKey}::${index}`;
+        const itemState = state && state.items ? state.items[itemKey] : null;
+        const remoteState = remoteCard && typeof remoteCard === 'object' ? remoteCard : {};
+        const steps = Array.isArray(remoteState.steps) ? remoteState.steps : [];
         totalSteps += steps.length;
         checkedSteps += steps.filter((step) => step && step.checked).length;
-        const priority = normalizePriorityValue(itemState && itemState.priority);
-        const isUrgent = priority === PRIORITY_URGENT || normalizeBooleanFlag(itemState?.isUrgent) || normalizeBooleanFlag(itemState?.urgent);
-        const isImportant = priority === PRIORITY_IMPORTANT || normalizeBooleanFlag(itemState?.isImportant) || normalizeBooleanFlag(itemState?.important);
-        const isLeaderRequested = isTeamLeaderRequested(itemState);
+        if (steps.length > 0 && steps.every((step) => step && step.checked === true)) completedCardCount += 1;
+        const priority = normalizePriorityValue(remoteState.priority);
+        const isUrgent = priority === PRIORITY_URGENT || normalizeBooleanFlag(remoteState.isUrgent) || normalizeBooleanFlag(remoteState.urgent);
+        const isImportant = priority === PRIORITY_IMPORTANT || normalizeBooleanFlag(remoteState.isImportant) || normalizeBooleanFlag(remoteState.important);
+        const isLeaderRequested = remoteState.isLeaderRequested === true;
         if (isUrgent) urgentCount += 1;
         if (isImportant) importantCount += 1;
         if (isLeaderRequested) leaderRequestedCount += 1;
       });
 
       const percent = totalSteps ? Math.round((checkedSteps / totalSteps) * 100) : 0;
-      return { percent, leaderRequestedCount, urgentCount, importantCount };
+      return { percent, leaderRequestedCount, urgentCount, importantCount, completedCardCount };
     }
 
     function getGoalDisplayLabel(goalKey) {
@@ -10601,22 +10603,31 @@
     function getGoalPreviewCards(goalKey, state) {
       const goal = goalTemplates[goalKey];
       if (!goal) return [];
-      const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
 
-      return getFirebaseCardEntriesForGoal(goalKey).map(({ item, index }) => {
+      return getFirebaseCardEntriesForGoal(goalKey).map(({ item, index, remoteCard }) => {
         const itemKey = `${goalKey}::${index}`;
         const itemPrinciples = getCardGuidelines(state, goalKey, item, goal, itemKey);
         const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
         const itemState = getItemState(state, itemKey, checklistSteps.length, itemPrinciples);
-        const effectiveState = mergePriorityLeaderOverride(itemState, priorityOverrides[itemKey]);
-        const title = (item && typeof item.title === 'string' ? item.title : '')
+        const remoteState = remoteCard && typeof remoteCard === 'object' ? remoteCard : {};
+        const effectiveState = {
+          ...itemState,
+          priority: remoteState.priority,
+          isUrgent: remoteState.isUrgent === true || remoteState.urgent === true,
+          isImportant: remoteState.isImportant === true || remoteState.important === true,
+          isLeaderRequested: remoteState.isLeaderRequested === true,
+          isRecurring: remoteState.isRecurring === true
+        };
+        const title = (typeof remoteState.title === 'string' && remoteState.title.trim()
+          ? remoteState.title
+          : (item && typeof item.title === 'string' ? item.title : ''))
           .replace(/^SKF\s*/i, '')
           .replace(/^신규\s*/i, '')
           .replace(/^주요\s*/i, '')
           .replace(/\s+지속\s+.*$/i, '')
           .trim();
-        const completed = Array.isArray(itemState.steps) && itemState.steps.length > 0
-          && itemState.steps.every((step) => step && step.checked === true);
+        const remoteSteps = Array.isArray(remoteState.steps) ? remoteState.steps : [];
+        const completed = remoteSteps.length > 0 && remoteSteps.every((step) => step && step.checked === true);
         const priority = resolveTeamOverviewPriority(effectiveState);
         const priorityRank = priority === PRIORITY_URGENT ? 0 : priority === PRIORITY_IMPORTANT ? 1 : 2;
         return {
@@ -10729,6 +10740,17 @@
         });
         const hiddenNormalCount = normalCards.length > 5 && !isExpanded ? normalCards.length - 5 : 0;
         countReport.push({ goalKey, goalLabel: goal.label, actualCardCount: cardCount, renderedCardCount: previewCards.length });
+        const previewUrgentCount = previewCards.filter((card) => card.priority === PRIORITY_URGENT).length;
+        const previewImportantCount = previewCards.filter((card) => card.priority === PRIORITY_IMPORTANT).length;
+        const previewCompletedCount = previewCards.filter((card) => card.completed).length;
+        countReport[countReport.length - 1].urgentCount = stats.urgentCount;
+        countReport[countReport.length - 1].importantCount = stats.importantCount;
+        countReport[countReport.length - 1].completedCount = stats.completedCardCount;
+        countReport[countReport.length - 1].progressPercent = stats.percent;
+        countReport[countReport.length - 1].listAggregateMismatch = cardCount !== previewCards.length
+          || stats.urgentCount !== previewUrgentCount
+          || stats.importantCount !== previewImportantCount
+          || stats.completedCardCount !== previewCompletedCount;
         previewCards.forEach((card) => {
           mandalartLogRows.push({
             cardName: card.title,
@@ -10768,6 +10790,16 @@
         goalCounts: Object.fromEntries(countReport.map((entry) => [entry.goalKey, entry.renderedCardCount])),
         total: countReport.reduce((sum, entry) => sum + entry.renderedCardCount, 0)
       });
+      console.table(countReport.map((entry) => ({
+        goal: entry.goalLabel,
+        cards: entry.renderedCardCount,
+        urgent: entry.urgentCount,
+        important: entry.importantCount,
+        completed: entry.completedCount,
+        progressPercent: entry.progressPercent,
+        listAggregateMismatch: entry.listAggregateMismatch
+      })));
+      console.log('[mandalart] 목록-집계 불일치 수', countReport.filter((entry) => entry.listAggregateMismatch).length);
     }
 
     function syncOverviewWidgets(state) {
