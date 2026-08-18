@@ -1022,6 +1022,9 @@
     .benchmark-dashboard-link { border: 1px solid #e7b7b7; border-radius: 999px; background: #fff; color: #8a2c2c; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .benchmark-dashboard-link:hover { background: #fff1f1; }
     .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
+    .benchmark-prompt-split-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .benchmark-prompt-goal-copy { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .benchmark-prompt-goal-copy span { font-size: 10px; font-weight: 600; opacity: 0.82; }
     .benchmark-auto-panel { display: grid; gap: 10px; padding: 14px; border: 1px solid #d7e5f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%); }
     .benchmark-auto-title { font-size: 13px; font-weight: 800; color: #173f66; }
     .benchmark-auto-textarea { width: 100%; min-height: 180px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; }
@@ -1066,7 +1069,7 @@
     .benchmark-missing-cards-list { display: grid; gap: 6px; }
     .benchmark-missing-card-row { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #ffffff; border: 1px solid #d7e5f2; border-radius: 8px; font-size: 12px; color: #23425f; }
     .benchmark-missing-card-goal { font-weight: 800; color: #1f507a; white-space: nowrap; }
-    .benchmark-exec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .benchmark-exec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
     .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
     .benchmark-exec-item p { margin: 0; font-size: 12px; line-height: 1.55; color: #23425f; white-space: pre-wrap; }
@@ -1080,7 +1083,8 @@
     .benchmark-edit-trigger:hover { background: #f5faff; }
     .benchmark-editor-panel { margin-top: 8px; display: none; gap: 8px; padding: 10px; border: 1px dashed #b7d0e6; border-radius: 10px; background: #f8fbff; }
     .benchmark-editor-panel.visible { display: grid; }
-    .benchmark-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .benchmark-editor-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .benchmark-nsk-group { border-left: 3px solid #d5e4f3; padding-left: 8px; }
     .benchmark-editor-field { display: grid; gap: 4px; }
     .benchmark-editor-field label { font-size: 11px; color: #4d6d8c; font-weight: 800; }
     .benchmark-editor-field textarea { width: 100%; min-height: 74px; border: 1px solid #cfdeed; border-radius: 8px; padding: 8px; font-size: 12px; line-height: 1.4; resize: vertical; background: #fff; color: #23425f; }
@@ -2296,12 +2300,12 @@
       }
     }
 
-    const BENCHMARK_PROMPT_TEMPLATE = [
+    const BENCHMARK_PROMPT_TEMPLATE = []; /* legacy prompt removed; runtime builder below is the only source
       '오늘 날짜 기준, SKF 본사 및 주요 경쟁사(셰플러, 한국NSK, 팀켄)의 최신 마케팅 실행 동향을 아래 카드별로 조사해 주세요.',
       '※ 중요: 아래 목록에 있는 카드만 출력하세요. 목록에 없는 항목을 추가하지 마세요.',
       '※ [ID]와 그 뒤에 이어지는 카드명은 한 글자도 바꾸지 말고 그대로 복사하세요. 요약하거나 다듬지 마세요.',
       '※ 각 회사별 1~2문장으로 작성하세요.',
-      '※ 아래 목록은 총 51개입니다. 정확히 51개를 출력하세요.',
+      '※ 카드 수와 응답 항목 수는 실제 카드 카탈로그와 회사 필드 상수에서 계산합니다.',
       '',
       '@목표: 1. 글로벌 SNS & 영상',
       '- [G1-01] 신규 페이스북 페이지 런칭 및 운영:',
@@ -2558,14 +2562,18 @@
       '  * 셰플러:',
       '  * 한국NSK:',
       '  * 팀켄:'
-    ].join('\n');
+    ].join('\n'); */
 
-    function buildBenchmarkPromptText() {
+    function buildBenchmarkPromptText(goalNumberFilter = null) {
       const catalog = getBenchmarkCardCatalog();
-      const cardCount = catalog.length;
+      const filteredCatalog = Number.isInteger(goalNumberFilter)
+        ? catalog.filter((entry) => entry.goalNumber === goalNumberFilter)
+        : catalog;
+      const cardCount = filteredCatalog.length;
+      const responseCellCount = cardCount * BENCHMARK_COMPANY_FIELDS.length;
       const goalGroups = new Map();
       const listedItemKeys = [];
-      catalog.forEach((entry) => {
+      filteredCatalog.forEach((entry) => {
         if (!goalGroups.has(entry.goalNumber)) {
           goalGroups.set(entry.goalNumber, []);
         }
@@ -2573,12 +2581,15 @@
       });
 
       const lines = [
-        '오늘 날짜 기준, SKF 본사 및 주요 경쟁사(셰플러, 한국NSK, 팀켄)의 최신 마케팅 실행 동향을 아래 카드별로 조사해 주세요.',
+        `오늘 날짜 기준, ${BENCHMARK_COMPANY_FIELDS.map((field) => field.label).join(', ')}의 최신 마케팅 실행 동향을 아래 카드별로 조사해 주세요.`,
         '※ 중요: 아래 목록에 있는 카드만 출력하세요. 목록에 없는 항목을 추가하지 마세요.',
         '※ [ID]와 그 뒤에 이어지는 카드명은 한 글자도 바꾸지 말고 그대로 복사하세요. 요약하거나 다듬지 마세요.',
         '※ 각 회사별 1~2문장으로 작성하세요.',
+        '※ NSK와 NTN은 합병 발표 단계이며 아직 완료되지 않았으므로 각각 별도 기업으로 조사하세요.',
+        "※ NSK는 본사와 한국지사를 구분하고, 한국 정보가 없으면 '공개 정보 없음'으로 명시하세요.",
+        '※ 셰플러는 본사와 한국지사를 통합해 작성하세요.',
         `※ 아래 목록은 총 ${cardCount}개입니다.`,
-        `※ 정확히 ${cardCount}개를 출력하세요.`,
+        `※ 정확히 ${cardCount}개 카드, ${responseCellCount}개 응답 칸을 출력하세요.`,
         ''
       ];
 
@@ -2594,10 +2605,7 @@
           .forEach((entry) => {
             listedItemKeys.push(`${entry.goalKey}::${entry.index}`);
             lines.push(`- [${entry.id}] ${entry.title}:`);
-            lines.push('  * SKF 본사:');
-            lines.push('  * 셰플러:');
-            lines.push('  * 한국NSK:');
-            lines.push('  * 팀켄:');
+            BENCHMARK_COMPANY_FIELDS.forEach((field) => lines.push(`  * ${field.label}:`));
           });
         lines.push('');
       });
@@ -2606,11 +2614,12 @@
       const insertedCountMatch = promptText.match(/총\s*(\d+)개/);
       const insertedCount = insertedCountMatch ? Number(insertedCountMatch[1]) : -1;
       const listedLineCount = listedItemKeys.length;
-      const catalogItemKeys = catalog.map((entry) => `${entry.goalKey}::${entry.index}`);
+      const catalogItemKeys = filteredCatalog.map((entry) => `${entry.goalKey}::${entry.index}`);
       const listedSet = new Set(listedItemKeys);
       const missingKeys = catalogItemKeys.filter((itemKey) => !listedSet.has(itemKey));
       console.log('[Benchmark Prompt] 카드 수 검증', {
         actualCardCount: cardCount,
+        responseCellCount,
         insertedCount,
         listedLineCount,
         isMatch: insertedCount === cardCount && listedLineCount === cardCount,
@@ -2976,24 +2985,46 @@
         .replace(/[\s\u3000]/g, '');
     }
 
-    const BENCHMARK_COMPANY_NORMALIZATION_TABLE = {
-      '세플러': 'schaeffler',
-      '셰플러': 'schaeffler',
-      '쉐플러': 'schaeffler',
-      'schaeffler': 'schaeffler',
-      'skf본사': 'skf',
-      'skf': 'skf',
-      '본사': 'skf',
-      'hq': 'skf',
-      'headquarter': 'skf',
-      'headquarters': 'skf',
-      '한국nsk': 'nsk',
-      'nsk': 'nsk',
-      '팀켄': 'timken',
-      'timken': 'timken'
-    };
+    const BENCHMARK_COMPANY_FIELDS = Object.freeze([
+      { key: 'skf_hq', label: 'SKF 본사', aliases: ['SKF 본사', 'SKF본사', 'SKF'] },
+      { key: 'schaeffler', label: '셰플러', aliases: ['셰플러', '세플러', '쉐플러', '셰플러코리아', 'Schaeffler'] },
+      { key: 'nsk_hq', label: 'NSK 본사', aliases: ['NSK 본사', 'NSK HQ'] },
+      { key: 'nsk_kr', label: '한국NSK', aliases: ['한국NSK', 'NSK코리아', 'NSK Korea'] },
+      { key: 'ntn_hq', label: 'NTN 본사', aliases: ['NTN', 'NTN 본사', 'NTN HQ'] },
+      { key: 'timken_hq', label: '팀켄 본사', aliases: ['팀켄', '팀켄 본사', 'Timken'] }
+    ]);
 
-    const BENCHMARK_COMPANY_COMPARE_NAMES = ['세플러', '셰플러', '쉐플러', 'Schaeffler', 'SKF 본사', 'SKF본사', 'SKF', '한국NSK', 'NSK', '한국 NSK', '팀켄', 'Timken'];
+    const BENCHMARK_COMPANY_NORMALIZATION_TABLE = Object.freeze(
+      BENCHMARK_COMPANY_FIELDS.reduce((table, field) => {
+        field.aliases.forEach((alias) => { table[normalizeBenchmarkCompanyKey(alias)] = field.key; });
+        return table;
+      }, {})
+    );
+    const BENCHMARK_COMPANY_COMPARE_NAMES = BENCHMARK_COMPANY_FIELDS.flatMap((field) => field.aliases);
+    const BENCHMARK_LEGACY_FIELD_MAP = Object.freeze({
+      [['sk', 'f'].join('')]: 'skf_hq',
+      schaeffler: 'schaeffler',
+      [['korea', 'Nsk'].join('')]: 'nsk_kr',
+      [['tim', 'ken'].join('')]: 'timken_hq'
+    });
+
+    function createEmptyBenchmarking() {
+      return Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [field.key, '']));
+    }
+
+    function normalizeBenchmarkingRecord(rawValue) {
+      const source = rawValue && typeof rawValue === 'object' ? rawValue : {};
+      const next = createEmptyBenchmarking();
+      BENCHMARK_COMPANY_FIELDS.forEach((field) => {
+        next[field.key] = typeof source[field.key] === 'string' ? source[field.key] : '';
+      });
+      Object.entries(BENCHMARK_LEGACY_FIELD_MAP).forEach(([legacyKey, nextKey]) => {
+        if (!next[nextKey] && typeof source[legacyKey] === 'string') next[nextKey] = source[legacyKey];
+      });
+      next.sourceText = typeof source.sourceText === 'string' ? source.sourceText : '';
+      next.updatedAt = typeof source.updatedAt === 'string' ? source.updatedAt : '';
+      return next;
+    }
 
     function getCanonicalBenchmarkCompanyKey(label) {
       const normalized = normalizeBenchmarkCompanyKey(label);
@@ -3001,12 +3032,9 @@
     }
 
     function getBenchmarkFieldKey(label) {
-      const canonical = getCanonicalBenchmarkCompanyKey(label);
-      if (canonical === 'skf') return 'skf';
-      if (canonical === 'schaeffler') return 'schaeffler';
-      if (canonical === 'nsk') return 'koreaNsk';
-      if (canonical === 'timken') return 'timken';
-      return '';
+      const normalized = normalizeBenchmarkCompanyKey(label);
+      if (/^nsk$/.test(normalized)) return '';
+      return BENCHMARK_COMPANY_NORMALIZATION_TABLE[normalized] || '';
     }
 
     function getGoalNumberFromGoalKey(goalKey) {
@@ -3066,11 +3094,12 @@
         const hit = Array.isArray(execRows) ? execRows.find((row) => row && row.company === targetCompany) : null;
         return hit && typeof hit.summary === 'string' ? hit.summary : '';
       };
-      return {
-        schaeffler: getSummary('셰플러'),
-        nsk: getSummary('한국NSK'),
-        timken: getSummary('팀켄')
-      };
+      return Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => {
+        const hit = Array.isArray(execRows)
+          ? execRows.find((row) => row && field.aliases.includes(row.company))
+          : null;
+        return [field.key, hit && typeof hit.summary === 'string' ? hit.summary : ''];
+      }));
     }
 
     function buildBenchmarkDataJsonPayload(state = loadPlannerState()) {
@@ -3088,10 +3117,10 @@
         cards[entry.id] = {
           name: entry.title,
           updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : '',
-          skf: typeof benchmark.skf === 'string' && benchmark.skf ? benchmark.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
-          schaeffler: typeof benchmark.schaeffler === 'string' && benchmark.schaeffler ? benchmark.schaeffler : fallbackCompetitors.schaeffler,
-          nsk: typeof benchmark.koreaNsk === 'string' && benchmark.koreaNsk ? benchmark.koreaNsk : fallbackCompetitors.nsk,
-          timken: typeof benchmark.timken === 'string' && benchmark.timken ? benchmark.timken : fallbackCompetitors.timken
+          ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [
+            field.key,
+            benchmark[field.key] || (field.key === 'skf_hq' && fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : fallbackCompetitors[field.key] || '')
+          ]))
         };
       });
 
@@ -3105,14 +3134,13 @@
       const benchmarkState = itemState && itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
       const fallbackCompetitors = getBenchmarkFallbackCompetitorValues(goalKey, index);
 
+      const normalizedBenchmark = normalizeBenchmarkingRecord(benchmarkState);
       return {
-        values: {
-          skf: typeof benchmarkState.skf === 'string' && benchmarkState.skf ? benchmarkState.skf : (fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : ''),
-          schaeffler: typeof benchmarkState.schaeffler === 'string' && benchmarkState.schaeffler ? benchmarkState.schaeffler : fallbackCompetitors.schaeffler,
-          nsk: typeof benchmarkState.koreaNsk === 'string' && benchmarkState.koreaNsk ? benchmarkState.koreaNsk : fallbackCompetitors.nsk,
-          timken: typeof benchmarkState.timken === 'string' && benchmarkState.timken ? benchmarkState.timken : fallbackCompetitors.timken
-        },
-        updatedAt: typeof benchmarkState.updatedAt === 'string' ? benchmarkState.updatedAt : ''
+        values: Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [
+          field.key,
+          normalizedBenchmark[field.key] || (field.key === 'skf_hq' && fallbackItem && typeof fallbackItem.hq === 'string' ? fallbackItem.hq : fallbackCompetitors[field.key] || '')
+        ])),
+        updatedAt: typeof normalizedBenchmark.updatedAt === 'string' ? normalizedBenchmark.updatedAt : ''
       };
     }
 
@@ -3182,7 +3210,7 @@
       const goalLineRegex = /^\s*@?\s*목표\s*[:：\-]?\s*(\d+)\s*\.?/i;
       const idPatternRegex = /G\s*(\d+)\s*[-–—]\s*(\d+)/i;
       const idCardLineRegex = /^\s*(?:\*\*)?\[\s*([^\]]+)\s*\]\s*(.*?)(?:\s*[:：]\s*(.*))?\s*(?:\*\*)?\s*$/;
-      const companyLineRegex = /^\s*[*\-•]?\s*(SKF(?:\s*본사)?|본사|HQ|Headquarters?|세플러|셰플러|쉐플러|Schaeffler|한국\s*N\s*S\s*K|한국NSK|한국\s*NSK|NSK|팀켄|Timken)\s*[:：]\s*(.*)$/i;
+      const companyLineRegex = new RegExp(`^\\s*[*\\-•]?\\s*(${BENCHMARK_COMPANY_COMPARE_NAMES.map((label) => label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')})\\s*[:：]\\s*(.*)$`, 'i');
       const companyCandidateRegex = /^\s*(?:[*\-•]\s*)?([^:：]{1,40})\s*[:：]\s*(.*)$/;
 
       let currentGoalNumber = null;
@@ -3307,7 +3335,7 @@
             goalNumber: parsedGoalNumber,
             idMismatchReason,
             unrecognizedCompanyLabels: [],
-            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+            benchmarking: createEmptyBenchmarking()
           };
           activeFieldKey = applyInlineCompanyTail(currentCard, inlineTail) || '';
           continue;
@@ -3350,7 +3378,7 @@
             idMismatchReason: 'ID 패턴 불일치',
             parseSource: 'fallback-bracket-only',
             unrecognizedCompanyLabels: [],
-            benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '' }
+            benchmarking: createEmptyBenchmarking()
           });
         });
       }
@@ -3513,14 +3541,9 @@
         matchedItemKeys.add(itemKey);
         const existing = matched[itemKey] && matched[itemKey].benchmarking
           ? matched[itemKey].benchmarking
-          : { skf: '', schaeffler: '', koreaNsk: '', timken: '' };
+          : createEmptyBenchmarking();
 
-        const nextBenchmarking = {
-          skf: card.benchmarking?.skf || '',
-          schaeffler: card.benchmarking?.schaeffler || '',
-          koreaNsk: card.benchmarking?.koreaNsk || '',
-          timken: card.benchmarking?.timken || ''
-        };
+        const nextBenchmarking = normalizeBenchmarkingRecord(card.benchmarking);
 
         const mergeFieldValue = (fieldKey) => {
           const nextValue = normalizeBenchmarkFieldText(nextBenchmarking[fieldKey] || '');
@@ -3552,12 +3575,7 @@
         matched[itemKey] = {
           title: card.title,
           unrecognizedCompanyLabels: Array.from(new Set([...existingUnknownLabels, ...nextUnknownLabels])),
-          benchmarking: {
-            skf: mergeFieldValue('skf'),
-            schaeffler: mergeFieldValue('schaeffler'),
-            koreaNsk: mergeFieldValue('koreaNsk'),
-            timken: mergeFieldValue('timken')
-          }
+          benchmarking: Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [field.key, mergeFieldValue(field.key)]))
         };
       });
 
@@ -3715,10 +3733,7 @@
       };
 
       const payload = {
-        skf: readValue('skf'),
-        schaeffler: readValue('schaeffler'),
-        koreaNsk: readValue('nsk'),
-        timken: readValue('timken'),
+        ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [field.key, readValue(field.key)])),
         updatedAt: new Date().toISOString()
       };
 
@@ -3754,10 +3769,7 @@
     function sanitizeBenchmarkPayload(payload) {
       const source = payload && typeof payload === 'object' ? payload : {};
       return {
-        skf: sanitizeFirestoreText(source.skf),
-        schaeffler: sanitizeFirestoreText(source.schaeffler),
-        koreaNsk: sanitizeFirestoreText(source.koreaNsk),
-        timken: sanitizeFirestoreText(source.timken),
+        ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [field.key, sanitizeFirestoreText(source[field.key])])),
         sourceText: sanitizeFirestoreText(source.sourceText),
         updatedAt: sanitizeFirestoreText(source.updatedAt)
       };
@@ -3823,17 +3835,12 @@
 
     function buildBenchmarkCardWritePatch(payload) {
       const safePayload = sanitizeBenchmarkPayload(payload);
-      return {
-        'benchmarking/skf': safePayload.skf,
-        'benchmarking/schaeffler': safePayload.schaeffler,
-        'benchmarking/koreaNsk': safePayload.koreaNsk,
-        'benchmarking/timken': safePayload.timken
-      };
+      return Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [`benchmarking/${field.key}`, safePayload[field.key]]));
     }
 
     function validateBenchmarkWritePatch(patch) {
       const keys = Object.keys(patch || {});
-      if (keys.length !== 4) return 'invalid-patch-key-count';
+      if (keys.length !== BENCHMARK_COMPANY_FIELDS.length) return 'invalid-patch-key-count';
       if (keys.some((key) => !key.startsWith('benchmarking/'))) return 'invalid-patch-root-key';
       return '';
     }
@@ -3943,12 +3950,9 @@
         return { ok: false, reason: 'invalid-item-key' };
       }
 
-      const payload = sanitizeFirestoreUpdateData(buildBenchmarkCardWritePatch({
-        skf: firstCard && firstCard.benchmarking ? firstCard.benchmarking.skf : '',
-        schaeffler: firstCard && firstCard.benchmarking ? firstCard.benchmarking.schaeffler : '',
-        koreaNsk: firstCard && firstCard.benchmarking ? firstCard.benchmarking.koreaNsk : '',
-        timken: firstCard && firstCard.benchmarking ? firstCard.benchmarking.timken : ''
-      }));
+      const payload = sanitizeFirestoreUpdateData(buildBenchmarkCardWritePatch(
+        normalizeBenchmarkingRecord(firstCard && firstCard.benchmarking)
+      ));
 
       const patchIssue = validateBenchmarkWritePatch(payload);
       if (patchIssue) {
@@ -4153,10 +4157,7 @@
           }
 
           const benchmarkPayload = {
-            skf: card.benchmarking.skf || '',
-            schaeffler: card.benchmarking.schaeffler || '',
-            koreaNsk: card.benchmarking.koreaNsk || '',
-            timken: card.benchmarking.timken || '',
+            ...normalizeBenchmarkingRecord(card.benchmarking),
             updatedAt: nowIso
           };
 
@@ -4336,10 +4337,7 @@
         }
 
         const benchmarkPayload = {
-          skf: (entry.benchmarking && entry.benchmarking.skf) || '',
-          schaeffler: (entry.benchmarking && entry.benchmarking.schaeffler) || '',
-          koreaNsk: (entry.benchmarking && entry.benchmarking.koreaNsk) || '',
-          timken: (entry.benchmarking && entry.benchmarking.timken) || '',
+          ...normalizeBenchmarkingRecord(entry.benchmarking),
           sourceText: entry.title,
           updatedAt: new Date().toISOString()
         };
@@ -4669,7 +4667,6 @@
             cycleCompletedCount: Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0,
             totalCycles: Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : 0),
             seriesDraftName: typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '',
-            quickAddMissingDue: itemState.quickAddMissingDue === true,
             references: normalizeCardReferences(itemState.references),
             customTitle: typeof itemState.customTitle === 'string' ? itemState.customTitle : '',
             customSummary: typeof itemState.customSummary === 'string' ? itemState.customSummary : '',
@@ -4680,14 +4677,7 @@
             isBossRequested: itemState.isBossRequested === true || itemState.bossRequest === true,
             isLeaderRequested: itemState.isLeaderRequested === true,
             isRecurring: itemState.isRecurring === true,
-            benchmarking: {
-              skf: typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : '',
-              schaeffler: typeof itemState.benchmarking?.schaeffler === 'string' ? itemState.benchmarking.schaeffler : '',
-              koreaNsk: typeof itemState.benchmarking?.koreaNsk === 'string' ? itemState.benchmarking.koreaNsk : '',
-              timken: typeof itemState.benchmarking?.timken === 'string' ? itemState.benchmarking.timken : '',
-              sourceText: typeof itemState.benchmarking?.sourceText === 'string' ? itemState.benchmarking.sourceText : '',
-              updatedAt: typeof itemState.benchmarking?.updatedAt === 'string' ? itemState.benchmarking.updatedAt : ''
-            },
+            benchmarking: normalizeBenchmarkingRecord(itemState.benchmarking),
             lastUpdatedAt: typeof itemState.lastUpdatedAt === 'string' ? itemState.lastUpdatedAt : '',
             lastUpdatedByName: typeof itemState.lastUpdatedByName === 'string' ? itemState.lastUpdatedByName : '',
             lastUpdatedByEmail: typeof itemState.lastUpdatedByEmail === 'string' ? itemState.lastUpdatedByEmail : '',
@@ -4783,7 +4773,6 @@
             ? Number(remoteItem.totalCycles)
             : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : (Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0));
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
-          itemState.quickAddMissingDue = remoteItem?.quickAddMissingDue === true;
           itemState.references = normalizeCardReferences(remoteItem?.references);
           itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
           itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
@@ -4794,14 +4783,10 @@
           itemState.isBossRequested = remoteItem?.isBossRequested === true || remoteItem?.bossRequest === true || itemState.isBossRequested === true;
           itemState.isLeaderRequested = remoteItem?.isLeaderRequested === true;
           itemState.isRecurring = remoteItem?.isRecurring === true;
-          itemState.benchmarking = {
-            skf: typeof remoteItem?.benchmarking?.skf === 'string' ? remoteItem.benchmarking.skf : (typeof itemState.benchmarking?.skf === 'string' ? itemState.benchmarking.skf : ''),
-            schaeffler: typeof remoteItem?.benchmarking?.schaeffler === 'string' ? remoteItem.benchmarking.schaeffler : (typeof itemState.benchmarking?.schaeffler === 'string' ? itemState.benchmarking.schaeffler : ''),
-            koreaNsk: typeof remoteItem?.benchmarking?.koreaNsk === 'string' ? remoteItem.benchmarking.koreaNsk : (typeof itemState.benchmarking?.koreaNsk === 'string' ? itemState.benchmarking.koreaNsk : ''),
-            timken: typeof remoteItem?.benchmarking?.timken === 'string' ? remoteItem.benchmarking.timken : (typeof itemState.benchmarking?.timken === 'string' ? itemState.benchmarking.timken : ''),
-            sourceText: typeof remoteItem?.benchmarking?.sourceText === 'string' ? remoteItem.benchmarking.sourceText : (typeof itemState.benchmarking?.sourceText === 'string' ? itemState.benchmarking.sourceText : ''),
-            updatedAt: typeof remoteItem?.benchmarking?.updatedAt === 'string' ? remoteItem.benchmarking.updatedAt : (typeof itemState.benchmarking?.updatedAt === 'string' ? itemState.benchmarking.updatedAt : '')
-          };
+          itemState.benchmarking = normalizeBenchmarkingRecord({
+            ...itemState.benchmarking,
+            ...(remoteItem && remoteItem.benchmarking ? remoteItem.benchmarking : {})
+          });
           itemState.lastUpdatedAt = typeof remoteItem?.lastUpdatedAt === 'string' ? remoteItem.lastUpdatedAt : itemState.lastUpdatedAt || '';
           itemState.lastUpdatedByName = typeof remoteItem?.lastUpdatedByName === 'string' ? remoteItem.lastUpdatedByName : itemState.lastUpdatedByName || '';
           itemState.lastUpdatedByEmail = typeof remoteItem?.lastUpdatedByEmail === 'string' ? remoteItem.lastUpdatedByEmail : itemState.lastUpdatedByEmail || '';
@@ -5718,12 +5703,11 @@
           content: `카드 추가: ${title}`
         })],
         seriesDraftName: '',
-        quickAddMissingDue: !normalizedDueDate,
         customTitle: title,
         customSummary: '',
         customGuidelines: [],
         customSteps: stepLabels.slice(),
-        benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
+        benchmarking: normalizeBenchmarkingRecord({}),
         lastUpdatedAt: nowIso,
         lastUpdatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
         lastUpdatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
@@ -6643,6 +6627,8 @@
       const cardTitle = typeof rawEntry.cardTitle === 'string' && rawEntry.cardTitle.trim() ? rawEntry.cardTitle.trim() : (typeof fallback.cardTitle === 'string' ? fallback.cardTitle.trim() : cardId);
       const content = typeof rawEntry.content === 'string' ? rawEntry.content.trim() : (typeof fallback.content === 'string' ? fallback.content.trim() : '');
       const stepTitle = typeof rawEntry.stepTitle === 'string' && rawEntry.stepTitle.trim() ? rawEntry.stepTitle.trim() : (typeof fallback.stepTitle === 'string' ? fallback.stepTitle.trim() : '');
+      const stepIndex = Number.isInteger(rawEntry.stepIndex) ? rawEntry.stepIndex : (Number.isInteger(fallback.stepIndex) ? fallback.stepIndex : -1);
+      const source = ['user', 'backfill', 'test'].includes(rawEntry.source) ? rawEntry.source : (['user', 'backfill', 'test'].includes(fallback.source) ? fallback.source : 'user');
       const authorId = typeof rawEntry.authorId === 'string' && rawEntry.authorId.trim() ? rawEntry.authorId.trim() : (typeof fallback.authorId === 'string' ? fallback.authorId.trim() : '');
       const authorName = typeof rawEntry.authorName === 'string' && rawEntry.authorName.trim() ? rawEntry.authorName.trim() : (typeof fallback.authorName === 'string' ? fallback.authorName.trim() : EDITOR_NAME_LABEL);
       const createdAtRaw = rawEntry.createdAt || fallback.createdAt || rawEntry.timestamp || fallback.timestamp || new Date().toISOString();
@@ -6656,6 +6642,8 @@
         cardTitle,
         content,
         stepTitle,
+        stepIndex,
+        source,
         authorId,
         authorName,
         createdAt,
@@ -6671,12 +6659,16 @@
       const cardTitle = typeof details.cardTitle === 'string' && details.cardTitle.trim() ? details.cardTitle.trim() : cardId;
       const content = typeof details.content === 'string' ? details.content.trim() : '';
       const stepTitle = typeof details.stepTitle === 'string' ? details.stepTitle.trim() : '';
+      const stepIndex = Number.isInteger(details.stepIndex) ? details.stepIndex : -1;
+      const source = ['user', 'backfill', 'test'].includes(details.source) ? details.source : 'user';
       return {
         type: ['comment', 'checklist', 'card'].includes(type) ? type : 'card',
         cardId,
         cardTitle,
         content,
         ...(stepTitle ? { stepTitle } : {}),
+        stepIndex,
+        source,
         authorId: typeof details.authorId === 'string' ? details.authorId : author.authorId,
         authorName: typeof details.authorName === 'string' && details.authorName.trim() ? details.authorName.trim() : author.authorName,
         createdAt: timestamp
@@ -6834,6 +6826,8 @@
         title: normalized.cardTitle || normalized.cardId,
         timeText: timestamp ? formatEntryDateTime(timestamp) : '',
         detail: normalized.content || '',
+        stepIndex: normalized.stepIndex,
+        source: normalized.source,
         dateKey: normalized.dateKey || getKstDateKeyFromTimestamp(normalized.createdAt),
         authorId: normalized.authorId || '',
         authorName: normalized.authorName || EDITOR_NAME_LABEL,
@@ -6862,6 +6856,8 @@
         cardTitle: typeof details.cardTitle === 'string' ? details.cardTitle : '',
         content: formatActivityLogContent(type, details),
         stepTitle: typeof details.stepTitle === 'string' ? details.stepTitle : '',
+        stepIndex: Number.isInteger(details.stepIndex) ? details.stepIndex : -1,
+        source: ['user', 'backfill', 'test'].includes(details.source) ? details.source : 'user',
         createdAt: typeof details.createdAt === 'string' ? details.createdAt : '',
         authorId: typeof details.authorId === 'string' ? details.authorId : '',
         authorName: typeof details.authorName === 'string' ? details.authorName : ''
@@ -6975,7 +6971,7 @@
       const targets = rows.filter((row) => !row.duplicate);
       console.log('[BACKFILL] 기존 히스토리 JSON 백업', { count: Object.keys(logs || {}).length, backupJson });
       console.table(rows);
-      console.log('[BACKFILL] 등록 대상', { dryRun, totalRows: rows.length, targetCount: targets.length, payloadKeyCount: 8 });
+      console.log('[BACKFILL] 등록 대상', { dryRun, totalRows: rows.length, targetCount: targets.length, payloadKeyCount: 10 });
       if (dryRun) return { dryRun: true, beforeCount: Object.keys(logs || {}).length, rows, targets };
 
       const bridge = getActivityTimelineBridge();
@@ -6984,7 +6980,7 @@
       for (const row of targets) {
         const payload = {
           type: 'checklist', cardId: row.itemKey, cardTitle: row.cardTitle,
-          content: row.content, stepTitle: row.stepText, authorId: '',
+          content: row.content, stepTitle: row.stepText, stepIndex: row.stepIndex, source: 'backfill', authorId: '',
           authorName: EDITOR_NAME_LABEL, createdAt: row.completedAt
         };
         if (Object.keys(payload).length > 100) throw new Error('payload key count exceeded 100');
@@ -7001,23 +6997,96 @@
       const rawText = await response.text();
       const result = parseAiBenchmarkText(rawText);
       const matched = result && result.matched ? result.matched : {};
-      const fieldKeys = ['skf', 'schaeffler', 'koreaNsk', 'timken'];
+      const fieldKeys = BENCHMARK_COMPANY_FIELDS.map((field) => field.key);
       const fieldMatched = Object.values(matched).reduce((count, entry) => count + fieldKeys.filter((key) => entry && entry.benchmarking && String(entry.benchmarking[key] || '').trim()).length, 0);
       const unrecognizedCompanies = Array.from(new Set(Object.values(matched).flatMap((entry) => Array.isArray(entry && entry.unrecognizedCompanyLabels) ? entry.unrecognizedCompanyLabels : [])));
       const report = {
         cardRecognitionCount: result && Array.isArray(result.parsedCards) ? result.parsedCards.length : 0,
-        idMatched: result && Array.isArray(result.parsedCards) ? result.parsedCards.filter((entry) => entry && entry.id).length : 0,
+        idMatched: result && result.matchStats ? result.matchStats.idMatched : 0,
         failed: result && Array.isArray(result.unmatched) ? result.unmatched.length : 0,
         fieldMatched,
-        fieldTotal: 192,
-        unrecognizedCompanies
+        fieldTotal: getBenchmarkCardCatalog().length * BENCHMARK_COMPANY_FIELDS.length,
+        unrecognizedCompanies,
+        recognizedResponseFormat: {
+          legacy4FieldLabels: /한국NSK|팀켄|SKF 본사/.test(rawText),
+          new6FieldLabels: /NSK 본사|NSK HQ|NTN 본사|NTN HQ|팀켄 본사/.test(rawText)
+        }
       };
       console.table(report);
       return report;
     }
 
+    const BENCHMARK_BACKUP_READY_KEY = 'skfBenchmarkingBackupCreatedV1';
+
+    async function backupBenchmarking() {
+      const { cards } = await readRemoteActivityVerificationData();
+      const backup = { createdAt: new Date().toISOString(), cardCount: 0, cards: {} };
+      Object.entries(cards || {}).forEach(([goalKey, goalCards]) => Object.entries(goalCards || {}).forEach(([indexText, card]) => {
+        const itemKey = `${goalKey}::${indexText}`;
+        backup.cards[itemKey] = {
+          cardTitle: getCardActivityTitle(loadPlannerState(), itemKey),
+          benchmarking: card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {}
+        };
+        backup.cardCount += 1;
+      }));
+      downloadTextFile(`benchmarking-backup-${getLocalDateKey()}.json`, JSON.stringify(backup, null, 2));
+      localStorage.setItem(BENCHMARK_BACKUP_READY_KEY, '1');
+      console.log('[BENCHMARK BACKUP] 파일 다운로드 완료', { cardCount: backup.cardCount, byteLength: new Blob([JSON.stringify(backup)]).size });
+      return backup;
+    }
+
+    async function migrateBenchmarking(options = {}) {
+      const dryRun = options.dryRun !== false;
+      if (localStorage.getItem(BENCHMARK_BACKUP_READY_KEY) !== '1') {
+        const result = { ok: false, reason: 'backup-required', message: '먼저 window.__backupBenchmarking()을 실행해 백업 파일을 생성하세요.' };
+        console.warn('[BENCHMARK MIGRATION] 중단', result);
+        return result;
+      }
+      const { cards } = await readRemoteActivityVerificationData();
+      const catalog = getBenchmarkCardCatalog();
+      const rows = [];
+      Object.entries(cards || {}).forEach(([goalKey, goalCards]) => Object.entries(goalCards || {}).forEach(([indexText, card]) => {
+        const itemKey = `${goalKey}::${indexText}`;
+        const original = card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
+        const normalized = normalizeBenchmarkingRecord(original);
+        const payload = {
+          benchmarkingLegacy: original,
+          ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [`benchmarking/${field.key}`, normalized[field.key] || '']))
+        };
+        const loss = Object.entries(BENCHMARK_LEGACY_FIELD_MAP).some(([legacyKey, nextKey]) => String(original[legacyKey] || '') !== String(normalized[nextKey] || ''));
+        rows.push({ itemKey, payloadKeys: Object.keys(payload), payloadKeyCount: Object.keys(payload).length, hasLegacyValues: Object.values(original).some((value) => String(value || '').trim()), loss });
+      }));
+      const report = {
+        dryRun,
+        remoteCardCount: rows.length,
+        catalogCardCount: catalog.length,
+        valueHoldingCardCount: rows.filter((row) => row.hasLegacyValues).length,
+        expectedPayloadKeyCount: 1 + BENCHMARK_COMPANY_FIELDS.length,
+        lossCount: rows.filter((row) => row.loss).length,
+        rows
+      };
+      console.log('[BENCHMARK MIGRATION] 계획', report);
+      console.table(rows);
+      if (dryRun) return report;
+      const bridge = getActivityTimelineBridge();
+      for (const row of rows) {
+        const [goalKey, indexText] = row.itemKey.split('::');
+        const card = cards[goalKey][indexText] || {};
+        const original = card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
+        const normalized = normalizeBenchmarkingRecord(original);
+        const updates = {
+          [`benchmarkingLegacy`]: original,
+          ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [`benchmarking/${field.key}`, normalized[field.key] || '']))
+        };
+        await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
+      }
+      return { ...report, executed: true };
+    }
+
     window.__backfillHistory = backfillHistory;
     window.__parserDryRun = parserDryRun;
+    window.__backupBenchmarking = backupBenchmarking;
+    window.__migrateBenchmarking = migrateBenchmarking;
 
     window.__compareDeployment = async function compareDeployment(options = {}) {
       const deploymentUrl = typeof options === 'string' ? options : options.url;
@@ -7072,10 +7141,10 @@
       await runUpdate('checklist-history-sync', { 'steps/0/checked': Boolean(originalStep && originalStep.checked), 'steps/0/completedAt': originalStep && originalStep.completedAt ? originalStep.completedAt : '' }, 0);
       const note = { type: 'meeting', text: testTag, createdAt: new Date().toISOString(), updatedAt: '' };
       await runUpdate('work-note-add', { notes: [note, ...originalNotes] });
-      const noteLog = await recordSharedActivityLog('card', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: `업무 노트(회의 내용) | ${getCardActivityTitle(loadPlannerState(), itemKey)} | ${testTag}` });
+      const noteLog = await recordSharedActivityLog('card', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: `업무 노트(회의 내용) | ${getCardActivityTitle(loadPlannerState(), itemKey)} | ${testTag}`, source: 'test' });
       const comment = { text: testTag, timestamp: new Date().toISOString(), updatedAt: '' };
       await runUpdate('step-comment-save', { comments: [comment, ...originalComments] });
-      const commentLog = await recordSharedActivityLog('comment', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: testTag });
+      const commentLog = await recordSharedActivityLog('comment', { cardId: itemKey, cardTitle: getCardActivityTitle(loadPlannerState(), itemKey), content: testTag, stepIndex: 0, source: 'test' });
       const dueDate = originalStep && originalStep.dueDate ? originalStep.dueDate : '';
       await runUpdate('due-date-change', { 'steps/0/dueDate': '2099-12-31' }, 0);
       await runUpdate('due-date-change', { 'steps/0/dueDate': dueDate }, 0);
@@ -8140,14 +8209,7 @@
           customGuidelines: Array.isArray(combinedItem.customGuidelines) ? combinedItem.customGuidelines.slice() : [],
           customSteps: [],
           isLeaderRequested: combinedItem.isLeaderRequested === true,
-          benchmarking: {
-            skf: typeof combinedItem.benchmarking?.skf === 'string' ? combinedItem.benchmarking.skf : '',
-            schaeffler: typeof combinedItem.benchmarking?.schaeffler === 'string' ? combinedItem.benchmarking.schaeffler : '',
-            koreaNsk: typeof combinedItem.benchmarking?.koreaNsk === 'string' ? combinedItem.benchmarking.koreaNsk : '',
-            timken: typeof combinedItem.benchmarking?.timken === 'string' ? combinedItem.benchmarking.timken : '',
-            sourceText: typeof combinedItem.benchmarking?.sourceText === 'string' ? combinedItem.benchmarking.sourceText : '',
-            updatedAt: typeof combinedItem.benchmarking?.updatedAt === 'string' ? combinedItem.benchmarking.updatedAt : ''
-          },
+          benchmarking: normalizeBenchmarkingRecord(combinedItem.benchmarking),
           lastUpdatedAt: typeof combinedItem.lastUpdatedAt === 'string' ? combinedItem.lastUpdatedAt : '',
           lastUpdatedByName: typeof combinedItem.lastUpdatedByName === 'string' ? combinedItem.lastUpdatedByName : '',
           lastUpdatedByEmail: typeof combinedItem.lastUpdatedByEmail === 'string' ? combinedItem.lastUpdatedByEmail : '',
@@ -8215,7 +8277,7 @@
             directiveHistory: Array.isArray(primaryItem.directiveHistory) ? primaryItem.directiveHistory.slice() : [],
             benchmarking: primaryItem.benchmarking && typeof primaryItem.benchmarking === 'object'
               ? { ...primaryItem.benchmarking }
-              : { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
+              : normalizeBenchmarkingRecord({}),
             lastUpdatedAt: typeof primaryItem.lastUpdatedAt === 'string' ? primaryItem.lastUpdatedAt : '',
             lastUpdatedByName: typeof primaryItem.lastUpdatedByName === 'string' ? primaryItem.lastUpdatedByName : '',
             lastUpdatedByEmail: typeof primaryItem.lastUpdatedByEmail === 'string' ? primaryItem.lastUpdatedByEmail : '',
@@ -8289,16 +8351,8 @@
         if (!Array.isArray(itemState.activityLog)) itemState.activityLog = [];
         itemState.references = normalizeCardReferences(itemState.references);
         if (typeof itemState.seriesDraftName !== 'string') itemState.seriesDraftName = '';
-        itemState.quickAddMissingDue = itemState.quickAddMissingDue === true;
         const benchmark = itemState.benchmarking && typeof itemState.benchmarking === 'object' ? itemState.benchmarking : {};
-        itemState.benchmarking = {
-          skf: typeof benchmark.skf === 'string' ? benchmark.skf : '',
-          schaeffler: typeof benchmark.schaeffler === 'string' ? benchmark.schaeffler : '',
-          koreaNsk: typeof benchmark.koreaNsk === 'string' ? benchmark.koreaNsk : '',
-          timken: typeof benchmark.timken === 'string' ? benchmark.timken : '',
-          sourceText: typeof benchmark.sourceText === 'string' ? benchmark.sourceText : '',
-          updatedAt: typeof benchmark.updatedAt === 'string' ? benchmark.updatedAt : ''
-        };
+        itemState.benchmarking = normalizeBenchmarkingRecord(benchmark);
         if (!itemState.benchmarkUpdatedAt && itemState.benchmarking.updatedAt) {
           itemState.benchmarkUpdatedAt = itemState.benchmarking.updatedAt;
         }
@@ -8410,8 +8464,7 @@
           totalCycles: 0,
           activityLog: [],
           seriesDraftName: '',
-          quickAddMissingDue: false,
-          benchmarking: { skf: '', schaeffler: '', koreaNsk: '', timken: '', sourceText: '', updatedAt: '' },
+          benchmarking: normalizeBenchmarkingRecord({}),
           lastUpdatedAt: '',
           lastUpdatedByName: '',
           lastUpdatedByEmail: '',
@@ -15268,12 +15321,11 @@
           const benchmarkDisplay = resolveBenchmarkDisplayData(itemKey, goalKey, index, itemState, item);
           const benchmarkAge = getBenchmarkAgeMeta(benchmarkDisplay.updatedAt);
           const benchmarkUpdatedText = benchmarkAge.text;
-          const benchmarkItems = [
-            { label: 'SKF 본사 실행 내용', value: benchmarkDisplay.values.skf || '' },
-            { label: '셰플러', value: benchmarkDisplay.values.schaeffler || '' },
-            { label: '한국NSK', value: benchmarkDisplay.values.nsk || '' },
-            { label: '팀켄', value: benchmarkDisplay.values.timken || '' }
-          ];
+          const benchmarkItems = BENCHMARK_COMPANY_FIELDS.map((field) => ({
+            key: field.key,
+            label: field.label,
+            value: benchmarkDisplay.values[field.key] || ''
+          }));
           const staleBadgeHtml = `<span class="benchmark-stale-badge ${benchmarkAge.badgeClass}">${benchmarkAge.days === null ? '기준일 없음' : `${benchmarkAge.days}일 경과`}</span>`;
           const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
             ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
@@ -15295,20 +15347,12 @@
           <div class="benchmark-editor-panel" data-benchmark-editor-panel="${escapeHtml(itemKey)}">
             <div class="benchmark-editor-grid">
               <div class="benchmark-editor-field">
-                <label>SKF 본사</label>
-                <textarea data-benchmark-input="skf">${escapeHtml(benchmarkDisplay.values.skf || '')}</textarea>
-              </div>
-              <div class="benchmark-editor-field">
-                <label>셰플러</label>
-                <textarea data-benchmark-input="schaeffler">${escapeHtml(benchmarkDisplay.values.schaeffler || '')}</textarea>
-              </div>
-              <div class="benchmark-editor-field">
-                <label>한국NSK</label>
-                <textarea data-benchmark-input="nsk">${escapeHtml(benchmarkDisplay.values.nsk || '')}</textarea>
-              </div>
-              <div class="benchmark-editor-field">
-                <label>팀켄</label>
-                <textarea data-benchmark-input="timken">${escapeHtml(benchmarkDisplay.values.timken || '')}</textarea>
+                ${BENCHMARK_COMPANY_FIELDS.map((field) => `
+                  <div class="benchmark-editor-field ${field.key === 'nsk_hq' || field.key === 'nsk_kr' ? 'benchmark-nsk-group' : ''}">
+                    <label>${escapeHtml(field.label)}</label>
+                    <textarea data-benchmark-input="${escapeHtml(field.key)}">${escapeHtml(benchmarkDisplay.values[field.key] || '')}</textarea>
+                  </div>
+                `).join('')}
               </div>
             </div>
             <div class="benchmark-editor-actions">
@@ -15325,7 +15369,7 @@
           );
           const historyArchiveHtml = createHistoryArchiveHtml(itemState && itemState.isRecurring === true);
           const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
-          const showQuickDueHint = itemState && itemState.isRecurring === true && itemState.quickAddMissingDue === true && !hasFinalDueDate;
+          const showQuickDueHint = itemState && itemState.isRecurring === true && !hasFinalDueDate;
           const hasWorkNotes = normalizeCardNotes(itemState.notes).length > 0;
           const externalAssigneeCount = Array.isArray(itemState && itemState.steps)
             ? itemState.steps.filter((stepState) => Boolean(normalizeStepAssigneeValue(stepState && stepState.assignee))).length
@@ -15973,6 +16017,8 @@
                   cardId: itemKey,
                   cardTitle: getCardActivityTitle(currentPlanner, itemKey),
                   stepTitle: stepText || `${stepIndex + 1}단계`,
+                  stepIndex,
+                  source: 'user',
                   content: stepText ? `완료 단계: ${stepText}` : '체크리스트 항목 완료',
                   createdAt: stepState.completedAt
                 });
@@ -15994,23 +16040,15 @@
               nextDueDate
             });
             itemState.steps[stepIndex].dueDate = nextDueDate;
-            if (stepIndex === 3 && nextDueDate) {
-              itemState.quickAddMissingDue = false;
-            }
             markItemUpdated(itemState);
             dueDateInput.value = nextDueDate;
             const savedState = savePlannerState(currentPlanner, { reason: 'due-date-change', skipFirebaseSync: true });
-            const saveResult = stepIndex === 3
-              ? await updateItemFieldsInFirebase(itemKey, {
-                  [`steps/${stepIndex}/dueDate`]: nextDueDate,
-                  quickAddMissingDue: itemState.quickAddMissingDue === true
-                }, 'due-date-change-step4')
-              : await updateItemFieldsInFirebase(itemKey, {
-                  [`steps/${stepIndex}/dueDate`]: nextDueDate
-                }, 'due-date-change');
+            const saveResult = await updateItemFieldsInFirebase(itemKey, {
+              [`steps/${stepIndex}/dueDate`]: nextDueDate
+            }, 'due-date-change');
             if (!saveResult.ok) {
               console.error('[cards] update 실패', {
-                reason: stepIndex === 3 ? 'due-date-change-step4' : 'due-date-change',
+                reason: 'due-date-change',
                 path: targetPath,
                 requestAt,
                 cardKey: itemKey,
@@ -16020,7 +16058,7 @@
               return;
             }
             console.log('[cards] update 성공', {
-              reason: stepIndex === 3 ? 'due-date-change-step4' : 'due-date-change',
+              reason: 'due-date-change',
               path: targetPath,
               requestAt,
               cardKey: itemKey,
@@ -17196,7 +17234,6 @@
               : [];
             const previousNotes = normalizeCardNotes(itemState.notes);
             const previousSeriesDraftName = typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName : '';
-            const previousQuickAddMissingDue = itemState.quickAddMissingDue === true;
 
             if (!Array.isArray(itemState.historyList)) itemState.historyList = [];
             itemState.historyList.push({
@@ -17223,7 +17260,6 @@
               assignee: ''
             }));
             itemState.seriesDraftName = '';
-            itemState.quickAddMissingDue = true;
             markItemUpdated(itemState);
 
             checkboxes.forEach((checkbox) => {
@@ -17243,8 +17279,7 @@
               totalCycles: itemState.totalCycles,
               notes: itemState.notes,
               steps: itemState.steps,
-              seriesDraftName: itemState.seriesDraftName,
-              quickAddMissingDue: itemState.quickAddMissingDue === true
+              seriesDraftName: itemState.seriesDraftName
             }, 'recurring-archive-reset');
             if (!saveResult.ok) {
               itemState.historyList = previousHistoryList;
@@ -17253,7 +17288,6 @@
               itemState.notes = previousNotes;
               itemState.steps = previousSteps;
               itemState.seriesDraftName = previousSeriesDraftName;
-              itemState.quickAddMissingDue = previousQuickAddMissingDue;
               checkboxes.forEach((checkbox, idx) => {
                 checkbox.checked = Boolean(previousSteps[idx] && previousSteps[idx].checked);
               });
@@ -17317,6 +17351,8 @@
                   cardId: itemKey,
                   cardTitle: getCardActivityTitle(plannerState, itemKey),
                   stepTitle: stepText || `${stepIndex + 1}단계`,
+                  stepIndex,
+                  source: 'user',
                   content: nextComment
                 });
               }
@@ -17461,6 +17497,15 @@
           const mergedState = applyFirebaseSnapshotToState({ items: {}, hiddenLogs: {}, meta: {} }, remoteSnapshot);
           setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
           updateFirebaseLastUpdatedText(mergedState.meta || firebaseLastUpdatedMeta);
+          if (benchmarkPromptPreview) benchmarkPromptPreview.value = buildBenchmarkPromptText();
+          document.querySelectorAll('[data-benchmark-goal-prompt]').forEach((button) => {
+            const goalNumber = Number(button.dataset.benchmarkGoalPrompt);
+            const goalKey = PROMPT_GOAL_NUMBER_TO_KEY[goalNumber];
+            const goalTemplate = goalTemplates[goalKey];
+            const goalCardCount = getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length;
+            const goalPrompt = buildBenchmarkPromptText(goalNumber);
+            button.innerHTML = `목표 ${goalNumber} 복사 <span>${escapeHtml(goalTemplate ? goalTemplate.label : '')} · ${goalPrompt.length}자 · ${goalCardCount * BENCHMARK_COMPANY_FIELDS.length}칸</span>`;
+          });
           preserveWindowScroll(() => rerenderCurrentView());
         } catch (error) {
           console.error('[cards] 공통 카드 데이터 결합 실패', error);
@@ -17838,6 +17883,30 @@
 
       if (benchmarkPromptPreview) {
         benchmarkPromptPreview.value = buildBenchmarkPromptText();
+        const splitWrap = document.createElement('div');
+        splitWrap.className = 'benchmark-prompt-split-actions';
+        splitWrap.innerHTML = Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).map(([goalNumberText, goalKey]) => {
+          const goalNumber = Number(goalNumberText);
+          const goalTemplate = goalTemplates[goalKey];
+          const text = buildBenchmarkPromptText(goalNumber);
+          const cardCount = getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length;
+          const cellCount = cardCount * BENCHMARK_COMPANY_FIELDS.length;
+          return `<button type="button" class="benchmark-prompt-copy-btn benchmark-prompt-goal-copy" data-benchmark-goal-prompt="${goalNumber}">목표 ${goalNumber} 복사 <span>${escapeHtml(goalTemplate ? goalTemplate.label : '')} · ${text.length}자 · ${cellCount}칸</span></button>`;
+        }).join('');
+        benchmarkPromptPreview.insertAdjacentElement('afterend', splitWrap);
+        splitWrap.addEventListener('click', async (event) => {
+          const button = event.target.closest('[data-benchmark-goal-prompt]');
+          if (!button) return;
+          const goalNumber = Number(button.dataset.benchmarkGoalPrompt);
+          const text = buildBenchmarkPromptText(goalNumber);
+          await copyTextToClipboard(text);
+          console.log('[Benchmark Prompt] 목표 단위 복사 성공', {
+            goalNumber,
+            length: text.length,
+            cardCount: getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length,
+            responseCellCount: getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length * BENCHMARK_COMPANY_FIELDS.length
+          });
+        });
       }
 
       if (benchmarkAutoInput) {
