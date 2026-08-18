@@ -277,6 +277,11 @@
     .team-overview-row-clickable:hover td { background: #f2f8ff; }
     .team-overview-row-urgent td { background: #fff5f5; }
     .team-overview-row-important td { background: #fffdf0; }
+    .team-overview-row-completed td { color: #8a98a6; background: #f4f6f8; }
+    .team-overview-row-completed .team-overview-card-link,
+    .team-overview-row-completed .team-overview-progress-cell { color: #8a98a6; text-decoration: line-through; opacity: 0.72; }
+    .team-overview-completed-toggle { display: inline-flex; align-items: center; gap: 5px; height: 34px; color: #36536f; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .team-overview-completed-toggle input { margin: 0; accent-color: #0f5f9d; }
     .team-overview-card-link { appearance: none; border: 0; background: transparent; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
     .team-overview-card-link:hover { color: #0f5f9d; text-decoration: underline; }
     .team-overview-ref-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 12px; line-height: 1; opacity: 0.9; }
@@ -1396,6 +1401,7 @@
               <option value="recent15">⚡ 최근 15일 업데이트 건만 보기 (기본)</option>
               <option value="all">📋 전체 업무 보기</option>
             </select>
+            <label class="team-overview-completed-toggle"><input type="checkbox" id="teamOverviewIncludeCompleted" /> 완료 포함</label>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewExportBtn">📥 엑셀 내려받기</button>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewToggleBtn">표 접기</button>
           </div>
@@ -1915,6 +1921,7 @@
     const teamOverviewTableBody = document.getElementById('teamOverviewTableBody');
     const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
     const teamOverviewExportBtn = document.getElementById('teamOverviewExportBtn');
+    const teamOverviewIncludeCompleted = document.getElementById('teamOverviewIncludeCompleted');
     const copyBenchmarkPromptBtn = document.getElementById('copyBenchmarkPromptBtn');
     const benchmarkPromptStatus = document.getElementById('benchmarkPromptStatus');
     const benchmarkPromptPreview = document.getElementById('benchmarkPromptPreview');
@@ -2206,6 +2213,7 @@
     let noteDebounceTimers = new Map();
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
+    let teamOverviewShowCompleted = false;
     const BENCHMARK_DEBUG_LOGS = false;
     const BENCHMARK_APPLY_DEBUG = {
       disableCommitTimeout: false
@@ -7819,7 +7827,8 @@
             leaderPinned: isLeaderPinned,
             hasReferences,
             hasNotes,
-            isRecurring
+            isRecurring,
+            isCompleted: progressPercent >= 100
           });
         });
 
@@ -7831,7 +7840,9 @@
       const baseState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
         ? dashboardUnifiedOverviewState
         : (state || loadPlannerState());
-      const rows = buildTeamOverviewRows(baseState);
+      const allRows = buildTeamOverviewRows(baseState);
+      const rows = teamOverviewShowCompleted ? allRows : allRows.filter((row) => !row.isCompleted);
+      console.log('[현황표] 완료 필터', { includeCompleted: teamOverviewShowCompleted, beforeCount: allRows.length, afterCount: rows.length });
       const overviewGoalCounts = rows.reduce((counts, row) => {
         counts[row.goalKey] = (counts[row.goalKey] || 0) + 1;
         return counts;
@@ -7888,6 +7899,7 @@
         : windowFilteredRows.filter((row) => Array.isArray(row.assigneeFilterNames) && row.assigneeFilterNames.includes(selectedAssignee));
 
       const filteredRows = scopedRows.sort((left, right) => {
+        if (left.isCompleted !== right.isCompleted) return left.isCompleted ? 1 : -1;
         if (left.priorityRank !== right.priorityRank) return left.priorityRank - right.priorityRank;
         const leftBucket = left.priorityRank < 2
           ? left.priorityRank
@@ -7925,7 +7937,7 @@
         assignee: selectedAssignee || 'all'
       };
       teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
-        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} ${row.priority === PRIORITY_URGENT ? 'team-overview-row-urgent' : ''} ${row.priority === PRIORITY_IMPORTANT ? 'team-overview-row-important' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
+        <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} ${row.priority === PRIORITY_URGENT ? 'team-overview-row-urgent' : ''} ${row.priority === PRIORITY_IMPORTANT ? 'team-overview-row-important' : ''} ${row.isCompleted ? 'team-overview-row-completed' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
           <td>
             <div class="team-overview-due-wrap">
               <div class="team-overview-due-date">${escapeHtml(row.dueDateText)}</div>
@@ -10658,7 +10670,12 @@
     function getFirebaseCardEntriesForGoal(goalKey) {
       if (!dashboardRemoteCardsSnapshot || typeof dashboardRemoteCardsSnapshot !== 'object') return [];
       const goalTemplate = goalTemplates[goalKey] || {};
-      return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).map(([indexText, remoteCard]) => {
+      return Object.entries(dashboardRemoteCardsSnapshot[goalKey] || {}).filter(([, remoteCard]) => {
+        return Boolean(remoteCard && (
+          (typeof remoteCard.title === 'string' && remoteCard.title.trim())
+          || (typeof remoteCard.customTitle === 'string' && remoteCard.customTitle.trim())
+        ));
+      }).map(([indexText, remoteCard]) => {
         const index = Number(indexText);
         const templateItem = Array.isArray(goalTemplate.items) ? goalTemplate.items[index] : null;
         const item = templateItem && typeof templateItem === 'object'
@@ -18076,6 +18093,14 @@
 
       if (teamAssigneeFilter) {
         teamAssigneeFilter.addEventListener('change', () => {
+          renderTeamOverviewTable(loadPlannerState());
+        });
+      }
+
+      if (teamOverviewIncludeCompleted) {
+        teamOverviewIncludeCompleted.checked = false;
+        teamOverviewIncludeCompleted.addEventListener('change', () => {
+          teamOverviewShowCompleted = teamOverviewIncludeCompleted.checked === true;
           renderTeamOverviewTable(loadPlannerState());
         });
       }
