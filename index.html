@@ -5949,6 +5949,8 @@
         return { ok: false, reason: 'firebase-update-failed', errorCode };
     }
 
+      window.__softDeleteCard = (goalKey, index) => deleteCardByItemKey(`${goalKey}::${index}`);
+
     async function listDeletedCards() {
       const bridge = getFirebaseBridge();
       const snapshot = dashboardRemoteCardsSnapshot && typeof dashboardRemoteCardsSnapshot === 'object'
@@ -5956,7 +5958,11 @@
         : (bridge && typeof bridge.getCardsRef === 'function' ? await readFirebaseValueOnce(bridge.getCardsRef()) : {});
       const deleted = Object.entries(snapshot || {}).flatMap(([goalKey, goalCards]) => Object.entries(goalCards || {})
         .filter(([, card]) => card && card.deleted === true)
-        .map(([index, card]) => ({ goalKey, index: Number(index), title: card.title || card.customTitle || '' })));
+        .map(([index, card]) => ({
+          goalKey,
+          index: Number(index),
+          title: card.title || card.customTitle || goalTemplates[goalKey]?.items?.[Number(index)]?.title || ''
+        })));
       console.table(deleted);
       return deleted;
     }
@@ -5990,7 +5996,9 @@
       const result = {
         goalKey,
         index: Number(index),
-        title: card && (card.title || card.customTitle) ? (card.title || card.customTitle) : '',
+        title: card && (card.title || card.customTitle)
+          ? (card.title || card.customTitle)
+          : (goalTemplates[goalKey]?.items?.[Number(index)]?.title || ''),
         path: `cards/${goalKey}/${indexText}/deleted`,
         payload: { deleted: true },
         payloadKeyCount: 1,
