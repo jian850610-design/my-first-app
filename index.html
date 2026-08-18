@@ -1785,7 +1785,7 @@
 
   <script src="./naver-target-keywords.js"></script>
   <script>
-    const APP_VERSION = '2026-08-18T06:55:00Z';
+    const APP_VERSION = new Date(document.lastModified || Date.now()).toISOString();
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -1960,6 +1960,7 @@
     let cardEditModalMouseDownOutside = false;
     let dashboardSearchTerm = '';
     let dashboardUnifiedOverviewState = null;
+    let dashboardRemoteCardsSnapshot = null;
     let dashboardUnifiedTimelineEntries = [];
     let dashboardUnifiedLoadPromise = null;
     let activityTimelineEntries = [];
@@ -7684,8 +7685,21 @@
     function buildTeamOverviewRows(state) {
       const rows = [];
       const priorityOverrides = loadPriorityLeaderOverridesFromStorage();
-      Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
-        getGoalItemEntries(goalKey).forEach(({ item, index }) => {
+      const remoteCardEntries = dashboardRemoteCardsSnapshot && typeof dashboardRemoteCardsSnapshot === 'object'
+        ? Object.entries(dashboardRemoteCardsSnapshot).flatMap(([goalKey, goalCards]) => Object.entries(goalCards || {}).map(([indexText, remoteCard]) => ({
+          goalKey,
+          index: Number(indexText),
+          remoteCard,
+          item: goalTemplates[goalKey] && Array.isArray(goalTemplates[goalKey].items) && goalTemplates[goalKey].items[Number(indexText)]
+            ? goalTemplates[goalKey].items[Number(indexText)]
+            : {
+                title: remoteCard && (remoteCard.title || remoteCard.customTitle) ? (remoteCard.title || remoteCard.customTitle) : `${goalKey} ${Number(indexText) + 1}번 카드`,
+                summary: remoteCard && (remoteCard.summary || remoteCard.customSummary) ? (remoteCard.summary || remoteCard.customSummary) : ''
+              }
+        })))
+        : Object.entries(goalTemplates).flatMap(([goalKey, goalTemplate]) => getGoalItemEntries(goalKey).map((entry) => ({ goalKey, ...entry, remoteCard: null })));
+      remoteCardEntries.forEach(({ goalKey, item, index }) => {
+          const goalTemplate = goalTemplates[goalKey] || { label: goalKey, principles: [] };
           const itemKey = `${goalKey}::${index}`;
           const itemPrinciples = getCardGuidelines(state, goalKey, item, goalTemplate, itemKey);
           const checklistSteps = getChecklistStepsForItem(state, goalKey, item, itemKey, itemPrinciples);
@@ -7782,7 +7796,6 @@
             isRecurring
           });
         });
-      });
 
       return rows;
     }
@@ -7793,6 +7806,15 @@
         ? dashboardUnifiedOverviewState
         : (state || loadPlannerState());
       const rows = buildTeamOverviewRows(baseState);
+      const overviewGoalCounts = rows.reduce((counts, row) => {
+        counts[row.goalKey] = (counts[row.goalKey] || 0) + 1;
+        return counts;
+      }, {});
+      console.log('[현황표] Firebase /cards 기준 카드 수', {
+        source: dashboardRemoteCardsSnapshot ? '/cards snapshot' : 'fallback state/templates',
+        goalCounts: overviewGoalCounts,
+        total: rows.length
+      });
       const overviewLogRows = rows.map((row) => ({
         cardName: row.agenda,
         priority: row.priority,
@@ -17610,6 +17632,7 @@
           const value = snapshot.val();
           handleFirstSnapshot('/cards', value);
           remoteCards = value && typeof value === 'object' ? value : {};
+          dashboardRemoteCardsSnapshot = remoteCards;
           remoteCardsLoaded = true;
           applyRemoteState();
         }, handleSubscriptionError('/cards')),
