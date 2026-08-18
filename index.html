@@ -1453,7 +1453,7 @@
         <textarea class="benchmark-prompt-preview" id="benchmarkPromptPreview" readonly></textarea>
         <div class="benchmark-auto-panel">
           <div class="benchmark-auto-title">AI 결과 입력 및 자동 반영</div>
-          <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [ID] 카드명, SKF 본사 / 셰플러 / 한국NSK / 팀켄 항목을 파싱합니다."></textarea>
+          <textarea class="benchmark-auto-textarea" id="benchmarkAutoInput" placeholder="AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [ID] 카드명, schema 회사 필드 항목을 파싱합니다."></textarea>
           <div class="benchmark-auto-actions">
             <button type="button" class="benchmark-auto-btn" id="benchmarkAutoApplyBtn">카드로 자동 반영하기</button>
             <span class="benchmark-auto-progress" id="benchmarkAutoProgress"></span>
@@ -2987,7 +2987,7 @@
 
     const BENCHMARK_COMPANY_FIELDS = Object.freeze([
       { key: 'skf_hq', label: 'SKF 본사', aliases: ['SKF 본사', 'SKF본사', 'SKF'] },
-      { key: 'schaeffler', label: '셰플러', aliases: ['셰플러', '세플러', '쉐플러', '셰플러코리아', 'Schaeffler'] },
+      { key: 'schaeffler', label: '셰플러', aliases: ['셰플러', '세플러', '쉐플러', '셰플러코리아', 'Schaeffler', 'Schaeffler Korea'] },
       { key: 'nsk_hq', label: 'NSK 본사', aliases: ['NSK 본사', 'NSK HQ'] },
       { key: 'nsk_kr', label: '한국NSK', aliases: ['한국NSK', 'NSK코리아', 'NSK Korea'] },
       { key: 'ntn_hq', label: 'NTN 본사', aliases: ['NTN', 'NTN 본사', 'NTN HQ'] },
@@ -3232,6 +3232,7 @@
         if (!card || typeof label !== 'string') return;
         const cleaned = normalizeBenchmarkFieldText(label);
         if (!cleaned) return;
+        if (/^※/.test(cleaned) || /^-\s*SKF\s*본사$/i.test(cleaned)) return;
         if (!Array.isArray(card.unrecognizedCompanyLabels)) card.unrecognizedCompanyLabels = [];
         if (!card.unrecognizedCompanyLabels.includes(cleaned)) {
           card.unrecognizedCompanyLabels.push(cleaned);
@@ -6999,14 +7000,32 @@
       const matched = result && result.matched ? result.matched : {};
       const fieldKeys = BENCHMARK_COMPANY_FIELDS.map((field) => field.key);
       const fieldMatched = Object.values(matched).reduce((count, entry) => count + fieldKeys.filter((key) => entry && entry.benchmarking && String(entry.benchmarking[key] || '').trim()).length, 0);
-      const unrecognizedCompanies = Array.from(new Set(Object.values(matched).flatMap((entry) => Array.isArray(entry && entry.unrecognizedCompanyLabels) ? entry.unrecognizedCompanyLabels : [])));
+      const responseFieldCount = result && Array.isArray(result.parsedCards)
+        ? result.parsedCards.reduce((count, card) => count + fieldKeys.filter((key) => card && card.benchmarking && String(card.benchmarking[key] || '').trim()).length, 0)
+        : 0;
+      const unrecognizedCompanies = Array.from(new Set([
+        ...Object.values(matched).flatMap((entry) => Array.isArray(entry && entry.unrecognizedCompanyLabels) ? entry.unrecognizedCompanyLabels : []),
+        ...(result && Array.isArray(result.unmatched) ? result.unmatched.flatMap((entry) => Array.isArray(entry && entry.unrecognizedCompanyLabels) ? entry.unrecognizedCompanyLabels : []) : [])
+      ]));
+      const unrecognizedLines = rawText.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('@') && !line.startsWith('- [') && !line.startsWith('[') && !line.startsWith('**') && !line.includes('['))
+        .map((line) => ({ line, match: line.match(/^(?:[*\-•]\s*)?([^:：]{1,40})\s*[:：]/) }))
+        .filter((entry) => entry.match && !getBenchmarkFieldKey(entry.match[1]))
+        .filter((entry) => !/^(※\s*중요|※\s*중요|카드명|제목)/.test(entry.match[1].trim()))
+        .filter((entry, index, list) => list.findIndex((candidate) => candidate.match[1].trim() === entry.match[1].trim()) === index)
+        .map((entry) => ({ company: entry.match[1].trim(), line: entry.line }));
       const report = {
         cardRecognitionCount: result && Array.isArray(result.parsedCards) ? result.parsedCards.length : 0,
         idMatched: result && result.matchStats ? result.matchStats.idMatched : 0,
         failed: result && Array.isArray(result.unmatched) ? result.unmatched.length : 0,
-        fieldMatched,
+        fieldMatchedAgainstAllCards: `${fieldMatched}/${getBenchmarkCardCatalog().length * BENCHMARK_COMPANY_FIELDS.length}`,
+        fieldMatchedAgainstResponse: `${fieldMatched}/${responseFieldCount}`,
+        responseFieldCount,
         fieldTotal: getBenchmarkCardCatalog().length * BENCHMARK_COMPANY_FIELDS.length,
         unrecognizedCompanies,
+        unrecognizedLines,
+        nskStandaloneUnassigned: getBenchmarkFieldKey('NSK') === '',
         recognizedResponseFormat: {
           legacy4FieldLabels: /한국NSK|팀켄|SKF 본사/.test(rawText),
           new6FieldLabels: /NSK 본사|NSK HQ|NTN 본사|NTN HQ|팀켄 본사/.test(rawText)
@@ -7020,64 +7039,117 @@
 
     async function backupBenchmarking() {
       const { cards } = await readRemoteActivityVerificationData();
-      const backup = { createdAt: new Date().toISOString(), cardCount: 0, cards: {} };
+      const backup = { createdAt: new Date().toISOString(), cardCount: 0, valueHoldingCardCount: 0, totalFieldCount: 0, cards: {} };
       Object.entries(cards || {}).forEach(([goalKey, goalCards]) => Object.entries(goalCards || {}).forEach(([indexText, card]) => {
         const itemKey = `${goalKey}::${indexText}`;
+        const benchmarking = card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
         backup.cards[itemKey] = {
           cardTitle: getCardActivityTitle(loadPlannerState(), itemKey),
-          benchmarking: card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {}
+          benchmarking
         };
         backup.cardCount += 1;
+        backup.totalFieldCount += Object.keys(benchmarking).length;
+        if (Object.values(benchmarking).some((value) => String(value || '').trim())) backup.valueHoldingCardCount += 1;
       }));
-      downloadTextFile(`benchmarking-backup-${getLocalDateKey()}.json`, JSON.stringify(backup, null, 2));
-      localStorage.setItem(BENCHMARK_BACKUP_READY_KEY, '1');
-      console.log('[BENCHMARK BACKUP] 파일 다운로드 완료', { cardCount: backup.cardCount, byteLength: new Blob([JSON.stringify(backup)]).size });
+      const fileName = `benchmarking-backup-${getLocalDateKey()}.json`;
+      const backupText = JSON.stringify(backup, null, 2);
+      const byteLength = new Blob([backupText]).size;
+      downloadTextFile(fileName, backupText);
+      localStorage.setItem(BENCHMARK_BACKUP_READY_KEY, JSON.stringify({ ready: true, fileName, createdAt: backup.createdAt, cardCount: backup.cardCount, valueHoldingCardCount: backup.valueHoldingCardCount, totalFieldCount: backup.totalFieldCount, byteLength }));
+      console.log('[BENCHMARK BACKUP] 파일 다운로드 완료', { fileName, cardCount: backup.cardCount, valueHoldingCardCount: backup.valueHoldingCardCount, totalFieldCount: backup.totalFieldCount, byteLength });
+      const firstItemKey = Object.keys(backup.cards)[0];
+      console.log('[BENCHMARK BACKUP] 카드 1건 구조 예시', firstItemKey ? { [firstItemKey]: backup.cards[firstItemKey] } : {});
       return backup;
+    }
+
+    function buildBenchmarkMigrationPlan(cards) {
+      const rows = [];
+      const projectedCards = JSON.parse(JSON.stringify(cards || {}));
+      const skipCounts = { benchmarkingLegacy: 0, skf_hq: 0, nsk_kr: 0, timken_hq: 0, nsk_hq: 0, ntn_hq: 0, schaeffler: 0 };
+      Object.entries(cards || {}).forEach(([goalKey, goalCards]) => Object.entries(goalCards || {}).forEach(([indexText, card]) => {
+        const itemKey = `${goalKey}::${indexText}`;
+        const original = card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
+        const normalized = normalizeBenchmarkingRecord(original);
+        const updates = {};
+        const reasons = [];
+        if (!Object.prototype.hasOwnProperty.call(card || {}, 'benchmarkingLegacy')) {
+          updates.benchmarkingLegacy = original;
+        } else {
+          skipCounts.benchmarkingLegacy += 1;
+          reasons.push('benchmarkingLegacy 이미 존재: 백업 건너뜀');
+        }
+        BENCHMARK_COMPANY_FIELDS.forEach((field) => {
+          if (field.key === 'schaeffler') {
+            skipCounts.schaeffler += 1;
+            reasons.push('schaeffler 구·신 키 이름 동일: 원본 유지');
+            return;
+          }
+          const hasKey = Object.prototype.hasOwnProperty.call(original, field.key);
+          const hasValue = hasKey && String(original[field.key] || '').trim() !== '';
+          if (field.key === 'nsk_hq' || field.key === 'ntn_hq') {
+            if (!hasKey) updates[`benchmarking/${field.key}`] = '';
+            else { skipCounts[field.key] += 1; reasons.push(`${field.key} 이미 존재: 값 유지`); }
+            return;
+          }
+          if (hasValue) {
+            skipCounts[field.key] += 1;
+            reasons.push(`${field.key} 값 이미 존재: 복사 건너뜀`);
+            return;
+          }
+          if (normalized[field.key] !== '') updates[`benchmarking/${field.key}`] = normalized[field.key];
+        });
+        const projected = projectedCards[goalKey][indexText] || {};
+        projected.benchmarkingLegacy = projected.benchmarkingLegacy || original;
+        projected.benchmarking = projected.benchmarking || {};
+        Object.entries(updates).forEach(([path, value]) => {
+          if (path === 'benchmarkingLegacy') projected.benchmarkingLegacy = value;
+          else projected.benchmarking[path.replace('benchmarking/', '')] = value;
+        });
+        const loss = Object.entries(BENCHMARK_LEGACY_FIELD_MAP).some(([legacyKey, nextKey]) => String(original[legacyKey] || '') !== String(normalized[nextKey] || ''));
+        rows.push({ itemKey, payloadKeys: Object.keys(updates), payloadKeyCount: Object.keys(updates).length, hasLegacyValues: Object.values(original).some((value) => String(value || '').trim()), reasons, loss });
+      }));
+      return { rows, projectedCards, skipCounts, schaefflerOriginalPreserved: skipCounts.schaeffler === rows.length };
     }
 
     async function migrateBenchmarking(options = {}) {
       const dryRun = options.dryRun !== false;
-      if (localStorage.getItem(BENCHMARK_BACKUP_READY_KEY) !== '1') {
+      const backupMetaRaw = localStorage.getItem(BENCHMARK_BACKUP_READY_KEY);
+      const backupMeta = backupMetaRaw ? JSON.parse(backupMetaRaw) : null;
+      if (!dryRun && (!backupMeta || backupMeta.ready !== true)) {
         const result = { ok: false, reason: 'backup-required', message: '먼저 window.__backupBenchmarking()을 실행해 백업 파일을 생성하세요.' };
         console.warn('[BENCHMARK MIGRATION] 중단', result);
         return result;
       }
       const { cards } = await readRemoteActivityVerificationData();
-      const catalog = getBenchmarkCardCatalog();
-      const rows = [];
-      Object.entries(cards || {}).forEach(([goalKey, goalCards]) => Object.entries(goalCards || {}).forEach(([indexText, card]) => {
-        const itemKey = `${goalKey}::${indexText}`;
-        const original = card && card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
-        const normalized = normalizeBenchmarkingRecord(original);
-        const payload = {
-          benchmarkingLegacy: original,
-          ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [`benchmarking/${field.key}`, normalized[field.key] || '']))
-        };
-        const loss = Object.entries(BENCHMARK_LEGACY_FIELD_MAP).some(([legacyKey, nextKey]) => String(original[legacyKey] || '') !== String(normalized[nextKey] || ''));
-        rows.push({ itemKey, payloadKeys: Object.keys(payload), payloadKeyCount: Object.keys(payload).length, hasLegacyValues: Object.values(original).some((value) => String(value || '').trim()), loss });
-      }));
+      const remoteCardCount = Object.values(cards || {}).reduce((count, goalCards) => count + Object.keys(goalCards || {}).length, 0);
+      if (!dryRun && remoteCardCount !== backupMeta.cardCount) {
+        const result = { ok: false, reason: 'backup-card-count-mismatch', backupCardCount: backupMeta.cardCount, remoteCardCount, message: '카드 수가 백업 당시와 달라 재백업이 필요합니다.' };
+        console.warn('[BENCHMARK MIGRATION] 중단', result);
+        return result;
+      }
+      const first = buildBenchmarkMigrationPlan(cards);
+      const second = buildBenchmarkMigrationPlan(first.projectedCards);
+      const distribution = (rows) => rows.reduce((counts, row) => { const key = String(row.payloadKeyCount); counts[key] = (counts[key] || 0) + 1; return counts; }, {});
       const report = {
         dryRun,
-        remoteCardCount: rows.length,
-        catalogCardCount: catalog.length,
-        valueHoldingCardCount: rows.filter((row) => row.hasLegacyValues).length,
-        expectedPayloadKeyCount: 1 + BENCHMARK_COMPANY_FIELDS.length,
-        lossCount: rows.filter((row) => row.loss).length,
-        rows
+        remoteCardCount,
+        catalogCardCount: getBenchmarkCardCatalog().length,
+        valueHoldingCardCount: first.rows.filter((row) => row.hasLegacyValues).length,
+        firstPass: { targetCardCount: first.rows.filter((row) => row.payloadKeyCount > 0).length, totalPayloadKeys: first.rows.reduce((sum, row) => sum + row.payloadKeyCount, 0), keyDistribution: distribution(first.rows), lossCount: first.rows.filter((row) => row.loss).length, skipCounts: first.skipCounts, schaefflerOriginalPreserved: first.schaefflerOriginalPreserved },
+        secondPass: { targetCardCount: second.rows.filter((row) => row.payloadKeyCount > 0).length, totalPayloadKeys: second.rows.reduce((sum, row) => sum + row.payloadKeyCount, 0), keyDistribution: distribution(second.rows), repeatedFields: second.rows.filter((row) => row.payloadKeyCount > 0).map((row) => ({ itemKey: row.itemKey, payloadKeys: row.payloadKeys })) },
+        rows: first.rows
       };
-      console.log('[BENCHMARK MIGRATION] 계획', report);
-      console.table(rows);
+      console.log('[BENCHMARK MIGRATION] 계획/멱등성', report);
+      console.table(first.rows);
       if (dryRun) return report;
       const bridge = getActivityTimelineBridge();
-      for (const row of rows) {
+      for (const row of first.rows.filter((entry) => entry.payloadKeyCount > 0)) {
         const [goalKey, indexText] = row.itemKey.split('::');
         const card = cards[goalKey][indexText] || {};
+        const plan = buildBenchmarkMigrationPlan({ [goalKey]: { [indexText]: card } }).rows[0];
         const original = card.benchmarking && typeof card.benchmarking === 'object' ? JSON.parse(JSON.stringify(card.benchmarking)) : {};
         const normalized = normalizeBenchmarkingRecord(original);
-        const updates = {
-          [`benchmarkingLegacy`]: original,
-          ...Object.fromEntries(BENCHMARK_COMPANY_FIELDS.map((field) => [`benchmarking/${field.key}`, normalized[field.key] || '']))
-        };
+        const updates = Object.fromEntries(plan.payloadKeys.map((key) => [key, key === 'benchmarkingLegacy' ? original : normalized[key.replace('benchmarking/', '')] || '']));
         await bridge.update(bridge.getCardRef(goalKey, indexText), updates);
       }
       return { ...report, executed: true };
@@ -7100,13 +7172,20 @@
       const [localHtml, remoteHtml] = await Promise.all([localResponse.text(), remoteResponse.text()]);
       const localLines = localHtml.split(/\r?\n/).length;
       const remoteLines = remoteHtml.split(/\r?\n/).length;
+      const getBuildValue = (html) => {
+        const line = html.split(/\r?\n/).find((entry) => entry.includes('[BUILD]')) || '';
+        return line.trim();
+      };
+      const localBuildValue = getBuildValue(localHtml);
+      const deployedBuildValue = getBuildValue(remoteHtml);
       const markers = ['[BUILD]', '__verifyAll', '__backfillHistory', '__parserDryRun', '업무 노트(회의 내용)'];
       const missingOnRemote = markers.filter((marker) => localHtml.includes(marker) && !remoteHtml.includes(marker));
       const report = {
-        local: { url: localUrl, status: localResponse.status, bytes: new Blob([localHtml]).size, lines: localLines, hasBuild: localHtml.includes('[BUILD]') },
-        deployed: { url: remoteUrl, status: remoteResponse.status, bytes: new Blob([remoteHtml]).size, lines: remoteLines, hasBuild: remoteHtml.includes('[BUILD]') },
+        local: { url: localUrl, status: localResponse.status, bytes: new Blob([localHtml]).size, lines: localLines, buildValue: localBuildValue, hasBuild: Boolean(localBuildValue) },
+        deployed: { url: remoteUrl, status: remoteResponse.status, bytes: new Blob([remoteHtml]).size, lines: remoteLines, buildValue: deployedBuildValue, hasBuild: Boolean(deployedBuildValue) },
         sameSize: localHtml.length === remoteHtml.length,
         sameLines: localLines === remoteLines,
+        sameBuildValue: localBuildValue === deployedBuildValue,
         missingOnRemote
       };
       if (missingOnRemote.length || !report.sameSize || !report.sameLines) console.warn('[DEPLOY] 배포본이 로컬과 다릅니다.', report);
@@ -17910,6 +17989,7 @@
       }
 
       if (benchmarkAutoInput) {
+        benchmarkAutoInput.placeholder = `AI가 생성한 벤치마킹 결과를 붙여넣으세요. @목표, - [ID] 카드명, ${BENCHMARK_COMPANY_FIELDS.map((field) => field.label).join(' / ')} 항목을 파싱합니다.`;
         benchmarkAutoInput.value = '';
         writeBenchmarkAutoInputDraft('');
         benchmarkAutoInput.addEventListener('input', () => {
@@ -18011,7 +18091,8 @@
             renderBenchmarkManualMappingSection(result && Array.isArray(result.unmatched) ? result.unmatched : []);
             renderBenchmarkMissingCardsSection(result && Array.isArray(result.missingFromResponse) ? result.missingFromResponse : []);
             renderBenchmarkApplyFailureList(result && Array.isArray(result.failedCards) ? result.failedCards : []);
-            benchmarkRetryFailedItemKeys = result && Array.isArray(result.failedCards)
+            benchmarkRetryFailedItemKeys = result && 
+            Array.isArray(result.failedCards)
               ? result.failedCards.map((entry) => entry && entry.itemKey ? entry.itemKey : '').filter(Boolean)
               : [];
             console.log('[Benchmark Report]', formatBenchmarkResultSummary(result));
