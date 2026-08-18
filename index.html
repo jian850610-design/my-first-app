@@ -17979,9 +17979,10 @@
             if (benchmarkPromptPreview) benchmarkPromptPreview.value = promptText;
             await copyTextToClipboard(promptText);
             const cardCount = countBenchmarkPromptCards();
-            statusText = `프롬프트 ${promptText.length}자 복사 완료 (카드 ${cardCount}개)`;
+            const responseCellCount = cardCount * BENCHMARK_COMPANY_FIELDS.length;
+            statusText = `프롬프트 ${promptText.length}자 복사 완료 (카드 ${cardCount}개 · ${responseCellCount}칸)`;
             statusClass = 'ok';
-            console.log('[Benchmark Prompt] 복사 성공', { length: promptText.length, cardCount });
+            console.log('[Benchmark Prompt] 복사 성공', { length: promptText.length, cardCount, responseCellCount });
           } catch (error) {
             const reason = error && error.message ? error.message : String(error);
             statusText = `복사 실패: ${reason}`;
