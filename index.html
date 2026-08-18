@@ -500,6 +500,7 @@
     .directive-history-delete-btn:hover { background: #fff1f1; }
     .comment-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
     .comment-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
+    .comment-history-count { color: #72859a; font-weight: 700; }
     .comment-history-list { display: grid; gap: 8px; }
     .comment-history-empty { font-size: 12px; color: #72859a; }
     .comment-history-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 4px; }
@@ -507,6 +508,8 @@
     .comment-history-step { font-size: 11px; color: #356080; font-weight: 800; }
     .comment-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; cursor: pointer; }
     .comment-history-text.collapsed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .comment-history-actions { display: flex; justify-content: flex-end; }
+    .comment-history-delete { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .comment-history-more { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
     .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
     .work-note-title { font-size: 12px; font-weight: 800; color: #3f5874; }
@@ -6846,6 +6849,7 @@
         title: normalized.cardTitle || normalized.cardId,
         timeText: timestamp ? formatEntryDateTime(timestamp) : '',
         detail: normalized.content || '',
+        createdAt: normalized.createdAt,
         stepIndex: normalized.stepIndex,
         source: normalized.source,
         dateKey: normalized.dateKey || getKstDateKeyFromTimestamp(normalized.createdAt),
@@ -9651,6 +9655,48 @@
       }).join('');
     }
 
+    const ACTIVITY_LOG_BACKUP_KEY = 'skfActivityLogsBackupV1';
+
+    async function backupActivityLogs() {
+      const logs = await readFirebaseValueOnce(getActivityTimelineRef()) || {};
+      const text = JSON.stringify(logs, null, 2);
+      const fileName = `activityLogs-backup-${getLocalDateKey()}.json`;
+      downloadTextFile(fileName, text);
+      const meta = { createdAt: new Date().toISOString(), logCount: Object.keys(logs).length, fileName, byteLength: new Blob([text]).size };
+      localStorage.setItem(ACTIVITY_LOG_BACKUP_KEY, JSON.stringify(meta));
+      console.log('[activityLogs backup] 완료', meta);
+      return meta;
+    }
+
+    window.__backupActivityLogs = backupActivityLogs;
+
+    async function deleteCardCommentHistoryLog(logId, itemKey, content, createdAt) {
+      let backupMeta = null;
+      try { backupMeta = JSON.parse(localStorage.getItem(ACTIVITY_LOG_BACKUP_KEY) || 'null'); } catch (error) { backupMeta = null; }
+      if (!backupMeta || !backupMeta.createdAt) {
+        window.alert('먼저 백업을 실행하세요.');
+        console.warn('[comment-history] 삭제 차단: activityLogs 백업 없음', { logId });
+        return { ok: false, reason: 'backup-required' };
+      }
+      const confirmed = window.confirm(`코멘트를 삭제하시겠습니까?\n\n${String(content || '').slice(0, 30)}\n작성: ${formatEntryDateTime(createdAt)}`);
+      if (!confirmed) return { ok: false, reason: 'cancelled' };
+      const bridge = getActivityTimelineBridge();
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
+      try {
+        await bridge.update(bridge.getActivityLogRef(logId), null);
+        activityTimelineEntries = activityTimelineEntries.filter((entry) => entry.logId !== logId);
+        const card = document.querySelector(`.detail-item-card[data-key="${CSS.escape(itemKey)}"]`);
+        const list = card ? card.querySelector('[data-comment-history-list]') : null;
+        if (list) renderCardCommentHistory(list, itemKey);
+        if (card) renderLatestActivityPanel(card.querySelector('.latest-activity-panel'), loadPlannerState().items[itemKey] || {}, itemKey);
+        console.log('[comment-history] 삭제 후 갱신 호출', { functionName: 'renderCardCommentHistory + renderLatestActivityPanel', logId });
+        return { ok: true, logId };
+      } catch (error) {
+        console.error('[comment-history] 단건 삭제 실패', { logId, error });
+        return { ok: false, reason: 'delete-failed', error };
+      }
+    }
+
     function renderCardCommentHistory(listElement, itemKey, expanded = false) {
       if (!listElement) return { activityCount: 0, renderedCount: 0, excluded: [] };
       const allCardEntries = activityTimelineEntries.filter((entry) => entry && entry.itemKey === itemKey);
@@ -9666,11 +9712,22 @@
         commentTypeUsed: 'comment'
       });
       if (!commentEntries.length) {
+        const title = listElement.closest('.comment-history-section')?.querySelector('.comment-history-title');
+        if (title) title.innerHTML = '코멘트 이력 <span class="comment-history-count">(0건)</span>';
         listElement.innerHTML = '<div class="comment-history-empty">저장된 코멘트 이력이 없습니다.</div>';
         console.log('[comment-history] 렌더 결과', { itemKey, activityCount: 0, renderedCount: 0, hiddenCount: 0, excluded });
         return { activityCount: 0, renderedCount: 0, excluded };
       }
       const visibleEntries = expanded ? commentEntries : commentEntries.slice(0, 5);
+      console.table(visibleEntries.map((entry) => ({
+        key: entry.logId,
+        type: entry.type,
+        stepIndex: entry.stepIndex,
+        content: String(entry.detail || '').slice(0, 30),
+        createdAt: entry.createdAt || ''
+      })));
+      const title = listElement.closest('.comment-history-section')?.querySelector('.comment-history-title');
+      if (title) title.innerHTML = `코멘트 이력 <span class="comment-history-count">(${commentEntries.length}건)</span>`;
       listElement.innerHTML = visibleEntries.map((entry) => {
         const stepLabel = entry.stepTitle || (Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? `${entry.stepIndex + 1}단계` : '단계 미상');
         const fullText = entry.detail || '';
@@ -9679,6 +9736,7 @@
           <div class="comment-history-meta">${escapeHtml(formatEntryDateTime(entry.timestamp))} · ${escapeHtml(entry.authorName || EDITOR_NAME_LABEL)}</div>
           <div class="comment-history-step">${escapeHtml(stepLabel)}</div>
           <div class="comment-history-text${fullText.length > 60 ? ' collapsed' : ''}" data-full-comment-history="${escapeHtml(fullText)}">${escapeHtml(shortText)}</div>
+          <div class="comment-history-actions"><button type="button" class="comment-history-delete" data-comment-history-delete="${escapeHtml(entry.logId || '')}" data-comment-history-card="${escapeHtml(itemKey)}" data-comment-history-content="${escapeHtml(fullText)}" data-comment-history-created-at="${escapeHtml(entry.createdAt || '')}">삭제</button></div>
         </div>`;
       }).join('');
       if (!expanded && commentEntries.length > 5) {
@@ -10011,11 +10069,13 @@
       itemState.lastUpdatedByUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
     }
 
-    function renderLatestActivityPanel(panelElement, itemState) {
+    function renderLatestActivityPanel(panelElement, itemState, itemKey = '') {
       if (!panelElement) return;
       const recentTimestamp = itemState && itemState.lastUpdatedAt ? formatEntryDateTime(itemState.lastUpdatedAt) : '-';
       const latestComment = getLatestCommentPreview(itemState || {});
-      const historyCount = Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0;
+      const historyCount = itemKey
+        ? activityTimelineEntries.filter((entry) => entry && entry.itemKey === itemKey).length
+        : (Array.isArray(itemState && itemState.historyList) ? itemState.historyList.length : 0);
       panelElement.innerHTML = `
         <div class="latest-activity-title">⚡ 최신 업무 수행 현황</div>
         <div class="latest-activity-grid">
@@ -17670,6 +17730,16 @@
 
         if (commentHistoryList) {
           commentHistoryList.addEventListener('click', (event) => {
+            const deleteButton = event.target.closest('[data-comment-history-delete]');
+            if (deleteButton) {
+              void deleteCardCommentHistoryLog(
+                deleteButton.dataset.commentHistoryDelete || '',
+                deleteButton.dataset.commentHistoryCard || itemKey,
+                deleteButton.dataset.commentHistoryContent || '',
+                deleteButton.dataset.commentHistoryCreatedAt || ''
+              );
+              return;
+            }
             const moreButton = event.target.closest('[data-comment-history-more]');
             if (moreButton) {
               renderCardCommentHistory(commentHistoryList, itemKey, true);
