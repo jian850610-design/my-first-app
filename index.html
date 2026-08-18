@@ -1022,9 +1022,6 @@
     .benchmark-dashboard-link { border: 1px solid #e7b7b7; border-radius: 999px; background: #fff; color: #8a2c2c; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .benchmark-dashboard-link:hover { background: #fff1f1; }
     .benchmark-prompt-preview { width: 100%; min-height: 260px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; white-space: pre; }
-    .benchmark-prompt-split-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-    .benchmark-prompt-goal-copy { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-    .benchmark-prompt-goal-copy span { font-size: 10px; font-weight: 600; opacity: 0.82; }
     .benchmark-auto-panel { display: grid; gap: 10px; padding: 14px; border: 1px solid #d7e5f2; border-radius: 14px; background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%); }
     .benchmark-auto-title { font-size: 13px; font-weight: 800; color: #173f66; }
     .benchmark-auto-textarea { width: 100%; min-height: 180px; border: 1px solid #cfdeed; border-radius: 12px; background: #ffffff; color: #23425f; padding: 12px; font-size: 12px; line-height: 1.6; resize: vertical; }
@@ -1788,8 +1785,8 @@
 
   <script src="./naver-target-keywords.js"></script>
   <script>
-    console.log('[VERSION] build ' + new Date().toISOString());
-    console.log('[BUILD]', '2026-08-18 15:04', 'uncommitted');
+    const APP_VERSION = '2026-08-18T06:55:00Z';
+    console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
     const todayActivityList = document.getElementById('todayActivityList');
@@ -7172,23 +7169,25 @@
       const [localHtml, remoteHtml] = await Promise.all([localResponse.text(), remoteResponse.text()]);
       const localLines = localHtml.split(/\r?\n/).length;
       const remoteLines = remoteHtml.split(/\r?\n/).length;
-      const getBuildValue = (html) => {
-        const line = html.split(/\r?\n/).find((entry) => entry.includes('[BUILD]')) || '';
+      const getVersionValue = (html) => {
+        const appVersionMatch = html.match(/const\s+APP_VERSION\s*=\s*['"]([^'"]+)['"]/);
+        if (appVersionMatch) return appVersionMatch[1];
+        const line = html.split(/\r?\n/).find((entry) => entry.includes('[VERSION]')) || '';
         return line.trim();
       };
-      const localBuildValue = getBuildValue(localHtml);
-      const deployedBuildValue = getBuildValue(remoteHtml);
-      const markers = ['[BUILD]', '__verifyAll', '__backfillHistory', '__parserDryRun', '업무 노트(회의 내용)'];
+      const localVersionValue = getVersionValue(localHtml);
+      const deployedVersionValue = getVersionValue(remoteHtml);
+      const markers = ['[VERSION]', '__verifyAll', '__backfillHistory', '__parserDryRun', '업무 노트(회의 내용)'];
       const missingOnRemote = markers.filter((marker) => localHtml.includes(marker) && !remoteHtml.includes(marker));
       const report = {
-        local: { url: localUrl, status: localResponse.status, bytes: new Blob([localHtml]).size, lines: localLines, buildValue: localBuildValue, hasBuild: Boolean(localBuildValue) },
-        deployed: { url: remoteUrl, status: remoteResponse.status, bytes: new Blob([remoteHtml]).size, lines: remoteLines, buildValue: deployedBuildValue, hasBuild: Boolean(deployedBuildValue) },
+        local: { url: localUrl, status: localResponse.status, bytes: new Blob([localHtml]).size, lines: localLines, versionValue: localVersionValue, hasVersion: Boolean(localVersionValue) },
+        deployed: { url: remoteUrl, status: remoteResponse.status, bytes: new Blob([remoteHtml]).size, lines: remoteLines, versionValue: deployedVersionValue, hasVersion: Boolean(deployedVersionValue) },
         sameSize: localHtml.length === remoteHtml.length,
         sameLines: localLines === remoteLines,
-        sameBuildValue: localBuildValue === deployedBuildValue,
+        sameVersionValue: localVersionValue === deployedVersionValue,
         missingOnRemote
       };
-      if (missingOnRemote.length || !report.sameSize || !report.sameLines) console.warn('[DEPLOY] 배포본이 로컬과 다릅니다.', report);
+      if (missingOnRemote.length || !report.sameSize || !report.sameLines || !report.sameVersionValue) console.warn('[DEPLOY] 배포본이 로컬과 다릅니다.', report);
       else console.log('[DEPLOY] 배포본과 로컬이 일치합니다.', report);
       console.table(report);
       return report;
@@ -17577,14 +17576,6 @@
           setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
           updateFirebaseLastUpdatedText(mergedState.meta || firebaseLastUpdatedMeta);
           if (benchmarkPromptPreview) benchmarkPromptPreview.value = buildBenchmarkPromptText();
-          document.querySelectorAll('[data-benchmark-goal-prompt]').forEach((button) => {
-            const goalNumber = Number(button.dataset.benchmarkGoalPrompt);
-            const goalKey = PROMPT_GOAL_NUMBER_TO_KEY[goalNumber];
-            const goalTemplate = goalTemplates[goalKey];
-            const goalCardCount = getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length;
-            const goalPrompt = buildBenchmarkPromptText(goalNumber);
-            button.innerHTML = `목표 ${goalNumber} 복사 <span>${escapeHtml(goalTemplate ? goalTemplate.label : '')} · ${goalPrompt.length}자 · ${goalCardCount * BENCHMARK_COMPANY_FIELDS.length}칸</span>`;
-          });
           preserveWindowScroll(() => rerenderCurrentView());
         } catch (error) {
           console.error('[cards] 공통 카드 데이터 결합 실패', error);
@@ -17962,30 +17953,6 @@
 
       if (benchmarkPromptPreview) {
         benchmarkPromptPreview.value = buildBenchmarkPromptText();
-        const splitWrap = document.createElement('div');
-        splitWrap.className = 'benchmark-prompt-split-actions';
-        splitWrap.innerHTML = Object.entries(PROMPT_GOAL_NUMBER_TO_KEY).map(([goalNumberText, goalKey]) => {
-          const goalNumber = Number(goalNumberText);
-          const goalTemplate = goalTemplates[goalKey];
-          const text = buildBenchmarkPromptText(goalNumber);
-          const cardCount = getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length;
-          const cellCount = cardCount * BENCHMARK_COMPANY_FIELDS.length;
-          return `<button type="button" class="benchmark-prompt-copy-btn benchmark-prompt-goal-copy" data-benchmark-goal-prompt="${goalNumber}">목표 ${goalNumber} 복사 <span>${escapeHtml(goalTemplate ? goalTemplate.label : '')} · ${text.length}자 · ${cellCount}칸</span></button>`;
-        }).join('');
-        benchmarkPromptPreview.insertAdjacentElement('afterend', splitWrap);
-        splitWrap.addEventListener('click', async (event) => {
-          const button = event.target.closest('[data-benchmark-goal-prompt]');
-          if (!button) return;
-          const goalNumber = Number(button.dataset.benchmarkGoalPrompt);
-          const text = buildBenchmarkPromptText(goalNumber);
-          await copyTextToClipboard(text);
-          console.log('[Benchmark Prompt] 목표 단위 복사 성공', {
-            goalNumber,
-            length: text.length,
-            cardCount: getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length,
-            responseCellCount: getBenchmarkCardCatalog().filter((entry) => entry.goalNumber === goalNumber).length * BENCHMARK_COMPANY_FIELDS.length
-          });
-        });
       }
 
       if (benchmarkAutoInput) {
