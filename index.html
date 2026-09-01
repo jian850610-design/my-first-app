@@ -1013,14 +1013,16 @@
       .leader-star-btn { flex: 0 0 auto; }
     }
 
-    .leader-summary-section { margin-top: 14px; background: #f7fbff; border: 1px solid #d8e7f6; border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; }
+    .leader-summary-section { margin-top: 14px; background: #f7fbff; border: 1px solid #d8e7f6; border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
     .leader-summary-section strong { font-size: 13px; color: #224b73; }
-    .leader-summary-list { display: grid; gap: 10px; }
-    .leader-summary-item { border: 1px solid #d5e4f3; background: #ffffff; color: #244f78; padding: 12px 14px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; display: grid; gap: 6px; }
+    .leader-summary-list { display: grid; gap: 6px; }
+    .leader-summary-item { border: 1px solid #d5e4f3; background: #ffffff; color: #244f78; padding: 8px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; display: grid; gap: 3px; }
     .leader-summary-item:hover { background: #edf5ff; border-color: #b7d2ec; }
-    .leader-summary-title { font-size: 13px; color: #133a61; }
-    .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; }
+    .leader-summary-directive { font-size: 14px; font-weight: 800; color: #13324f; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .leader-summary-directive.expanded { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+    .leader-summary-meta { font-size: 11px; color: #607893; line-height: 1.5; font-weight: 400; }
     .leader-summary-empty { font-size: 12px; color: #70839a; }
+    .leader-summary-hidden-count { justify-self: start; background: none; border: none; padding: 0; margin: 0; font-size: 11px; color: #8797ac; cursor: pointer; text-decoration: underline; }
     .urgent-deadline-section { margin-top: 12px; background: linear-gradient(135deg, #fff9ef 0%, #fff4e6 100%); border: 1px solid #f0d8ba; border-radius: 16px; padding: 9px 10px; display: grid; gap: 6px; }
     .urgent-deadline-section strong { font-size: 13px; color: #7a4412; }
     .urgent-deadline-list { display: grid; gap: 4px; }
@@ -1476,6 +1478,7 @@
       <section class="leader-summary-section">
         <strong>📌 팀장님 요청/지시 업무 요약 (★)</strong>
         <div class="leader-summary-list" id="leaderSummaryList"></div>
+        <button type="button" class="leader-summary-hidden-count" id="leaderSummaryHiddenCount" hidden></button>
         <div class="leader-summary-empty" id="leaderSummaryEmpty">현재 팀장님 특별 지시 건이 없습니다.</div>
       </section>
 
@@ -1832,7 +1835,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T04:10:00Z';
+    const APP_VERSION = '2026-09-01T05:30:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -1886,6 +1889,8 @@
     let detailContainerDelegatedListenersAttached = false;
     const leaderSummaryList = document.getElementById('leaderSummaryList');
     const leaderSummaryEmpty = document.getElementById('leaderSummaryEmpty');
+    const leaderSummaryHiddenCount = document.getElementById('leaderSummaryHiddenCount');
+    let leaderSummaryShowAll = false;
     const urgentDeadlineList = document.getElementById('urgentDeadlineList');
     const urgentDeadlineEmpty = document.getElementById('urgentDeadlineEmpty');
     const dashboardView = document.getElementById('dashboardView');
@@ -2089,6 +2094,7 @@
     const NEWS_TOP_ITEMS_PER_KEYWORD = 2;
     const NEWS_MAX_ITEMS_PER_GOAL = 8;
     const NEWS_MAX_AGE_DAYS = 30;
+    const LEADER_SUMMARY_RECENT_DAYS = 14; // 팀장 지시 요약 표시 기준일수 (조정 가능)
     const NEWS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
     const NEWS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
     const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
@@ -11236,27 +11242,36 @@
       return detail ? detail.title : itemKey;
     }
 
+    function isLeaderSummaryCardDeleted(itemKey) {
+      const [goalKey, indexText] = itemKey.split('::');
+      const remoteCard = dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey]
+        ? dashboardRemoteCardsSnapshot[goalKey][indexText]
+        : null;
+      return Boolean(remoteCard && remoteCard.deleted === true);
+    }
+
     function renderLeaderRequestSummary(state) {
       if (!leaderSummaryList || !leaderSummaryEmpty) return;
       const sourceState = (dashboardUnifiedOverviewState && dashboardUnifiedOverviewState.items)
         ? dashboardUnifiedOverviewState
         : state;
-      const requestedEntries = Object.entries((sourceState && sourceState.items) || {})
-        .filter(([, value]) => {
+      const recentCutoffTs = Date.now() - LEADER_SUMMARY_RECENT_DAYS * 24 * 60 * 60 * 1000;
+      const allEntries = Object.entries((sourceState && sourceState.items) || {})
+        .filter(([itemKey, value]) => {
           if (!value) return false;
+          if (isLeaderSummaryCardDeleted(itemKey)) return false;
           const latestDirective = getLatestDirectiveHistoryEntry(value);
           const hasDirectiveHistory = Boolean(latestDirective && typeof latestDirective.text === 'string' && latestDirective.text.trim());
           return hasDirectiveHistory;
         })
         .map(([itemKey, itemState]) => {
           const detail = getItemDetailByKey(itemKey, sourceState);
-          const directiveMeta = getLatestDirectiveActivityDetails(itemState);
-          const directivePreview = directiveMeta && directiveMeta.text ? directiveMeta.text : '최근 지시사항 없음';
-          const directiveSavedAt = directiveMeta && directiveMeta.timestamp > 0
-            ? formatEntryDateTime(new Date(directiveMeta.timestamp).toISOString())
-            : '-';
+          const latestDirective = getLatestDirectiveHistoryEntry(itemState);
+          const directiveText = latestDirective && typeof latestDirective.text === 'string' ? latestDirective.text.trim() : '';
+          const directiveTs = parseIsoTimestamp(latestDirective && latestDirective.createdAt);
+          const directiveSavedAtShort = directiveTs > 0 ? formatEntryDateTimeShort(new Date(directiveTs).toISOString()).slice(0, 5) : '-';
           const pinned = itemState && itemState.isLeaderRequested === true;
-          return { itemKey, detail, directivePreview, directiveSavedAt, pinned, directiveTs: directiveMeta.timestamp || 0 };
+          return { itemKey, detail, directiveText, directiveSavedAtShort, pinned, directiveTs };
         })
         .filter((entry) => entry.detail)
         .sort((left, right) => {
@@ -11266,16 +11281,35 @@
           return left.detail.title.localeCompare(right.detail.title);
         });
 
-      if (!requestedEntries.length) {
+      const recentEntries = allEntries.filter((entry) => entry.directiveTs >= recentCutoffTs);
+      const hiddenOldCount = allEntries.length - recentEntries.length;
+      const displayedEntries = leaderSummaryShowAll ? allEntries : recentEntries;
+
+      console.log('[팀장지시요약] 전체 지시사항 건수', allEntries.length);
+      console.log('[팀장지시요약] 14일 이내 표시 건수', recentEntries.length);
+      console.log('[팀장지시요약] 제외 건수', hiddenOldCount);
+
+      if (!displayedEntries.length) {
         leaderSummaryList.innerHTML = '';
         leaderSummaryEmpty.style.display = 'block';
-        return;
+      } else {
+        leaderSummaryList.innerHTML = displayedEntries
+          .map((entry) => {
+            const plainGoalLabel = entry.detail.goalLabel.replace(/^\d+\.\s*/, '');
+            return `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-directive">${entry.pinned ? '📌 ' : ''}${escapeHtml(entry.directiveText)}</div><div class="leader-summary-meta">${escapeHtml(entry.detail.title)} · ${escapeHtml(plainGoalLabel)} · ${escapeHtml(entry.directiveSavedAtShort)}</div></button>`;
+          })
+          .join('');
+        leaderSummaryEmpty.style.display = 'none';
       }
 
-      leaderSummaryList.innerHTML = requestedEntries
-        .map((entry) => `<button type="button" class="leader-summary-item" data-key="${entry.itemKey}"><div class="leader-summary-title">${entry.pinned ? '📌 ' : ''}[${escapeHtml(entry.detail.goalLabel)}] - ${escapeHtml(entry.detail.title)}</div><div class="leader-summary-meta">카드 제목: ${escapeHtml(entry.detail.title)} / 지시사항: ${escapeHtml(entry.directivePreview)} / 저장 일시: ${escapeHtml(entry.directiveSavedAt)}</div></button>`)
-        .join('');
-      leaderSummaryEmpty.style.display = 'none';
+      if (leaderSummaryHiddenCount) {
+        if (!leaderSummaryShowAll && hiddenOldCount > 0) {
+          leaderSummaryHiddenCount.hidden = false;
+          leaderSummaryHiddenCount.textContent = `${LEADER_SUMMARY_RECENT_DAYS}일 이전 지시사항 ${hiddenOldCount}건 숨김`;
+        } else {
+          leaderSummaryHiddenCount.hidden = true;
+        }
+      }
     }
 
     function renderBossSummary(state) {
@@ -18713,10 +18747,23 @@
           const item = event.target.closest('.leader-summary-item');
           if (!item) return;
 
+          const directiveEl = event.target.closest('.leader-summary-directive');
+          if (directiveEl) {
+            directiveEl.classList.toggle('expanded');
+            return;
+          }
+
           const key = item.dataset.key || '';
           const [goalKey] = key.split('::');
           if (!goalTemplates[goalKey]) return;
           openGoalDetail(goalKey, key);
+        });
+      }
+
+      if (leaderSummaryHiddenCount) {
+        leaderSummaryHiddenCount.addEventListener('click', () => {
+          leaderSummaryShowAll = !leaderSummaryShowAll;
+          renderBossSummary(dashboardUnifiedOverviewState || loadPlannerState());
         });
       }
 
