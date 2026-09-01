@@ -494,16 +494,20 @@
     .journal-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .journal-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
     .directive-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .directive-history-section.is-empty { border: none; background: transparent; padding: 0; gap: 2px; }
     .directive-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
-    .directive-history-list { display: grid; gap: 8px; }
+    .directive-history-count { color: #72859a; font-weight: 700; }
+    .directive-history-list { display: grid; gap: 6px; }
     .directive-history-empty { font-size: 12px; color: #72859a; }
-    .directive-history-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 6px; }
-    .directive-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; }
-    .directive-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; }
-    .directive-history-actions { display: flex; justify-content: flex-end; }
-    .directive-history-delete-btn { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 4px 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
-    .directive-history-delete-btn:hover { background: #fff1f1; }
+    .directive-history-item { border: 1px solid #e3ecf5; border-radius: 8px; background: #f7fbff; padding: 4px 6px; display: grid; gap: 2px; }
+    .directive-history-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .directive-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; white-space: nowrap; }
+    .directive-history-delete-icon { margin-left: auto; flex-shrink: 0; border: none; background: transparent; color: #a9788a; font-size: 13px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+    .directive-history-delete-icon:hover { background: #fbeaea; color: #b54545; }
+    .directive-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .directive-history-text.expanded { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
     .comment-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .comment-history-section.is-empty { border: none; background: transparent; padding: 0; gap: 2px; }
     .comment-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .comment-history-count { color: #72859a; font-weight: 700; }
     .comment-history-list { display: grid; gap: 4px; }
@@ -517,7 +521,7 @@
     .comment-history-delete-icon:hover { background: #fbeaea; color: #b54545; }
     .comment-history-text { font-size: 12px; color: #1f3550; line-height: 1.4; white-space: pre-wrap; cursor: pointer; }
     .comment-history-text.collapsed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .comment-history-more { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
+    .history-toggle-btn { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
     .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
     .work-note-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .work-note-form { display: grid; gap: 8px; }
@@ -1835,7 +1839,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T05:30:00Z';
+    const APP_VERSION = '2026-09-01T06:15:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -2095,6 +2099,9 @@
     const NEWS_MAX_ITEMS_PER_GOAL = 8;
     const NEWS_MAX_AGE_DAYS = 30;
     const LEADER_SUMMARY_RECENT_DAYS = 14; // 팀장 지시 요약 표시 기준일수 (조정 가능)
+    const HISTORY_COLLAPSED_VISIBLE_COUNT = 1; // 지시사항/코멘트 이력 기본 표시 건수 (조정 가능)
+    const directiveHistoryExpandedKeys = new Set();
+    const commentHistoryExpandedKeys = new Set();
     const NEWS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
     const NEWS_REFRESH_COOLDOWN_MS = 10 * 60 * 1000;
     const NEWS_CACHE_KEY = 'skfMarketingNewsCacheV3';
@@ -9725,8 +9732,15 @@
         }).join('');
     }
 
-    function renderDirectiveHistory(listElement, historyEntries) {
+    function logDetailCardHeight(listElement, itemKey) {
+      const card = listElement && listElement.closest('.detail-item-card');
+      if (card) console.log('[카드 높이]', itemKey || card.dataset.key || '', `${card.offsetHeight}px`);
+    }
+
+    function renderDirectiveHistory(listElement, historyEntries, itemKey = '') {
       if (!listElement) return;
+      const section = listElement.closest('.directive-history-section');
+      const title = section ? section.querySelector('.directive-history-title') : null;
       const entries = Array.isArray(historyEntries) ? historyEntries.slice() : [];
       const sorted = entries
         .filter((entry) => entry && typeof entry.text === 'string' && entry.text.trim())
@@ -9736,24 +9750,38 @@
           return rightTime - leftTime;
         });
 
+      if (title) title.innerHTML = `지시사항 이력 <span class="directive-history-count">(${sorted.length}건)</span>`;
+
       if (!sorted.length) {
-        listElement.innerHTML = '<div class="directive-history-empty">저장된 지시사항 이력이 없습니다.</div>';
+        if (section) section.classList.add('is-empty');
+        listElement.innerHTML = '<div class="directive-history-empty">기록 없음</div>';
+        logDetailCardHeight(listElement, itemKey);
         return;
       }
 
-      listElement.innerHTML = sorted.map((entry) => {
-        const createdAtText = formatEntryDateTime(entry.createdAt || '');
+      if (section) section.classList.remove('is-empty');
+      const isExpanded = directiveHistoryExpandedKeys.has(itemKey);
+      const visibleEntries = isExpanded ? sorted : sorted.slice(0, HISTORY_COLLAPSED_VISIBLE_COUNT);
+
+      listElement.innerHTML = visibleEntries.map((entry) => {
+        const createdAtShort = formatEntryDateTimeShort(entry.createdAt || '');
         const entryId = entry.id ? String(entry.id) : '';
         return `
           <div class="directive-history-item" data-directive-history-id="${escapeHtml(entryId)}">
-            <div class="directive-history-meta">[${escapeHtml(createdAtText)}]</div>
-            <div class="directive-history-text">${escapeHtml(entry.text)}</div>
-            <div class="directive-history-actions">
-              <button type="button" class="directive-history-delete-btn" data-directive-history-delete="${escapeHtml(entryId)}">삭제</button>
+            <div class="directive-history-header">
+              <span class="directive-history-meta">${escapeHtml(createdAtShort)}</span>
+              <button type="button" class="directive-history-delete-icon" data-directive-history-delete="${escapeHtml(entryId)}" title="삭제" aria-label="지시사항 삭제">✕</button>
             </div>
+            <div class="directive-history-text">${escapeHtml(entry.text)}</div>
           </div>
         `;
       }).join('');
+
+      if (sorted.length > HISTORY_COLLAPSED_VISIBLE_COUNT) {
+        const toggleLabel = isExpanded ? '접기' : `더 보기 +${sorted.length - HISTORY_COLLAPSED_VISIBLE_COUNT}`;
+        listElement.insertAdjacentHTML('beforeend', `<button type="button" class="history-toggle-btn" data-directive-history-toggle="true">${toggleLabel}</button>`);
+      }
+      logDetailCardHeight(listElement, itemKey);
     }
 
     const ACTIVITY_LOG_BACKUP_KEY = 'skfActivityLogsBackupV1';
@@ -9791,7 +9819,7 @@
       }
     }
 
-    function renderCardCommentHistory(listElement, itemKey, expanded = false) {
+    function renderCardCommentHistory(listElement, itemKey) {
       if (!listElement) return { activityCount: 0, renderedCount: 0, excluded: [] };
       const allCardEntries = activityTimelineEntries.filter((entry) => entry && entry.itemKey === itemKey);
       const commentEntries = allCardEntries
@@ -9805,13 +9833,17 @@
         types: Array.from(new Set(allCardEntries.map((entry) => entry.type))),
         commentTypeUsed: 'comment'
       });
+      const section = listElement.closest('.comment-history-section');
+      const title = section ? section.querySelector('.comment-history-title') : null;
       if (!commentEntries.length) {
-        const title = listElement.closest('.comment-history-section')?.querySelector('.comment-history-title');
         if (title) title.innerHTML = '코멘트 이력 <span class="comment-history-count">(0건)</span>';
-        listElement.innerHTML = '<div class="comment-history-empty">저장된 코멘트 이력이 없습니다.</div>';
+        if (section) section.classList.add('is-empty');
+        listElement.innerHTML = '<div class="comment-history-empty">기록 없음</div>';
         console.log('[comment-history] 렌더 결과', { itemKey, activityCount: 0, renderedCount: 0, hiddenCount: 0, excluded });
+        logDetailCardHeight(listElement, itemKey);
         return { activityCount: 0, renderedCount: 0, excluded };
       }
+      if (section) section.classList.remove('is-empty');
 
       // 동일 내용 · 동일 작성자 · 동일 분(minute)의 코멘트는 표시만 1건으로 병합 (원본 데이터는 유지)
       const mergedGroups = [];
@@ -9828,7 +9860,8 @@
       });
       console.log('[comment-history] 중복 병합', { itemKey, before: commentEntries.length, after: mergedGroups.length });
 
-      const visibleGroups = expanded ? mergedGroups : mergedGroups.slice(0, 3);
+      const isExpanded = commentHistoryExpandedKeys.has(itemKey);
+      const visibleGroups = isExpanded ? mergedGroups : mergedGroups.slice(0, HISTORY_COLLAPSED_VISIBLE_COUNT);
       console.table(visibleGroups.map(({ entry, dupCount }) => ({
         key: entry.logId,
         type: entry.type,
@@ -9837,7 +9870,6 @@
         createdAt: entry.createdAt || '',
         dupCount
       })));
-      const title = listElement.closest('.comment-history-section')?.querySelector('.comment-history-title');
       if (title) title.innerHTML = `코멘트 이력 <span class="comment-history-count">(${mergedGroups.length}건)</span>`;
       listElement.innerHTML = visibleGroups.map(({ entry, dupCount }) => {
         const stepLabel = entry.stepTitle || (Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? `${entry.stepIndex + 1}단계` : '단계 미상');
@@ -9853,10 +9885,12 @@
           <div class="comment-history-text${fullText.length > 60 ? ' collapsed' : ''}" data-full-comment-history="${escapeHtml(fullText)}">${escapeHtml(shortText)}</div>
         </div>`;
       }).join('');
-      if (!expanded && mergedGroups.length > 3) {
-        listElement.insertAdjacentHTML('beforeend', `<button type="button" class="comment-history-more" data-comment-history-more="true">더 보기 +${mergedGroups.length - 3}</button>`);
+      if (mergedGroups.length > HISTORY_COLLAPSED_VISIBLE_COUNT) {
+        const toggleLabel = isExpanded ? '접기' : `더 보기 +${mergedGroups.length - HISTORY_COLLAPSED_VISIBLE_COUNT}`;
+        listElement.insertAdjacentHTML('beforeend', `<button type="button" class="history-toggle-btn" data-comment-history-toggle="true">${toggleLabel}</button>`);
       }
       console.log('[comment-history] 렌더 결과', { itemKey, activityCount: mergedGroups.length, renderedCount: visibleGroups.length, hiddenCount: mergedGroups.length - visibleGroups.length, excluded });
+      logDetailCardHeight(listElement, itemKey);
       return { activityCount: mergedGroups.length, renderedCount: visibleGroups.length, excluded };
     }
 
@@ -17206,7 +17240,7 @@
         };
 
         rerenderHistoryArchive();
-        renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+        renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
         renderCardCommentHistory(commentHistoryList, itemKey);
         itemState.notes = normalizeCardNotes(itemState.notes);
         rerenderWorkNotes();
@@ -17747,7 +17781,7 @@
             }
             syncDirectiveDraft(itemKey, '');
             savePlannerState(plannerState, { reason: 'directive-save' });
-            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
           });
@@ -17755,6 +17789,20 @@
 
         if (directiveHistoryList) {
           directiveHistoryList.addEventListener('click', (event) => {
+            const directiveTextEl = event.target.closest('.directive-history-text');
+            if (directiveTextEl) {
+              directiveTextEl.classList.toggle('expanded');
+              return;
+            }
+
+            const toggleButton = event.target.closest('[data-directive-history-toggle]');
+            if (toggleButton) {
+              if (directiveHistoryExpandedKeys.has(itemKey)) directiveHistoryExpandedKeys.delete(itemKey);
+              else directiveHistoryExpandedKeys.add(itemKey);
+              renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
+              return;
+            }
+
             const deleteButton = event.target.closest('[data-directive-history-delete]');
             if (!deleteButton) return;
 
@@ -17767,7 +17815,7 @@
             if (!deleted) return;
             markItemUpdated(itemState);
             savePlannerState(plannerState, { reason: 'directive-history-delete' });
-            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory);
+            renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
           });
@@ -17978,9 +18026,11 @@
               );
               return;
             }
-            const moreButton = event.target.closest('[data-comment-history-more]');
-            if (moreButton) {
-              renderCardCommentHistory(commentHistoryList, itemKey, true);
+            const toggleButton = event.target.closest('[data-comment-history-toggle]');
+            if (toggleButton) {
+              if (commentHistoryExpandedKeys.has(itemKey)) commentHistoryExpandedKeys.delete(itemKey);
+              else commentHistoryExpandedKeys.add(itemKey);
+              renderCardCommentHistory(commentHistoryList, itemKey);
               return;
             }
             const text = event.target.closest('[data-full-comment-history]');
