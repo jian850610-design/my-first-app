@@ -594,10 +594,19 @@
     .workflow-item.comment-open .workflow-step-comment-row { display: grid; }
     .workflow-step-comment-input { width: 100%; min-height: 34px; border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 6px 8px; resize: vertical; outline: none; }
     .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
-    .workflow-step-comment-display { grid-column: 1 / -1; color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; cursor: pointer; }
+    .workflow-step-comment-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .workflow-step-comment-summary { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .workflow-step-comment-display { color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; cursor: pointer; min-width: 0; }
     .workflow-step-comment-display.collapsed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .workflow-step-comment-edit-icon { border: none; background: transparent; color: #7f8f9f; font-size: 12px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; flex-shrink: 0; }
+    .workflow-step-comment-edit-icon:hover { background: #eef3f8; color: #375474; }
+    .workflow-step-comment-add-link { border: none; background: transparent; color: #3f7cb0; font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }
     .workflow-step-comment-save-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #f1f8ff; color: #1f507a; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
     .workflow-step-comment-save-btn:hover { background: #e5f1ff; }
+    .workflow-step-comment-delete-btn { border: 1px solid #f1c5c5; border-radius: 8px; background: #ffffff; color: #b54545; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .workflow-step-comment-delete-btn:hover { background: #fff1f1; }
+    .workflow-step-comment-cancel-btn { border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #4f6881; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .workflow-step-comment-cancel-btn:hover { background: #f1f6fb; }
     .workflow-step-text-display,
     .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.35; white-space: normal; word-break: keep-all; overflow-wrap: break-word; cursor: pointer; }
     .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 140px; width: auto; min-height: 26px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 4px 6px; outline: none; }
@@ -1839,7 +1848,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T06:15:00Z';
+    const APP_VERSION = '2026-09-01T07:05:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -12766,7 +12775,7 @@
       return latest ? { text: String(latest.commentSummary), authorName: latest.authorName || '', createdAt: latest.completedAt || '' } : { text: '', authorName: '', createdAt: '' };
     }
 
-    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, itemState = null) {
+    function createWorkflowChecklistHtml(steps, index, cycleCompletedCount, itemState = null, itemKey = '') {
       const workflowLines = [];
       let currentStage = '';
       const safeCycleCount = Number.isFinite(cycleCompletedCount) ? Number(cycleCompletedCount) : 0;
@@ -12774,6 +12783,8 @@
       const isRecurring = itemState && itemState.isRecurring === true;
       const currentRunName = itemState && typeof itemState.seriesDraftName === 'string' ? itemState.seriesDraftName.trim() : '';
       const shouldOpenCurrentRunEditor = !currentRunName;
+      let stepsWithCommentCount = 0;
+      let commentEntryPointCount = 0;
 
       steps.forEach((step, stepIndex) => {
         const stepState = safeItemSteps[stepIndex] || {};
@@ -12785,6 +12796,8 @@
         const savedComment = getWorkflowStepCommentDisplay(itemState, stepIndex, step);
         const savedCommentText = savedComment.text;
         const savedCommentMeta = [savedComment.authorName, savedComment.createdAt ? formatEntryDateTime(savedComment.createdAt) : ''].filter(Boolean).join(' · ');
+        if (savedCommentText) stepsWithCommentCount += 1;
+        commentEntryPointCount += 1;
         const assigneeAccent = assigneeValue ? getStepAssigneeColor(assigneeValue) : '';
         const rowAssigneeClass = assigneeValue ? 'workflow-item-assigned' : '';
         const rowAssigneeStyle = assigneeAccent ? ` style="--step-assignee-accent:${escapeHtml(assigneeAccent)};"` : '';
@@ -12818,11 +12831,17 @@
                     <button type="button" class="workflow-step-assignee-action-btn cancel" data-step-assignee-cancel-index="${stepIndex}" data-step-index="${stepIndex}">닫기</button>
                   </div>
                 </div>
+                <div class="workflow-step-comment-summary">
+                  ${savedCommentText ? `<div class="workflow-step-comment-display collapsed" data-full-comment="${escapeHtml(savedCommentText)}" title="클릭하면 전체 코멘트를 표시합니다">💬 ${escapeHtml(savedCommentText.length > 60 ? `${savedCommentText.slice(0, 60)}...` : savedCommentText)}${savedCommentMeta ? ` · ${escapeHtml(savedCommentMeta)}` : ''}</div><button type="button" class="workflow-step-comment-edit-icon" data-step-comment-edit-index="${stepIndex}" title="코멘트 수정" aria-label="코멘트 수정">✏️</button>` : `<button type="button" class="workflow-step-comment-add-link" data-step-comment-add-index="${stepIndex}">코멘트 +</button>`}
+                </div>
                 <div class="workflow-step-comment-row">
                   <textarea class="workflow-step-comment-input" data-step-comment-index="${stepIndex}" rows="1" placeholder="이 단계 수행 코멘트를 입력하세요">${escapeHtml(safeItemSteps[stepIndex] && typeof safeItemSteps[stepIndex].comment === 'string' ? safeItemSteps[stepIndex].comment : '')}</textarea>
-                  <button type="button" class="workflow-step-comment-save-btn" data-step-comment-save-index="${stepIndex}">코멘트 저장</button>
+                  <div class="workflow-step-comment-actions">
+                    <button type="button" class="workflow-step-comment-save-btn" data-step-comment-save-index="${stepIndex}">저장</button>
+                    <button type="button" class="workflow-step-comment-delete-btn" data-step-comment-delete-index="${stepIndex}">삭제</button>
+                    <button type="button" class="workflow-step-comment-cancel-btn" data-step-comment-cancel-index="${stepIndex}">취소</button>
+                  </div>
                 </div>
-                ${savedCommentText ? `<div class="workflow-step-comment-display collapsed" data-full-comment="${escapeHtml(savedCommentText)}" title="클릭하면 전체 코멘트를 표시합니다">💬 ${escapeHtml(savedCommentText.length > 60 ? `${savedCommentText.slice(0, 60)}...` : savedCommentText)}${savedCommentMeta ? ` · ${escapeHtml(savedCommentMeta)}` : ''}</div>` : ''}
                 <div class="workflow-item-tools">
                   <div class="task-order-controls" aria-label="단계 순서 조정">
                     <button type="button" class="task-order-btn task-order-up" data-step-move="up" data-step-index="${stepIndex}" ${stepIndex === 0 ? 'data-order-boundary-disabled="1" disabled' : ''} aria-label="단계 위로 이동">↑</button>
@@ -12832,6 +12851,13 @@
                 </div>
               </li>
             `);
+      });
+
+      console.log('[체크리스트 코멘트 진입점]', {
+        itemKey,
+        totalSteps: steps.length,
+        stepsWithComment: stepsWithCommentCount,
+        commentEntryPointsRendered: commentEntryPointCount
       });
 
       const currentRunHtml = isRecurring
@@ -15927,7 +15953,8 @@
             checklistSteps,
             index,
             getCycleCompletedCount(itemState),
-            itemState
+            itemState,
+            itemKey
           );
           const historyArchiveHtml = createHistoryArchiveHtml(itemState && itemState.isRecurring === true);
           const hasFinalDueDate = Boolean(itemState && Array.isArray(itemState.steps) && itemState.steps[3] && itemState.steps[3].dueDate);
@@ -16139,14 +16166,6 @@
           const itemState = getItemState(plannerSnapshot, itemKey, checklistSteps.length, currentPrinciples);
           return { card, itemKey, goalKey, indexText, itemIndex, currentItem, itemState, checklistSteps, plannerSnapshot };
         };
-
-        // 체크리스트 단계 클릭 시 코멘트 입력창을 펼치고/접는다 (기본은 접힘)
-        detailContainer.addEventListener('click', (event) => {
-          const textToggle = event.target.closest('.workflow-step-text-display');
-          if (!textToggle) return;
-          const stepRow = textToggle.closest('.workflow-item');
-          if (stepRow) stepRow.classList.toggle('comment-open');
-        });
 
         // 업무 노트/참고 자료 입력 폼 접기·펼치기 (hidden 속성만 토글, 데이터/DOM 내용은 유지)
         detailContainer.addEventListener('click', (event) => {
@@ -16698,6 +16717,10 @@
         const dueDateInputs = Array.from(card.querySelectorAll('.workflow-due-date'));
         const stepCommentInputs = Array.from(card.querySelectorAll('.workflow-step-comment-input'));
         const stepCommentSaveButtons = Array.from(card.querySelectorAll('.workflow-step-comment-save-btn'));
+        const stepCommentEditIcons = Array.from(card.querySelectorAll('.workflow-step-comment-edit-icon'));
+        const stepCommentAddLinks = Array.from(card.querySelectorAll('.workflow-step-comment-add-link'));
+        const stepCommentDeleteButtons = Array.from(card.querySelectorAll('.workflow-step-comment-delete-btn'));
+        const stepCommentCancelButtons = Array.from(card.querySelectorAll('.workflow-step-comment-cancel-btn'));
         const dueDateBadges = Array.from(card.querySelectorAll('.workflow-dday-badge'));
         const stepCompletedBadges = Array.from(card.querySelectorAll('[data-step-completed-index]'));
         const latestActivityPanel = card.querySelector('.latest-activity-panel');
@@ -17938,6 +17961,65 @@
           });
         }
 
+        const openStepCommentEditor = (stepIndex) => {
+          const stepRow = card.querySelector(`.workflow-item.checklist-item[data-step-index="${stepIndex}"]`);
+          if (!stepRow) return;
+          stepRow.classList.add('comment-open');
+          const input = stepCommentInputs[stepIndex];
+          if (input) {
+            input.value = (itemState.steps[stepIndex] && typeof itemState.steps[stepIndex].comment === 'string') ? itemState.steps[stepIndex].comment : '';
+            input.focus();
+          }
+        };
+
+        stepCommentEditIcons.forEach((icon) => {
+          icon.addEventListener('click', () => {
+            const stepIndex = Number(icon.getAttribute('data-step-comment-edit-index'));
+            if (Number.isNaN(stepIndex)) return;
+            openStepCommentEditor(stepIndex);
+          });
+        });
+
+        stepCommentAddLinks.forEach((link) => {
+          link.addEventListener('click', () => {
+            const stepIndex = Number(link.getAttribute('data-step-comment-add-index'));
+            if (Number.isNaN(stepIndex)) return;
+            openStepCommentEditor(stepIndex);
+          });
+        });
+
+        stepCommentCancelButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const stepIndex = Number(button.getAttribute('data-step-comment-cancel-index'));
+            if (Number.isNaN(stepIndex)) return;
+            const stepRow = card.querySelector(`.workflow-item.checklist-item[data-step-index="${stepIndex}"]`);
+            if (stepRow) stepRow.classList.remove('comment-open');
+            const input = stepCommentInputs[stepIndex];
+            if (input) input.value = (itemState.steps[stepIndex] && typeof itemState.steps[stepIndex].comment === 'string') ? itemState.steps[stepIndex].comment : '';
+          });
+        });
+
+        stepCommentDeleteButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const stepIndex = Number(button.getAttribute('data-step-comment-delete-index'));
+            if (Number.isNaN(stepIndex) || !itemState.steps[stepIndex]) return;
+            const hasComment = Boolean(typeof itemState.steps[stepIndex].comment === 'string' && itemState.steps[stepIndex].comment.trim());
+            if (!hasComment) {
+              const stepRow = card.querySelector(`.workflow-item.checklist-item[data-step-index="${stepIndex}"]`);
+              if (stepRow) stepRow.classList.remove('comment-open');
+              return;
+            }
+            const confirmed = window.confirm('이 단계의 코멘트를 삭제하시겠습니까?');
+            if (!confirmed) return;
+            // 단계 comment 필드만 비움 (activityLogs 이력은 변경하지 않음)
+            itemState.steps[stepIndex].comment = '';
+            console.log('[STEP COMMENT] 삭제 경로', { itemKey, stepIndex, path: 'itemState.steps[stepIndex].comment = "" (activityLogs 미변경)' });
+            markItemUpdated(itemState);
+            savePlannerState(plannerState, { reason: 'step-comment-delete' });
+            updateGoalCard(currentGoal);
+          });
+        });
+
         stepCommentSaveButtons.forEach((button) => {
           button.addEventListener('click', async () => {
             const stepIndex = Number(button.getAttribute('data-step-comment-save-index'));
@@ -17995,12 +18077,12 @@
             } catch (error) {
               console.error('[STEP COMMENT] 저장 실패', error);
               window.alert('단계 코멘트 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
-              button.textContent = beforeText || '코멘트 저장';
+              button.textContent = beforeText || '저장';
             } finally {
               setTimeout(() => {
                 button.disabled = false;
                 if (button.textContent === '저장됨') {
-                  button.textContent = beforeText || '코멘트 저장';
+                  button.textContent = beforeText || '저장';
                 }
               }, 900);
             }
