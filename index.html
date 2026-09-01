@@ -436,7 +436,7 @@
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; align-items: start; }
-    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; overflow: visible; scroll-margin-top: 88px; align-content: start; }
+    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; min-width: 0; overflow: visible; scroll-margin-top: 88px; align-content: start; }
     .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
     .detail-item-card h3 { margin: 0; font-size: 17px; color: var(--text); }
     .detail-item-card.row-jump-highlight {
@@ -564,13 +564,13 @@
     .workflow-stage-divider { margin-top: 6px; padding-top: 8px; border-top: 1px dashed #cdddee; font-size: 12px; font-weight: 800; color: #234a70; letter-spacing: 0.02em; }
     .workflow-stage-divider:first-child { margin-top: 0; padding-top: 0; border-top: none; }
     .workflow-item,
-    .checklist-item { display: grid; grid-template-columns: 1fr 120px 70px 100px; gap: 8px; align-items: center; width: 100%; padding: 4px 8px; margin: 0; font-size: 13px; line-height: 1.35; color: #24405d; border-radius: 8px; background: rgba(255, 255, 255, 0.7); }
+    .checklist-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 4px 8px; margin: 0; font-size: 13px; line-height: 1.35; color: #24405d; border-radius: 8px; background: rgba(255, 255, 255, 0.7); }
     .workflow-item-assigned { padding-left: 8px; }
-    .workflow-item-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .workflow-item-tools { grid-column: 1 / -1; display: none; justify-content: flex-end; align-items: center; gap: 6px; padding-top: 2px; }
+    .workflow-item-left { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+    .workflow-item-tools { flex: 1 1 100%; width: 100%; display: none; justify-content: flex-end; align-items: center; gap: 6px; padding-top: 2px; }
     .detail-item-card.editing .workflow-item-tools { display: flex; }
-    .workflow-status-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; min-width: 0; }
-    .workflow-step-assignee-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 2px; flex-wrap: wrap; }
+    .workflow-status-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; min-width: 0; }
+    .workflow-step-assignee-row { flex: 1 1 100%; width: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 2px; flex-wrap: wrap; }
     .workflow-step-assignee-badge { border-radius: 999px; border: 1px dashed #c8d5e5; background: #f6f8fb; color: #7f8f9f; padding: 3px 8px; font-size: 11px; font-weight: 700; line-height: 1.2; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease; }
     .workflow-step-assignee-badge:hover { color: #5d6f82; border-color: #b3c4d7; background: #eef3f8; }
     .workflow-step-assignee-badge.assigned { border-style: solid; border-color: #88acd0; background: #ecf4ff; color: #20496e; }
@@ -590,12 +590,12 @@
     .workflow-bulk-assignee-mode { border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 11px; line-height: 1.3; padding: 4px 8px; min-height: 30px; }
     .workflow-bulk-assignee-apply-btn { border: 1px solid #8fb3d8; border-radius: 8px; background: #e9f4ff; color: #1f507a; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
     .workflow-bulk-assignee-apply-btn:disabled { opacity: 0.55; cursor: default; }
-    .workflow-step-comment-row { grid-column: 1 / -1; display: none; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e3ecf5; }
+    .workflow-step-comment-row { flex: 1 1 100%; width: 100%; display: none; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e3ecf5; }
     .workflow-item.comment-open .workflow-step-comment-row { display: grid; }
     .workflow-step-comment-input { width: 100%; min-height: 34px; border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 6px 8px; resize: vertical; outline: none; }
     .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .workflow-step-comment-actions { display: flex; gap: 6px; flex-shrink: 0; }
-    .workflow-step-comment-summary { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .workflow-step-comment-summary { flex: 1 1 100%; width: 100%; display: flex; align-items: center; gap: 6px; min-width: 0; }
     .workflow-step-comment-display { color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; cursor: pointer; min-width: 0; }
     .workflow-step-comment-display.collapsed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .workflow-step-comment-edit-icon { border: none; background: transparent; color: #7f8f9f; font-size: 12px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; flex-shrink: 0; }
@@ -608,18 +608,18 @@
     .workflow-step-comment-cancel-btn { border: 1px solid #d2deec; border-radius: 8px; background: #ffffff; color: #4f6881; padding: 7px 10px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
     .workflow-step-comment-cancel-btn:hover { background: #f1f6fb; }
     .workflow-step-text-display,
-    .checklist-text { flex: 1; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.35; white-space: normal; word-break: keep-all; overflow-wrap: break-word; cursor: pointer; }
+    .checklist-text { flex: 1 1 auto; min-width: 0; color: #24405d; font-size: 13px; line-height: 1.35; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; cursor: pointer; }
     .workflow-step-text-input { display: none; flex: 1 1 auto; min-width: 140px; width: auto; min-height: 26px; border: 1px solid #cfdced; border-radius: 8px; background: #ffffff; color: #24405d; font-size: 12px; line-height: 1.35; padding: 4px 6px; outline: none; }
     .detail-item-card.editing .workflow-step-text-display { display: none; }
     .detail-item-card.editing .workflow-step-text-input { display: inline-flex; }
     .detail-item-card:not(.editing) .workflow-step-text-input { pointer-events: none; }
     .workflow-item input[type="checkbox"] { margin: 0; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
     .workflow-item label { cursor: pointer; }
-    .workflow-due-date { width: 100%; box-sizing: border-box; border: 1px solid #cfdced; border-radius: 8px; padding: 3px 6px; background: #ffffff; color: #294765; font-size: 11px; }
+    .workflow-due-date { flex: 0 0 auto; width: 120px; max-width: 120px; box-sizing: border-box; border: 1px solid #cfdced; border-radius: 8px; padding: 3px 6px; background: #ffffff; color: #294765; font-size: 11px; }
     .workflow-due-date:disabled { background: #f4f7fb; color: #8a97a7; cursor: default; }
     .workflow-due-date:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .workflow-dday-badge,
-    .dday-badge { display: block; width: 100%; box-sizing: border-box; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .dday-badge { display: block; flex: 0 0 70px; width: 70px; box-sizing: border-box; text-align: center; border-radius: 999px; padding: 3px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; }
     .workflow-dday-badge.unset { background: #eef3f8; color: #6a7d93; }
     .workflow-dday-badge.upcoming { background: #e8f3ff; color: #0f5f9d; }
     .workflow-dday-badge.today { background: #fff4df; color: #a15d00; }
@@ -1848,7 +1848,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T08:20:00Z';
+    const APP_VERSION = '2026-09-01T09:10:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -16164,6 +16164,38 @@
         });
         console.table(heights);
         console.log('[detailItems] 제목이 잘린 카드', clippedTitles);
+
+        // .details-grid 컬럼 폭과 카드 실제 폭 비교 (카드 폭 > 컬럼 폭이면 내부 요소 밀림 의심)
+        const gridTemplateColumns = getComputedStyle(detailContainer).gridTemplateColumns;
+        const columnWidths = gridTemplateColumns.split(' ').map((value) => parseFloat(value) || 0);
+        const overflowingCards = [];
+        const widthReport = Array.from(detailContainer.querySelectorAll('.detail-item-card')).map((card) => {
+          const rect = card.getBoundingClientRect();
+          const scrollWidth = card.scrollWidth;
+          const clientWidth = card.clientWidth;
+          const overflowsColumn = columnWidths.some((columnWidth) => columnWidth > 0 && rect.width > columnWidth + 1);
+          const overflowsSelf = scrollWidth - clientWidth > 1;
+          if (overflowsSelf) {
+            const titleEl = card.querySelector('.card-main-title');
+            overflowingCards.push({
+              key: card.dataset.key || '',
+              fullTitle: titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '') : '',
+              scrollWidth,
+              clientWidth
+            });
+          }
+          return {
+            key: card.dataset.key || '',
+            widthPx: Math.round(rect.width),
+            scrollWidth,
+            clientWidth,
+            overflowsColumn,
+            overflowsSelf
+          };
+        });
+        console.log('[detailItems] .details-grid grid-template-columns', gridTemplateColumns);
+        console.table(widthReport);
+        console.log('[detailItems] 여전히 넘치는 카드(scrollWidth>clientWidth)', overflowingCards);
       });
     }
 
