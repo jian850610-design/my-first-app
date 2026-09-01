@@ -452,7 +452,7 @@
       100% { background: inherit; transform: translateY(0) scale(1); }
     }
     .detail-item-description { color: var(--muted); line-height: 1.4; font-size: 13px; white-space: pre-line; margin: 0; }
-    .detail-item-meta { display: grid; gap: 10px; }
+    .detail-item-meta { display: grid; gap: 10px; min-width: 0; }
     .detail-item-meta strong { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
     .detail-item-meta p { margin: 0 0 8px; color: var(--text); line-height: 1.4; font-size: 13px; }
     .detail-item-meta p:last-child { margin-bottom: 0; }
@@ -493,36 +493,36 @@
     .journal-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .journal-edit-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #36536f; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .journal-edit-btn.save { border-color: #0f5f9d; background: #0f5f9d; color: #ffffff; }
-    .directive-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .directive-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; min-width: 0; }
     .directive-history-section.is-empty { border: none; background: transparent; padding: 0; gap: 2px; }
     .directive-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .directive-history-count { color: #72859a; font-weight: 700; }
-    .directive-history-list { display: grid; gap: 6px; }
+    .directive-history-list { display: grid; gap: 6px; min-width: 0; }
     .directive-history-empty { font-size: 12px; color: #72859a; }
-    .directive-history-item { border: 1px solid #e3ecf5; border-radius: 8px; background: #f7fbff; padding: 4px 6px; display: grid; gap: 2px; }
+    .directive-history-item { border: 1px solid #e3ecf5; border-radius: 8px; background: #f7fbff; padding: 4px 6px; display: grid; gap: 2px; min-width: 0; }
     .directive-history-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
     .directive-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; white-space: nowrap; }
     .directive-history-delete-icon { margin-left: auto; flex-shrink: 0; border: none; background: transparent; color: #a9788a; font-size: 13px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
     .directive-history-delete-icon:hover { background: #fbeaea; color: #b54545; }
-    .directive-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .directive-history-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .directive-history-text.expanded { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
-    .comment-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .comment-history-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; min-width: 0; }
     .comment-history-section.is-empty { border: none; background: transparent; padding: 0; gap: 2px; }
     .comment-history-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .comment-history-count { color: #72859a; font-weight: 700; }
-    .comment-history-list { display: grid; gap: 4px; }
+    .comment-history-list { display: grid; gap: 4px; min-width: 0; }
     .comment-history-empty { font-size: 12px; color: #72859a; }
-    .comment-history-item { border: 1px solid #e3ecf5; border-radius: 8px; background: #f7fbff; padding: 4px 6px; display: grid; gap: 2px; }
+    .comment-history-item { border: 1px solid #e3ecf5; border-radius: 8px; background: #f7fbff; padding: 4px 6px; display: grid; gap: 2px; min-width: 0; }
     .comment-history-meta-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .comment-history-meta { font-size: 11px; color: #5f7690; font-weight: 700; white-space: nowrap; }
     .comment-history-step { font-size: 10px; color: #8798ac; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .comment-history-dup-count { font-size: 10px; color: #356080; font-weight: 800; white-space: nowrap; }
     .comment-history-delete-icon { margin-left: auto; flex-shrink: 0; border: none; background: transparent; color: #a9788a; font-size: 13px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
     .comment-history-delete-icon:hover { background: #fbeaea; color: #b54545; }
-    .comment-history-text { font-size: 12px; color: #1f3550; line-height: 1.4; white-space: pre-wrap; cursor: pointer; }
+    .comment-history-text { font-size: 12px; color: #1f3550; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; cursor: pointer; }
     .comment-history-text.collapsed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .history-toggle-btn { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
-    .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; }
+    .work-note-section { border: 1px solid #dbe6f1; border-radius: 10px; background: #ffffff; padding: 8px; display: grid; gap: 8px; min-width: 0; }
     .work-note-title { font-size: 12px; font-weight: 800; color: #3f5874; }
     .work-note-form { display: grid; gap: 8px; }
     .work-note-form[hidden] { display: none; }
@@ -534,15 +534,15 @@
     .work-note-editor { width: 100%; min-height: 72px; border: 1px solid #d8dfe7; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--text); background: #ffffff; resize: vertical; outline: none; }
     .work-note-editor:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
     .work-note-actions { display: flex; justify-content: flex-end; gap: 6px; }
-    .work-note-list { display: grid; gap: 8px; }
+    .work-note-list { display: grid; gap: 8px; min-width: 0; }
     .work-note-empty { font-size: 12px; color: #72859a; }
-    .work-note-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 6px; }
+    .work-note-item { border: 1px solid #e3ecf5; border-radius: 10px; background: #f7fbff; padding: 8px 10px; display: grid; gap: 6px; min-width: 0; }
     .work-note-item.divider { border-style: dashed; background: #fbfdff; }
     .work-note-divider-line { font-size: 12px; color: #5f7690; font-weight: 800; letter-spacing: 0.04em; text-align: center; }
     .work-note-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .work-note-meta { font-size: 11px; color: #5f7690; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
     .work-note-type-badge { border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; color: #1f507a; background: #e7f0fb; }
-    .work-note-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; }
+    .work-note-text { font-size: 12px; color: #1f3550; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
     .work-note-buttons { display: inline-flex; gap: 6px; }
     .work-note-edit-box { display: grid; gap: 8px; }
     .work-note-more-btn { border: 1px dashed #b8cde3; border-radius: 8px; background: #ffffff; color: #3f5874; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
@@ -596,7 +596,7 @@
     .workflow-step-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.1); }
     .workflow-step-comment-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .workflow-step-comment-summary { flex: 1 1 100%; width: 100%; display: flex; align-items: center; gap: 6px; min-width: 0; }
-    .workflow-step-comment-display { color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; cursor: pointer; min-width: 0; }
+    .workflow-step-comment-display { color: #4f6881; font-size: 11px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; min-width: 0; }
     .workflow-step-comment-display.collapsed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .workflow-step-comment-edit-icon { border: none; background: transparent; color: #7f8f9f; font-size: 12px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; flex-shrink: 0; }
     .workflow-step-comment-edit-icon:hover { background: #eef3f8; color: #375474; }
@@ -764,6 +764,9 @@
     .card-reference-link { color: #1a5fb4; font-weight: 800; text-decoration: underline; overflow-wrap: anywhere; }
     .card-reference-link:hover { color: #0d3f80; }
     .card-reference-copy-icon-btn { flex-shrink: 0; border: none; background: transparent; cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1; }
+    .inline-url-link { color: #1a5fb4; font-weight: 700; text-decoration: underline; overflow-wrap: anywhere; }
+    .inline-url-link:hover { color: #0d3f80; }
+    .inline-url-copy-btn { flex-shrink: 0; border: none; background: transparent; cursor: pointer; font-size: 11px; padding: 0 2px; line-height: 1; vertical-align: middle; }
     .card-reference-note { color: #5e748d; font-size: 11px; }
     .card-reference-actions { display: inline-flex; align-items: center; gap: 6px; }
     .card-reference-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #35516d; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
@@ -1853,7 +1856,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T16:40:00Z';
+    const APP_VERSION = '2026-09-01T18:20:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -9792,6 +9795,24 @@
     function logDetailCardHeight(listElement, itemKey) {
       const card = listElement && listElement.closest('.detail-item-card');
       if (card) console.log('[카드 높이]', itemKey || card.dataset.key || '', `${card.offsetHeight}px`);
+      logCardOverflowCheck(card, itemKey);
+    }
+
+    function logCardOverflowCheck(card, itemKey = '') {
+      if (!card) return;
+      const titleEl = card.querySelector('.card-main-title');
+      const title = titleEl ? titleEl.textContent : (itemKey || card.dataset.key || '');
+      const overflowing = card.scrollWidth > card.clientWidth;
+      console.log('[카드 가로 오버플로우 체크]', {
+        itemKey: itemKey || card.dataset.key || '',
+        title,
+        scrollWidth: card.scrollWidth,
+        clientWidth: card.clientWidth,
+        overflowing
+      });
+      if (overflowing) {
+        console.warn('[카드 가로 오버플로우 감지]', title, itemKey || card.dataset.key || '');
+      }
     }
 
     function renderDirectiveHistory(listElement, historyEntries, itemKey = '') {
@@ -9829,7 +9850,7 @@
               <span class="directive-history-meta">${escapeHtml(createdAtShort)}</span>
               <button type="button" class="directive-history-delete-icon" data-directive-history-delete="${escapeHtml(entryId)}" title="삭제" aria-label="지시사항 삭제">✕</button>
             </div>
-            <div class="directive-history-text">${escapeHtml(entry.text)}</div>
+            <div class="directive-history-text">${linkifyTextToHtml(entry.text)}</div>
           </div>
         `;
       }).join('');
@@ -9931,7 +9952,9 @@
       listElement.innerHTML = visibleGroups.map(({ entry, dupCount }) => {
         const stepLabel = entry.stepTitle || (Number.isInteger(entry.stepIndex) && entry.stepIndex >= 0 ? `${entry.stepIndex + 1}단계` : '단계 미상');
         const fullText = entry.detail || '';
+        const containsUrl = /https?:\/\//i.test(fullText);
         const shortText = fullText.length > 60 ? `${fullText.slice(0, 60)}...` : fullText;
+        const displayHtml = containsUrl ? linkifyTextToHtml(fullText) : escapeHtml(shortText);
         return `<div class="comment-history-item">
           <div class="comment-history-meta-row">
             <span class="comment-history-meta">${escapeHtml(formatEntryDateTimeShort(entry.timestamp))} · ${escapeHtml(entry.authorName || EDITOR_NAME_LABEL)}</span>
@@ -9939,7 +9962,7 @@
             ${dupCount > 1 ? `<span class="comment-history-dup-count">· ${dupCount}건</span>` : ''}
             <button type="button" class="comment-history-delete-icon" data-comment-history-delete="${escapeHtml(entry.logId || '')}" data-comment-history-card="${escapeHtml(itemKey)}" data-comment-history-content="${escapeHtml(fullText)}" data-comment-history-created-at="${escapeHtml(entry.createdAt || '')}" title="삭제" aria-label="코멘트 삭제">✕</button>
           </div>
-          <div class="comment-history-text${fullText.length > 60 ? ' collapsed' : ''}" data-full-comment-history="${escapeHtml(fullText)}">${escapeHtml(shortText)}</div>
+          <div class="comment-history-text${fullText.length > 60 && !containsUrl ? ' collapsed' : ''}" data-full-comment-history="${escapeHtml(fullText)}">${displayHtml}</div>
         </div>`;
       }).join('');
       if (mergedGroups.length > HISTORY_COLLAPSED_VISIBLE_COUNT) {
@@ -10038,7 +10061,7 @@
                   <button type="button" class="journal-action-btn delete" data-work-note-action="delete" data-work-note-index="${index}" ${disableAttr}>삭제</button>
                 </div>
               </div>
-              <div class="work-note-text">${escapeHtml(entry.text || '')}</div>
+              <div class="work-note-text">${linkifyTextToHtml(entry.text || '')}</div>
             </div>
           `;
         }).join('')}
@@ -12890,7 +12913,7 @@
                   </div>
                 </div>
                 <div class="workflow-step-comment-summary">
-                  ${savedCommentText ? `<div class="workflow-step-comment-display collapsed" data-full-comment="${escapeHtml(savedCommentText)}" title="클릭하면 전체 코멘트를 표시합니다">💬 ${escapeHtml(savedCommentText.length > 60 ? `${savedCommentText.slice(0, 60)}...` : savedCommentText)}${savedCommentMeta ? ` · ${escapeHtml(savedCommentMeta)}` : ''}</div><button type="button" class="workflow-step-comment-edit-icon" data-step-comment-edit-index="${stepIndex}" title="코멘트 수정" aria-label="코멘트 수정">✏️</button>` : `<button type="button" class="workflow-step-comment-add-link" data-step-comment-add-index="${stepIndex}">코멘트 +</button>`}
+                  ${savedCommentText ? `<div class="workflow-step-comment-display${/https?:\/\//i.test(savedCommentText) ? '' : ' collapsed'}" data-full-comment="${escapeHtml(savedCommentText)}" title="클릭하면 전체 코멘트를 표시합니다">💬 ${/https?:\/\//i.test(savedCommentText) ? linkifyTextToHtml(savedCommentText) : escapeHtml(savedCommentText.length > 60 ? `${savedCommentText.slice(0, 60)}...` : savedCommentText)}${savedCommentMeta ? ` · ${escapeHtml(savedCommentMeta)}` : ''}</div><button type="button" class="workflow-step-comment-edit-icon" data-step-comment-edit-index="${stepIndex}" title="코멘트 수정" aria-label="코멘트 수정">✏️</button>` : `<button type="button" class="workflow-step-comment-add-link" data-step-comment-add-index="${stepIndex}">코멘트 +</button>`}
                 </div>
                 <div class="workflow-step-comment-row">
                   <textarea class="workflow-step-comment-input" data-step-comment-index="${stepIndex}" rows="1" placeholder="이 단계 수행 코멘트를 입력하세요">${escapeHtml(safeItemSteps[stepIndex] && typeof safeItemSteps[stepIndex].comment === 'string' ? safeItemSteps[stepIndex].comment : '')}</textarea>
@@ -18226,7 +18249,7 @@
         card.querySelectorAll('.workflow-step-comment-display').forEach((display) => {
           display.addEventListener('click', () => {
             display.classList.remove('collapsed');
-            display.textContent = `💬 ${display.dataset.fullComment || ''}`;
+            display.innerHTML = `💬 ${linkifyTextToHtml(display.dataset.fullComment || '')}`;
           });
         });
 
@@ -18252,7 +18275,7 @@
             const text = event.target.closest('[data-full-comment-history]');
             if (text) {
               text.classList.remove('collapsed');
-              text.textContent = text.dataset.fullCommentHistory || '';
+              text.innerHTML = linkifyTextToHtml(text.dataset.fullCommentHistory || '');
             }
           });
         }
