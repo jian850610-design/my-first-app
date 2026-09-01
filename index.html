@@ -1001,13 +1001,14 @@
     .content { margin-top: 30px; display: grid; grid-template-columns: 1fr; gap: 22px; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
     .field-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 22px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 16px; }
-    .field-label { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; flex-wrap: nowrap; width: 100%; min-width: 0; }
+    .field-label { display: flex; flex-direction: column; align-items: stretch; gap: 6px; flex-wrap: nowrap; width: 100%; min-width: 0; }
     .field-label span { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
     .field-label button { border: none; border-radius: 12px; background: var(--navy); color: white; padding: 12px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
     .field-label button:hover { background: var(--accent-light); transform: translateY(-1px); }
-    .card-title-group { display: grid; gap: 4px; flex: 1 1 auto; min-width: 0; max-width: 100%; }
-    .card-main-title { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
-    .button-group { display: flex; gap: 6px; margin-left: auto; flex: 0 0 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; align-items: center; }
+    .card-title-group { display: grid; gap: 4px; width: 100%; min-width: 0; max-width: 100%; }
+    .card-main-title { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; line-height: 1.35; cursor: pointer; }
+    .card-main-title.expanded { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+    .button-group { display: flex; gap: 6px; width: 100%; margin-left: 0; flex: 0 0 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; align-items: center; }
     .card-priority-control { display: grid; gap: 2px; min-width: 0; width: min(112px, 100%); }
     .card-priority-control select { width: 100%; min-width: 0; }
     .leader-request-tag { display: none; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; background: #fff3cc; color: #8a5b00; border: 1px solid #f2d98a; font-size: 11px; font-weight: 700; }
@@ -1019,7 +1020,6 @@
       .details-grid { grid-template-columns: 1fr; }
       .field-label { flex-wrap: wrap; }
       .card-title-group { width: 100%; }
-      .card-main-title { max-width: 100%; }
       .button-group { width: 100%; margin-left: 0; flex-wrap: wrap; }
       .card-priority-control { width: 100%; }
       .card-edit-btn,
@@ -1848,7 +1848,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T07:05:00Z';
+    const APP_VERSION = '2026-09-01T08:20:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -16027,7 +16027,7 @@
         <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
           <div class="field-label">
             <div class="card-title-group">
-              <span class="card-main-title">${escapeHtml(displayTitle)}${hasWorkNotes ? '<span class="work-note-indicator" aria-label="업무 노트 있음">📝</span>' : ''}${externalAssigneeBadgeHtml}</span>
+              <span class="card-main-title" title="${escapeHtml(displayTitle)}">${escapeHtml(displayTitle)}${hasWorkNotes ? '<span class="work-note-indicator" aria-label="업무 노트 있음">📝</span>' : ''}${externalAssigneeBadgeHtml}</span>
               ${leaderTagHtml}
             </div>
             <div class="button-group">
@@ -16145,13 +16145,25 @@
         }
       }
       attachDetailItemListeners();
-      // 레이아웃 확정 후 카드별 실제 렌더 높이를 콘솔에 출력 (캡처 없이 확인용)
+      // 레이아웃 확정 후 카드별 실제 렌더 높이와 제목 줄바꿈 상태를 콘솔에 출력 (캡처 없이 확인용)
       requestAnimationFrame(() => {
-        const heights = Array.from(detailContainer.querySelectorAll('.detail-item-card')).map((card) => ({
-          key: card.dataset.key || '',
-          heightPx: Math.round(card.getBoundingClientRect().height)
-        }));
-        console.log('[detailItems] 카드별 높이(px)', heights);
+        const clippedTitles = [];
+        const heights = Array.from(detailContainer.querySelectorAll('.detail-item-card')).map((card) => {
+          const titleEl = card.querySelector('.card-main-title');
+          const fullTitle = titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '') : '';
+          const lineHeight = titleEl ? parseFloat(getComputedStyle(titleEl).lineHeight) || 0 : 0;
+          const renderedLines = titleEl && lineHeight > 0 ? Math.round(titleEl.getBoundingClientRect().height / lineHeight) : 0;
+          const isClipped = Boolean(titleEl && titleEl.scrollHeight - titleEl.clientHeight > 1 && !titleEl.classList.contains('expanded'));
+          if (isClipped) clippedTitles.push({ key: card.dataset.key || '', fullTitle });
+          return {
+            key: card.dataset.key || '',
+            fullTitle,
+            renderedLines,
+            heightPx: Math.round(card.getBoundingClientRect().height)
+          };
+        });
+        console.table(heights);
+        console.log('[detailItems] 제목이 잘린 카드', clippedTitles);
       });
     }
 
@@ -16196,6 +16208,13 @@
               referenceToggle.textContent = form.hidden ? '참고 자료 추가 +' : '참고 자료 추가 접기 −';
             }
           }
+        });
+
+        // 카드 제목 클릭 시 2줄 말줄임을 해제/복원 (CSS 클래스 토글만, DOM 변경 없음)
+        detailContainer.addEventListener('click', (event) => {
+          const titleEl = event.target.closest('.card-main-title');
+          if (!titleEl) return;
+          titleEl.classList.toggle('expanded');
         });
 
         const refreshStepAssigneeVisual = (card, itemState, stepIndex) => {
