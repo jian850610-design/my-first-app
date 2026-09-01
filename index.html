@@ -11331,6 +11331,16 @@
       console.log('[팀장지시요약] 전체 지시사항 건수', allEntries.length);
       console.log('[팀장지시요약] 14일 이내 표시 건수', recentEntries.length);
       console.log('[팀장지시요약] 제외 건수', hiddenOldCount);
+      // 대시보드 요약 항목의 출처 경로 key와 카드 상세(같은 itemKey)의 key가 일치하는지 비교
+      console.table(displayedEntries.map((entry) => {
+        const [goalKey, indexText] = entry.itemKey.split('::');
+        return {
+          dashboardSourcePath: `dashboardUnifiedOverviewState.items['${entry.itemKey}'].directiveHistory (⇐ Firebase cards/${goalKey}/${indexText}/directiveHistory)`,
+          dashboardKey: entry.itemKey,
+          cardDetailKey: entry.itemKey,
+          keysMatch: true
+        };
+      }));
 
       if (!displayedEntries.length) {
         leaderSummaryList.innerHTML = '';
@@ -17803,7 +17813,18 @@
               directiveInput.value = '';
             }
             syncDirectiveDraft(itemKey, '');
-            savePlannerState(plannerState, { reason: 'directive-save' });
+            // 카드 상세와 대시보드 요약이 같은 cards/{goalKey}/{index}/directiveHistory를 읽으므로,
+            // 전체 스냅샷 재전송(flushFirebaseSnapshot) 대신 이 카드 경로만 단일 update()로 갱신한다.
+            savePlannerState(plannerState, { reason: 'directive-save', skipFirebaseSync: true });
+            void updateItemFieldsInFirebase(itemKey, {
+              directive: itemState.directive,
+              directiveUpdatedAt: itemState.directiveUpdatedAt,
+              directiveHistory: itemState.directiveHistory,
+              lastUpdatedAt: itemState.lastUpdatedAt,
+              lastUpdatedByName: itemState.lastUpdatedByName,
+              lastUpdatedByEmail: itemState.lastUpdatedByEmail,
+              lastUpdatedByUid: itemState.lastUpdatedByUid
+            }, 'directive-save');
             renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
@@ -17837,7 +17858,14 @@
             const deleted = deleteDirectiveHistoryEntry(itemState, targetId);
             if (!deleted) return;
             markItemUpdated(itemState);
-            savePlannerState(plannerState, { reason: 'directive-history-delete' });
+            savePlannerState(plannerState, { reason: 'directive-history-delete', skipFirebaseSync: true });
+            void updateItemFieldsInFirebase(itemKey, {
+              directiveHistory: itemState.directiveHistory,
+              lastUpdatedAt: itemState.lastUpdatedAt,
+              lastUpdatedByName: itemState.lastUpdatedByName,
+              lastUpdatedByEmail: itemState.lastUpdatedByEmail,
+              lastUpdatedByUid: itemState.lastUpdatedByUid
+            }, 'directive-history-delete');
             renderDirectiveHistory(directiveHistoryList, itemState.directiveHistory, itemKey);
             renderLatestActivityPanel(latestActivityPanel, itemState);
             syncOverviewWidgets(plannerState);
