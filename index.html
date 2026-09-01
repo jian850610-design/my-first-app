@@ -758,8 +758,12 @@
     .card-reference-values { min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
     .card-reference-name { font-weight: 800; color: #1f4468; }
     .card-reference-divider { color: #7a8da3; }
-    .card-reference-path { color: #6f7c8b; font-family: Consolas, "Courier New", monospace; white-space: normal; word-break: break-all; overflow: visible; }
-    .card-reference-note-inline { color: #5e748d; font-size: 11px; }
+    .card-reference-path { color: #6f7c8b; font-family: Consolas, "Courier New", monospace; white-space: normal; word-break: break-all; overflow: visible; overflow-wrap: anywhere; }
+    .card-reference-note-inline { color: #5e748d; font-size: 11px; overflow-wrap: anywhere; }
+    .card-reference-link-group { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+    .card-reference-link { color: #1a5fb4; font-weight: 800; text-decoration: underline; overflow-wrap: anywhere; }
+    .card-reference-link:hover { color: #0d3f80; }
+    .card-reference-copy-icon-btn { flex-shrink: 0; border: none; background: transparent; cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1; }
     .card-reference-note { color: #5e748d; font-size: 11px; }
     .card-reference-actions { display: inline-flex; align-items: center; gap: 6px; }
     .card-reference-action-btn { border: 1px solid #c9d9ea; border-radius: 8px; background: #ffffff; color: #35516d; padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
@@ -1849,7 +1853,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-01T10:05:00Z';
+    const APP_VERSION = '2026-09-01T16:40:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -5735,8 +5739,20 @@
     function isBlockedReferenceLocation(locationText = '') {
       const text = typeof locationText === 'string' ? locationText.trim() : '';
       if (!text) return false;
-      return /^(https?:\/\/|file:\/\/|javascript:|data:)/i.test(text);
+      if (/^https?:\/\//i.test(text)) return false;
+      return /^(file:\/\/|javascript:|data:|vbscript:)/i.test(text);
     }
+
+    function isReferenceLocationUrl(locationText = '') {
+      const text = typeof locationText === 'string' ? locationText.trim() : '';
+      return /^https?:\/\//i.test(text);
+    }
+
+    (function testReferenceLocationValidation() {
+      console.log('[reference-validation-test] URL 입력 통과 여부:', isBlockedReferenceLocation('https://example.com/doc') === false);
+      console.log('[reference-validation-test] 폴더 경로 입력 통과 여부:', isBlockedReferenceLocation('마케팅 공유폴더 > 2027 박람회 > 후보조사_v3.xlsx') === false);
+      console.log('[reference-validation-test] javascript: 스킴 차단 여부:', isBlockedReferenceLocation('javascript:alert(1)') === true);
+    })();
 
     function createQuickAddItemState(goalKey, itemKey, title, dueDate, priority, isLeaderRequested, directiveText) {
       const stepLabels = getQuickAddDefaultStepLabels();
@@ -6095,7 +6111,7 @@
         return { ok: false, reason: 'location-required', message: '위치를 입력해 주세요.' };
       }
       if (isBlockedReferenceLocation(inputLocation)) {
-        return { ok: false, reason: 'location-link-blocked', message: '링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요' };
+        return { ok: false, reason: 'location-link-blocked', message: '올바른 폴더 경로 또는 http(s) 주소를 입력하세요' };
       }
 
       const fallbackName = getCardReferenceFileName(inputLocation);
@@ -6167,7 +6183,7 @@
         return { ok: false, reason: 'location-required', message: '위치를 입력해 주세요.' };
       }
       if (isBlockedReferenceLocation(inputLocation)) {
-        return { ok: false, reason: 'location-link-blocked', message: '링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요' };
+        return { ok: false, reason: 'location-link-blocked', message: '올바른 폴더 경로 또는 http(s) 주소를 입력하세요' };
       }
 
       const previousReferences = normalizeCardReferences(itemState.references);
@@ -8939,6 +8955,37 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+
+    function getUrlDisplayLabel(urlText) {
+      const withoutProtocol = String(urlText || '').replace(/^https?:\/\//i, '');
+      return withoutProtocol.length > 30 ? `${withoutProtocol.slice(0, 30)}...` : withoutProtocol;
+    }
+
+    // escape 처리 후 URL 구간만 <a> 링크로 치환 (XSS 방지: 원문 텍스트는 항상 escapeHtml을 거침)
+    const INLINE_URL_PATTERN = /https?:\/\/[^\s<>"'\)\]]+/gi;
+    function linkifyTextToHtml(rawText) {
+      const text = typeof rawText === 'string' ? rawText : '';
+      if (!text) return '';
+      INLINE_URL_PATTERN.lastIndex = 0;
+      let lastIndex = 0;
+      let html = '';
+      let match;
+      while ((match = INLINE_URL_PATTERN.exec(text))) {
+        const url = match[0];
+        html += escapeHtml(text.slice(lastIndex, match.index));
+        const escapedUrl = escapeHtml(url);
+        html += `<a class="inline-url-link" href="${escapedUrl}" target="_blank" rel="noopener" title="${escapedUrl}">${escapeHtml(getUrlDisplayLabel(url))}</a><button type="button" class="inline-url-copy-btn" data-copy-url="${escapedUrl}" title="링크 복사" aria-label="링크 복사">📋</button>`;
+        lastIndex = INLINE_URL_PATTERN.lastIndex;
+      }
+      html += escapeHtml(text.slice(lastIndex));
+      return html;
+    }
+
+    document.addEventListener('click', (event) => {
+      const copyBtn = event.target.closest('[data-copy-url]');
+      if (!copyBtn) return;
+      void copyTextToClipboard(copyBtn.dataset.copyUrl || '');
+    });
 
     function getMiniCalendarDateKey(value) {
       if (!value) return '';
@@ -15981,9 +16028,12 @@
           const referencesHtml = referenceEntries.length
             ? referenceEntries.map((entry) => {
                 const displayName = entry.name || getCardReferenceFileName(entry.location) || '참고 자료';
+                const isUrlLocation = isReferenceLocationUrl(entry.location);
+                const locationValueHtml = isUrlLocation
+                  ? `<span class="card-reference-link-group"><a class="card-reference-link" href="${escapeHtml(entry.location)}" target="_blank" rel="noopener" title="${escapeHtml(entry.location)}">${escapeHtml(displayName)}</a><button type="button" class="card-reference-copy-icon-btn" data-reference-action="copy" data-reference-id="${escapeHtml(entry.id)}" title="링크 복사" aria-label="링크 복사">📋</button></span>`
+                  : `<span class="card-reference-name">${escapeHtml(displayName)}</span><span class="card-reference-path">${escapeHtml(entry.location)}</span>`;
                 const valueSegments = [
-                  `<span class="card-reference-name">${escapeHtml(displayName)}</span>`,
-                  `<span class="card-reference-path">${escapeHtml(entry.location)}</span>`,
+                  locationValueHtml,
                   entry.note ? `<span class="card-reference-note-inline">${escapeHtml(entry.note)}</span>` : ''
                 ].filter(Boolean);
                 const valueHtml = valueSegments.join('<span class="card-reference-divider">/</span>');
@@ -16098,7 +16148,7 @@
                   </div>
                   <div class="card-editor-field">
                     <label>위치</label>
-                    <input type="text" class="card-editor-input" data-reference-location-input="${escapeHtml(itemKey)}" placeholder="예: 마케팅 공유폴더 > 2027 박람회 > 후보조사_v3.xlsx" required />
+                    <input type="text" class="card-editor-input" data-reference-location-input="${escapeHtml(itemKey)}" placeholder="공유폴더 경로 또는 URL" required />
                   </div>
                 </div>
                 <div class="card-editor-field">
@@ -16948,7 +16998,7 @@
               return;
             }
             if (isBlockedReferenceLocation(locationText)) {
-              showReferenceError('링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요');
+              showReferenceError('올바른 폴더 경로 또는 http(s) 주소를 입력하세요');
               if (referenceLocationInput) referenceLocationInput.focus();
               return;
             }
@@ -17090,7 +17140,7 @@
               return;
             }
             if (isBlockedReferenceLocation(locationText)) {
-              showReferenceError('링크는 저장할 수 없습니다. 폴더/파일명만 입력하세요');
+              showReferenceError('올바른 폴더 경로 또는 http(s) 주소를 입력하세요');
               if (locationInput) locationInput.focus();
               return;
             }
