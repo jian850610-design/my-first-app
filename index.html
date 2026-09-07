@@ -1858,7 +1858,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-07T01:30:00Z';
+    const APP_VERSION = '2026-09-07T02:15:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -9885,9 +9885,10 @@
       const confirmed = window.confirm(`코멘트: ${String(content || '').slice(0, 20)}\n작성: ${formatEntryDateTime(createdAt)}\n삭제할까요?`);
       if (!confirmed) return { ok: false, reason: 'cancelled' };
       const bridge = getActivityTimelineBridge();
-      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
+      if (!bridge || typeof bridge.remove !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
       try {
-        await bridge.update(bridge.getActivityLogRef(logId), null);
+        // update(ref, null)은 모듈러 SDK에서 유효한 values 객체가 아니어서 코드 없는 client 예외를 던짐 → remove()로 교체
+        await bridge.remove(bridge.getActivityLogRef(logId));
         activityTimelineEntries = activityTimelineEntries.filter((entry) => entry.logId !== logId);
         const card = document.querySelector(`.detail-item-card[data-key="${CSS.escape(itemKey)}"]`);
         const list = card ? card.querySelector('[data-comment-history-list]') : null;
@@ -9896,7 +9897,14 @@
         console.log('[comment-history] 삭제 후 갱신 호출', { functionName: 'renderCardCommentHistory + renderLatestActivityPanel', logId });
         return { ok: true, logId };
       } catch (error) {
-        console.error('[comment-history] 단건 삭제 실패', { logId, error });
+        console.error('[comment-history] 단건 삭제 실패', {
+          logId,
+          errorCode: error && error.code,
+          errorMessage: error && error.message,
+          errorName: error && error.name,
+          errorStack: error && error.stack,
+          errorJson: (() => { try { return JSON.stringify(error); } catch (_e) { return String(error); } })()
+        });
         return { ok: false, reason: 'delete-failed', error };
       }
     }
@@ -10064,14 +10072,14 @@
       }
       const bridge = getActivityTimelineBridge();
       const activityLogPath = `activityLogs/${logId}`;
-      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') {
+      if (!bridge || typeof bridge.remove !== 'function' || typeof bridge.getActivityLogRef !== 'function') {
         window.alert(`삭제 실패: ${activityLogPath} (Firebase 연결 불가). 네트워크 상태를 확인해 주세요.`);
         console.error('[step-comment-history] 삭제 차단: bridge-unavailable', { logId, itemKey, stepIndex, path: activityLogPath });
         return { ok: false, reason: 'bridge-unavailable' };
       }
       try {
-        // 단일 경로 update(ref, null)만 사용 — set()·루트 update 없음, 이 logId 레코드 외 다른 로그는 건드리지 않음
-        await bridge.update(bridge.getActivityLogRef(logId), null);
+        // update(ref, null)은 모듈러 SDK에서 유효한 values 객체가 아니라 code 없는 client 예외를 던짐 → 이 logId 노드 하나만 지우는 remove()로 교체
+        await bridge.remove(bridge.getActivityLogRef(logId));
         activityTimelineEntries = activityTimelineEntries.filter((entry) => entry.logId !== logId);
 
         const remaining = activityTimelineEntries
@@ -10110,7 +10118,18 @@
         window.alert(isPermissionError
           ? `삭제 실패(권한 없음): ${activityLogPath}\n로그인/편집 권한을 확인해 주세요.`
           : `삭제 실패: ${activityLogPath} (${errorCode})\n네트워크 상태를 확인한 뒤 다시 시도해 주세요.`);
-        console.error('[step-comment-history] 단건 삭제 실패', { logId, itemKey, stepIndex, path: activityLogPath, errorCode, isPermissionError, error });
+        console.error('[step-comment-history] 단건 삭제 실패', {
+          logId,
+          itemKey,
+          stepIndex,
+          path: activityLogPath,
+          errorCode,
+          isPermissionError,
+          errorMessage: error && error.message,
+          errorName: error && error.name,
+          errorStack: error && error.stack,
+          errorJson: (() => { try { return JSON.stringify(error); } catch (_e) { return String(error); } })()
+        });
         return { ok: false, reason: 'delete-failed', error };
       }
     }
