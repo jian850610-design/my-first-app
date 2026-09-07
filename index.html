@@ -22,7 +22,9 @@
       --success: #0a5e9f;
       --warning: #d43f3f;
       --shadow: 0 18px 40px rgba(8, 23, 49, 0.12);
-      --detail-card-collapsed-height: 268px; /* 접힌 카드 고정 높이 - 종목판 좌우 정렬용 */
+      --detail-card-collapsed-height: 460px; /* 접힌 카드 고정 높이 - 종목판 좌우 정렬용(벤치마킹 6칸 포함) */
+      --benchmark-exec-item-height: 92px; /* 접힌 상태에서 벤치마킹 칸 1개 고정 높이 */
+      --benchmark-visible-block-height: calc(var(--benchmark-exec-item-height) * 2 + 10px); /* 6칸(2행) 전체 고정 높이 */
     }
 
     * { box-sizing: border-box; }
@@ -1151,10 +1153,10 @@
     .benchmark-missing-cards-list { display: grid; gap: 6px; }
     .benchmark-missing-card-row { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #ffffff; border: 1px solid #d7e5f2; border-radius: 8px; font-size: 12px; color: #23425f; }
     .benchmark-missing-card-goal { font-weight: 800; color: #1f507a; white-space: nowrap; }
-    .benchmark-exec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; }
+    .benchmark-exec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; height: var(--benchmark-visible-block-height); overflow: hidden; }
+    .benchmark-exec-item { border: 1px solid #dbe6f1; border-radius: 12px; background: #f8fbff; padding: 10px; display: grid; gap: 6px; height: var(--benchmark-exec-item-height); overflow: hidden; }
     .benchmark-exec-item strong { font-size: 11px; color: #4d6d8c; text-transform: uppercase; letter-spacing: 0.06em; }
-    .benchmark-exec-item p { margin: 0; font-size: 12px; line-height: 1.55; color: #23425f; white-space: pre-wrap; }
+    .benchmark-exec-item p { margin: 0; font-size: 12px; line-height: 1.55; color: #23425f; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
     .benchmark-meta-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .benchmark-updated-label { font-size: 11px; color: #4f6781; font-weight: 700; }
     .benchmark-stale-badge { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 3px 8px; border: 1px solid #d3dbe6; background: #f5f8fc; color: #5b6f87; }
@@ -1873,7 +1875,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-07T03:00:00Z';
+    const APP_VERSION = '2026-09-07T03:30:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -2238,6 +2240,8 @@
     const PRIORITY_NORMAL = 'normal';
     const editingChecklistKeys = new Set();
     const expandedCardKeys = new Set(); // 카드 접기/펼치기 상태(새로고침 시 초기화, 여러 카드 동시 펼침 가능)
+    const LABEL_EXPAND = '▾ 펼치기'; // 초기 렌더와 토글 핸들러가 동일 값을 참조하도록 상수로 분리(하드코딩 불일치 재발 방지)
+    const LABEL_COLLAPSE = '▴ 접기';
     const APP_QUERY_PARAMS = new URLSearchParams(window.location.search);
     const EDIT_MODE_REQUESTED = APP_QUERY_PARAMS.get('edit') === '1';
     const DEVELOPMENT_MODE = APP_QUERY_PARAMS.get('debug') === '1'
@@ -16179,7 +16183,7 @@
       else expandedCardKeys.delete(itemKey);
       const toggleBtn = card.querySelector('[data-card-collapse-toggle]');
       if (toggleBtn) {
-        toggleBtn.textContent = expanded ? '▴ 접기' : '▾ 펼치기';
+        toggleBtn.textContent = expanded ? LABEL_COLLAPSE : LABEL_EXPAND;
         toggleBtn.setAttribute('aria-expanded', String(Boolean(expanded)));
       }
     }
@@ -16215,7 +16219,7 @@
           const benchmarkEditButtonHtml = EDIT_MODE_REQUESTED
             ? `<button type="button" class="benchmark-edit-trigger" data-benchmark-edit-toggle="${escapeHtml(itemKey)}">✏️ 실행 내용 수정</button>`
             : '';
-          const benchmarkHtml = `
+          const benchmarkVisibleHtml = `
           <div class="benchmark-meta-row">
             <span class="benchmark-updated-label">${escapeHtml(benchmarkUpdatedText)}</span>
             ${staleBadgeHtml}
@@ -16229,6 +16233,8 @@
               </div>
             `).join('')}
           </div>
+        `;
+          const benchmarkEditorHtml = `
           <div class="benchmark-editor-panel" data-benchmark-editor-panel="${escapeHtml(itemKey)}">
             <div class="benchmark-editor-grid">
               <div class="benchmark-editor-field">
@@ -16344,11 +16350,12 @@
           <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
           <div class="card-collapse-summary-row">
             <span class="card-collapsed-summary">${escapeHtml(collapsedSummaryText)}</span>
-            <button type="button" class="card-collapse-toggle-btn" data-card-collapse-toggle aria-expanded="${isCardExpanded ? 'true' : 'false'}">${isCardExpanded ? '▴ 접기' : '▾ 퍼치기'}</button>
+            <button type="button" class="card-collapse-toggle-btn" data-card-collapse-toggle aria-expanded="${isCardExpanded ? 'true' : 'false'}">${isCardExpanded ? LABEL_COLLAPSE : LABEL_EXPAND}</button>
           </div>
+          ${benchmarkVisibleHtml}
           ${showQuickDueHint ? '<div class="quick-add-missing-due-note">다음 건의 발행 예정일을 입력하세요</div>' : ''}
           <div class="detail-item-meta">
-            ${benchmarkHtml}
+            ${benchmarkEditorHtml}
             ${principleBoxHtml}
             ${workflowHtml}
             ${historyArchiveHtml}
@@ -16514,6 +16521,15 @@
         if (!allSameHeight) console.warn('[card-collapse] 높이가 어긋난 카드', mismatchedCards);
         const detailsGridHeightAfter = Math.round(detailContainer.getBoundingClientRect().height);
         console.log('[card-collapse] .details-grid 전체 높이', { before: detailsGridHeightBefore, after: detailsGridHeightAfter });
+
+        // 초기 렌더 직후 토글 버튼 라벨 검증 (접힌 카드는 전부 LABEL_EXPAND여야 함 - 오타 재발 감지용)
+        const toggleLabelReport = collapsedCardEls.map((card) => {
+          const btn = card.querySelector('[data-card-collapse-toggle]');
+          return { key: card.dataset.key || '', label: btn ? btn.textContent : '(버튼 없음)' };
+        });
+        const allCollapsedLabelsCorrect = toggleLabelReport.every((row) => row.label === LABEL_EXPAND);
+        console.log('[card-collapse] 초기 렌더 토글 버튼 라벨', toggleLabelReport);
+        console.log('[card-collapse] 모든 접힌 카드 라벨이 "펼치기"인지', allCollapsedLabelsCorrect);
       });
     }
 
@@ -17205,6 +17221,7 @@
 
         if (benchmarkEditToggleBtn) {
           benchmarkEditToggleBtn.addEventListener('click', () => {
+            setCardExpanded(card, itemKey, true); // 편집 패널은 .detail-item-meta 안에 있으므로 접힌 채로는 보이지 않음
             toggleBenchmarkEditorPanel(itemKey);
           });
         }
