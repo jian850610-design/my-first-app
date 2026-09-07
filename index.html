@@ -22,6 +22,7 @@
       --success: #0a5e9f;
       --warning: #d43f3f;
       --shadow: 0 18px 40px rgba(8, 23, 49, 0.12);
+      --detail-card-collapsed-height: 268px; /* 접힌 카드 고정 높이 - 종목판 좌우 정렬용 */
     }
 
     * { box-sizing: border-box; }
@@ -436,7 +437,21 @@
     .team-overview-empty { border: 1px dashed #cad9e8; border-radius: 12px; padding: 16px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.5; }
 
     .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; align-items: start; }
-    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: auto; min-width: 0; overflow: visible; scroll-margin-top: 88px; align-content: start; }
+    .detail-item-card { background: var(--card); border: 1px solid var(--border); border-radius: 22px; padding: 12px; box-shadow: 0 14px 26px rgba(14, 27, 45, 0.08); display: grid; gap: 10px; height: var(--detail-card-collapsed-height); min-width: 0; overflow: hidden; scroll-margin-top: 88px; align-content: start; }
+    .detail-item-card.card-expanded { height: auto; overflow: visible; }
+    .detail-item-card .detail-item-meta,
+    .detail-item-card .detail-item-progress,
+    .detail-item-card .quick-add-missing-due-note { display: none; }
+    .detail-item-card.card-expanded .detail-item-meta { display: grid; }
+    .detail-item-card.card-expanded .detail-item-progress { display: grid; }
+    .detail-item-card.card-expanded .quick-add-missing-due-note { display: block; }
+    .card-collapse-trigger { cursor: pointer; border-radius: 12px; transition: background 0.15s ease; }
+    .card-collapse-trigger:hover { background: #f2f6fb; }
+    .card-collapse-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+    .card-collapsed-summary { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .card-collapse-toggle-btn { flex: 0 0 auto; border: none; background: transparent; color: var(--accent); font-size: 12px; font-weight: 800; cursor: pointer; padding: 2px 6px; border-radius: 8px; }
+    .card-collapse-toggle-btn:hover { background: #eef5fc; }
+    .detail-item-card:not(.card-expanded) .detail-item-description { display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
     .detail-item-card.leader-requested { border-color: #f3c84a; box-shadow: 0 14px 26px rgba(138, 103, 0, 0.14); }
     .detail-item-card h3 { margin: 0; font-size: 17px; color: var(--text); }
     .detail-item-card.row-jump-highlight {
@@ -1858,7 +1873,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-07T02:15:00Z';
+    const APP_VERSION = '2026-09-07T03:00:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -2222,6 +2237,7 @@
     const PRIORITY_IMPORTANT = 'important';
     const PRIORITY_NORMAL = 'normal';
     const editingChecklistKeys = new Set();
+    const expandedCardKeys = new Set(); // 카드 접기/펼치기 상태(새로고침 시 초기화, 여러 카드 동시 펼침 가능)
     const APP_QUERY_PARAMS = new URLSearchParams(window.location.search);
     const EDIT_MODE_REQUESTED = APP_QUERY_PARAMS.get('edit') === '1';
     const DEVELOPMENT_MODE = APP_QUERY_PARAMS.get('debug') === '1'
@@ -16122,6 +16138,52 @@
       return stepSwapped && customStepSwapped;
     }
 
+    // 접힌 카드 요약 한 줄: 진행률 · 가장 임박한 단계 D-day · 코멘트 건수 · 지시사항 건수
+    function getCardCollapsedSummaryMeta(itemState, checklistSteps, itemKey) {
+      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      const totalCount = Array.isArray(checklistSteps) ? checklistSteps.length : steps.length;
+      const doneCount = steps.filter((step) => step && step.checked).length;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let nearestDday = null;
+      steps.forEach((step, stepIndex) => {
+        if (!step || step.checked) return;
+        const dueDateText = getStepDueDateValue(itemState, stepIndex, itemKey);
+        const dueDate = toDateAtMidnight(dueDateText);
+        if (!dueDate) return;
+        const diffDays = getDateDiffInDays(today, dueDate);
+        if (nearestDday === null || diffDays < nearestDday) nearestDday = diffDays;
+      });
+      const ddayText = nearestDday === null ? '마감 없음' : getUrgentBadgeInfo(nearestDday).text;
+
+      const commentCount = activityTimelineEntries.filter((entry) => entry && entry.itemKey === itemKey && entry.type === 'comment').length;
+      const directiveCount = Array.isArray(itemState && itemState.directiveHistory) ? itemState.directiveHistory.length : 0;
+
+      return { doneCount, totalCount, ddayText, commentCount, directiveCount };
+    }
+
+    function buildCardCollapsedSummaryText(meta) {
+      return `${meta.doneCount}/${meta.totalCount} 완료 · ${meta.ddayText} · 코멘트 ${meta.commentCount}건 · 지시사항 ${meta.directiveCount}건`;
+    }
+
+    // 펼치기 버튼/헤더 클릭 시 이 요소들 위에서는 카드 접기 토글을 발동하지 않음(수정·삭제·별·중요도 select 보호)
+    function isCardCollapseToggleExcluded(target) {
+      return Boolean(target.closest('.button-group, .card-main-title, select'));
+    }
+
+    function setCardExpanded(card, itemKey, expanded) {
+      if (!card) return;
+      card.classList.toggle('card-expanded', Boolean(expanded));
+      if (expanded) expandedCardKeys.add(itemKey);
+      else expandedCardKeys.delete(itemKey);
+      const toggleBtn = card.querySelector('[data-card-collapse-toggle]');
+      if (toggleBtn) {
+        toggleBtn.textContent = expanded ? '▴ 접기' : '▾ 펼치기';
+        toggleBtn.setAttribute('aria-expanded', String(Boolean(expanded)));
+      }
+    }
+
     function renderDetailItems(goalKey) {
       const plannerState = loadPlannerState();
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
@@ -16251,9 +16313,12 @@
             `;
               }).join('')
             : '<li class="card-reference-empty">등록된 참고 자료가 없습니다.</li>';
+          const collapsedSummaryMeta = getCardCollapsedSummaryMeta(itemState, checklistSteps, itemKey);
+          const collapsedSummaryText = buildCardCollapsedSummaryText(collapsedSummaryMeta);
+          const isCardExpanded = expandedCardKeys.has(itemKey);
           cardsHtmlParts.push(`
-        <article class="detail-item-card" data-index="${index}" data-key="${itemKey}">
-          <div class="field-label">
+        <article class="detail-item-card${isCardExpanded ? ' card-expanded' : ''}" data-index="${index}" data-key="${itemKey}">
+          <div class="field-label card-collapse-trigger">
             <div class="card-title-group">
               <span class="card-main-title" title="${escapeHtml(displayTitle)}">${escapeHtml(displayTitle)}</span>
               <div class="card-title-badges-row">
@@ -16277,6 +16342,10 @@
             </div>
           </div>
           <div class="detail-item-description">${escapeHtml(displaySummary)}</div>
+          <div class="card-collapse-summary-row">
+            <span class="card-collapsed-summary">${escapeHtml(collapsedSummaryText)}</span>
+            <button type="button" class="card-collapse-toggle-btn" data-card-collapse-toggle aria-expanded="${isCardExpanded ? 'true' : 'false'}">${isCardExpanded ? '▴ 접기' : '▾ 퍼치기'}</button>
+          </div>
           ${showQuickDueHint ? '<div class="quick-add-missing-due-note">다음 건의 발행 예정일을 입력하세요</div>' : ''}
           <div class="detail-item-meta">
             ${benchmarkHtml}
@@ -16352,6 +16421,7 @@
       });
       const cardsHtml = cardsHtmlParts.join('');
 
+      const detailsGridHeightBefore = Math.round(detailContainer.getBoundingClientRect().height);
       const fragment = document.createDocumentFragment();
       const tempContainer = document.createElement('div');
       tempContainer.innerHTML = cardsHtml;
@@ -16428,6 +16498,22 @@
         console.log('[detailItems] .details-grid grid-template-columns', gridTemplateColumns);
         console.table(widthReport);
         console.log('[detailItems] 여전히 넘치는 카드(scrollWidth>clientWidth)', overflowingCards);
+
+        // 접힌 카드 높이 동일 여부 진단 (card-expanded가 아닌 카드만 비교)
+        const collapsedCardEls = Array.from(detailContainer.querySelectorAll('.detail-item-card:not(.card-expanded)'));
+        const collapsedHeights = collapsedCardEls.map((card) => ({
+          key: card.dataset.key || '',
+          title: (card.querySelector('.card-main-title') || {}).textContent || '',
+          heightPx: Math.round(card.getBoundingClientRect().height)
+        }));
+        const heightValues = collapsedHeights.map((row) => row.heightPx);
+        const allSameHeight = heightValues.length ? heightValues.every((value) => value === heightValues[0]) : true;
+        const mismatchedCards = allSameHeight ? [] : collapsedHeights.filter((row) => row.heightPx !== heightValues[0]);
+        console.log('[card-collapse] 접힌 카드 높이 목록', collapsedHeights);
+        console.log('[card-collapse] 모든 접힌 카드 높이 동일 여부', allSameHeight);
+        if (!allSameHeight) console.warn('[card-collapse] 높이가 어긋난 카드', mismatchedCards);
+        const detailsGridHeightAfter = Math.round(detailContainer.getBoundingClientRect().height);
+        console.log('[card-collapse] .details-grid 전체 높이', { before: detailsGridHeightBefore, after: detailsGridHeightAfter });
       });
     }
 
@@ -16479,6 +16565,18 @@
           const titleEl = event.target.closest('.card-main-title');
           if (!titleEl) return;
           titleEl.classList.toggle('expanded');
+        });
+
+        // 카드 헤더 영역 또는 펼치기 버튼 클릭 시 접기/펼치기 (수정·삭제·별·중요도 select 위에서는 발동하지 않음)
+        detailContainer.addEventListener('click', (event) => {
+          const toggleBtn = event.target.closest('[data-card-collapse-toggle]');
+          const headerTrigger = event.target.closest('.card-collapse-trigger');
+          if (!toggleBtn && !headerTrigger) return;
+          if (!toggleBtn && isCardCollapseToggleExcluded(event.target)) return;
+          const card = event.target.closest('.detail-item-card');
+          if (!card) return;
+          const itemKey = card.dataset.key || '';
+          setCardExpanded(card, itemKey, !card.classList.contains('card-expanded'));
         });
 
         const refreshStepAssigneeVisual = (card, itemState, stepIndex) => {
@@ -17149,6 +17247,7 @@
 
         if (cardEditButton) {
           cardEditButton.addEventListener('click', () => {
+            setCardExpanded(card, itemKey, true); // 수정 모드로 들어간 카드는 접힌 채로 편집창이 가려지지 않도록 펼침 유지
             openCardEditModal(itemKey);
           });
         }
