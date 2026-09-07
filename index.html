@@ -1858,7 +1858,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-07T00:00:00Z';
+    const APP_VERSION = '2026-09-07T01:30:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -9980,8 +9980,14 @@
 
     function refreshVisibleCardCommentHistories() {
       document.querySelectorAll('.detail-item-card').forEach((card) => {
+        const itemKey = card.dataset.key || '';
         const list = card.querySelector('[data-comment-history-list]');
-        if (list) renderCardCommentHistory(list, card.dataset.key || '');
+        if (list) renderCardCommentHistory(list, itemKey);
+        // activityLogs 실시간 구독 갱신 시 단계별 코멘트 목록도 함께 최신화(그렇지 않으면 이 목록만 stale 상태로 남음)
+        card.querySelectorAll('[data-step-comment-history-list-index]').forEach((stepListElement) => {
+          const stepIndex = Number(stepListElement.getAttribute('data-step-comment-history-list-index'));
+          if (!Number.isNaN(stepIndex)) renderStepCommentList(stepListElement, itemKey, stepIndex);
+        });
       });
     }
 
@@ -10043,11 +10049,28 @@
     // 목록 항목 삭제 = activityLogs 레코드 1건만 삭제(단건 삭제, deleteCardCommentHistoryLog와 동일한 update(ref,null) 방식 재사용).
     // 기존 "코멘트 삭제" 버튼(stepCommentDeleteButtons, ~18159 부근)은 steps[i].comment 캐시 문자열만 비우고 activityLogs는 건드리지 않는다 — 서로 다른 대상을 지운다.
     async function deleteStepCommentHistoryLog(logId, itemKey, stepIndex, content, createdAt) {
+      console.log('[step-comment-history] 삭제 요청 수신', { logId, itemKey, stepIndex, content: String(content || '').slice(0, 30), createdAt });
+      if (!logId) {
+        window.alert('삭제할 코멘트의 식별자(logId)를 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+        console.error('[step-comment-history] 삭제 중단: logId 없음(버튼 data 속성 누락 의심)', { itemKey, stepIndex });
+        return { ok: false, reason: 'missing-log-id' };
+      }
       const confirmed = window.confirm(`코멘트: ${String(content || '').slice(0, 20)}\n작성: ${formatEntryDateTime(createdAt)}\n삭제할까요?`);
       if (!confirmed) return { ok: false, reason: 'cancelled' };
+      if (!EDIT_MODE_REQUESTED) {
+        window.alert('읽기 전용 모드에서는 삭제할 수 없습니다. 편집 모드로 로그인 후 다시 시도해 주세요.');
+        console.error('[step-comment-history] 삭제 차단: 읽기 전용 모드', { logId, itemKey, stepIndex });
+        return { ok: false, reason: 'read-only-mode' };
+      }
       const bridge = getActivityTimelineBridge();
-      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
+      const activityLogPath = `activityLogs/${logId}`;
+      if (!bridge || typeof bridge.update !== 'function' || typeof bridge.getActivityLogRef !== 'function') {
+        window.alert(`삭제 실패: ${activityLogPath} (Firebase 연결 불가). 네트워크 상태를 확인해 주세요.`);
+        console.error('[step-comment-history] 삭제 차단: bridge-unavailable', { logId, itemKey, stepIndex, path: activityLogPath });
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
       try {
+        // 단일 경로 update(ref, null)만 사용 — set()·루트 update 없음, 이 logId 레코드 외 다른 로그는 건드리지 않음
         await bridge.update(bridge.getActivityLogRef(logId), null);
         activityTimelineEntries = activityTimelineEntries.filter((entry) => entry.logId !== logId);
 
@@ -10056,19 +10079,38 @@
           .sort((left, right) => right.timestamp - left.timestamp);
         const plannerState = loadPlannerState();
         const itemState = plannerState.items ? plannerState.items[itemKey] : null;
+        const nextCachedComment = remaining.length ? String(remaining[0].detail || '') : '';
         if (itemState && Array.isArray(itemState.steps) && itemState.steps[stepIndex]) {
-          itemState.steps[stepIndex].comment = remaining.length ? String(remaining[0].detail || '') : '';
+          itemState.steps[stepIndex].comment = nextCachedComment;
           markItemUpdated(itemState);
-          savePlannerState(plannerState, { reason: 'step-comment-history-delete' });
+          // 카드 전체를 다시 쓰는 flushFirebaseSnapshot 대신, 바뀐 필드 1개만 단일 경로 update로 반영(다른 카드/필드 덮어쓰기 방지)
+          savePlannerState(plannerState, { reason: 'step-comment-history-delete', skipFirebaseSync: true });
+          const cacheUpdateResult = await updateItemFieldsInFirebase(itemKey, {
+            [`steps/${stepIndex}/comment`]: nextCachedComment
+          }, 'step-comment-history-delete');
+          if (!cacheUpdateResult.ok) {
+            window.alert(`코멘트는 삭제됐지만 최신 코멘트 캐시 갱신에 실패했습니다: cards/${itemKey}/steps/${stepIndex}/comment (${cacheUpdateResult.errorCode || cacheUpdateResult.reason || 'unknown'})`);
+            console.error('[step-comment-history] 캐시 필드 update 실패', { itemKey, stepIndex, path: `cards/${itemKey}/steps/${stepIndex}/comment`, result: cacheUpdateResult });
+          }
         }
 
+        const card = document.querySelector(`.detail-item-card[data-key="${CSS.escape(itemKey)}"]`);
+        const stepList = card ? card.querySelector(`[data-step-comment-history-list-index="${stepIndex}"]`) : null;
+        if (stepList) renderStepCommentList(stepList, itemKey, stepIndex);
+        const cardHistoryList = card ? card.querySelector('[data-comment-history-list]') : null;
+        if (cardHistoryList) renderCardCommentHistory(cardHistoryList, itemKey);
         if (itemState) logStepCommentDiagnostics(itemKey, itemState);
         // 캐시(steps[i].comment)가 바뀌면 단계 인라인 💬 표시도 갱신해야 하므로 카드 전체를 다시 그린다.
         if (currentGoalKey) updateGoalCard(currentGoalKey);
-        console.log('[step-comment-history] 단건 삭제 후 캐시 갱신', { itemKey, stepIndex, logId, nextCachedComment: itemState && itemState.steps[stepIndex] ? itemState.steps[stepIndex].comment : '' });
+        console.log('[step-comment-history] 단건 삭제 성공', { itemKey, stepIndex, logId, path: activityLogPath, nextCachedComment });
         return { ok: true, logId };
       } catch (error) {
-        console.error('[step-comment-history] 단건 삭제 실패', { logId, itemKey, stepIndex, error });
+        const errorCode = error && error.code ? error.code : 'unknown';
+        const isPermissionError = errorCode === 'PERMISSION_DENIED' || /permission/i.test(String(error && error.message || ''));
+        window.alert(isPermissionError
+          ? `삭제 실패(권한 없음): ${activityLogPath}\n로그인/편집 권한을 확인해 주세요.`
+          : `삭제 실패: ${activityLogPath} (${errorCode})\n네트워크 상태를 확인한 뒤 다시 시도해 주세요.`);
+        console.error('[step-comment-history] 단건 삭제 실패', { logId, itemKey, stepIndex, path: activityLogPath, errorCode, isPermissionError, error });
         return { ok: false, reason: 'delete-failed', error };
       }
     }
