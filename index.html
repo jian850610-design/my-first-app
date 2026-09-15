@@ -1876,7 +1876,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-15T18:42:00+09:00';
+    const APP_VERSION = '2026-09-15T20:05:00+09:00';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -14429,6 +14429,115 @@
       setToastMessage('업무 히스토리 CSV를 내려받았습니다.', 'ok');
     }
 
+    // 상단 "세부 카드 목록" 위젯과 실제 카드 렌더 영역이 같은 배열을 보고 있는지 대조하는 진단 로그
+    function logGoalListConsistencyCheck(goalKey) {
+      if (!goalCardSummaryList || !detailContainer) return;
+      const cardAreaKeys = Array.from(detailContainer.querySelectorAll('.detail-item-card')).map((el) => el.dataset.key);
+      const topListKeys = Array.from(goalCardSummaryList.querySelectorAll('.goal-card-chip')).map((el) => el.dataset.key);
+      const topCount = topListKeys.length;
+      const cardAreaCount = cardAreaKeys.length;
+      const countsMatch = topCount === cardAreaCount;
+
+      const rtdbGoalCards = (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey]) || {};
+      const staticOnlyEntries = getGoalItemEntries(goalKey)
+        .map(({ item, index }) => ({ index, itemKey: `${goalKey}::${index}`, title: (item && item.title) || '' }))
+        .filter((entry) => !cardAreaKeys.includes(entry.itemKey))
+        .map((entry) => {
+          const remoteCard = rtdbGoalCards[String(entry.index)];
+          const reason = remoteCard && remoteCard.deleted === true
+            ? '/cards에 deleted:true로 남아있음'
+            : (remoteCard ? '/cards에 존재하나 식별 불가(제목 없음 등)' : '/cards에 아예 없음 (정적 goalTemplates에만 존재)');
+          return { ...entry, reason };
+        });
+
+      const titleGroups = new Map();
+      cardAreaKeys.forEach((key) => {
+        const cardEl = detailContainer.querySelector(`.detail-item-card[data-key="${CSS.escape(key)}"]`);
+        const titleEl = cardEl ? cardEl.querySelector('.card-main-title') : null;
+        const title = titleEl ? titleEl.textContent.trim() : '';
+        if (!title) return;
+        if (!titleGroups.has(title)) titleGroups.set(title, []);
+        titleGroups.get(title).push(key);
+      });
+      const duplicateTitlePairs = Array.from(titleGroups.entries()).filter(([, keys]) => keys.length > 1);
+
+      console.log('[일치성 검사] 상단 목록 vs 카드 영역', { goalKey, topCount, cardAreaCount, countsMatch });
+      if (staticOnlyEntries.length) {
+        console.table(staticOnlyEntries);
+      }
+      if (duplicateTitlePairs.length) {
+        console.warn('[일치성 검사] 제목 중복 쌍', duplicateTitlePairs);
+      }
+    }
+
+    // "세부 카드 목록" 위젯 렌더 결과와 현황표 계산치를 대조하는 진단 로그 (표시 로직 자체에는 영향 없음)
+    function logGoalCardSummaryDiagnostics(goalKey, goalState, sortedItems) {
+      const rawGoalCards = (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey]) || {};
+      const deletedRows = Object.entries(rawGoalCards)
+        .filter(([, card]) => card && card.deleted === true)
+        .map(([indexText, card]) => ({
+          index: Number(indexText),
+          itemKey: `${goalKey}::${indexText}`,
+          title: (card && (card.title || card.customTitle)) || '',
+          deleted: true
+        }));
+
+      const visibleRows = sortedItems.map((entry) => ({
+        index: entry.index,
+        itemKey: entry.itemKey,
+        title: entry.title,
+        deleted: false,
+        stepsCount: entry.totalCount,
+        checkedCount: entry.checkedCount,
+        percent: entry.percent,
+        source: '/cards (RTDB)'
+      }));
+
+      console.log(`[세부카드목록] ${goalKey} 렌더 항목 표`);
+      console.table(visibleRows);
+      if (deletedRows.length) {
+        console.log(`[세부카드목록] ${goalKey} 제외된 deleted 카드`, deletedRows);
+      }
+      const undefinedStepsRows = visibleRows.filter((row) => sortedItems.find((entry) => entry.itemKey === row.itemKey && entry.stepsUndefined));
+      if (undefinedStepsRows.length) {
+        console.warn('[세부카드목록] steps가 undefined였던 항목(0으로 처리됨)', undefinedStepsRows);
+      }
+
+      const titleGroups = new Map();
+      visibleRows.forEach((row) => {
+        const key = row.title || '';
+        if (!key) return;
+        if (!titleGroups.has(key)) titleGroups.set(key, []);
+        titleGroups.get(key).push(row);
+      });
+      const duplicateTitlePairs = Array.from(titleGroups.values()).filter((rows) => rows.length > 1);
+      if (duplicateTitlePairs.length) {
+        console.warn('[세부카드목록] 제목 중복', duplicateTitlePairs);
+        duplicateTitlePairs.forEach((rows) => {
+          console.log('[세부카드목록] 중복 카드 전체 필드 비교', rows.map((row) => ({
+            itemKey: row.itemKey,
+            rawRemoteCard: (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][String(row.index)]) || null
+          })));
+        });
+      }
+
+      const overviewRowsForGoal = buildTeamOverviewRows(goalState).filter((row) => row.goalKey === goalKey);
+      const overviewPercentByKey = new Map(overviewRowsForGoal.map((row) => [row.itemKey, Math.round(row.progressPercent)]));
+      const percentMatch = visibleRows.map((row) => ({
+        itemKey: row.itemKey,
+        title: row.title,
+        widgetPercent: row.percent,
+        overviewPercent: overviewPercentByKey.has(row.itemKey) ? overviewPercentByKey.get(row.itemKey) : null,
+        matches: overviewPercentByKey.has(row.itemKey) ? overviewPercentByKey.get(row.itemKey) === row.percent : null
+      }));
+      console.log('[세부카드목록] 현황표 진행률과 일치 여부', percentMatch);
+      console.log('[세부카드목록] 요약', {
+        totalRaw: Object.keys(rawGoalCards).length,
+        afterDeletedExcluded: visibleRows.length,
+        excludedTitles: deletedRows.map((row) => row.title)
+      });
+    }
+
     function renderGoalSummaryWidget(goalKey, state) {
       if (!goalCardSummaryWidget || !goalCardSummaryTitle || !goalCardSummaryCount || !goalCardSummaryList) return;
       const goalTemplate = goalTemplates[goalKey];
@@ -14439,7 +14548,8 @@
       }
 
       const goalState = state || loadPlannerState();
-      const itemEntries = getGoalItemEntries(goalKey);
+      // 현황표(buildTeamOverviewRows)/상세 카드 목록(renderDetailItems)과 동일하게 /cards RTDB 기준으로 목록을 구성 (정적 goalTemplates 순회 + __deleted 플래그였던 getGoalItemEntries는 RTDB의 실제 인덱스/삭제 상태와 어긋나 있었음)
+      const itemEntries = getFirebaseCardEntriesForGoal(goalKey);
       goalCardSummaryWidget.hidden = false;
       goalCardSummaryTitle.textContent = `📌 ${goalTemplate.label} 세부 카드 목록 (총 ${itemEntries.length}개)`;
       goalCardSummaryCount.textContent = `총 ${itemEntries.length}개`;
@@ -14521,7 +14631,10 @@
           ddayText: ddayMeta.text,
           ddayOverdue: ddayMeta.overdue,
           sortBucket,
-          dueSortTime
+          dueSortTime,
+          checkedCount,
+          totalCount,
+          stepsUndefined: !Array.isArray(itemState && itemState.steps)
         };
       }).sort((left, right) => {
         if (left.sortBucket !== right.sortBucket) return left.sortBucket - right.sortBucket;
@@ -14531,6 +14644,8 @@
         }
         return left.index - right.index;
       });
+
+      logGoalCardSummaryDiagnostics(goalKey, goalState, sortedItems);
 
       goalCardSummaryList.innerHTML = sortedItems.map((entry) => `
           <button type="button" class="goal-card-chip" data-key="${entry.itemKey}">
@@ -16369,7 +16484,16 @@
       const goalCompetitorExec = competitorExecByGoal[goalKey] || [];
       const goalTemplate = goalTemplates[goalKey] || {};
       const cardsHtmlParts = [];
-      getFirebaseCardEntriesForGoal(goalKey).forEach(({ item, index }) => {
+      const cardAreaEntries = getFirebaseCardEntriesForGoal(goalKey);
+      console.log(`[카드영역] ${goalKey} 렌더 항목 표`);
+      console.table(cardAreaEntries.map(({ item, index }) => ({
+        index,
+        itemKey: `${goalKey}::${index}`,
+        title: (item && item.title) || '',
+        deleted: false,
+        source: '/cards (RTDB)'
+      })));
+      cardAreaEntries.forEach(({ item, index }) => {
         const itemKey = `${goalKey}::${index}`;
         try {
           const existingItemState = plannerState.items && plannerState.items[itemKey] ? plannerState.items[itemKey] : null;
@@ -18804,6 +18928,7 @@
       renderGoalSummaryWidget(key, latestState);
       renderNewsWidget(key, latestState);
       updateFirebaseLastUpdatedText(latestState.meta || firebaseLastUpdatedMeta);
+      logGoalListConsistencyCheck(key);
     }
 
     function updateStats() {
