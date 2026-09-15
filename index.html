@@ -1876,7 +1876,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-15T14:56:47+09:00';
+    const APP_VERSION = '2026-09-15T18:42:00+09:00';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -9992,10 +9992,17 @@
     window.__backupActivityLogs = backupActivityLogs;
 
     async function deleteCardCommentHistoryLog(logId, itemKey, content, createdAt) {
+      console.log('[TRACE comment-history] 삭제 핸들러 진입', { logId, itemKey, editMode: EDIT_MODE_REQUESTED, bridgeReady: firebaseBridgeReady });
       const confirmed = window.confirm(`코멘트: ${String(content || '').slice(0, 20)}\n작성: ${formatEntryDateTime(createdAt)}\n삭제할까요?`);
-      if (!confirmed) return { ok: false, reason: 'cancelled' };
+      if (!confirmed) {
+        console.log('[TRACE comment-history] 사용자 취소', { logId, itemKey });
+        return { ok: false, reason: 'cancelled' };
+      }
       const bridge = getActivityTimelineBridge();
-      if (!bridge || typeof bridge.remove !== 'function' || typeof bridge.getActivityLogRef !== 'function') return { ok: false, reason: 'bridge-unavailable' };
+      if (!bridge || typeof bridge.remove !== 'function' || typeof bridge.getActivityLogRef !== 'function') {
+        console.error('[TRACE comment-history] bridge-unavailable', { logId, itemKey, hasBridge: Boolean(bridge) });
+        return { ok: false, reason: 'bridge-unavailable' };
+      }
       try {
         // update(ref, null)은 모듈러 SDK에서 유효한 values 객체가 아니어서 코드 없는 client 예외를 던짐 → remove()로 교체
         await bridge.remove(bridge.getActivityLogRef(logId));
@@ -17440,10 +17447,15 @@
 
         if (cardDeleteButton) {
           cardDeleteButton.addEventListener('click', async () => {
+            console.log('[TRACE card-delete] delete button click handler entered', { itemKey, editMode: EDIT_MODE_REQUESTED, bridgeReady: firebaseBridgeReady });
             const currentTitle = getCardTitleText(itemState, currentItem || { title: '' }) || itemKey;
             const confirmed = window.confirm(`카드 삭제 확인\n\n제목: ${currentTitle}\n\n이 카드를 삭제하시겠습니까?`);
-            if (!confirmed) return;
+            if (!confirmed) {
+              console.log('[TRACE card-delete] 사용자 취소', { itemKey });
+              return;
+            }
             const result = await deleteCardByItemKey(itemKey);
+            console.log('[TRACE card-delete] deleteCardByItemKey 결과', { itemKey, result });
             if (!result.ok) {
               window.alert('카드 삭제에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
             }
