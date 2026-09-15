@@ -8658,15 +8658,17 @@
 
       splitFieldCommunicationSeriesCard(items);
 
-      migrateGoalItemIndexes(items, 'ai-culture', {
-        1: 'delete',
-        2: 1,
-        3: 2,
-        4: 3,
-        5: 4,
-        6: 5,
-        7: 6
-      });
+      if (!items['ai-culture::5']) {
+        migrateGoalItemIndexes(items, 'ai-culture', {
+          1: 'delete',
+          2: 1,
+          3: 2,
+          4: 3,
+          5: 4,
+          6: 5,
+          7: 6
+        });
+      }
 
       migrateGoalItemIndexes(items, 'marketing-skill', {
         1: 'delete',
@@ -13897,26 +13899,29 @@
         : undefined;
       console.log('[card-edit-title] 같은 시점 plannerState.items[itemKey].title', plannerTitleAtSave);
       const fieldsForUpdate = {};
+      const initialSnapshot = cardEditModalInitialSnapshot || {};
+      const initialGuidelines = typeof initialSnapshot.guidelines === 'string'
+        ? initialSnapshot.guidelines.split('\n').map((line) => line.trim()).filter((line) => line)
+        : [];
+      const initialCustomSteps = Array.isArray(initialSnapshot.checklistDraft)
+        ? initialSnapshot.checklistDraft.map((entry) => entry && typeof entry.stepName === 'string' ? entry.stepName : '')
+        : [];
       const nextCustomTitleForUpdate = itemState.customTitle || '';
       const nextCustomSummaryForUpdate = itemState.customSummary || '';
       const nextCustomGuidelinesForUpdate = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [];
       const nextRecurringForUpdate = itemState.isRecurring === true;
-      if (nextTitle !== previousTitle) {
+      if (nextTitle !== (initialSnapshot.title || '')) {
         fieldsForUpdate.title = nextTitle;
-      }
-      if (nextCustomTitleForUpdate !== previousCustomTitle) {
         fieldsForUpdate.customTitle = nextCustomTitleForUpdate;
       }
-      if (nextSummary !== previousSummary) {
+      if (nextSummary !== (initialSnapshot.summary || '')) {
         fieldsForUpdate.summary = nextSummary;
-      }
-      if (nextCustomSummaryForUpdate !== previousCustomSummary) {
         fieldsForUpdate.customSummary = nextCustomSummaryForUpdate;
       }
-      if (JSON.stringify(nextCustomGuidelinesForUpdate) !== JSON.stringify(previousCustomGuidelines)) {
+      if (JSON.stringify(nextCustomGuidelinesForUpdate) !== JSON.stringify(initialGuidelines)) {
         fieldsForUpdate.customGuidelines = nextCustomGuidelinesForUpdate;
       }
-      if (JSON.stringify(nextCustomSteps) !== JSON.stringify(previousCustomSteps)) {
+      if (JSON.stringify(nextCustomSteps) !== JSON.stringify(initialCustomSteps)) {
         fieldsForUpdate.customSteps = nextCustomSteps;
       }
       if (nextRecurringForUpdate !== previousRecurring) {
@@ -18864,7 +18869,7 @@
             hiddenLogs: remoteHiddenLogs,
             meta: remoteMeta
           };
-          const mergedState = applyFirebaseSnapshotToState({ items: {}, hiddenLogs: {}, meta: {} }, remoteSnapshot);
+          const mergedState = applyFirebaseSnapshotToState(loadPlannerState(), remoteSnapshot);
           setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
           if (lastCardEditSaveTrace && lastCardEditSaveTrace.itemKey) {
             const tracedItem = mergedState.items && mergedState.items[lastCardEditSaveTrace.itemKey]
