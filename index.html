@@ -292,6 +292,7 @@
     .team-overview-note-flag { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; font-size: 11px; line-height: 1; opacity: 0.88; }
     .team-overview-assignee-estimate { color: #6f7d8c; }
     .team-overview-assignee-estimate-tag { margin-left: 3px; font-size: 11px; color: #8b98a7; }
+    .team-overview-assignee-unassigned { color: #9aa4af; }
     .team-overview-priority-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.02em; white-space: nowrap; }
     .team-overview-priority-badge.urgent { background: #ffe5e5; color: #b42323; border: 1px solid #f2b5b5; }
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
@@ -1875,7 +1876,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-07T03:30:00Z';
+    const APP_VERSION = '2026-09-15T00:00:00Z';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -6659,6 +6660,18 @@
       };
     }
 
+    // ACTION PLAN에 실제로 표시되는 단일 단계의 담당자만 조회(카드 전체 집계 금지)
+    function resolveTeamOverviewActionPlanAssignee(itemState, stepIndex) {
+      const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
+      const step = stepIndex >= 0 ? steps[stepIndex] : null;
+      const name = step ? normalizeStepAssigneeValue(step.assignee) : '';
+      return {
+        stepIndex,
+        hasAssignee: Boolean(name),
+        name
+      };
+    }
+
     function parseAssigneeFromText(text) {
       if (typeof text !== 'string' || !text.trim()) return '-';
       const assigneeMatch = text.match(/담당(?:자)?\s*[:：]\s*([^\n|,\/]+)/i);
@@ -7882,13 +7895,15 @@
           const priorityMeta = getPriorityMeta(priorityValue);
           const title = getCardTitleText(itemState, item);
           const agenda = getCardSummaryText(itemState, item);
-          const stepAssigneeSummary = buildStepAssigneeSummary(itemState.steps);
-          const parsedAssignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
-          const assignee = stepAssigneeSummary.hasExplicit ? stepAssigneeSummary.displayText : parsedAssignee;
-          const assigneeEstimated = !stepAssigneeSummary.hasExplicit && parsedAssignee !== '-';
-          const assigneeFilterNames = stepAssigneeSummary.hasExplicit
-            ? stepAssigneeSummary.filterNames
-            : (parsedAssignee !== '-' ? [parsedAssignee] : []);
+          if (typeof title === 'string' && title.includes('VIP용 프리미엄 굿즈 기획')) {
+            console.table((Array.isArray(itemState.steps) ? itemState.steps : []).map((step, stepIndex) => ({
+              stepIndex,
+              label: (checklistSteps && checklistSteps[stepIndex]) || '',
+              assignee: step && step.assignee || '',
+              checked: Boolean(step && step.checked),
+              dueDate: (step && step.dueDate) || ''
+            })));
+          }
           const doneCount = Array.isArray(itemState.steps) ? itemState.steps.filter((step) => step && step.checked).length : 0;
           const totalCount = Array.isArray(itemState.steps) ? itemState.steps.length : 0;
           const isRecurring = itemState && itemState.isRecurring === true;
@@ -7896,6 +7911,7 @@
           const stepLabels = Array.isArray(checklistSteps)
             ? checklistSteps.map((text) => (typeof text === 'string' ? text.trim() : '')).filter(Boolean)
             : [];
+          // ACTION PLAN 단계 인덱스(overviewStep.selectedStepIndex)를 담당자 조회에도 그대로 재사용
           const overviewStep = resolveTeamOverviewCurrentStep(itemState, stepLabels);
           let actionPlan = '-';
           if (totalCount > 0 && doneCount >= totalCount) {
@@ -7906,6 +7922,17 @@
           if (isRecurring && currentRunName) {
             actionPlan = `→ [${currentRunName}] ${actionPlan}`;
           }
+          const actionPlanStepIndex = overviewStep.selectedStepIndex;
+          const stepAssignee = resolveTeamOverviewActionPlanAssignee(itemState, actionPlanStepIndex);
+          const parsedAssignee = parseAssigneeFromText(`${title}\n${agenda}\n${item && item.hq ? item.hq : ''}`);
+          const assignee = stepAssignee.hasAssignee
+            ? stepAssignee.name
+            : (actionPlanStepIndex >= 0 ? '담당 미지정' : (parsedAssignee !== '-' ? parsedAssignee : '담당 미지정'));
+          const assigneeUnassigned = !stepAssignee.hasAssignee && (actionPlanStepIndex >= 0 || parsedAssignee === '-');
+          const assigneeEstimated = !stepAssignee.hasAssignee && !assigneeUnassigned && parsedAssignee !== '-';
+          const assigneeFilterNames = stepAssignee.hasAssignee
+            ? [stepAssignee.name]
+            : (!assigneeUnassigned && parsedAssignee !== '-' ? [parsedAssignee] : []);
           const dueDateText = totalCount > 0 && doneCount >= totalCount
             ? '완료'
             : (overviewStep.effectiveDueDate || '');
@@ -7942,7 +7969,10 @@
             dueDateText: dueDateText || '-',
             agenda: title,
             actionPlan,
+            actionPlanStepIndex,
             assignee,
+            assigneeStepIndex: actionPlanStepIndex,
+            assigneeUnassigned,
             assigneeEstimated,
             assigneeFilterNames,
             priorityValue,
@@ -8075,6 +8105,37 @@
         windowMode: teamOverviewUpdateFilterMode,
         assignee: selectedAssignee || 'all'
       };
+
+      const assigneeIndexMatchRows = filteredRows.map((row) => ({
+        cardName: row.agenda,
+        actionPlanStepIndex: row.actionPlanStepIndex,
+        assigneeStepIndex: row.assigneeStepIndex,
+        indexMatches: row.actionPlanStepIndex === row.assigneeStepIndex,
+        assignee: row.assignee,
+        assigneeUnassigned: row.assigneeUnassigned === true
+      }));
+      console.table(assigneeIndexMatchRows);
+      const unassignedCount = filteredRows.filter((row) => row.assigneeUnassigned).length;
+      const assignedCount = filteredRows.length - unassignedCount;
+      const indexMismatchCount = assigneeIndexMatchRows.filter((row) => !row.indexMatches).length;
+      console.log('[현황표] 담당자 칸 갱신 결과', {
+        총행수: filteredRows.length,
+        담당자표시행수: assignedCount,
+        담당미지정행수: unassignedCount,
+        ACTION_PLAN_담당자_인덱스_불일치_행수: indexMismatchCount,
+        인덱스일치: indexMismatchCount === 0
+      });
+      const vipRow = filteredRows.find((row) => row.agenda && row.agenda.includes('VIP용 프리미엄 굿즈 기획'));
+      if (vipRow) {
+        console.log('[현황표] VIP용 프리미엄 굿즈 기획 카드 상세', {
+          actionPlan: vipRow.actionPlan,
+          actionPlanStepIndex: vipRow.actionPlanStepIndex,
+          assignee: vipRow.assignee,
+          assigneeStepIndex: vipRow.assigneeStepIndex,
+          assigneeUnassigned: vipRow.assigneeUnassigned
+        });
+      }
+
       teamOverviewTableBody.innerHTML = filteredRows.map((row) => `
         <tr class="${row.highlight ? 'team-overview-row-highlight' : ''} ${row.priority === PRIORITY_URGENT ? 'team-overview-row-urgent' : ''} ${row.priority === PRIORITY_IMPORTANT ? 'team-overview-row-important' : ''} ${row.isCompleted ? 'team-overview-row-completed' : ''} team-overview-row-clickable" data-item-key="${escapeHtml(row.itemKey)}" tabindex="0" role="button" aria-label="${escapeHtml(row.agenda)} 상세 카드로 이동">
           <td>
@@ -8093,7 +8154,7 @@
             </div>
           </td>
           <td>${escapeHtml(row.actionPlan)}</td>
-          <td>${row.assigneeEstimated ? `<span class="team-overview-assignee-estimate">${escapeHtml(row.assignee)}<span class="team-overview-assignee-estimate-tag">(추정)</span></span>` : escapeHtml(row.assignee)}</td>
+          <td>${row.assigneeUnassigned ? `<span class="team-overview-assignee-unassigned">${escapeHtml(row.assignee)}</span>` : (row.assigneeEstimated ? `<span class="team-overview-assignee-estimate">${escapeHtml(row.assignee)}<span class="team-overview-assignee-estimate-tag">(추정)</span></span>` : escapeHtml(row.assignee))}</td>
           <td>${buildTeamOverviewProgressHtml(row)}</td>
         </tr>
       `).join('');
