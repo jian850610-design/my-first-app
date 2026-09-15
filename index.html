@@ -1876,7 +1876,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-15T00:00:00Z';
+    const APP_VERSION = '2026-09-15T14:41:37+09:00';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -4878,8 +4878,8 @@
             : (Number.isFinite(itemState.cycleCompletedCount) ? Number(itemState.cycleCompletedCount) : (Number.isFinite(itemState.totalCycles) ? Number(itemState.totalCycles) : 0));
           itemState.seriesDraftName = typeof remoteItem?.seriesDraftName === 'string' ? remoteItem.seriesDraftName : itemState.seriesDraftName || '';
           itemState.references = normalizeCardReferences(remoteItem?.references);
-          itemState.customTitle = typeof remoteItem?.customTitle === 'string' && remoteItem.customTitle ? remoteItem.customTitle : itemState.customTitle;
-          itemState.customSummary = typeof remoteItem?.customSummary === 'string' && remoteItem.customSummary ? remoteItem.customSummary : itemState.customSummary;
+          itemState.customTitle = typeof remoteItem?.customTitle === 'string' ? remoteItem.customTitle : itemState.customTitle;
+          itemState.customSummary = typeof remoteItem?.customSummary === 'string' ? remoteItem.customSummary : itemState.customSummary;
           itemState.customGuidelines = Array.isArray(remoteItem?.customGuidelines) ? remoteItem.customGuidelines : itemState.customGuidelines;
           itemState.customSteps = Array.isArray(remoteItem?.customSteps) ? remoteItem.customSteps : itemState.customSteps;
           itemState.isUrgent = remoteItem?.isUrgent === true || remoteItem?.urgent === true || itemState.isUrgent === true;
@@ -6350,6 +6350,10 @@
       try { return JSON.stringify(value); } catch (error) { return String(value); }
     }
 
+    function getFirebaseErrorMessage(error) {
+      return error && error.message ? error.message : String(error || 'unknown');
+    }
+
     function getVerifyActionName(reason = '') {
       const names = {
         'checklist-history-sync': '체크 완료',
@@ -6451,7 +6455,8 @@
           return { ok: true };
         } catch (error) {
           const errorCode = error && error.code ? error.code : 'unknown';
-          setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode})`);
+          const errorMessage = getFirebaseErrorMessage(error);
+          setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode}) ${errorMessage}`);
           await logVerifiedCardWrite({
             action: getVerifyActionName(reason),
             itemKey,
@@ -6463,8 +6468,8 @@
             errorCode,
             cardRef
           });
-          console.error('Firebase 카드 부분 저장 실패', reason, error);
-          return { ok: false, reason: 'firebase-update-failed', errorCode };
+          console.error('Firebase 카드 부분 저장 실패', reason, { path: `cards/${goalKey}/${indexText}`, errorCode, errorMessage, error });
+          return { ok: false, reason: 'firebase-update-failed', errorCode, errorMessage, path: `cards/${goalKey}/${indexText}` };
         } finally {
           firebaseSaving = false;
           updateFirebaseConnectionChip();
@@ -13757,7 +13762,9 @@
       const item = goalTemplate.items[itemIndex];
       const currentChecklistSteps = getChecklistStepsForItem(latestState, goalKey, item, itemKey, goalTemplate.principles || []);
       const itemState = getItemState(latestState, itemKey, currentChecklistSteps.length, goalTemplate.principles || []);
+      const previousTitle = typeof itemState.title === 'string' ? itemState.title : '';
       const previousCustomTitle = typeof itemState.customTitle === 'string' ? itemState.customTitle : '';
+      const previousSummary = typeof itemState.summary === 'string' ? itemState.summary : '';
       const previousCustomSummary = typeof itemState.customSummary === 'string' ? itemState.customSummary : '';
       const previousCustomGuidelines = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines.slice() : [];
       const previousCustomSteps = Array.isArray(itemState.customSteps) ? itemState.customSteps.slice() : [];
@@ -13829,8 +13836,14 @@
       const nextCustomSummaryForUpdate = itemState.customSummary || '';
       const nextCustomGuidelinesForUpdate = Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [];
       const nextRecurringForUpdate = itemState.isRecurring === true;
+      if (nextTitle !== previousTitle) {
+        fieldsForUpdate.title = nextTitle;
+      }
       if (nextCustomTitleForUpdate !== previousCustomTitle) {
         fieldsForUpdate.customTitle = nextCustomTitleForUpdate;
+      }
+      if (nextSummary !== previousSummary) {
+        fieldsForUpdate.summary = nextSummary;
       }
       if (nextCustomSummaryForUpdate !== previousCustomSummary) {
         fieldsForUpdate.customSummary = nextCustomSummaryForUpdate;
@@ -13891,9 +13904,11 @@
       console.log('[card-edit-modal] 전송/응답 근거', saveEvidence);
       if (!saveResult.ok) {
         const errorCode = saveResult && saveResult.errorCode ? saveResult.errorCode : 'unknown';
-        setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${itemIndex} (${errorCode})`);
-        setToastMessage(`저장 실패: cards/${goalKey}/${itemIndex} (${errorCode})`, 'warn');
-        window.alert('카드 저장에 실패했습니다. 상단 저장 실패 배너를 확인해 주세요.');
+        const errorMessage = saveResult && saveResult.errorMessage ? saveResult.errorMessage : '';
+        const failedPath = saveResult && saveResult.path ? saveResult.path : `cards/${goalKey}/${itemIndex}`;
+        setFirebaseSaveFailureBanner(`저장 실패: ${failedPath} (${errorCode})${errorMessage ? ` ${errorMessage}` : ''}`);
+        setToastMessage(`저장 실패: ${failedPath} (${errorCode})${errorMessage ? ` ${errorMessage}` : ''}`, 'warn', 5200);
+        window.alert(`카드 저장에 실패했습니다.\n경로: ${failedPath}\n코드: ${errorCode}\n메시지: ${errorMessage || '-'}`);
         return;
       }
       const dueDateMismatch = changedDueDateEntries.some((entry) => {
@@ -13906,7 +13921,7 @@
       });
       if (dueDateMismatch) {
         setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${itemIndex}/steps/*/dueDate (post-read-mismatch)`);
-        setToastMessage('저장 실패: 재조회 값 불일치', 'warn');
+        setToastMessage(`저장 실패: cards/${goalKey}/${itemIndex}/steps/*/dueDate (post-read-mismatch)`, 'warn', 5200);
         return;
       }
       setFirebaseSaveFailureBanner('');
