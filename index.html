@@ -1876,7 +1876,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-15T14:41:37+09:00';
+    const APP_VERSION = '2026-09-15T14:56:47+09:00';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -2279,6 +2279,7 @@
     });
     let firebaseLoginInProgress = false;
     let lastSaveSuccessAt = '';
+    let lastCardEditSaveTrace = null;
     let cardsMigrationInProgress = false;
     let fullCardsSyncInProgress = false;
     let enforceRemoteAsSingleSource = !EDIT_MODE_REQUESTED;
@@ -6387,6 +6388,12 @@
     }
 
     async function updateItemFieldsInFirebase(itemKey, fieldValues, reason = '') {
+      console.log('[TRACE card-edit] updateItemFieldsInFirebase enter', {
+        reason,
+        itemKey,
+        path: `cards/${String(itemKey || '').replace('::', '/')}`,
+        payload: fieldValues
+      });
       if (!EDIT_MODE_REQUESTED) {
         setFirebaseSaveFailureBanner('저장 불가: 읽기 전용 모드');
         return { ok: false, reason: 'edit-disabled' };
@@ -6425,6 +6432,12 @@
             updateKeys: Object.keys(updates)
           });
           await bridge.update(cardRef, updates);
+          console.log('[TRACE card-edit] bridge.update resolved', {
+            reason,
+            path: `cards/${goalKey}/${indexText}`,
+            payload: updates,
+            ok: true
+          });
           const actorName = currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL;
           const actorEmail = currentFirebaseUser ? (currentFirebaseUser.email || '') : '';
           const actorUid = currentFirebaseUser ? (currentFirebaseUser.uid || '') : '';
@@ -6456,6 +6469,14 @@
         } catch (error) {
           const errorCode = error && error.code ? error.code : 'unknown';
           const errorMessage = getFirebaseErrorMessage(error);
+          console.log('[TRACE card-edit] bridge.update rejected', {
+            reason,
+            path: `cards/${goalKey}/${indexText}`,
+            payload: updates,
+            ok: false,
+            errorCode,
+            errorMessage
+          });
           setFirebaseSaveFailureBanner(`저장 실패: cards/${goalKey}/${indexText} (${errorCode}) ${errorMessage}`);
           await logVerifiedCardWrite({
             action: getVerifyActionName(reason),
@@ -8481,8 +8502,9 @@
         const toKey = `${goalKey}::${toIndex}`;
         if (!items[toKey]) {
           items[toKey] = items[fromKey];
+          delete items[fromKey];
+          return;
         }
-        delete items[fromKey];
       });
     }
 
@@ -13754,6 +13776,38 @@
     async function saveCardEditModal() {
       if (!cardEditModalState) return;
       syncCardEditChecklistDraftFromDom();
+      const inputTrace = {
+        titleInput: {
+          id: cardEditModalTitleInput ? cardEditModalTitleInput.id : '',
+          name: cardEditModalTitleInput ? cardEditModalTitleInput.name : '',
+          value: cardEditModalTitleInput ? cardEditModalTitleInput.value : null
+        },
+        summaryInput: {
+          id: cardEditModalSummaryInput ? cardEditModalSummaryInput.id : '',
+          name: cardEditModalSummaryInput ? cardEditModalSummaryInput.name : '',
+          value: cardEditModalSummaryInput ? cardEditModalSummaryInput.value : null
+        },
+        guidelinesInput: {
+          id: cardEditModalGuidelinesInput ? cardEditModalGuidelinesInput.id : '',
+          name: cardEditModalGuidelinesInput ? cardEditModalGuidelinesInput.name : '',
+          value: cardEditModalGuidelinesInput ? cardEditModalGuidelinesInput.value : null
+        },
+        recurringInput: {
+          id: cardEditModalRecurringInput ? cardEditModalRecurringInput.id : '',
+          name: cardEditModalRecurringInput ? cardEditModalRecurringInput.name : '',
+          checked: cardEditModalRecurringInput ? cardEditModalRecurringInput.checked : null
+        },
+        checklistInputs: cardEditModalChecklistList
+          ? Array.from(cardEditModalChecklistList.querySelectorAll('[data-card-edit-step-field]')).map((input) => ({
+              stepIndex: input.dataset.stepIndex,
+              field: input.dataset.cardEditStepField,
+              id: input.id || '',
+              name: input.name || '',
+              value: input.value
+            }))
+          : []
+      };
+      console.log('[TRACE card-edit] modal input values after DOM sync', inputTrace);
       const latestState = loadPlannerState();
       const { itemKey, goalKey, itemIndex } = cardEditModalState;
       const goalTemplate = goalTemplates[goalKey];
@@ -13800,6 +13854,17 @@
 
       const nextRecurring = cardEditModalRecurringInput ? cardEditModalRecurringInput.checked === true : itemState.isRecurring === true;
       itemState.isRecurring = nextRecurring;
+      console.log('[TRACE card-edit] itemState after assignment', {
+        itemKey,
+        title: itemState.title,
+        customTitle: itemState.customTitle || '',
+        summary: itemState.summary || '',
+        customSummary: itemState.customSummary || '',
+        customGuidelines: Array.isArray(itemState.customGuidelines) ? itemState.customGuidelines : [],
+        customSteps: Array.isArray(itemState.customSteps) ? itemState.customSteps : [],
+        stepDueDates: Array.isArray(itemState.steps) ? itemState.steps.map((step) => step && typeof step.dueDate === 'string' ? step.dueDate : '') : [],
+        isRecurring: itemState.isRecurring === true
+      });
 
       const beforeAudit = {
         title: getCardTitleText(itemState, item),
@@ -13860,6 +13925,11 @@
       changedDueDateEntries.forEach((entry) => {
         fieldsForUpdate[`steps/${entry.stepIndex}/dueDate`] = entry.nextDueDate;
       });
+      console.log('[TRACE card-edit] itemState after dueDate assignment', {
+        itemKey,
+        stepDueDates: Array.isArray(itemState.steps) ? itemState.steps.map((step) => step && typeof step.dueDate === 'string' ? step.dueDate : '') : [],
+        changedDueDateEntries
+      });
       const payloadKeys = Object.keys(fieldsForUpdate);
       if (!payloadKeys.length) {
         console.log('[card-edit-modal] 저장 생략: 변경 필드 없음', {
@@ -13883,6 +13953,19 @@
         return;
       }
       console.log('[card-edit-title] payload.title', fieldsForUpdate.title);
+      console.log('[TRACE card-edit] payload before updateItemFieldsInFirebase', {
+        itemKey,
+        path: `cards/${goalKey}/${itemIndex}`,
+        payload: fieldsForUpdate
+      });
+      lastCardEditSaveTrace = {
+        itemKey,
+        goalKey,
+        indexText: String(itemIndex),
+        path: `cards/${goalKey}/${itemIndex}`,
+        payload: fieldsForUpdate,
+        startedAt: new Date().toISOString()
+      };
       const saveResult = await updateItemFieldsInFirebase(itemKey, fieldsForUpdate, 'card-edit-save');
       const bridge = getFirebaseBridge();
       let fetchedCard = null;
@@ -13951,6 +14034,11 @@
       updateGoalCard(goalKey);
       syncOverviewWidgets(savedState);
       updateStats();
+      console.log('[TRACE card-edit] success toast point', {
+        itemKey,
+        path: `cards/${goalKey}/${itemIndex}`,
+        fetchedDueDates: saveEvidence.fetchedDueDates
+      });
       setToastMessage('카드 내용 및 마감일이 성공적으로 수정되었습니다.', 'ok');
     }
 
@@ -18778,6 +18866,18 @@
           };
           const mergedState = applyFirebaseSnapshotToState({ items: {}, hiddenLogs: {}, meta: {} }, remoteSnapshot);
           setCurrentPlannerState(mergedState, { skipFirebaseSync: true });
+          if (lastCardEditSaveTrace && lastCardEditSaveTrace.itemKey) {
+            const tracedItem = mergedState.items && mergedState.items[lastCardEditSaveTrace.itemKey]
+              ? mergedState.items[lastCardEditSaveTrace.itemKey]
+              : null;
+            console.log('[TRACE card-edit] applyRemoteState after onValue merge', {
+              itemKey: lastCardEditSaveTrace.itemKey,
+              path: lastCardEditSaveTrace.path,
+              title: tracedItem && typeof tracedItem.title === 'string' ? tracedItem.title : '',
+              customTitle: tracedItem && typeof tracedItem.customTitle === 'string' ? tracedItem.customTitle : '',
+              stepDueDates: tracedItem && Array.isArray(tracedItem.steps) ? tracedItem.steps.map((step) => step && typeof step.dueDate === 'string' ? step.dueDate : '') : []
+            });
+          }
           updateFirebaseLastUpdatedText(mergedState.meta || firebaseLastUpdatedMeta);
           if (benchmarkPromptPreview) benchmarkPromptPreview.value = buildBenchmarkPromptText();
           preserveWindowScroll(() => rerenderCurrentView());
@@ -18816,6 +18916,19 @@
           remoteCards = value && typeof value === 'object' ? value : {};
           dashboardRemoteCardsSnapshot = remoteCards;
           remoteCardsLoaded = true;
+          if (lastCardEditSaveTrace && lastCardEditSaveTrace.goalKey && lastCardEditSaveTrace.indexText) {
+            const remoteItem = remoteCards[lastCardEditSaveTrace.goalKey]
+              && remoteCards[lastCardEditSaveTrace.goalKey][lastCardEditSaveTrace.indexText]
+              ? remoteCards[lastCardEditSaveTrace.goalKey][lastCardEditSaveTrace.indexText]
+              : null;
+            console.log('[TRACE card-edit] onValue /cards callback', {
+              itemKey: lastCardEditSaveTrace.itemKey,
+              path: lastCardEditSaveTrace.path,
+              title: remoteItem && typeof remoteItem.title === 'string' ? remoteItem.title : '',
+              customTitle: remoteItem && typeof remoteItem.customTitle === 'string' ? remoteItem.customTitle : '',
+              stepDueDates: remoteItem && Array.isArray(remoteItem.steps) ? remoteItem.steps.map((step) => step && typeof step.dueDate === 'string' ? step.dueDate : '') : []
+            });
+          }
           applyRemoteState();
         }, handleSubscriptionError('/cards')),
         bridge.onValue(bridge.getCardsMetaRef(), (snapshot) => {
@@ -19645,6 +19758,10 @@
 
         if (cardEditModalSaveBtn) {
           cardEditModalSaveBtn.addEventListener('click', async () => {
+            console.log('[TRACE card-edit] save button click handler entered', {
+              modalHidden: cardEditModal ? cardEditModal.hidden === true : null,
+              stateItemKey: cardEditModalState && cardEditModalState.itemKey ? cardEditModalState.itemKey : ''
+            });
             const beforeText = cardEditModalSaveBtn.textContent;
             cardEditModalSaveBtn.disabled = true;
             cardEditModalSaveBtn.textContent = '저장 중...';
