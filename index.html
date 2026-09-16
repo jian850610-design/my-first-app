@@ -298,8 +298,14 @@
     .team-overview-priority-badge.important { background: #fff4cf; color: #8a5b00; border: 1px solid #efd58f; }
     .team-overview-priority-badge.leader { background: #eaf3ff; color: #1d5f9f; border: 1px solid #c7dcf2; }
     .team-overview-badge-stack { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-    .team-overview-due-wrap { display: grid; justify-items: center; gap: 0; }
+    .team-overview-due-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: nowrap; }
     .team-overview-due-date { font-weight: 800; color: #23425f; text-align: center; }
+    .team-overview-due-badge { display: inline-flex; align-items: center; justify-content: center; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 800; line-height: 1.3; white-space: nowrap; }
+    .team-overview-due-badge.overdue { background: #ffe3e3; color: #b22c2c; }
+    .team-overview-due-badge.today { background: #ffeccd; color: #9f5600; }
+    .team-overview-due-badge.soon { background: #fff3de; color: #9a5a13; }
+    .team-overview-due-badge.week { background: #eef5ff; color: #2d5f92; }
+    .team-overview-due-badge.none { background: #eef3f8; color: #6a7d93; }
     .team-overview-cell-muted { color: #6a7f95; }
     .team-overview-progress-cell { display: grid; gap: 4px; line-height: 1.25; word-break: keep-all; }
     .team-overview-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
@@ -1463,6 +1469,7 @@
               <option value="all">📋 전체 업무 보기</option>
             </select>
             <label class="team-overview-completed-toggle"><input type="checkbox" id="teamOverviewIncludeCompleted" /> 완료 포함</label>
+            <label class="team-overview-completed-toggle"><input type="checkbox" id="teamOverviewUrgentOnly" /> 지연·임박만 보기</label>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewExportBtn">📥 엑셀 내려받기</button>
             <button type="button" class="team-overview-toggle-btn" id="teamOverviewToggleBtn">표 접기</button>
           </div>
@@ -1487,11 +1494,13 @@
         </div>
       </section>
 
+      <!-- 2026-09-16: 'D-7 마감 임박 업무' 위젯은 팀 업무 종합 현황표의 마감일 배지로 흡수되어 화면에서 제외됨(롤백용 마크업은 유지)
       <section class="urgent-deadline-section">
         <strong>⚡ 이번 주 마감 임박 업무 (D-7)</strong>
         <div class="urgent-deadline-list" id="urgentDeadlineList"></div>
         <div class="urgent-deadline-empty" id="urgentDeadlineEmpty">🎉 7일 이내 마감 예정인 임박 업무가 없습니다.</div>
       </section>
+      -->
 
       <section class="today-activity-section" id="timelineSection">
         <div class="today-activity-header">
@@ -1876,7 +1885,7 @@
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
-    const APP_VERSION = '2026-09-15T20:05:00+09:00';
+    const APP_VERSION = '2026-09-16T00:00:00+09:00';
     console.log('[VERSION]', APP_VERSION);
     const todayActivityTitle = document.getElementById('todayActivityTitle');
     const todayActivityMeta = document.querySelector('#timelineSection .today-activity-meta');
@@ -1986,6 +1995,7 @@
     const teamOverviewEmpty = document.getElementById('teamOverviewEmpty');
     const teamOverviewExportBtn = document.getElementById('teamOverviewExportBtn');
     const teamOverviewIncludeCompleted = document.getElementById('teamOverviewIncludeCompleted');
+    const teamOverviewUrgentOnly = document.getElementById('teamOverviewUrgentOnly');
     const copyBenchmarkPromptBtn = document.getElementById('copyBenchmarkPromptBtn');
     const benchmarkPromptStatus = document.getElementById('benchmarkPromptStatus');
     const benchmarkPromptPreview = document.getElementById('benchmarkPromptPreview');
@@ -2288,6 +2298,7 @@
     let teamOverviewCollapsed = false;
     let teamOverviewUpdateFilterMode = 'recent15';
     let teamOverviewShowCompleted = false;
+    let teamOverviewUrgentOnlyMode = false;
     const BENCHMARK_DEBUG_LOGS = false;
     const BENCHMARK_APPLY_DEBUG = {
       disableCommitTimeout: false
@@ -7870,18 +7881,24 @@
       );
     }
 
+    // ACTION PLAN 선택 규칙: checked===false 단계 중 마감일이 가장 이른 1개, 마감일이 없으면 배열 순서 최우선(경과 여부는 무시)
     function resolveTeamOverviewCurrentStep(itemState, stepLabels) {
       const normalizedLabels = Array.isArray(stepLabels) ? stepLabels : [];
       const steps = Array.isArray(itemState && itemState.steps) ? itemState.steps : [];
       const stripCompletedTag = (text) => text.replace(/^\[완료\]\s*/u, '').trim();
-      const nextPendingStepIndex = steps.findIndex((step, stepIndex) => {
-        if (!step || isChecklistStepCompleted(step)) return false;
-        const label = normalizedLabels[stepIndex] || '';
-        return label ? !/^\[완료\]\s*/u.test(label) : true;
-      });
-      const fallbackPendingStepIndex = steps.findIndex((step) => step && !isChecklistStepCompleted(step));
-      const selectedStepIndex = nextPendingStepIndex >= 0 ? nextPendingStepIndex : fallbackPendingStepIndex;
-      const selectedStep = selectedStepIndex >= 0 ? steps[selectedStepIndex] : null;
+      const pendingEntries = steps
+        .map((step, stepIndex) => ({ step, stepIndex }))
+        .filter(({ step }) => step && step.checked === false);
+      const datedPendingEntries = pendingEntries.filter(({ step }) => typeof step.dueDate === 'string' && step.dueDate.trim());
+      let selectedEntry = null;
+      if (datedPendingEntries.length) {
+        selectedEntry = datedPendingEntries.reduce((earliest, current) => (
+          current.step.dueDate < earliest.step.dueDate ? current : earliest
+        ));
+      } else if (pendingEntries.length) {
+        selectedEntry = pendingEntries[0];
+      }
+      const selectedStepIndex = selectedEntry ? selectedEntry.stepIndex : -1;
       const selectedLabel = selectedStepIndex >= 0
         ? stripCompletedTag(normalizedLabels[selectedStepIndex] || '진행 중 단계 확인 필요')
         : '';
@@ -7893,8 +7910,6 @@
         : '';
       return {
         stripCompletedTag,
-        nextPendingStepIndex,
-        fallbackPendingStepIndex,
         selectedStepIndex,
         selectedLabel,
         selectedStepDueDate,
@@ -7902,6 +7917,24 @@
         usedCardLevelFallback: selectedStepIndex >= 0 && !selectedStepDueDate && Boolean(cardLevelDueDate),
         effectiveDueDate: selectedStepDueDate || cardLevelDueDate || ''
       };
+    }
+
+    // 현황표 마감일 배지: 위젯이 쓰던 getUrgentBadgeInfo(diffDays)를 그대로 재사용(중복 구현 없음)
+    function buildTeamOverviewDueBadge(dueDateText) {
+      if (!dueDateText || dueDateText === '-' || dueDateText === '완료') {
+        return { text: '마감 없음', cls: 'none' };
+      }
+      const dueDate = toDateAtMidnight(dueDateText);
+      if (!dueDate) return { text: '마감 없음', cls: 'none' };
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diffDays = getDateDiffInDays(today, dueDate);
+      if (diffDays >= 8) return null;
+      return getUrgentBadgeInfo(diffDays);
+    }
+
+    function isTeamOverviewUrgentDueBadge(dueBadge) {
+      return Boolean(dueBadge && dueBadge.cls !== 'none');
     }
 
     function buildTeamOverviewRows(state) {
@@ -7963,6 +7996,7 @@
             ? '완료'
             : (overviewStep.effectiveDueDate || '');
           const dueSort = dueDateText && dueDateText !== '완료' ? dueDateText : '9999-12-31';
+          const dueBadge = buildTeamOverviewDueBadge(dueDateText);
           if (overviewStep.usedCardLevelFallback) {
             console.warn('[현황표] step dueDate 누락으로 카드 레벨 dueDate 폴백', {
               itemKey,
@@ -7993,6 +8027,7 @@
             goalKey,
             goalLabel: goalTemplate && typeof goalTemplate.label === 'string' ? goalTemplate.label : goalKey,
             dueDateText: dueDateText || '-',
+            dueBadge,
             agenda: title,
             actionPlan,
             actionPlanStepIndex,
@@ -8036,7 +8071,10 @@
         ? dashboardUnifiedOverviewState
         : (state || loadPlannerState());
       const allRows = buildTeamOverviewRows(baseState);
-      const rows = teamOverviewShowCompleted ? allRows : allRows.filter((row) => !row.isCompleted);
+      const urgentOnlyMode = teamOverviewUrgentOnly ? teamOverviewUrgentOnly.checked === true : teamOverviewUrgentOnlyMode;
+      teamOverviewUrgentOnlyMode = urgentOnlyMode;
+      const rows = (teamOverviewShowCompleted ? allRows : allRows.filter((row) => !row.isCompleted))
+        .filter((row) => !urgentOnlyMode || isTeamOverviewUrgentDueBadge(row.dueBadge));
       console.log('[현황표] 완료 필터', { includeCompleted: teamOverviewShowCompleted, beforeCount: allRows.length, afterCount: rows.length });
       const overviewGoalCounts = rows.reduce((counts, row) => {
         counts[row.goalKey] = (counts[row.goalKey] || 0) + 1;
@@ -8167,6 +8205,7 @@
           <td>
             <div class="team-overview-due-wrap">
               <div class="team-overview-due-date">${escapeHtml(row.dueDateText)}</div>
+              ${row.dueBadge ? `<span class="team-overview-due-badge ${row.dueBadge.cls}">${escapeHtml(row.dueBadge.text)}</span>` : ''}
             </div>
           </td>
           <td>
@@ -11430,7 +11469,7 @@
     }
 
     function syncOverviewWidgets(state) {
-      renderUrgentDeadlineWidget(state);
+      // renderUrgentDeadlineWidget(state); // 2026-09-16: D-7 위젯 기능이 팀 업무 종합 현황표로 흡수되어 호출 비활성화(롤백 대비, 함수는 보존)
       renderBossSummary(state);
       renderTodayActivityWidget(state);
       renderTeamOverviewTable(state);
@@ -19262,6 +19301,14 @@
         teamOverviewIncludeCompleted.checked = false;
         teamOverviewIncludeCompleted.addEventListener('change', () => {
           teamOverviewShowCompleted = teamOverviewIncludeCompleted.checked === true;
+          renderTeamOverviewTable(loadPlannerState());
+        });
+      }
+
+      if (teamOverviewUrgentOnly) {
+        teamOverviewUrgentOnly.checked = false;
+        teamOverviewUrgentOnly.addEventListener('change', () => {
+          teamOverviewUrgentOnlyMode = teamOverviewUrgentOnly.checked === true;
           renderTeamOverviewTable(loadPlannerState());
         });
       }
