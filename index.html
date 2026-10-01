@@ -47,6 +47,16 @@
     .quick-nav-select option[disabled] { color: #8ca1b8; }
     .quick-nav-select:focus { outline: none; border-color: rgba(255,255,255,0.62); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
     .header-tools { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header-title-subtitle { margin: 6px 0 0; color: rgba(255,255,255,0.78); font-size: 13px; line-height: 1.5; }
+    .inline-editable-text { cursor: text; border-radius: 4px; }
+    .inline-editable-text:hover { outline: 1px dashed var(--accent); outline-offset: 3px; }
+    .inline-edit-input { box-sizing: border-box; max-width: 100%; min-width: 0; border: 1px solid var(--accent); border-radius: 6px; background: #fff; color: var(--text); padding: 5px 7px; font: inherit; line-height: inherit; box-shadow: 0 0 0 3px rgba(43, 123, 189, 0.14); }
+    .title-edit-trigger { flex: 0 0 auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--navy); padding: 3px 6px; cursor: pointer; font-size: 11px; line-height: 1.2; }
+    .title-edit-trigger:hover { border-color: var(--accent); background: #f2f8ff; }
+    .mandalart-cell { position: relative; }
+    .mandalart-title-edit-trigger { position: absolute; top: 14px; right: 14px; z-index: 2; }
+    .mandalart-goal-heading { padding-right: 24px; }
+    .inline-edit-reset-btn { white-space: nowrap; }
     .export-data-btn { border: 1px solid rgba(255,255,255,0.26); border-radius: 12px; background: rgba(255,255,255,0.16); color: #ffffff; padding: 10px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
     .export-data-btn:hover { background: rgba(255,255,255,0.24); }
     .firebase-status-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1363,7 +1373,8 @@
   <div class="page">
     <section class="header-bar">
       <div>
-        <h1>SKF Korea 마케팅 일일 업무 계획표</h1>
+        <h1 id="dashboardTitle" class="inline-editable-text" data-inline-editable="headerTitle" title="클릭하여 목표 제목 수정">SKF Korea 마케팅 일일 업무 계획표</h1>
+        <p id="dashboardSubtitle" class="header-title-subtitle inline-editable-text" data-inline-editable="headerSubtitle" title="클릭하여 목표 제목 수정">SKF Korea 마케팅 업무 계획 대시보드</p>
       </div>
       <div class="header-meta">
         <div class="header-status">
@@ -1371,6 +1382,7 @@
           <span class="firebase-mode-chip read" id="firebaseModeChip">👀 읽기 전용 모드</span>
         </div>
         <div class="header-tools">
+          <button type="button" class="header-chip inline-edit-reset-btn" id="resetGoalTitlesBtn" title="목표 제목을 기본값으로 되돌립니다">목표 제목 초기화</button>
           <button type="button" class="header-chip kpi-status-chip" id="kpiStatusChip">KPI 갱신 필요 0개 · 페이스 부족 0개</button>
           <div class="quick-nav-wrap">
             <span class="quick-nav-label">🎯 목표 바로가기 ▾</span>
@@ -1934,6 +1946,7 @@
     const goalGuidelineBadgeTitle = document.getElementById('goalGuidelineBadgeTitle');
     const goalGuidelineBadgeList = document.getElementById('goalGuidelineBadgeList');
     const goalSelect = document.getElementById('goalSelect');
+    const resetGoalTitlesBtn = document.getElementById('resetGoalTitlesBtn');
     const metricSelected = document.getElementById('metric-selected');
     const detailContainer = document.getElementById('detailItems');
     let detailContainerDelegatedListenersAttached = false;
@@ -2262,6 +2275,8 @@
     let currentPlannerDateKey = '';
     let timelineSelectedDateKey = getLocalDateKey();
     let currentPlannerState = { items: {}, meta: {} };
+    const CUSTOM_TEXT_OVERRIDES_STORAGE_KEY = 'skf_custom_goal_titles';
+    let customTextOverrides = readCustomTextOverridesFromStorage();
     let currentFirebaseUser = null;
     let firebaseConnectionOnline = false;
     let firebaseLastSnapshotAt = 0;
@@ -4746,7 +4761,8 @@
           lastUpdatedAt: metaOverrides.lastUpdatedAt || new Date().toISOString(),
           updatedByName: metaOverrides.updatedByName || EDITOR_NAME_LABEL,
           updatedByEmail: metaOverrides.updatedByEmail || '',
-          updatedByUid: metaOverrides.updatedByUid || ''
+          updatedByUid: metaOverrides.updatedByUid || '',
+          customTextOverrides: normalizeCustomTextOverrides(normalizedState.meta.customTextOverrides || customTextOverrides)
         }
       };
       Object.entries(goalTemplates).forEach(([goalKey, goalTemplate]) => {
@@ -5664,6 +5680,14 @@
 
     function setCurrentPlannerState(nextState, options = {}) {
       const normalizedState = normalizePlannerState(nextState);
+      if (Object.prototype.hasOwnProperty.call(normalizedState.meta, 'customTextOverrides')) {
+        customTextOverrides = normalizeCustomTextOverrides(normalizedState.meta.customTextOverrides);
+        localStorage.setItem(CUSTOM_TEXT_OVERRIDES_STORAGE_KEY, JSON.stringify(customTextOverrides));
+        applyCustomTextOverrides();
+        populateGoalOptions();
+        populateQuickGoalOptions();
+      }
+      normalizedState.meta.customTextOverrides = JSON.parse(JSON.stringify(customTextOverrides));
       currentPlannerState = normalizedState;
       dashboardUnifiedOverviewState = normalizedState;
       if (!options.skipLocalStorage) {
@@ -8489,6 +8513,7 @@
     function savePlannerState(state, options = {}) {
       const normalizedState = normalizePlannerState(state);
       normalizedState.meta = {
+        ...normalizedState.meta,
         lastUpdatedAt: new Date().toISOString(),
         updatedByName: currentFirebaseUser ? (currentFirebaseUser.displayName || currentFirebaseUser.email || EDITOR_NAME_LABEL) : EDITOR_NAME_LABEL,
         updatedByEmail: currentFirebaseUser ? (currentFirebaseUser.email || '') : '',
@@ -8775,7 +8800,10 @@
           lastUpdatedAt: typeof meta.lastUpdatedAt === 'string' ? meta.lastUpdatedAt : '',
           updatedByName: typeof meta.updatedByName === 'string' ? meta.updatedByName : '',
           updatedByEmail: typeof meta.updatedByEmail === 'string' ? meta.updatedByEmail : '',
-          updatedByUid: typeof meta.updatedByUid === 'string' ? meta.updatedByUid : ''
+          updatedByUid: typeof meta.updatedByUid === 'string' ? meta.updatedByUid : '',
+          ...(meta.customTextOverrides && typeof meta.customTextOverrides === 'object'
+            ? { customTextOverrides: normalizeCustomTextOverrides(meta.customTextOverrides) }
+            : {})
         }
       };
     }
@@ -11179,12 +11207,155 @@
       return { percent, leaderRequestedCount, urgentCount, importantCount, completedCardCount };
     }
 
+    function normalizeCustomTextOverrides(value) {
+      const source = value && typeof value === 'object' ? value : {};
+      const goalTitles = source.goalTitles && typeof source.goalTitles === 'object' ? source.goalTitles : {};
+      return {
+        goalTitles: Object.fromEntries(Object.entries(goalTitles).filter(([, title]) => typeof title === 'string' && title.trim())),
+        headerTitle: typeof source.headerTitle === 'string' ? source.headerTitle : '',
+        headerSubtitle: typeof source.headerSubtitle === 'string' ? source.headerSubtitle : '',
+        centerTitle: typeof source.centerTitle === 'string' ? source.centerTitle : ''
+      };
+    }
+
+    function readCustomTextOverridesFromStorage() {
+      try {
+        return normalizeCustomTextOverrides(JSON.parse(localStorage.getItem(CUSTOM_TEXT_OVERRIDES_STORAGE_KEY) || '{}'));
+      } catch (error) {
+        return normalizeCustomTextOverrides({});
+      }
+    }
+
+    function getGoalLabel(goalKey) {
+      const goal = goalTemplates[goalKey];
+      if (!goal) return goalKey;
+      return customTextOverrides.goalTitles[goalKey] || goal.label;
+    }
+
+    function applyCustomTextOverrides() {
+      const title = document.getElementById('dashboardTitle');
+      const subtitle = document.getElementById('dashboardSubtitle');
+      if (title) {
+        title.textContent = customTextOverrides.headerTitle || 'SKF Korea 마케팅 일일 업무 계획표';
+        title.dataset.inlineValue = title.textContent;
+      }
+      if (subtitle) {
+        subtitle.textContent = customTextOverrides.headerSubtitle || 'SKF Korea 마케팅 업무 계획 대시보드';
+        subtitle.dataset.inlineValue = subtitle.textContent;
+      }
+    }
+
+    function persistCustomTextOverrides() {
+      customTextOverrides = normalizeCustomTextOverrides(customTextOverrides);
+      localStorage.setItem(CUSTOM_TEXT_OVERRIDES_STORAGE_KEY, JSON.stringify(customTextOverrides));
+      const state = loadPlannerState();
+      state.meta = { ...state.meta, customTextOverrides: JSON.parse(JSON.stringify(customTextOverrides)) };
+      savePlannerState(state, { reason: 'custom-title-edit' });
+    }
+
+    function renderAfterCustomTextChange() {
+      applyCustomTextOverrides();
+      populateGoalOptions();
+      populateQuickGoalOptions();
+      rerenderCurrentView();
+    }
+
+    function startInlineTextEdit(target, kind, key = '') {
+      if (!target || target.dataset.inlineEditing === 'true') return;
+      const initialValue = target.dataset.inlineValue !== undefined ? target.dataset.inlineValue : target.textContent.trim();
+      const editor = document.createElement('input');
+      editor.type = 'text';
+      editor.className = 'inline-edit-input';
+      editor.value = initialValue;
+      editor.dataset.inlineEditor = kind;
+      editor.dataset.inlineKey = key;
+      editor.dataset.inlineOriginal = initialValue;
+      target.dataset.inlineEditing = 'true';
+      target.hidden = true;
+      target.before(editor);
+      editor._inlineTarget = target;
+      editor.focus();
+      editor.select();
+    }
+
+    function finishInlineTextEdit(editor, shouldSave) {
+      if (!editor || editor.dataset.inlineFinished === 'true') return;
+      editor.dataset.inlineFinished = 'true';
+      const kind = editor.dataset.inlineEditor;
+      const key = editor.dataset.inlineKey || '';
+      const value = editor.value.trim();
+      const target = editor._inlineTarget;
+      if (target && target.isConnected) {
+        target.hidden = false;
+        delete target.dataset.inlineEditing;
+      }
+      editor.remove();
+      if (shouldSave && value) {
+        if (kind === 'card-title') {
+          const state = loadPlannerState();
+          const itemState = state.items[key] && typeof state.items[key] === 'object' ? state.items[key] : {};
+          state.items[key] = { ...itemState, customTitle: value };
+          savePlannerState(state, { reason: 'custom-card-title-edit' });
+        } else if (kind === 'goal') {
+          customTextOverrides.goalTitles[key] = value;
+          persistCustomTextOverrides();
+        } else {
+          customTextOverrides[kind] = value;
+          persistCustomTextOverrides();
+        }
+      }
+      if (kind === 'card-title' && shouldSave && value) {
+        rerenderCurrentView();
+      } else if (kind !== 'card-title' && shouldSave && value) {
+        renderAfterCustomTextChange();
+      } else {
+        rerenderCurrentView();
+      }
+    }
+
+    function attachInlineTextEditingHandlers() {
+      document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-inline-edit-trigger]');
+        if (trigger) {
+          event.preventDefault();
+          event.stopPropagation();
+          const card = trigger.closest('.detail-item-card');
+          const target = card ? card.querySelector('.card-main-title') : trigger.closest('.mandalart-cell')?.querySelector('.mandalart-goal-title');
+          if (target) startInlineTextEdit(target, trigger.dataset.inlineEditTrigger, trigger.dataset.inlineKey || (card && card.dataset.key) || '');
+          return;
+        }
+        const editable = event.target.closest('[data-inline-editable]');
+        if (!editable || event.target.closest('[data-inline-editor]')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        startInlineTextEdit(editable, editable.dataset.inlineEditable, editable.dataset.inlineKey || '');
+      }, true);
+
+      document.addEventListener('keydown', (event) => {
+        const editor = event.target.closest('[data-inline-editor]');
+        if (!editor) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finishInlineTextEdit(editor, true);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          finishInlineTextEdit(editor, false);
+        }
+      });
+
+      document.addEventListener('focusout', (event) => {
+        const editor = event.target.closest('[data-inline-editor]');
+        if (editor) finishInlineTextEdit(editor, true);
+      });
+    }
+
     function getGoalDisplayLabel(goalKey) {
       const goalKeys = Object.keys(goalTemplates);
       const index = goalKeys.indexOf(goalKey);
       const goal = goalTemplates[goalKey];
       if (!goal) return goalKey;
-      return index >= 0 ? `${index + 1}. ${goal.label}` : goal.label;
+      const label = getGoalLabel(goalKey);
+      return index >= 0 ? `${index + 1}. ${label}` : label;
     }
 
     function isGoalTemplateItemVisible(item) {
@@ -11383,7 +11554,10 @@
 
       const cells = Array.from({ length: 9 }, (_, index) => {
         if (index === 4) {
-          return `<div class="mandalart-cell mandalart-center">SKF 2026<br/>마케팅전문가</div>`;
+          const centerTitle = customTextOverrides.centerTitle || '';
+          const centerValue = centerTitle || 'SKF 2026\n마케팅전문가';
+          const centerHtml = centerTitle ? escapeHtml(centerTitle).replace(/\n/g, '<br>') : 'SKF 2026<br/>마케팅전문가';
+          return `<div class="mandalart-cell mandalart-center"><span class="inline-editable-text" data-inline-editable="centerTitle" data-inline-value="${escapeHtml(centerValue)}" title="클릭하여 목표 제목 수정">${centerHtml}</span></div>`;
         }
 
         const goalKey = slotMap[index];
@@ -11431,7 +11605,7 @@
             <button type="button" class="mandalart-goal-btn ${isSearchHit ? 'search-hit' : ''}" data-goal="${goalKey}">
               <div class="mandalart-goal-heading">
                 <span class="mandalart-badge-group">${goalFlagBadges}</span>
-                <div class="mandalart-goal-title">${getGoalDisplayLabel(goalKey)}</div>
+                <div class="mandalart-goal-title inline-editable-text" data-inline-editable="goal" data-inline-key="${escapeHtml(goalKey)}" data-inline-value="${escapeHtml(getGoalLabel(goalKey))}" title="클릭하여 목표 제목 수정">${escapeHtml(getGoalDisplayLabel(goalKey))}</div>
               </div>
               <div class="mandalart-goal-meta">
                 <span class="mandalart-activity-meta">✅ 진행률 ${stats.percent}% · ${cardCount}건</span>
@@ -11442,6 +11616,7 @@
               </div>
               <span class="mandalart-cta">상세 업무 보기 →</span>
             </button>
+            <button type="button" class="title-edit-trigger mandalart-title-edit-trigger" data-inline-edit-trigger="goal" data-inline-key="${escapeHtml(goalKey)}" title="클릭하여 목표 제목 수정" aria-label="${escapeHtml(getGoalLabel(goalKey))} 제목 수정">✏️</button>
           </div>`;
       });
 
@@ -12975,14 +13150,14 @@
 
     function populateGoalOptions() {
       const optionHtml = Object.entries(goalTemplates).map(([key, item]) => `
-        <option value="${key}">${item.label}</option>`).join('');
+        <option value="${key}">${escapeHtml(getGoalLabel(key))}</option>`).join('');
       goalSelect.innerHTML = optionHtml;
     }
 
     function populateQuickGoalOptions() {
       if (!quickGoalSelect) return;
       const optionHtml = Object.entries(goalTemplates).map(([key, item]) => `
-        <option value="${key}">${item.label}</option>`).join('');
+        <option value="${key}">${escapeHtml(getGoalLabel(key))}</option>`).join('');
       quickGoalSelect.innerHTML = `<option value="dashboard">🏠 메인 대시보드 (전체 목차)</option><option value="" disabled>────────────</option><option value="">8개 핵심 목표 선택</option>${optionHtml}`;
     }
 
@@ -16666,6 +16841,7 @@
           <div class="field-label card-collapse-trigger">
             <div class="card-title-group">
               <span class="card-main-title" title="${escapeHtml(displayTitle)}">${escapeHtml(displayTitle)}</span>
+              <button type="button" class="title-edit-trigger" data-inline-edit-trigger="card-title" title="클릭하여 목표 제목 수정" aria-label="카드 제목 수정">✏️</button>
               <div class="card-title-badges-row">
                 ${hasWorkNotes ? '<span class="work-note-indicator" aria-label="업무 노트 있음">📝</span>' : ''}
                 ${externalAssigneeBadgeHtml}
@@ -18959,7 +19135,7 @@
       currentGoalKey = key;
       newsSelectedGoalKey = key;
       metricSelected.textContent = template.metric;
-      detailTitle.textContent = `선택된 목표: ${template.label}`;
+      detailTitle.textContent = `선택된 목표: ${getGoalLabel(key)}`;
       detailSubtitle.textContent = template.goalText;
       renderKpiSection(key);
       renderKpiSummaryChip();
@@ -19272,6 +19448,16 @@
     }
 
     function initializeGoalSelect() {
+      attachInlineTextEditingHandlers();
+
+      if (resetGoalTitlesBtn) {
+        resetGoalTitlesBtn.addEventListener('click', () => {
+          customTextOverrides = normalizeCustomTextOverrides({});
+          persistCustomTextOverrides();
+          renderAfterCustomTextChange();
+        });
+      }
+
       if (teamUpdateWindowFilter) {
         teamUpdateWindowFilter.value = teamOverviewUpdateFilterMode;
       }
@@ -20424,6 +20610,7 @@
 
       syncPinnedChecklistState(initialState);
       setCurrentPlannerState(initialState, { skipFirebaseSync: true, skipLocalStorage: true });
+      applyCustomTextOverrides();
 
       initializeGoalSelect();
       initializeMiniCalendar();
