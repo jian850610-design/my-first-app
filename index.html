@@ -241,11 +241,45 @@
     .timeline-history-detail { min-width: 0; font-size: 12px; color: #2f4a66; white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; line-height: 1.45; }
     .timeline-history-meta { font-size: 10px; color: #6e859c; white-space: nowrap; }
     .timeline-history-empty { border: 1px dashed #cad9e8; border-radius: 12px; background: #fbfdff; color: #6c8097; font-size: 12px; line-height: 1.6; padding: 16px; }
+    .deleted-cards-open-btn.is-empty { opacity: 0.48; }
+    .deleted-cards-modal { position: fixed; inset: 0; z-index: 2501; display: grid; place-items: center; }
+    .deleted-cards-modal[hidden] { display: none; }
+    .deleted-cards-modal-backdrop { position: absolute; inset: 0; background: rgba(6, 20, 37, 0.42); backdrop-filter: blur(2px); }
+    .deleted-cards-modal-panel { position: relative; width: min(980px, calc(100vw - 28px)); max-height: min(86vh, 820px); border-radius: 16px; border: 1px solid #d4e2f0; background: #ffffff; box-shadow: 0 22px 42px rgba(8, 23, 49, 0.24); display: grid; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; }
+    .deleted-cards-modal-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid #e6eef7; background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%); }
+    .deleted-cards-modal-title { font-size: 18px; font-weight: 900; color: #183b5f; }
+    .deleted-cards-modal-subtitle { font-size: 12px; color: #647f98; margin-top: 4px; }
+    .deleted-cards-modal-close-btn { border: 1px solid #c2d6ea; border-radius: 10px; background: #ffffff; color: #36536f; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
+    .deleted-cards-modal-filters { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #edf3f9; background: #fbfdff; }
+    .deleted-cards-filter,
+    .deleted-cards-search { width: 100%; border: 1px solid #c8d8ea; border-radius: 10px; background: #ffffff; color: #24405d; padding: 9px 10px; font-size: 12px; font-weight: 700; outline: none; }
+    .deleted-cards-filter:focus,
+    .deleted-cards-search:focus { border-color: #0f5f9d; box-shadow: 0 0 0 3px rgba(15, 95, 157, 0.12); }
+    .deleted-cards-modal-body { min-height: 0; overflow: auto; padding: 12px 16px 16px; display: grid; align-content: start; gap: 10px; }
+    .deleted-cards-group { border: 1px solid #dce8f4; border-radius: 12px; background: #ffffff; overflow: hidden; }
+    .deleted-cards-group-title { margin: 0; padding: 9px 11px; font-size: 13px; font-weight: 900; color: #1f476d; border-bottom: 1px solid #e9f1f8; background: #f5f9ff; }
+    .deleted-cards-group-list { list-style: none; margin: 0; padding: 0; }
+    .deleted-cards-group-list > li { border-bottom: 1px solid #edf3f9; }
+    .deleted-cards-group-list > li:last-child { border-bottom: none; }
+    .deleted-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 10px; }
+    .deleted-card-details { min-width: 0; }
+    .deleted-card-details summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; cursor: pointer; color: #2f4a66; font-size: 12px; }
+    .deleted-card-title { font-weight: 800; }
+    .deleted-card-meta { color: #6e859c; font-size: 10px; white-space: nowrap; }
+    .deleted-card-content { padding: 10px 0 2px; color: #36536f; font-size: 12px; line-height: 1.6; }
+    .deleted-card-content ul { margin: 4px 0 8px; padding-left: 20px; }
+    .deleted-card-comment { white-space: pre-wrap; word-break: break-word; }
+    .deleted-card-restore-btn { border: 1px solid #9bc5a5; border-radius: 8px; background: #f2fbf3; color: #28663b; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .deleted-card-restore-btn:disabled { opacity: 0.48; cursor: not-allowed; }
     @media (max-width: 760px) {
       .timeline-history-modal-panel { width: min(980px, calc(100vw - 16px)); max-height: 90vh; }
       .timeline-history-modal-filters { grid-template-columns: 1fr; }
       .timeline-history-row { grid-template-columns: auto minmax(0, 1fr); }
       .timeline-history-meta { grid-column: 1 / -1; }
+      .deleted-cards-modal-panel { width: min(980px, calc(100vw - 16px)); max-height: 90vh; }
+      .deleted-cards-modal-filters { grid-template-columns: 1fr; }
+      .deleted-card-row { grid-template-columns: minmax(0, 1fr); }
+      .deleted-card-restore-btn { justify-self: end; }
     }
 
     .team-overview-section { margin-top: 14px; background: linear-gradient(135deg, #ffffff 0%, #f6faff 100%); border: 1px solid #d7e3f0; border-radius: 22px; padding: 16px 18px; box-shadow: 0 14px 28px rgba(14, 27, 45, 0.08); display: grid; gap: 12px; }
@@ -1595,6 +1629,7 @@
     <section class="view hidden-view" id="detailView">
       <section class="detail-nav">
         <button type="button" class="back-dashboard-btn" id="backToDashboardBtn">← 메인 대시보드로 돌아가기</button>
+        <button type="button" class="back-dashboard-btn deleted-cards-open-btn is-empty" id="deletedCardsOpenBtn">🗑 삭제된 카드 (0)</button>
       </section>
 
       <section class="goal-grid" id="goalGrid">
@@ -1898,6 +1933,28 @@
     </section>
   </div>
 
+  <div class="deleted-cards-modal" id="deletedCardsModal" hidden>
+    <div class="deleted-cards-modal-backdrop" data-deleted-cards-action="close"></div>
+    <section class="deleted-cards-modal-panel" role="dialog" aria-modal="true" aria-labelledby="deletedCardsModalTitle">
+      <div class="deleted-cards-modal-header">
+        <div>
+          <div class="deleted-cards-modal-title" id="deletedCardsModalTitle">🗑 삭제된 카드</div>
+          <div class="deleted-cards-modal-subtitle" id="deletedCardsModalSubtitle">삭제된 카드를 확인합니다.</div>
+        </div>
+        <button type="button" class="deleted-cards-modal-close-btn" data-deleted-cards-action="close" aria-label="닫기">×</button>
+      </div>
+      <div class="deleted-cards-modal-filters">
+        <select class="deleted-cards-filter" id="deletedCardsGoalFilter" aria-label="목표 필터">
+          <option value="all">전체 목표</option>
+        </select>
+        <input type="search" class="deleted-cards-search" id="deletedCardsSearch" placeholder="카드 제목 검색" aria-label="카드 제목 검색" />
+      </div>
+      <div class="deleted-cards-modal-body" id="deletedCardsModalBody">
+        <div class="timeline-history-empty">삭제된 카드를 불러오는 중입니다...</div>
+      </div>
+    </section>
+  </div>
+
   <script src="./naver-target-keywords.js"></script>
   <script>
     // 수정 시 이 값을 함께 갱신할 것.
@@ -1944,6 +2001,14 @@
     const timelineHistoryModalSubtitle = document.getElementById('timelineHistoryModalSubtitle');
     const timelineHistoryMonthFilter = document.getElementById('timelineHistoryMonthFilter');
     const timelineHistoryKeywordInput = document.getElementById('timelineHistoryKeywordInput');
+    const deletedCardsOpenBtn = document.getElementById('deletedCardsOpenBtn');
+    const deletedCardsModal = document.getElementById('deletedCardsModal');
+    const deletedCardsModalBody = document.getElementById('deletedCardsModalBody');
+    const deletedCardsModalSubtitle = document.getElementById('deletedCardsModalSubtitle');
+    const deletedCardsGoalFilter = document.getElementById('deletedCardsGoalFilter');
+    const deletedCardsSearch = document.getElementById('deletedCardsSearch');
+    let deletedCardsModalEntries = [];
+    let deletedCardsModalSearchTerm = '';
     const detailTitle = document.getElementById('detailTitle');
     const detailSubtitle = document.getElementById('detailSubtitle');
     const goalGuidelineBadgeBox = document.getElementById('goalGuidelineBadgeBox');
@@ -6021,11 +6086,18 @@
       const index = Number(indexText);
       const plannerState = loadPlannerState();
       const previousItemState = plannerState.items[itemKey] ? { ...plannerState.items[itemKey] } : null;
+      const cardTitle = getCardActivityTitle(plannerState, itemKey);
       const previousDeleted = dashboardRemoteCardsSnapshot
         && dashboardRemoteCardsSnapshot[goalKey]
         && dashboardRemoteCardsSnapshot[goalKey][indexText]
         ? dashboardRemoteCardsSnapshot[goalKey][indexText].deleted
         : undefined;
+      const previousDeletedAt = dashboardRemoteCardsSnapshot
+        && dashboardRemoteCardsSnapshot[goalKey]
+        && dashboardRemoteCardsSnapshot[goalKey][indexText]
+        ? dashboardRemoteCardsSnapshot[goalKey][indexText].deletedAt
+        : undefined;
+      const deletedAt = new Date().toISOString();
 
       delete plannerState.items[itemKey];
       savePlannerState(plannerState, { reason: 'card-delete-local', skipFirebaseSync: true });
@@ -6038,13 +6110,15 @@
         const targetPath = `cards/${goalKey}/${indexText}`;
         console.log('[cards] update 요청', { reason: 'card-delete', path: targetPath });
         await bridge.update(bridge.ref(bridge.db), {
-          [`${targetPath}/deleted`]: true
+          [`${targetPath}/deleted`]: true,
+          [`${targetPath}/deletedAt`]: deletedAt
         });
         setFirebaseSaveFailureBanner('');
         markSaveSuccess(new Date().toISOString());
         console.log('[cards] update 성공', { reason: 'card-delete', path: targetPath });
         if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
           dashboardRemoteCardsSnapshot[goalKey][indexText].deleted = true;
+          dashboardRemoteCardsSnapshot[goalKey][indexText].deletedAt = deletedAt;
         }
         if (benchmarkPromptPreview) benchmarkPromptPreview.value = buildBenchmarkPromptText();
         console.log('[quick-add] 카드 소프트 삭제 성공', { path: `${targetPath}/deleted`, index });
@@ -6053,6 +6127,8 @@
 
       const deleteResult = await runWriteWithAuth(executeDelete, `cards/${goalKey}/${indexText}`);
       if (deleteResult && deleteResult.ok) {
+        await recordSharedActivityLog('card', { cardId: itemKey, cardTitle, content: '카드 삭제', createdAt: deletedAt });
+        await updateDeletedCardsButtonCount(goalKey);
         return deleteResult;
       }
 
@@ -6062,6 +6138,8 @@
         if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
           if (typeof previousDeleted === 'undefined') delete dashboardRemoteCardsSnapshot[goalKey][indexText].deleted;
           else dashboardRemoteCardsSnapshot[goalKey][indexText].deleted = previousDeleted;
+          if (typeof previousDeletedAt === 'undefined') delete dashboardRemoteCardsSnapshot[goalKey][indexText].deletedAt;
+          else dashboardRemoteCardsSnapshot[goalKey][indexText].deletedAt = previousDeletedAt;
         }
         savePlannerState(plannerState, { reason: 'card-delete-rollback', skipFirebaseSync: true });
         syncOverviewWidgets(plannerState);
@@ -6091,7 +6169,11 @@
         .map(([index, card]) => ({
           goalKey,
           index: Number(index),
-          title: card.title || card.customTitle || goalTemplates[goalKey]?.items?.[Number(index)]?.title || ''
+          title: card.title || card.customTitle || goalTemplates[goalKey]?.items?.[Number(index)]?.title || '',
+          deletedAt: typeof card.deletedAt === 'string' ? card.deletedAt : '',
+          steps: Array.isArray(card.steps) ? card.steps : [],
+          comments: Array.isArray(card.comments) ? card.comments : [],
+          customSteps: Array.isArray(card.customSteps) ? card.customSteps : []
         })));
       console.table(deleted);
       return deleted;
@@ -6102,18 +6184,44 @@
     async function restoreCard(goalKey, index) {
       const bridge = getFirebaseBridge();
       const indexText = String(index);
-      if (!goalKey || !/^\d+$/.test(indexText) || !bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
+      if (!EDIT_MODE_REQUESTED || !firebaseBridgeReady) return { ok: false, reason: 'edit-disabled' };
+      if (!goalTemplates[goalKey] || !/^\d+$/.test(indexText) || !bridge || typeof bridge.update !== 'function' || typeof bridge.getCardRef !== 'function') {
         return { ok: false, reason: 'invalid-restore-request' };
       }
-      const path = `cards/${goalKey}/${indexText}/deleted`;
-      console.log('[cards] soft restore 요청', { path, payloadKeys: ['deleted'], payloadKeyCount: 1 });
-      await bridge.update(bridge.getCardRef(goalKey, indexText), { deleted: null });
+      const itemKey = `${goalKey}::${indexText}`;
+      const cardRef = bridge.getCardRef(goalKey, indexText);
+      const cachedCard = dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey]
+        ? dashboardRemoteCardsSnapshot[goalKey][indexText]
+        : null;
+      const remoteCard = cachedCard && typeof cachedCard === 'object'
+        ? { ...cachedCard }
+        : await readFirebaseValueOnce(cardRef);
+      if (!remoteCard || typeof remoteCard !== 'object') return { ok: false, reason: 'card-not-found' };
+      const cardTitle = remoteCard.title || remoteCard.customTitle || goalTemplates[goalKey].items[Number(indexText)]?.title || itemKey;
+      const path = `cards/${goalKey}/${indexText}`;
+      console.log('[cards] soft restore 요청', { path, payloadKeys: ['deleted', 'deletedAt'], payloadKeyCount: 2 });
+      await bridge.update(cardRef, { deleted: null, deletedAt: null });
       if (dashboardRemoteCardsSnapshot && dashboardRemoteCardsSnapshot[goalKey] && dashboardRemoteCardsSnapshot[goalKey][indexText]) {
         delete dashboardRemoteCardsSnapshot[goalKey][indexText].deleted;
+        delete dashboardRemoteCardsSnapshot[goalKey][indexText].deletedAt;
       }
-      syncOverviewWidgets(loadPlannerState());
+      const restoredState = applyFirebaseSnapshotToState(loadPlannerState(), {
+        items: { [goalKey]: { [indexText]: remoteCard } }
+      });
+      savePlannerState(restoredState, { reason: 'card-restore-local', skipFirebaseSync: true });
+      syncOverviewWidgets(restoredState);
+      await recordSharedActivityLog('card', { cardId: itemKey, cardTitle, content: '카드 복원' });
+      if (!detailView.classList.contains('hidden-view') && currentGoalKey === goalKey) {
+        updateGoalCard(goalKey);
+      }
+      renderMandalartBoard(restoredState);
+      await updateDeletedCardsButtonCount(goalKey);
+      if (deletedCardsModal && !deletedCardsModal.hidden) {
+        deletedCardsModalEntries = await listDeletedCards();
+        renderDeletedCardsModalBody();
+      }
       console.log('[cards] soft restore 성공', { path });
-      return { ok: true, path };
+      return { ok: true, path, goalKey, index: Number(indexText), cardTitle };
     }
 
     window.__restoreCard = restoreCard;
@@ -11011,6 +11119,145 @@
       if (!timelineHistoryModal) return;
       timelineHistoryModal.hidden = true;
       document.body.classList.remove('modal-open');
+    }
+
+    async function updateDeletedCardsButtonCount(goalKey = currentGoalKey, entries = null) {
+      if (!deletedCardsOpenBtn) return;
+      if (!goalKey || !goalTemplates[goalKey]) {
+        deletedCardsOpenBtn.textContent = '🗑 삭제된 카드 (0)';
+        deletedCardsOpenBtn.classList.add('is-empty');
+        return;
+      }
+      const deletedCards = Array.isArray(entries) ? entries : await listDeletedCards();
+      if (currentGoalKey !== goalKey) return;
+      const count = deletedCards.filter((card) => card.goalKey === goalKey).length;
+      deletedCardsOpenBtn.textContent = `🗑 삭제된 카드 (${count})`;
+      deletedCardsOpenBtn.classList.toggle('is-empty', count === 0);
+    }
+
+    function renderDeletedCardsModalBody() {
+      if (!deletedCardsModalBody) return;
+      const selectedGoal = deletedCardsGoalFilter ? deletedCardsGoalFilter.value : 'all';
+      const keyword = (deletedCardsModalSearchTerm || '').trim().toLocaleLowerCase('ko-KR');
+      const filtered = deletedCardsModalEntries.filter((card) => {
+        if (selectedGoal !== 'all' && card.goalKey !== selectedGoal) return false;
+        return !keyword || String(card.title || '').toLocaleLowerCase('ko-KR').includes(keyword);
+      });
+
+      if (deletedCardsModalSubtitle) {
+        const filterLabel = selectedGoal === 'all'
+          ? '전체 목표'
+          : `G${Object.keys(goalTemplates).indexOf(selectedGoal) + 1} ${getGoalDisplayLabel(selectedGoal)}`;
+        deletedCardsModalSubtitle.textContent = `${filterLabel} · ${filtered.length}건`;
+      }
+      if (!filtered.length) {
+        deletedCardsModalBody.innerHTML = '<div class="timeline-history-empty">조건에 맞는 삭제 카드가 없습니다.</div>';
+        return;
+      }
+
+      const state = loadPlannerState();
+      const goalKeys = Object.keys(goalTemplates).filter((goalKey) => filtered.some((card) => card.goalKey === goalKey));
+      deletedCardsModalBody.innerHTML = goalKeys.map((goalKey) => {
+        const goalIndex = Object.keys(goalTemplates).indexOf(goalKey);
+        const goalLabel = `G${goalIndex + 1} ${getGoalDisplayLabel(goalKey)}`;
+        const goalCards = filtered.filter((card) => card.goalKey === goalKey).sort((left, right) => left.index - right.index);
+        return `
+          <section class="deleted-cards-group">
+            <h4 class="deleted-cards-group-title">${escapeHtml(goalLabel)} (${goalCards.length}건)</h4>
+            <ul class="deleted-cards-group-list">
+              ${goalCards.map((card) => {
+                const itemKey = `${goalKey}::${card.index}`;
+                const item = goalTemplates[goalKey]?.items?.[card.index];
+                const principles = item ? getCardGuidelines(state, goalKey, item, goalTemplates[goalKey], itemKey) : [];
+                const checklistTitles = item ? getChecklistStepsForItem(state, goalKey, item, itemKey, principles) : [];
+                const remoteSteps = Array.isArray(card.steps) ? card.steps : [];
+                const customSteps = Array.isArray(card.customSteps) ? card.customSteps : [];
+                const stepCount = remoteSteps.length || customSteps.length || checklistTitles.length;
+                const completedCount = remoteSteps.filter((step) => step && step.checked === true).length;
+                const stepRows = Array.from({ length: stepCount }, (_, stepIndex) => {
+                  const remoteStep = remoteSteps[stepIndex] || {};
+                  const customStep = customSteps[stepIndex];
+                  const stepTitle = typeof customStep === 'string'
+                    ? customStep
+                    : (checklistTitles[stepIndex] || remoteStep.stepText || `${stepIndex + 1}단계`);
+                  const stepComment = typeof remoteStep.comment === 'string' ? remoteStep.comment.trim() : '';
+                  return `<li>${remoteStep.checked === true ? '☑' : '☐'} ${escapeHtml(stepTitle)}${stepComment ? `<div class="deleted-card-comment">💬 ${escapeHtml(stepComment)}</div>` : ''}</li>`;
+                }).join('') || '<li>체크리스트 없음</li>';
+                const comments = (Array.isArray(card.comments) ? card.comments : []).map((comment) => {
+                  const text = typeof comment === 'string' ? comment : (comment && (comment.text || comment.content));
+                  return typeof text === 'string' && text.trim() ? `<li class="deleted-card-comment">${escapeHtml(text.trim())}</li>` : '';
+                }).filter(Boolean).join('') || '<li>코멘트 없음</li>';
+                const deletedAt = card.deletedAt && Number.isFinite(Date.parse(card.deletedAt))
+                  ? formatEntryDateTime(card.deletedAt)
+                  : '기록 없음';
+                const restoreButton = EDIT_MODE_REQUESTED
+                  ? `<button type="button" class="deleted-card-restore-btn" data-deleted-card-restore="${escapeHtml(goalKey)}" data-deleted-card-index="${card.index}">복원</button>`
+                  : '<button type="button" class="deleted-card-restore-btn" disabled>복원</button>';
+                return `
+                  <li>
+                    <div class="deleted-card-row">
+                      <details class="deleted-card-details">
+                        <summary>
+                          <span class="deleted-card-title">${escapeHtml(card.title || '제목 없음')}</span>
+                          <span class="deleted-card-meta">${completedCount}/${stepCount} 완료</span>
+                          <span class="deleted-card-meta">삭제일 ${escapeHtml(deletedAt)}</span>
+                        </summary>
+                        <div class="deleted-card-content">
+                          <strong>체크리스트</strong>
+                          <ul>${stepRows}</ul>
+                          <strong>코멘트</strong>
+                          <ul>${comments}</ul>
+                        </div>
+                      </details>
+                      ${restoreButton}
+                    </div>
+                  </li>
+                `;
+              }).join('')}
+            </ul>
+          </section>
+        `;
+      }).join('');
+    }
+
+    async function openDeletedCardsModal() {
+      if (!deletedCardsModal || !deletedCardsModalBody) return;
+      const goalKeys = Object.keys(goalTemplates);
+      deletedCardsGoalFilter.innerHTML = [
+        '<option value="all">전체 목표</option>',
+        ...goalKeys.map((goalKey, index) => `<option value="${escapeHtml(goalKey)}">G${index + 1} ${escapeHtml(getGoalDisplayLabel(goalKey))}</option>`)
+      ].join('');
+      deletedCardsGoalFilter.value = goalTemplates[currentGoalKey] ? currentGoalKey : 'all';
+      deletedCardsModalSearchTerm = '';
+      deletedCardsSearch.value = '';
+      deletedCardsModal.hidden = false;
+      document.body.classList.add('modal-open');
+      deletedCardsModalBody.innerHTML = '<div class="timeline-history-empty">삭제된 카드를 불러오는 중입니다...</div>';
+      try {
+        deletedCardsModalEntries = await listDeletedCards();
+        await updateDeletedCardsButtonCount(currentGoalKey, deletedCardsModalEntries);
+        renderDeletedCardsModalBody();
+      } catch (error) {
+        deletedCardsModalBody.innerHTML = '<div class="timeline-history-empty">삭제된 카드를 불러오지 못했습니다.</div>';
+        console.error('삭제 카드 목록을 불러오지 못했습니다.', error);
+      }
+    }
+
+    function closeDeletedCardsModal() {
+      if (!deletedCardsModal) return;
+      deletedCardsModal.hidden = true;
+      document.body.classList.remove('modal-open');
+    }
+
+    async function restoreDeletedCardFromModal(goalKey, index) {
+      if (!EDIT_MODE_REQUESTED) return;
+      const card = deletedCardsModalEntries.find((entry) => entry.goalKey === goalKey && entry.index === Number(index));
+      const title = card && card.title ? card.title : '이 카드';
+      if (!window.confirm(`"${title}" 카드를 복원할까요?`)) return;
+      const result = await restoreCard(goalKey, index);
+      if (!result || !result.ok) {
+        window.alert('카드를 복원하지 못했습니다. Firebase 연결과 편집 권한을 확인해 주세요.');
+      }
     }
 
     function renderTodayActivityWidget(state, targetDateKey = getTimelineSelectedDateKey()) {
@@ -19162,6 +19409,7 @@
       renderNewsWidget(key, latestState);
       updateFirebaseLastUpdatedText(latestState.meta || firebaseLastUpdatedMeta);
       logGoalListConsistencyCheck(key);
+      void updateDeletedCardsButtonCount(key);
     }
 
     function updateStats() {
@@ -20192,6 +20440,39 @@
           if (event.key === 'Escape') {
             closeTimelineHistoryModal();
           }
+        });
+      }
+
+      if (deletedCardsModal) {
+        deletedCardsModal.addEventListener('click', (event) => {
+          const restoreButton = event.target.closest('[data-deleted-card-restore]');
+          if (restoreButton) {
+            void restoreDeletedCardFromModal(restoreButton.dataset.deletedCardRestore, restoreButton.dataset.deletedCardIndex);
+            return;
+          }
+          const actionButton = event.target.closest('[data-deleted-cards-action="close"]');
+          if (actionButton || event.target === deletedCardsModal) closeDeletedCardsModal();
+        });
+
+        deletedCardsModal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeDeletedCardsModal();
+        });
+      }
+
+      if (deletedCardsOpenBtn) {
+        deletedCardsOpenBtn.addEventListener('click', () => {
+          void openDeletedCardsModal();
+        });
+      }
+
+      if (deletedCardsGoalFilter) {
+        deletedCardsGoalFilter.addEventListener('change', renderDeletedCardsModalBody);
+      }
+
+      if (deletedCardsSearch) {
+        deletedCardsSearch.addEventListener('input', () => {
+          deletedCardsModalSearchTerm = deletedCardsSearch.value || '';
+          renderDeletedCardsModalBody();
         });
       }
 
